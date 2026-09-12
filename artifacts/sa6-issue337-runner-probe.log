@@ -1,0 +1,39 @@
+# SA6 #337 diagnostic — temporary runner probe through the real vitest typecheck entry
+# command: NODE_OPTIONS=--conditions=nomicore-source pnpm exec vitest run packages/vfsl-protocol/test --typecheck --passWithNoTests=false
+# temporary file: packages/vfsl-protocol/test/zz-sa6-337-probe.test-d.ts (created then deleted; worktree clean)
+# HEAD: cb8aaff0297a802432ba7532a407c65218852dce  date: 2026-09-12T19:13:16Z
+# ----
+Testing types with tsc and vue-tsc is an experimental feature.
+Breaking changes might not follow SemVer, please pin Vitest's version when using it.
+
+ RUN  v3.2.7 /home/wangjian/nomicore-fix-issue-337
+
+ ✓ packages/vfsl-protocol/test/vfsl-protocol-empty-module.test.ts (1 test) 3ms
+ ❯  TS  packages/vfsl-protocol/test/zz-sa6-337-probe.test-d.ts (2 tests)
+   ✓ SA6 #337 runner 探针（临时，运行后删除） > 绿：既有 no-options 投影面在 HEAD 不变
+   ✓ SA6 #337 runner 探针（临时，运行后删除） > 红：DeepOptional 语义（HEAD 预期 TS2305——导出不存在）
+ ✓  TS  packages/vfsl-protocol/test/vfsl-protocol-empty-fail-closed.test-d.ts (3 tests)
+ ✓  TS  packages/vfsl-protocol/test/vfsl-protocol-projection.test-d.ts (16 tests)
+
+⎯⎯⎯⎯⎯⎯ Failed Suites 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  packages/vfsl-protocol/test/zz-sa6-337-probe.test-d.ts > SA6 #337 runner 探针（临时，运行后删除）
+TypeCheckError: Module '"@nomicore/vfsl-protocol"' has no exported member 'DeepOptional'.
+ ❯ packages/vfsl-protocol/test/zz-sa6-337-probe.test-d.ts:8:15
+      6|  */
+      7| import { describe, expectTypeOf, it } from 'vitest';
+      8| import type { DeepOptional, PathAt, PathSchema, PathValue } from '@nom…
+       |               ^
+      9|
+     10| interface M {
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+
+
+ Test Files  1 failed | 3 passed (4)
+      Tests  22 passed (22)
+Type Errors  no errors
+   Start at  03:13:16
+   Duration  1.74s (transform 9ms, setup 0ms, collect 13ms, tests 3ms, environment 0ms, prepare 45ms, typecheck 1.69s)
+
+# vitest exit=1

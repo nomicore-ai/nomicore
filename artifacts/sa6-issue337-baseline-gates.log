@@ -1,0 +1,19 @@
+# SA6 Issue #337 — baseline gate evidence (HEAD cb8aaff0297a802432ba7532a407c65218852dce)
+
+Environment: Node v24.13.0; pnpm 10.28.2; typescript 5.9.3; vitest 3.2.7; tsx 4.23.12.
+Dependencies: `pnpm install --frozen-lockfile` → exit 0 (16 workspace projects; 65 packages reused from store).
+
+## Gate results
+
+| # | Command | Result |
+|---|---|---|
+| 1 | `pnpm typecheck` (root, 14 tsc projects) | exit 0 |
+| 2 | `pnpm exec tsc -p tsconfig.typecheck.json --noEmit` (vitest typecheck engine program) | exit 0 |
+| 3 | `NODE_OPTIONS=--conditions=nomicore-source pnpm exec vitest run --typecheck.only --passWithNoTests=false` | exit 0 — 31 files / 164 tests passed; Type Errors: no errors |
+| 4 | `NODE_OPTIONS=--conditions=nomicore-source pnpm exec vitest run packages/vfsl-protocol/test packages/namespace-runtime/test packages/namespace-registry/test packages/vfsl-codegen/test --typecheck --passWithNoTests=false` | exit 0 — 107 files / 979 tests passed; Type Errors: no errors (includes `generate-alias-collision-guard.test.ts (4 tests)` green and `vfsl-protocol-empty-module.test.ts` green) |
+| 5 | `pnpm generate --check` | exit 0 (generated artifacts fresh, zero drift) |
+| 6 | `NODE_OPTIONS=--conditions=nomicore-source pnpm test` (root, all packages/domains/apps + `--typecheck`) | exit 0 — 350 files / 3841 tests passed; Type Errors: no errors (592.58s) |
+
+Notes:
+- Gate 4 was run after the baseline install and before any temporary probe file was created; gate 6 was run after the temporary runner probe had been deleted (baseline restored). Probe runs and their exit codes are recorded separately in `sa6-issue337-runner-probe.log`, `sa6-issue337-type-probes.log`, `sa6-issue337-export-surface.log`, `sa6-issue337-guard-sensitivity.log`.
+- No production source file, existing test, or generated artifact was modified at any point; `git status --porcelain` during baseline showed only the three SA8 input files (untracked).

@@ -1,0 +1,357 @@
+Testing types with tsc and vue-tsc is an experimental feature.
+Breaking changes might not follow SemVer, please pin Vitest's version when using it.
+
+ RUN  v3.2.7 /home/wangjian/nomicore-fix-issue-337
+
+ ✓ packages/vfsl-protocol/test/vfsl-protocol-empty-module.test.ts (1 test) 3ms
+ ❯  TS  packages/vfsl-protocol/test/vfsl-protocol-budget-access.test-d.ts (20 tests | 13 failed)
+   × G3.1 字面量路径预算调用：价值列 = DeepOptional<PathValue<PathAt<…>>> > box（map 节点）→ 对象全字段可选递归
+     → Property 'readBudgeted' does not exist on type 'VfslTypedAccess<LocalMap>'.
+   × G3.1 字面量路径预算调用：价值列 = DeepOptional<PathValue<PathAt<…>>> > label（leaf 标量）→ 原样精确类型
+     → Property 'readBudgeted' does not exist on type 'VfslTypedAccess<LocalMap>'.
+   × G3.1 字面量路径预算调用：价值列 = DeepOptional<PathValue<PathAt<…>>> > kind（字面量联合标量）→ 不宽化
+     → Property 'readBudgeted' does not exist on type 'VfslTypedAccess<LocalMap>'.
+   × G3.1 字面量路径预算调用：价值列 = DeepOptional<PathValue<PathAt<…>>> > ents.<key>（判别联合 map 节点）→ 判别联合可选形（不豁免）
+     → Property 'readBudgeted' does not exist on type 'VfslTypedAccess<LocalMap>'.
+   × G3.1 字面量路径预算调用：价值列 = DeepOptional<PathValue<PathAt<…>>> > kw（array 载体 → `Record<`${number}`, E>` 索引形）→ 值位递归 + 缺席 | undefined
+     → Property 'readBudgeted' does not exist on type 'VfslTypedAccess<LocalMap>'.
+   × G3.1 字面量路径预算调用：价值列 = DeepOptional<PathValue<PathAt<…>>> > plainArr（plain 终态纯值数组）→ 数组元素递归、无多余 | undefined
+     → Property 'readBudgeted' does not exist on type 'VfslTypedAccess<LocalMap>'.
+   × G3.1 字面量路径预算调用：价值列 = DeepOptional<PathValue<PathAt<…>>> > 根路径 []（D5：[] = 根节点自身）→ 全表递归可选；完整根值可赋入、反向不可
+     → Property 'readBudgeted' does not exist on type 'VfslTypedAccess<LocalMap>'.
+     → Unused '@ts-expect-error' directive.
+   ✓ G3.2 差分锁：同一路径无 options 读仍完整、预算读可选（AC1 零降级） > read([box]) 仍 Equal 完整形 `{n: number}`（无可选化泄漏）
+   ✓ G3.2 差分锁：同一路径无 options 读仍完整、预算读可选（AC1 零降级） > read([plainArr]) / read([kw]) 读值形态分叉：完整形不回退为可选形
+   × G3.2 差分锁：同一路径无 options 读仍完整、预算读可选（AC1 零降级） > 完整值可赋给预算形；反向不可（自反转）
+     → Property 'readBudgeted' does not exist on type 'VfslTypedAccess<LocalMap>'.
+     → Unused '@ts-expect-error' directive.
+   × G3.3 全字段可选：{} 正例与必填误用负例 > {} 可赋给预算读值（字段确实可选；不经 ReturnType 取型）
+     → Property 'readBudgeted' does not exist on type 'VfslTypedAccess<LocalMap>'.
+   × G3.3 全字段可选：{} 正例与必填误用负例 > 必填误用负例：预算值字段不可当必填 number 使用
+     → Property 'readBudgeted' does not exist on type 'VfslTypedAccess<LocalMap>'.
+     → Unused '@ts-expect-error' directive.
+   × G3.4 在场标量精确（不宽化为 string/unknown） > 判别字段经预算读仍是精确字面量联合
+     → Property 'readBudgeted' does not exist on type 'VfslTypedAccess<LocalMap>'.
+   × G3.4 在场标量精确（不宽化为 string/unknown） > 顶层标量字段经预算读仍精确
+     → Property 'readBudgeted' does not exist on type 'VfslTypedAccess<LocalMap>'.
+   ✓ G3.6 fail-closed 与 options 形状（不放松） > 未知字面量路径 → rest 门缺参（TS2554，与 read 同机制同文）
+   ✓ G3.6 fail-closed 与 options 形状（不放松） > 缺 options 实参 → 编译错误（预算调用必须显式 options）
+   ✓ G3.6 fail-closed 与 options 形状（不放松） > options 形状外键 → 编译错误（内联封闭形状，比 schema opt-in 更严）
+   ✓ G3.6 fail-closed 与 options 形状（不放松） > 既有无 options 读的 fail-closed 语义不放松（本地表未知路径仍编译错误）
+   ✓ G2.3 既有访问面零降级（方法加法不触既有六方法语义） > read / patch / kindOf / 序列编辑三件套签名与投影不变
+   × G4 接缝镜像：预算读判别联合 narrowing（AC3；退路未触发） > if / switch 窄化：成员独有字段可访问、类型精确为 T | undefined
+     → Property 'readBudgeted' does not exist on type 'VfslTypedAccess<LocalMap>'.
+     → Unused '@ts-expect-error' directive.
+     → Unused '@ts-expect-error' directive.
+ ❯  TS  packages/vfsl-protocol/test/vfsl-protocol-deep-optional.test-d.ts (19 tests | 5 failed)
+   ✓ G1.2 对象：全字段可选并递归（EOPT 精确） > 相等：嵌套对象逐层可选化
+   ✓ G1.2 对象：全字段可选并递归（EOPT 精确） > 正例：{} 与部分赋值均可编译（字段确实可选）
+   × G1.2 对象：全字段可选并递归（EOPT 精确） > EOPT 负例：显式 undefined 不得被接受（自反转；变异 D2 探针）
+     → Unused '@ts-expect-error' directive.
+   × G1.2 对象：全字段可选并递归（EOPT 精确） > 负例：预算值不得当必填形状使用（CONTEXT L47 Avoid 的断言化）
+     → Unused '@ts-expect-error' directive.
+   ✓ G1.3 标量 / null / 字面量联合：原样保留（不宽化、不产壳） > string / number / boolean / 可空 / 字面量联合原样
+   ✓ G1.3 标量 / null / 字面量联合：原样保留（不宽化、不产壳） > unknown 兜底原样（无任何分支前件命中，不产壳）
+   ✓ G1.3 标量 / null / 字面量联合：原样保留（不宽化、不产壳） > 联合逐成员分发：`T | undefined` 透传位分布（成员独有字段读域）
+   ✓ G1.4 数组 / 元组 / 索引签名三态（设计 D-1 Q2 pin） > 变长数组：元素递归可选、元素无多余 | undefined、mutable 保留
+   ✓ G1.4 数组 / 元组 / 索引签名三态（设计 D-1 Q2 pin） > readonly 变长数组：修饰符保留
+   ✓ G1.4 数组 / 元组 / 索引签名三态（设计 D-1 Q2 pin） > 元组：元素可选 + 递归（width 可裁定长位置）
+   ✓ G1.4 数组 / 元组 / 索引签名三态（设计 D-1 Q2 pin） > 嵌套递归：对象字段内的数组
+   ✓ G1.4 数组 / 元组 / 索引签名三态（设计 D-1 Q2 pin） > 索引签名：值位递归可选 + 缺席 | undefined（查找落空口径，与 D2 同源）
+   ✓ G1.4 数组 / 元组 / 索引签名三态（设计 D-1 Q2 pin） > 判别联合数组：元素经递归可选化（不豁免）
+   ✓ G1.5 判别联合：判别字段一并可选化（ADR-0024 L94 不豁免） > 相等：判别联合逐成员映射、字面量保留
+   ✓ G1.5 判别联合：判别字段一并可选化（ADR-0024 L94 不豁免） > 在场标量精确：判别字段不宽化为 string
+   ✓ G1.6 载体桥接：`DeepOptional<PathAt<…>>` 记法 ≡ 值域展开（设计 D-1 Q1 pin） > 值域组合：DeepOptional<PathValue<PathAt<M, P>>> 语义精确
+   × G1.6 载体桥接：`DeepOptional<PathAt<…>>` 记法 ≡ 值域展开（设计 D-1 Q1 pin） > 负例：节点载体直套产出载体壳（非读值类型）——域外用法 fail-closed
+     → Unused '@ts-expect-error' directive.
+   × G4 判别字段 narrowing（AC3；退路未触发——TS 5.9.3 支持可选判别字段窄化） > if 窄化：成员独有字段可访问，窄化后类型精确为 T | undefined
+     → Unused '@ts-expect-error' directive.
+   × G4 判别字段 narrowing（AC3；退路未触发——TS 5.9.3 支持可选判别字段窄化） > switch 窄化：成员独有字段可访问，类型不丢
+     → Unused '@ts-expect-error' directive.
+ ✓  TS  packages/vfsl-protocol/test/vfsl-protocol-empty-fail-closed.test-d.ts (3 tests)
+ ✓  TS  packages/vfsl-protocol/test/vfsl-protocol-projection.test-d.ts (16 tests)
+
+⎯⎯⎯⎯⎯⎯ Failed Tests 18 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  packages/vfsl-protocol/test/vfsl-protocol-budget-access.test-d.ts > G3.1 字面量路径预算调用：价值列 = DeepOptional<PathValue<PathAt<…>>> > box（map 节点）→ 对象全字段可选递归
+TypeCheckError: Property 'readBudgeted' does not exist on type 'VfslTypedAccess<LocalMap>'.
+ ❯ packages/vfsl-protocol/test/vfsl-protocol-budget-access.test-d.ts:67:25
+     65| describe('G3.1 字面量路径预算调用：价值列 = DeepOptional<PathValue<PathAt<…>>>', ()…
+     66|   it('box（map 节点）→ 对象全字段可选递归', () => {
+     67|     expectTypeOf(access.readBudgeted(['box'], { depth: 0 })).toEqualTy…
+       |                         ^
+     68|   });
+     69|
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/23]⎯
+
+ FAIL  packages/vfsl-protocol/test/vfsl-protocol-budget-access.test-d.ts > G3.1 字面量路径预算调用：价值列 = DeepOptional<PathValue<PathAt<…>>> > label（leaf 标量）→ 原样精确类型
+TypeCheckError: Property 'readBudgeted' does not exist on type 'VfslTypedAccess<LocalMap>'.
+ ❯ packages/vfsl-protocol/test/vfsl-protocol-budget-access.test-d.ts:71:25
+     69|
+     70|   it('label（leaf 标量）→ 原样精确类型', () => {
+     71|     expectTypeOf(access.readBudgeted(['label'], { depth: 0 })).toEqual…
+       |                         ^
+     72|   });
+     73|
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/23]⎯
+
+ FAIL  packages/vfsl-protocol/test/vfsl-protocol-budget-access.test-d.ts > G3.1 字面量路径预算调用：价值列 = DeepOptional<PathValue<PathAt<…>>> > kind（字面量联合标量）→ 不宽化
+TypeCheckError: Property 'readBudgeted' does not exist on type 'VfslTypedAccess<LocalMap>'.
+ ❯ packages/vfsl-protocol/test/vfsl-protocol-budget-access.test-d.ts:75:25
+     73|
+     74|   it('kind（字面量联合标量）→ 不宽化', () => {
+     75|     expectTypeOf(access.readBudgeted(['kind'], { depth: 0 })).toEqualT…
+       |                         ^
+     76|   });
+     77|
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[3/23]⎯
+
+ FAIL  packages/vfsl-protocol/test/vfsl-protocol-budget-access.test-d.ts > G3.1 字面量路径预算调用：价值列 = DeepOptional<PathValue<PathAt<…>>> > ents.<key>（判别联合 map 节点）→ 判别联合可选形（不豁免）
+TypeCheckError: Property 'readBudgeted' does not exist on type 'VfslTypedAccess<LocalMap>'.
+ ❯ packages/vfsl-protocol/test/vfsl-protocol-budget-access.test-d.ts:79:25
+     77|
+     78|   it('ents.<key>（判别联合 map 节点）→ 判别联合可选形（不豁免）', () => {
+     79|     expectTypeOf(access.readBudgeted(['ents', 'e1'], { depth: 0 })).to…
+       |                         ^
+     80|       { kind?: 'image'; url?: string } | { kind?: 'text'; body?: strin…
+     81|     >();
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[4/23]⎯
+
+ FAIL  packages/vfsl-protocol/test/vfsl-protocol-budget-access.test-d.ts > G3.1 字面量路径预算调用：价值列 = DeepOptional<PathValue<PathAt<…>>> > kw（array 载体 → `Record<`${number}`, E>` 索引形）→ 值位递归 + 缺席 | undefined
+TypeCheckError: Property 'readBudgeted' does not exist on type 'VfslTypedAccess<LocalMap>'.
+ ❯ packages/vfsl-protocol/test/vfsl-protocol-budget-access.test-d.ts:85:25
+     83|
+     84|   it('kw（array 载体 → `Record<`${number}`, E>` 索引形）→ 值位递归 + 缺席 | undefin…
+     85|     expectTypeOf(access.readBudgeted(['kw'], { depth: 0 })).toEqualTyp…
+       |                         ^
+     86|       Record<`${number}`, { v?: string } | undefined>
+     87|     >();
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[5/23]⎯
+
+ FAIL  packages/vfsl-protocol/test/vfsl-protocol-budget-access.test-d.ts > G3.1 字面量路径预算调用：价值列 = DeepOptional<PathValue<PathAt<…>>> > plainArr（plain 终态纯值数组）→ 数组元素递归、无多余 | undefined
+TypeCheckError: Property 'readBudgeted' does not exist on type 'VfslTypedAccess<LocalMap>'.
+ ❯ packages/vfsl-protocol/test/vfsl-protocol-budget-access.test-d.ts:91:25
+     89|
+     90|   it('plainArr（plain 终态纯值数组）→ 数组元素递归、无多余 | undefined', () => {
+     91|     expectTypeOf(access.readBudgeted(['plainArr'], { depth: 0 })).toEq…
+       |                         ^
+     92|   });
+     93|
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[6/23]⎯
+
+ FAIL  packages/vfsl-protocol/test/vfsl-protocol-budget-access.test-d.ts > G3.1 字面量路径预算调用：价值列 = DeepOptional<PathValue<PathAt<…>>> > 根路径 []（D5：[] = 根节点自身）→ 全表递归可选；完整根值可赋入、反向不可
+TypeCheckError: Property 'readBudgeted' does not exist on type 'VfslTypedAccess<LocalMap>'.
+ ❯ packages/vfsl-protocol/test/vfsl-protocol-budget-access.test-d.ts:95:33
+     93|
+     94|   it('根路径 []（D5：[] = 根节点自身）→ 全表递归可选；完整根值可赋入、反向不可', () => {
+     95|     const rootBudgeted = access.readBudgeted([], { depth: 1 });
+       |                                 ^
+     96|     const empty: typeof rootBudgeted = {};
+     97|     const full: RootValue = {
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[7/23]⎯
+
+ FAIL  packages/vfsl-protocol/test/vfsl-protocol-budget-access.test-d.ts > G3.1 字面量路径预算调用：价值列 = DeepOptional<PathValue<PathAt<…>>> > 根路径 []（D5：[] = 根节点自身）→ 全表递归可选；完整根值可赋入、反向不可
+TypeCheckError: Unused '@ts-expect-error' directive.
+ ❯ packages/vfsl-protocol/test/vfsl-protocol-budget-access.test-d.ts:107:5
+    105|     // 正例：无预算完整值 → 预算可选形（可选化单调方向）
+    106|     const widened: typeof rootBudgeted = full;
+    107|     // @ts-expect-error 反向：预算可选形不可赋给完整根值（预算读非写前完整快照，ADR-0024 L95）
+       |     ^
+    108|     const narrowed: RootValue = rootBudgeted;
+    109|     const ownKey: string | undefined = rootBudgeted.label;
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[8/23]⎯
+
+ FAIL  packages/vfsl-protocol/test/vfsl-protocol-budget-access.test-d.ts > G3.2 差分锁：同一路径无 options 读仍完整、预算读可选（AC1 零降级） > 完整值可赋给预算形；反向不可（自反转）
+TypeCheckError: Property 'readBudgeted' does not exist on type 'VfslTypedAccess<LocalMap>'.
+ ❯ packages/vfsl-protocol/test/vfsl-protocol-budget-access.test-d.ts:129:29
+    127|   it('完整值可赋给预算形；反向不可（自反转）', () => {
+    128|     const full = access.read(['box']);
+    129|     const budgeted = access.readBudgeted(['box'], { depth: 0 });
+       |                             ^
+    130|     const widened: typeof budgeted = full;
+    131|     void widened;
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[9/23]⎯
+
+ FAIL  packages/vfsl-protocol/test/vfsl-protocol-budget-access.test-d.ts > G3.2 差分锁：同一路径无 options 读仍完整、预算读可选（AC1 零降级） > 完整值可赋给预算形；反向不可（自反转）
+TypeCheckError: Unused '@ts-expect-error' directive.
+ ❯ packages/vfsl-protocol/test/vfsl-protocol-budget-access.test-d.ts:132:5
+    130|     const widened: typeof budgeted = full;
+    131|     void widened;
+    132|     // @ts-expect-error 可选形不可赋给完整形（预算读承诺弱化只在预算面成立）
+       |     ^
+    133|     const narrowed: typeof full = budgeted;
+    134|     void narrowed;
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[10/23]⎯
+
+ FAIL  packages/vfsl-protocol/test/vfsl-protocol-budget-access.test-d.ts > G3.3 全字段可选：{} 正例与必填误用负例 > {} 可赋给预算读值（字段确实可选；不经 ReturnType 取型）
+TypeCheckError: Property 'readBudgeted' does not exist on type 'VfslTypedAccess<LocalMap>'.
+ ❯ packages/vfsl-protocol/test/vfsl-protocol-budget-access.test-d.ts:140:22
+    138| describe('G3.3 全字段可选：{} 正例与必填误用负例', () => {
+    139|   it('{} 可赋给预算读值（字段确实可选；不经 ReturnType 取型）', () => {
+    140|     const b = access.readBudgeted(['box'], { depth: 0 });
+       |                      ^
+    141|     const empty: typeof b = {};
+    142|     void empty;
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[11/23]⎯
+
+ FAIL  packages/vfsl-protocol/test/vfsl-protocol-budget-access.test-d.ts > G3.3 全字段可选：{} 正例与必填误用负例 > 必填误用负例：预算值字段不可当必填 number 使用
+TypeCheckError: Property 'readBudgeted' does not exist on type 'VfslTypedAccess<LocalMap>'.
+ ❯ packages/vfsl-protocol/test/vfsl-protocol-budget-access.test-d.ts:146:22
+    144|
+    145|   it('必填误用负例：预算值字段不可当必填 number 使用', () => {
+    146|     const b = access.readBudgeted(['box'], { depth: 0 });
+       |                      ^
+    147|     // @ts-expect-error 字段可选（number | undefined）→ 不可当必填 number 使用（CONT…
+    148|     const n: number = b.n;
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[12/23]⎯
+
+ FAIL  packages/vfsl-protocol/test/vfsl-protocol-budget-access.test-d.ts > G3.3 全字段可选：{} 正例与必填误用负例 > 必填误用负例：预算值字段不可当必填 number 使用
+TypeCheckError: Unused '@ts-expect-error' directive.
+ ❯ packages/vfsl-protocol/test/vfsl-protocol-budget-access.test-d.ts:147:5
+    145|   it('必填误用负例：预算值字段不可当必填 number 使用', () => {
+    146|     const b = access.readBudgeted(['box'], { depth: 0 });
+    147|     // @ts-expect-error 字段可选（number | undefined）→ 不可当必填 number 使用（CONT…
+       |     ^
+    148|     const n: number = b.n;
+    149|     void n;
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[13/23]⎯
+
+ FAIL  packages/vfsl-protocol/test/vfsl-protocol-budget-access.test-d.ts > G3.4 在场标量精确（不宽化为 string/unknown） > 判别字段经预算读仍是精确字面量联合
+TypeCheckError: Property 'readBudgeted' does not exist on type 'VfslTypedAccess<LocalMap>'.
+ ❯ packages/vfsl-protocol/test/vfsl-protocol-budget-access.test-d.ts:155:24
+    153| describe('G3.4 在场标量精确（不宽化为 string/unknown）', () => {
+    154|   it('判别字段经预算读仍是精确字面量联合', () => {
+    155|     const ent = access.readBudgeted(['ents', 'e1'], { depth: 0 });
+       |                        ^
+    156|     type BudgetEntity = typeof ent;
+    157|     expectTypeOf<NonNullable<BudgetEntity['kind']>>().toEqualTypeOf<'i…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[14/23]⎯
+
+ FAIL  packages/vfsl-protocol/test/vfsl-protocol-budget-access.test-d.ts > G3.4 在场标量精确（不宽化为 string/unknown） > 顶层标量字段经预算读仍精确
+TypeCheckError: Property 'readBudgeted' does not exist on type 'VfslTypedAccess<LocalMap>'.
+ ❯ packages/vfsl-protocol/test/vfsl-protocol-budget-access.test-d.ts:164:22
+    162|
+    163|   it('顶层标量字段经预算读仍精确', () => {
+    164|     const k = access.readBudgeted(['kind'], { depth: 0 });
+       |                      ^
+    165|     expectTypeOf<NonNullable<typeof k>>().toEqualTypeOf<'image' | 'tex…
+    166|   });
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[15/23]⎯
+
+ FAIL  packages/vfsl-protocol/test/vfsl-protocol-budget-access.test-d.ts > G4 接缝镜像：预算读判别联合 narrowing（AC3；退路未触发） > if / switch 窄化：成员独有字段可访问、类型精确为 T | undefined
+TypeCheckError: Property 'readBudgeted' does not exist on type 'VfslTypedAccess<LocalMap>'.
+ ❯ packages/vfsl-protocol/test/vfsl-protocol-budget-access.test-d.ts:212:22
+    210| describe('G4 接缝镜像：预算读判别联合 narrowing（AC3；退路未触发）', () => {
+    211|   it('if / switch 窄化：成员独有字段可访问、类型精确为 T | undefined', () => {
+    212|     const v = access.readBudgeted(['ents', 'e1'], { depth: 0 });
+       |                      ^
+    213|     if (v.kind === 'image') {
+    214|       const url: string | undefined = v.url;
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[16/23]⎯
+
+ FAIL  packages/vfsl-protocol/test/vfsl-protocol-budget-access.test-d.ts > G4 接缝镜像：预算读判别联合 narrowing（AC3；退路未触发） > if / switch 窄化：成员独有字段可访问、类型精确为 T | undefined
+TypeCheckError: Unused '@ts-expect-error' directive.
+ ❯ packages/vfsl-protocol/test/vfsl-protocol-budget-access.test-d.ts:216:7
+    214|       const url: string | undefined = v.url;
+    215|       void url;
+    216|       // @ts-expect-error 窄化后成员独有字段仍是 string | undefined
+       |       ^
+    217|       const exact: string = v.url;
+    218|       void exact;
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[17/23]⎯
+
+ FAIL  packages/vfsl-protocol/test/vfsl-protocol-budget-access.test-d.ts > G4 接缝镜像：预算读判别联合 narrowing（AC3；退路未触发） > if / switch 窄化：成员独有字段可访问、类型精确为 T | undefined
+TypeCheckError: Unused '@ts-expect-error' directive.
+ ❯ packages/vfsl-protocol/test/vfsl-protocol-budget-access.test-d.ts:224:9
+    222|         const body: string | undefined = v.body;
+    223|         void body;
+    224|         // @ts-expect-error 窄化后成员独有字段仍是 string | undefined
+       |         ^
+    225|         const exact: string = v.body;
+    226|         void exact;
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[18/23]⎯
+
+ FAIL  packages/vfsl-protocol/test/vfsl-protocol-deep-optional.test-d.ts > G1.2 对象：全字段可选并递归（EOPT 精确） > EOPT 负例：显式 undefined 不得被接受（自反转；变异 D2 探针）
+TypeCheckError: Unused '@ts-expect-error' directive.
+ ❯ packages/vfsl-protocol/test/vfsl-protocol-deep-optional.test-d.ts:57:5
+     55|
+     56|   it('EOPT 负例：显式 undefined 不得被接受（自反转；变异 D2 探针）', () => {
+     57|     // @ts-expect-error exactOptionalPropertyTypes：`{a?: string}` 不接受显…
+       |     ^
+     58|     const bad: DeepOptional<{ a: string }> = { a: undefined };
+     59|     void bad;
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[19/23]⎯
+
+ FAIL  packages/vfsl-protocol/test/vfsl-protocol-deep-optional.test-d.ts > G1.2 对象：全字段可选并递归（EOPT 精确） > 负例：预算值不得当必填形状使用（CONTEXT L47 Avoid 的断言化）
+TypeCheckError: Unused '@ts-expect-error' directive.
+ ❯ packages/vfsl-protocol/test/vfsl-protocol-deep-optional.test-d.ts:64:5
+     62|   it('负例：预算值不得当必填形状使用（CONTEXT L47 Avoid 的断言化）', () => {
+     63|     const budgeted: DeepOptional<{ a: string; n: { b: number } }> = {};
+     64|     // @ts-expect-error n 可选 → 不可直接以 number 读取 n.b（可选属性访问链编译错误）
+       |     ^
+     65|     const requiredUse: number = budgeted.n.b;
+     66|     void requiredUse;
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[20/23]⎯
+
+ FAIL  packages/vfsl-protocol/test/vfsl-protocol-deep-optional.test-d.ts > G1.6 载体桥接：`DeepOptional<PathAt<…>>` 记法 ≡ 值域展开（设计 D-1 Q1 pin） > 负例：节点载体直套产出载体壳（非读值类型）——域外用法 fail-closed
+TypeCheckError: Unused '@ts-expect-error' directive.
+ ❯ packages/vfsl-protocol/test/vfsl-protocol-deep-optional.test-d.ts:141:5
+    139|   it('负例：节点载体直套产出载体壳（非读值类型）——域外用法 fail-closed', () => {
+    140|     type DirectCarrier = DeepOptional<PathAt<MiniMap, ['label']>>;
+    141|     // @ts-expect-error 载体直套产 {readonly __brand?; readonly __value?: s…
+       |     ^
+    142|     const asString: string = null as unknown as DirectCarrier;
+    143|     void asString;
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[21/23]⎯
+
+ FAIL  packages/vfsl-protocol/test/vfsl-protocol-deep-optional.test-d.ts > G4 判别字段 narrowing（AC3；退路未触发——TS 5.9.3 支持可选判别字段窄化） > if 窄化：成员独有字段可访问，窄化后类型精确为 T | undefined
+TypeCheckError: Unused '@ts-expect-error' directive.
+ ❯ packages/vfsl-protocol/test/vfsl-protocol-deep-optional.test-d.ts:154:7
+    152|       const url: string | undefined = v.url;
+    153|       void url;
+    154|       // @ts-expect-error 窄化后成员独有字段仍是 string | undefined（「可选但类型不丢」，SA6…
+       |       ^
+    155|       const exact: string = v.url;
+    156|       void exact;
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[22/23]⎯
+
+ FAIL  packages/vfsl-protocol/test/vfsl-protocol-deep-optional.test-d.ts > G4 判别字段 narrowing（AC3；退路未触发——TS 5.9.3 支持可选判别字段窄化） > switch 窄化：成员独有字段可访问，类型不丢
+TypeCheckError: Unused '@ts-expect-error' directive.
+ ❯ packages/vfsl-protocol/test/vfsl-protocol-deep-optional.test-d.ts:166:9
+    164|         const body: string | undefined = v.body;
+    165|         void body;
+    166|         // @ts-expect-error 窄化后成员独有字段仍是 string | undefined
+       |         ^
+    167|         const exact: string = v.body;
+    168|         void exact;
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[23/23]⎯
+
+
+ Test Files  2 failed | 3 passed (5)
+      Tests  18 failed | 41 passed (59)
+Type Errors  18 failed
+   Start at  04:11:07
+   Duration  2.11s (transform 9ms, setup 0ms, collect 13ms, tests 3ms, environment 0ms, prepare 56ms, typecheck 2.04s)

@@ -1,0 +1,12 @@
+# SA6 #337 diagnostic — collision guard sensitivity to a 13th protocol export (DeepOptional)
+# command: NODE_OPTIONS=--conditions=nomicore-source pnpm exec tsx .scratch/sa6-337/run-guard-probe.ts
+# HEAD: cb8aaff0297a802432ba7532a407c65218852dce  date: 2026-09-12T19:03:40Z
+# ----
+protocolExportNames=["VfslKind","PathSchema","UnknownPath","RootSchema","PathAt","VfslValueOf","PathValue","PathKind","PathPatchValue","PathElementValue","VfslTypedAccess","VfslPathMap"]
+alias<DeepOptional> -> NO-THROW(silent,len=447)
+alias<PathSchema> -> THROW(code=alias-protocol-export-collision)
+alias<PathAt> -> THROW(code=alias-protocol-export-collision)
+alias<VfslPathMap> -> THROW(code=alias-protocol-export-collision)
+guardSilent_withActualExports=[]
+guardSilent_afterHypothetical13thExport=["DeepOptional"]
+# exit=0

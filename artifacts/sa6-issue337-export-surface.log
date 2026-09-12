@@ -1,0 +1,13 @@
+# SA6 #337 diagnostic — protocol export surface enumeration vs frozen PROTOCOL_EXPORT_NAMES
+# command: NODE_OPTIONS=--conditions=nomicore-source pnpm exec tsx .scratch/sa6-337/run-export-probe.ts
+# HEAD: cb8aaff0297a802432ba7532a407c65218852dce  date: 2026-09-12T19:03:39Z
+# ----
+actual.count=12
+actual=["VfslKind","PathSchema","UnknownPath","RootSchema","PathAt","VfslValueOf","PathValue","PathKind","PathPatchValue","PathElementValue","VfslTypedAccess","VfslPathMap"]
+frozen.count=12
+frozen=["VfslKind","PathSchema","UnknownPath","RootSchema","PathAt","VfslValueOf","PathValue","PathKind","PathPatchValue","PathElementValue","VfslTypedAccess","VfslPathMap"]
+actual-only=[]
+frozen-only=[]
+has_DeepOptional_actual=false
+has_DeepOptional_frozen=false
+# exit=0
