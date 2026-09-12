@@ -21,15 +21,18 @@
 import { describe, expectTypeOf, it } from 'vitest';
 import type {
   ApplyValidatedMutationResult,
+  BatchedMutation,
   DocRuntimeFatalPhase,
   ExtractIssue,
   ExtractResult,
   MaterializeIssue,
   MaterializeResult,
+  MutationEnvelope,
   MutationIssue,
   ReadLogicalValueResult,
   ReplaceIssue,
   ReplaceResult,
+  ValidatedMutation,
 } from '../src/index.js';
 
 // 正例名目的类型占位声明（纯类型层；仅用于 expectTypeOf 投影，不生成运行时产物）
@@ -43,6 +46,8 @@ declare const replaceResult: ReplaceResult;
 declare const phase: DocRuntimeFatalPhase;
 declare const mutationIssue: MutationIssue;
 declare const mutationResult: ApplyValidatedMutationResult;
+declare const batchedMutation: BatchedMutation;
+declare const mutationEnvelope: MutationEnvelope;
 
 describe('@nomicore/doc-runtime 公共入口 — mutation 类型名目恢复导出（issue #90 范围，类型层）', () => {
   it('恢复的名目可经公共入口导入：MutationIssue / ApplyValidatedMutationResult（任意缺失即 TS2305 红）', () => {
@@ -61,5 +66,27 @@ describe('@nomicore/doc-runtime 公共入口 — mutation 类型名目恢复导�
       'observer-cleanup-throw' | 'post-commit-verification' | 'pre-commit-internal'
     >();
     expectTypeOf(extractResult).toMatchTypeOf<{ ok: boolean }>();
+  });
+});
+
+// ── ADR 0026 批量信封公共类型名目（值面守卫不动；本面登记正例 + 三类编译期负例）──────
+
+describe('@nomicore/doc-runtime 公共入口 — 批量信封类型名目（ADR 0026，类型层）', () => {
+  it('BatchedMutation / MutationEnvelope 可经公共入口导入；元素类型为 ValidatedMutation', () => {
+    expectTypeOf(batchedMutation.ops).toEqualTypeOf<readonly ValidatedMutation[]>();
+    expectTypeOf(batchedMutation.ops[0]).toEqualTypeOf<ValidatedMutation | undefined>();
+    expectTypeOf(mutationEnvelope).toMatchTypeOf<ValidatedMutation | BatchedMutation>();
+  });
+
+  it('编译期负例 fail-closed：双形态同现 / 元素携带 guard / 非信封值', () => {
+    // @ts-expect-error 双形态同现：单操作字段组超出 BatchedMutation 属性集（TS2353）
+    const dualShape: BatchedMutation = { op: 'set', path: [], value: 1, ops: [{ op: 'set', path: ['n'], value: 2 }] };
+    // @ts-expect-error 元素不得携带 guard 键（批级前提属 ADR 0025 顶层；TS2353）
+    const elementWithGuard: BatchedMutation = { ops: [{ op: 'set', path: ['n'], value: 2, guard: { kind: 'exists', path: ['n'] } }] };
+    // @ts-expect-error 字符串不是合法信封（TS2322）
+    const notAnEnvelope: MutationEnvelope = 'not-an-envelope';
+    expectTypeOf(dualShape).toEqualTypeOf<BatchedMutation>();
+    expectTypeOf(elementWithGuard).toEqualTypeOf<BatchedMutation>();
+    expectTypeOf(notAnEnvelope).toEqualTypeOf<MutationEnvelope>();
   });
 });
