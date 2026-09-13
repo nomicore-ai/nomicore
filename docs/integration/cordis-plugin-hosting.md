@@ -378,7 +378,7 @@ await reopened.lease.release()
 
 ### 跨 realm / 动态插件调用 readData 的两条陷阱
 
-在插件 VM、跨 realm 宿主或任何"代码运行在另一个 JS realm"的环境里调用 `lease.readData(path, options)` 时，有两个**静默或响亮的 realm 同一性陷阱**（实测来自 DSH 动态插件集成，issue #359 附记）：
+在插件 VM、跨 realm 宿主或任何"代码运行在另一个 JS realm"的环境里调用 `lease.readData(path, { depth, maxChildrenPerNode })` 这类预算读时，有两个**静默或响亮的 realm 同一性陷阱**（实测来自 DSH 动态插件集成，issue #359 附记）：
 
 1. **`options` 必须是宿主 realm 的 plain object**（`Object.prototype` 或 `null` 原型）。插件 VM 里的对象字面量 `{ depth: 1 }` 原型属于插件 realm，会被 options 校验按"非 plain 原型对象"拒收——`READ_OPTIONS_INVALID`（响亮、可诊断，但容易误判为调用方写错形状）。修法：让宿主侧代构 options，或经 JSON 往返（`JSON.parse('{"depth":1}')`）拿到宿主 realm 对象。
 2. **`path` 必须是宿主 realm 的数组**。schema 投影通道的敌意路径守卫对 `Symbol.iterator` 做**同一性比较**（`path[Symbol.iterator] !== Array.prototype[Symbol.iterator]` 即收敛 `schema: null`）——跨 realm 数组的迭代器来自另一个 realm 的 `Array.prototype`，比较恒假。结果：**值通道完全正常、`schema` 静默为 `null`**，极易误诊为投影通道损坏。修法：在宿主 realm 派生新数组（如 `hostArray.concat(rawPath)` 或逐段拷贝）后再传入。
