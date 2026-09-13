@@ -19,6 +19,10 @@
 { ok: true; value: unknown; schema: ReadDataSchemaProjection | null }
 ```
 
+> 由 [ADR-0024](0024-readdata-shape-budget.md) 修订：成功分支恒五键
+> `{ ok, value, schema, truncated, truncations }`——`truncated` / `truncations`
+> 恒在场（无截断时空清单），见文末「ADR 0024 修订」节。
+
 - `schema` 为 `null` 覆盖三种情形：无 active schema（preparing / unavailable / fatal / 未知方言只读）；路径偏离 schema（raw 复制可绕过 VFSL 校验产生 schema 外数据，ADR 0010 明示例外）；静态解析失败（见下）。三种情形不区分——读契约只承诺"有就给"，不承诺缺席原因分类；`null` 不是读的失败，读的 `ok` 恒真。
 - 失败分支不变：`PATH_NOT_ALLOWED`（路径/载体缺陷）、`RUNTIME_READ_DISABLED`（lifecycle≠ready）、lease released issue 各自走原有通道。
 - 路径合法但值缺席（`value` 显式为 `undefined`）时 schema 照常返回：schema 是路径键控的，不是值键控的。
@@ -57,6 +61,10 @@ resolveSchemaAtPath(
 // | { ok: false, code: 'SCHEMA_PATH_INVALID', path }     // 非数组/野段形状守卫
 ```
 
+> 由 [ADR-0024](0024-readdata-shape-budget.md) 修订：解析入口加法三参化
+> `resolveSchemaAtPath(derived, path, options?)`——预算在同一次解析遍历内同步
+> 裁剪 valueSchema / 别名闭包 / docs 切片；无 options 行为逐字不变，见文末修订节。
+
 - **union 静态 any-member 扩展**：逐段游走时并集展开为候选集，"任一成员接纳即放行"——与写侧路径守卫 `drillStep`（validate-patch，ADR 0003 §3.3 规则 1）语义同构。同一个路径在写守卫里合法 ⟺ 在读投影里可解析。终点命中多个候选时合成 `{ kind: 'union', members }` 节点（合成 union 无判别式缓存，仍是合法 ValueSchema 形状）。
 - 解析**与实际值无关**：值缺席时照常解析；不使用判别式缓存按值收窄（避免读投影与写守卫语义分叉）。
 - Record `'<key>'` 字段带 `keyPattern` 时用正则实测该段，不匹配 → `SCHEMA_PATH_NOT_FOUND`（fail-closed）。
@@ -66,12 +74,12 @@ resolveSchemaAtPath(
 
 ### 交付纪律
 
-- **always-on**：每次成功读都返回 schema 投影，无 opt-in 开关。"读 = 值 + 语义"是契约本身；opt-in 会把升级退化成消费者必须知晓的隐藏能力，并使结果形状随参数分叉。
+- **always-on**：每次成功读都返回 schema 投影，无 opt-in 开关。"读 = 值 + 语义"是契约本身；opt-in 会把升级退化成消费者必须知晓的隐藏能力，并使结果形状随参数分叉。（由 ADR-0024 收窄：预算参数不是本条拒绝的 schema opt-in——schema 通道仍 always-on，新形状字段恒在场、自描述，见文末「ADR 0024 修订」节。）
 - **每次读深拷贝投影**：公共面只暴露 detached 投影（namespace-runtime 边界）——`activeTools.derived` 的活引用绝不递出，调用方 mutation 不得交叉污染 runtime 的活 schema。深拷贝沿 `value` 同款纪律：可变普通副本、不冻结、零缓存。成本为每次读 O(path × N + schema 子树)，如实记录在案；将来若 profiling 证明是瓶颈，按 schema generation 缓存是加法演进。
 
 ### 分层与兼容面
 
-- `@nomicore/doc-runtime` 不动：读取保持 schema 无关（ADR 0008），`readLogicalValueAtPath(doc, path)` 签名与语义不变。
+- `@nomicore/doc-runtime` 不动：读取保持 schema 无关（ADR 0008），`readLogicalValueAtPath(doc, path)` 签名与语义不变（由 ADR-0024 修订：签名加法扩展为三参 `options?`，无 options 时签名与语义逐字不变——见文末修订节）。
 - `@nomicore/namespace-runtime` 组合两者：成功读 = `readLogicalValueAtPath` 的值 + `resolveSchemaAtPath` 的投影深拷贝；`schemaState ≠ 'ready'` 或无 activeTools 时 `schema: null`；`NamespaceRuntimeReadDataResult` 成功分支按上文重定型。
 - `@nomicore/namespace-registry` 仅类型别名跟随（`NamespaceLeaseReadDataResult`），lease 行为零变化。
 - 诊断变更日志不涉及读面；ReplicationSession raw 读面（可信域）不变；typed-access 投影与 codegen 加法兼容（adapter 可忽略新字段，亦可在其后消费）。
@@ -90,7 +98,7 @@ resolveSchemaAtPath(
 
 - 本 ADR **修订 ADR 0008 的 D8 封口**：「active schema tools（module/derived）内部保留，永不进任何公共面」改为——`derived` 只经 readData 语义 schema 投影的受控只读深拷贝进入公共面；`module` 与 validator 仍永不进入公共面。
 - 读结果成功分支形状变更（SA6 冻结形状的有意演进）：仓库内对读结果做 `toEqual` 全等断言的测试需要更新；`toMatchObject` 断言加法兼容。
-- 每次成功读增加 O(path × N + schema 子树) 的解析与深拷贝成本。
+- 每次成功读增加 O(path × N + schema 子树) 的解析与深拷贝成本。（由 ADR-0024 修订：预算读随投影同 depth 裁剪，成本界为 `O(path + 实际展开的值部分 + 展开层引用的类型闭包与注释切片)`；不传预算时原句不变。）
 - CONTEXT.md 更新「Data」词条并新增「语义 schema 投影」词条。
 
 ## 取代关系
@@ -116,3 +124,26 @@ issue #308 正文括注「修订 ADR 0016 切片条款」。除下列明示条�
 3. **影响面**：仅使用 M4 的 schema 产生新切片内容；不使用 M4 的投影输出逐字节
    不变；投影返回四件套形状与 namespace-runtime detached 克隆零改动。权威 =
    ADR 0019 决策 7。
+
+### ADR 0024 修订：readData 形状预算（2026-09-12，tracking #331 / issue #338）
+
+本节依据 [ADR-0024](0024-readdata-shape-budget.md)「对既有 ADR 的修订」节登记
+本 ADR 的四处显式修订（正文相应位置已加「由 ADR-0024 修订」指针）。除下列明示
+条款外，正文其余条款维持原文效力（「考虑的备选」节为决策时历史记录，不随条款
+改写）。
+
+1. **参数面条款**：预算参数（`readData(path, { depth?, maxChildrenPerNode? })`）
+   不是本 ADR「考虑的备选」拒绝的 schema opt-in——schema 通道仍 always-on，
+   无「schema 有无」开关；新形状字段 `truncated` / `truncations` 恒在场、自
+   描述，不存在「结果形状随参数分叉」。
+2. **结果形状条款**：成功分支由恰三键 `{ ok, value, schema }` 修订为恒五键
+   `{ ok, value, schema, truncated, truncations }`（无截断时空清单；失败分支
+   形状不动、不带截断键）。
+3. **签名条款（两处）**：「分层与兼容面」的 `readLogicalValueAtPath(doc, path)`
+   与「解析语义」的 `resolveSchemaAtPath(derived, path)` 均加法扩展第三参
+   `options?`；无 options 时签名与语义逐字不变。
+4. **成本句条款**：Consequences 的 `O(path × N + schema 子树)` 随投影同 depth
+   裁剪修订为 `O(path + 实际展开的值部分 + 展开层引用的类型闭包与注释切片)`
+   （不传预算时原句不变）。
+
+权威 = ADR-0024 决策 1–7 及其「对既有 ADR 的修订」节。

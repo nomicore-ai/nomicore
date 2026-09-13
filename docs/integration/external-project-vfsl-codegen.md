@@ -285,7 +285,7 @@ export class TypedNamespace {
 
 适配器中的断言只位于运行时校验结果与生成类型之间的受控边界。Nomicore 仍会在运行时依据 namespace 自带的 SCHEMA 校验 mutation；TypeScript 类型不能替代运行时校验。
 
-`readData` 的成功结果还随值携带 `schema`——该路径的语义 schema 投影（[ADR-0016](../adr/0016-readdata-semantic-schema-projection.md)；`null` 不是读的失败）。上面的适配器刻意只收窄到 `.value`；需要随读语义的宿主（如 agent 消费者）可在同一适配器中同时暴露 `result.schema`，这是加法兼容的演进，不改变本页示例。
+`readData` 的成功结果还随值携带 `schema`、`truncated` 与 `truncations`（恒五键；[ADR-0016](../adr/0016-readdata-semantic-schema-projection.md)，形状经 [ADR-0024](../adr/0024-readdata-shape-budget.md) 修订）——`schema` 为该路径的语义 schema 投影（`null` 不是读的失败）；`truncated` / `truncations` 恒在场（无形状预算读 = `false` / 空清单），报告 `readData(path, { depth?, maxChildrenPerNode? })` 预算读的截断事实。上面的适配器刻意只收窄到 `.value`；需要随读语义的宿主（如 agent 消费者）可在同一适配器中同时暴露 `result.schema`，这是加法兼容的演进，不改变本页示例。预算读的静态类型是 `DeepOptional<…>`（全字段可选）——见 typed-access skill 的预算纪律。
 
 > 注意：mutation 的实际 `op` 名称与输入形状必须以 `@nomicore/doc-runtime` / `NamespaceLease.mutateData()` 当前公开契约为准。当前底层数组写操作是 `array-insert` 和 `array-delete`，没有独立的 `array-append`；上面的 `append()` 先读取当前数组长度，再转换为 `array-insert`。它不是并发原子 append，存在并发写入时宿主应直接使用满足业务并发语义的操作或上层协调机制。如果升级 Nomicore 后 mutation 联合改变，应先更新这个单一适配器。
 

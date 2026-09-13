@@ -2,6 +2,8 @@
  * 协议包导出面事实（issue #45 冻结快照）——发射器接线行与碰撞守卫名单的单一数据源。
  *
  * - 冻结依据：packages/vfsl-protocol/src/index.ts 实测导出 12 名（2026-08-21 基点 5907dc3）。
+ * - T4 增补（issue #337 / ADR-0024 决策 7）：`DeepOptional` 为第 13 名导出（纯类型递归映射）——
+ *   上一行为 2026-08-21 基点历史描述，原地保留不改写；本名单与协议导出面成对演进。
  * - 为何冻结名单：协议包是纯类型模块（ADR-0004 D3，零运行时导出），运行时不可枚举；
  *   生产发射器不得依赖 typescript 编译器 API。
  * - 同步锚（单向，v1.1 披露——SA2 #4）：test/generate-alias-collision-guard.test.ts 经
@@ -12,7 +14,8 @@
  */
 export const PROTOCOL_EXPORT_NAMES: ReadonlySet<string> = new Set([
   'VfslKind', 'PathSchema', 'UnknownPath', 'RootSchema', 'PathAt', 'VfslValueOf',
-  'PathValue', 'PathKind', 'PathPatchValue', 'PathElementValue', 'VfslTypedAccess', 'VfslPathMap',
+  'PathValue', 'DeepOptional', 'PathKind', 'PathPatchValue', 'PathElementValue',
+  'VfslTypedAccess', 'VfslPathMap',
 ]);
 
 /** N1+N2 恒定接线行（AC-1）：头注之后第一行代码，任意域（含零别名域）无条件发射（§3）。 */

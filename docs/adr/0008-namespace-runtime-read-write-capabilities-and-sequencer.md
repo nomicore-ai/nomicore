@@ -24,7 +24,7 @@ Runtime 获得并信任有效 `DocHandle` 后，在对外发布前把 P0 放入 
 - plain object 仅读 own enumerable string data property，不走原型链、不执行 accessor；
 - plain subtree 仅允许 JSON-compatible plain value，禁止嵌套 Yjs shared type；
 - `Y.XmlFragment` 是不可下钻终态，返回语义字符串；未知 Yjs shared type响亮失败，不使用 `toJSON()` fallback；
-- 空 path 深拷贝完整 ROOT；非空 path 只转换目标子树；返回值是可变普通深拷贝，不做运行时冻结；
+- 空 path 深拷贝完整 ROOT；非空 path 只转换目标子树；返回值是可变普通深拷贝，不做运行时冻结（由 ADR 0024 修订：读语义 =「预算内投影 + 截断清单」，不传预算时本条原义保留——见文末「ADR 0024 修订」节）；
 - 预期路径、载体和 lifecycle 失败使用同步结果联合，只有 internal bug 才抛异常。
 
 读取只观察调用瞬间已经提交的 live Y.Doc，不等待已接纳但尚未提交的写。调用方需要 read-your-write 时必须先等待对应写 Promise。
@@ -171,7 +171,8 @@ SCHEMA write 全量校验、fatal 通道、封装边界、status 观测面、「
    `derived` 只经 `readData` 语义 schema 投影的受控只读深拷贝进入公共面
    （ADR 0016）；`module` 与 validator 仍永不进入公共面。
 2. **readData 成功分支形状**：`{ ok: true, value }` 演进为
-   `{ ok: true, value, schema: ReadDataSchemaProjection | null }`；载荷形态、
+   `{ ok: true, value, schema: ReadDataSchemaProjection | null }`（后经 ADR-0024
+   再修订为恒五键——见文末「ADR 0024 修订」节）；载荷形态、
    缺席语义（`null` 三情形、缺席吸收照常返 schema、空路径返 ROOT 值 schema）
    与交付纪律（always-on、每次读深拷贝）以 ADR 0016 为权威。
 3. **原规则保持**：读取保持 schema 无关、不进 sequencer、失败通道
@@ -218,3 +219,21 @@ SCHEMA write 全量校验、fatal 通道、封装边界、status 观测面、「
    透出）；apply 已提交事实不回滚（raw replication 零回滚不变量）。
 3. **失败语义归属**：re-arm 失败发生在 apply 槽提交后段，不失败 apply 槽
    本身；规范细节、宿主通知与恢复路径以 ADR 0018 为权威。
+
+### ADR 0024 修订：readData 形状预算（2026-09-12，tracking #331 / issue #338）
+
+本节依据 [ADR-0024](0024-readdata-shape-budget.md)「对既有 ADR 的修订」节登记
+本 ADR 读语义的显式修订。除下列明示条款外，正文其余条款维持原文效力。
+
+1. **读语义修订**：正文「读取能力」节读语义由「目标子树**完整**深拷贝」修订为
+   「预算内投影 + 截断清单」——`readLogicalValueAtPath(doc, path)` 签名加法
+   扩展为三参（`options?: { depth?, maxChildrenPerNode? }` 封闭形状），
+   **不传 options 时签名与语义逐字不变**（完整投影作为默认保留）。
+2. **投影递归成本界修订**：预算在载体投影递归内生效——未展开分支零物化，
+   成本界由「目标子树」改为「实际返回部分」（不传预算时两者等价）。
+3. **非法 options 通道**：负数 / 非整数 / 非有限数 / 非对象 / 含未知多余键
+   → 新增稳定失败码 `READ_OPTIONS_INVALID`（同步、不抛；不借用路径或生命
+   周期失败码）；预期路径、载体和 lifecycle 失败的原有结果联合不变。
+4. **权威归属**：预算参数语义、截断省略形态与截断清单字段以 ADR-0024
+   决策 1–3 为单一权威；本 ADR 的读取保留不变量（读取不进 sequencer、
+   只观察已提交事实、read-your-write 纪律）不变。

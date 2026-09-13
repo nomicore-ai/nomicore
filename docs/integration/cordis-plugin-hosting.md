@@ -337,10 +337,17 @@ if (!created.ok) {
 const lease = created.lease
 const notesId = lease.namespaceId // 重新打开与后续引用的凭据
 
-// readData 成功分支恰三键（ADR 0016）：schema 为该路径的语义 schema 投影或 null，
-// null 不是读的失败（读的 ok 恒真）。
+// readData 成功分支恒五键（ADR 0016；ADR 0024 修订）：schema 为该路径的语义 schema
+// 投影或 null（null 不是读的失败——读的 ok 恒真）；truncated / truncations 恒在场
+// （无截断时 false / 空清单）。
 console.log(lease.readData(['title']))
-// { ok: true, value: 'first', schema: { valueSchema, aliases, docs, aliasDocs } }
+// { ok: true, value: 'first', schema: { valueSchema, aliases, docs, aliasDocs }, truncated: false, truncations: [] }
+
+// 形状预算（ADR 0024）：第二参 options（封闭形状 { depth?, maxChildrenPerNode? }）
+// 在一次读内以同一预算贯通值与 schema 投影两通道——未展开分支零物化，被裁子项的键
+// 从值中省略、事实进 truncations 清单（键缺席且不在清单 = 真缺席；在清单 = 被裁）。
+// 不传 options = 完整投影；非法 options 响亮拒绝 READ_OPTIONS_INVALID（同步、不抛）。
+const shallow = lease.readData([], { depth: 1, maxChildrenPerNode: 5 })
 
 const changed = await lease.mutateData({
   op: 'set',
