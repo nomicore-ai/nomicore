@@ -9,7 +9,8 @@
  * - `BUDGET_MARKER_MATRIX`：§6.3.4 计层矩阵的逐 (path, depth) 标记集合字面量（测试
  *   运行时对账；条目形如 `` `${语法路径} => ${线索}` ``；线索 = `ref:<名>` /
  *   `container:<object|array>`）；
- * - `BUDGET_DOCS_BY_DEPTH`：docs 精确键集矩阵（被裁路径省略 / 脊柱键保留 pin）；
+ * - `BUDGET_DOCS_MATRIX`：docs 精确键集矩阵（#359 可见性切片：已渲染宿主槽位在场 /
+ *   被截闭包省略 / 脊柱键保留 pin）；
  * - 毒化派生物构造器（`poisonedFixtureDerived`，P3 哨兵）与手造环状/递归/多引用
  *   派生物构造器（F1/§6.3.5、S4 首发现 pin；环状类含 union 自引用、容器 2-环与
  *   **optional 自环/2-环**——SA4 R1 截断谓词环安全回归的夹具面）。
@@ -287,15 +288,40 @@ export interface BudgetDocsCase {
   readonly aliasDocsKeys: readonly string[];
 }
 
-/** docs/aliasDocs 收缩矩阵（预算夹具；键集精确相等）。 */
+/**
+ * docs/aliasDocs 收缩矩阵（预算夹具；键集精确相等）。
+ *
+ * #359 修订（Scope A 全槽位一致化）：docs 在场 ⟺ 位置在返回的预算类型树中可见
+ * （节点自身被渲染，或是已渲染宿主的槽位：字段 / `<item>` / `<member N>` / `<key>`）
+ * ∪ 脊柱键；被截子树闭包内部（别名体成员注释、被截 ref 的 aliasDocs）继续缺席。
+ * 由此：`[] d1` 的全部 ROOT 字段槽位键随渲染的 ROOT 宿主在场（含类型被截的
+ * ref/容器字段）；`Ledger.audit` / `Audit.notes` 等字段槽位随其展开宿主在场。
+ */
 export const BUDGET_DOCS_MATRIX: readonly BudgetDocsCase[] = [
   { path: [], depth: 0, docsKeys: [], aliasDocsKeys: [] },
-  { path: [], depth: 1, docsKeys: ['ROOT.inlPair'], aliasDocsKeys: [] },
+  {
+    path: [],
+    depth: 1,
+    docsKeys: [
+      'ROOT.shallow',
+      'ROOT.deep',
+      'ROOT.pair',
+      'ROOT.inlPair',
+      'ROOT.plain',
+      'ROOT.opt',
+      'ROOT.req',
+      'ROOT.mode',
+      'ROOT.modes',
+      'ROOT.modeMap',
+    ],
+    aliasDocsKeys: [],
+  },
   {
     path: [],
     depth: 2,
     docsKeys: [
       'Ledger.title',
+      'Ledger.audit',
       'Pair.<member 0>.name',
       'Pair.<member 1>.count',
       'ROOT.shallow',
@@ -318,6 +344,7 @@ export const BUDGET_DOCS_MATRIX: readonly BudgetDocsCase[] = [
     depth: 3,
     docsKeys: [
       'Audit.by',
+      'Audit.notes',
       'Ledger.title',
       'Ledger.audit',
       'Pair.<member 0>.name',
@@ -346,13 +373,13 @@ export const BUDGET_DOCS_MATRIX: readonly BudgetDocsCase[] = [
   {
     path: ['shallow'],
     depth: 1,
-    docsKeys: ['Ledger.title', 'ROOT.shallow'],
+    docsKeys: ['Ledger.title', 'Ledger.audit', 'ROOT.shallow'],
     aliasDocsKeys: ['Ledger'],
   },
   {
     path: ['shallow'],
     depth: 2,
-    docsKeys: ['Audit.by', 'Ledger.title', 'Ledger.audit', 'ROOT.shallow'],
+    docsKeys: ['Audit.by', 'Audit.notes', 'Ledger.title', 'Ledger.audit', 'ROOT.shallow'],
     aliasDocsKeys: ['Ledger', 'Audit'],
   },
   {
@@ -365,7 +392,7 @@ export const BUDGET_DOCS_MATRIX: readonly BudgetDocsCase[] = [
   {
     path: ['shallow', 'audit'],
     depth: 1,
-    docsKeys: ['Audit.by', 'Ledger.audit', 'ROOT.shallow'],
+    docsKeys: ['Audit.by', 'Audit.notes', 'Ledger.audit', 'ROOT.shallow'],
     aliasDocsKeys: ['Audit'],
   },
   {
@@ -493,8 +520,8 @@ export function containerRingDerived(): DerivedSchema {
 }
 
 /**
- * 透明环（optional 自引用，§6.3.5；SA4 R1 回归）：`ROOT.x` = optional 自环（`value`
- * 指回自身）。同一环节点同时落在截断谓词 `isTruncated` 的三个调用点——object 字段值位
+ * 透明环（optional 自引用，§6.3.5）：`ROOT.x` = optional 自环（`value`
+ * 指回自身）。同一环节点同时落在预算游走的三个子位递归点——object 字段值位
  * `x`、array `<item>`（`ROOT.arr`）、union 成员位（`ROOT.u`）——并经 `ref:'RingAlias'`
  * 进入闭包体（别名体 = `object{self: 同环}`）。任意预算必须终止（重入透传原引用、环上
  * 无标记、无裸异常），`{}`/充足 depth 与无预算读**引用级**同构。
@@ -509,8 +536,8 @@ export function optionalRingDerived(): DerivedSchema {
 }
 
 /**
- * 透明环（optional 2-环，§6.3.5；SA4 R1 回归）：`a.value = b`、`b.value = a`，布点与
- * 自环夹具一致。剥离链 `a → b → a` 对 2-环同样必须终止（重访即未截断）。
+ * 透明环（optional 2-环，§6.3.5）：`a.value = b`、`b.value = a`，布点与自环夹具
+ * 一致。剥离链 `a → b → a` 对 2-环同样必须终止（重访即透传原引用）。
  */
 export function optionalTwoCycleDerived(): DerivedSchema {
   const a: { kind: 'optional'; value: ValueSchema } = {
@@ -603,3 +630,119 @@ export function multiRefDerived(): DerivedSchema {
   };
   return handMade({ ROOT: root, Shared: shared });
 }
+
+// —— #359 槽位 docs 切片夹具（手造派生物；docs 表按需布点，不依赖求值器文法）——
+
+/**
+ * #359 槽位 docs 切片夹具：ROOT 六字段布满四类槽位——
+ * - `name`（scalar 终态）；
+ * - `state`（ref IssueState，枚举别名 + memberDocs/aliasDocs——被截闭包负控位）；
+ * - `pausedFrom?`（optional ref——值缺席字段，字段槽位仍须在场）；
+ * - `workRecords`（array&lt;ref WorkRecord&gt;——元素 `<item>` 槽位键）；
+ * - `byKey`（Record `'<key>'` 槽 ref WorkRecord——`<key>` 槽位键）；
+ * - `stop`（内联 union 双 object 成员 + M4 成员注释——`<member N>` 槽位键）。
+ *
+ * 期望切片（Scope A）：docs 在场 ⟺ 位置在返回的预算类型树可见——已渲染宿主的
+ * 字段/`<item>`/`<key>`/`<member N>` 槽位随宿主在场；被截宿主自身的槽位与被截
+ * ref 闭包内部（`IssueState.<member N>`、aliasDocs）缺席。
+ */
+export function slotDocsDerived(): DerivedSchema {
+  const issueState: ValueSchema = { kind: 'enum', values: ['open', 'closed'] };
+  const workRecord: ValueSchema = {
+    kind: 'object',
+    fields: [{ name: 'summary', value: { kind: 'scalar', type: 'string' } }],
+  };
+  const root: ValueSchema = {
+    kind: 'object',
+    fields: [
+      { name: 'name', value: { kind: 'scalar', type: 'string' } },
+      { name: 'state', value: { kind: 'ref', name: 'IssueState' } },
+      { name: 'pausedFrom', value: { kind: 'optional', value: { kind: 'ref', name: 'IssueState' } } },
+      { name: 'workRecords', value: { kind: 'array', element: { kind: 'ref', name: 'WorkRecord' } } },
+      {
+        name: 'byKey',
+        value: { kind: 'object', fields: [{ name: '<key>', value: { kind: 'ref', name: 'WorkRecord' } }] },
+      },
+      {
+        name: 'stop',
+        value: {
+          kind: 'union',
+          members: [
+            { kind: 'object', fields: [{ name: 'kind', value: { kind: 'scalar', type: 'string' } }] },
+            { kind: 'object', fields: [{ name: 'kind', value: { kind: 'scalar', type: 'string' } }] },
+          ],
+        },
+      },
+    ],
+  };
+  const base = handMade({ ROOT: root, IssueState: issueState, WorkRecord: workRecord });
+  return {
+    ...base,
+    fieldDocs: {
+      'ROOT.name': [' 名称行 '],
+      'ROOT.state': [' 最新观察状态 '],
+      'ROOT.pausedFrom': [' 暂停前状态，仅在暂停期在场 '],
+      'ROOT.workRecords': [' 有序执行事实 '],
+      'ROOT.workRecords.<item>': [' 单条执行事实 '],
+      'ROOT.byKey': [' 按键索引 '],
+      'ROOT.byKey.<key>': [' 键槽执行事实 '],
+      'ROOT.stop': [' 停止结果 '],
+    },
+    memberDocs: {
+      'ROOT.stop.<member 0>': [' 正常结束 '],
+      'ROOT.stop.<member 1>': [' 中途取消 '],
+      'IssueState.<member 0>': [' 议题开着 '],
+      'IssueState.<member 1>': [' 议题关了 '],
+    },
+    aliasDocs: {
+      IssueState: [' 议题观察状态枚举 '],
+      WorkRecord: [' 单条执行事实类型 '],
+    },
+  };
+}
+
+/**
+ * #359 槽位 docs 切片矩阵：`(path, depth)` → 期望 docs 键集（sliceDocs 表扫描序）与
+ * aliasDocs 键集。`[] d1` = 展开层字段槽位 + union 成员槽位在场、`<item>`/`<key>` 槽位
+ * 随被截宿主缺席、被截 ref 闭包缺席；`[] d2` = 元素/键槽位随渲染宿主在场、枚举别名
+ * 闭包（IssueState）进入；`[] d0` = 目标折叠、docs 空。
+ */
+export const SLOT_DOCS_MATRIX: ReadonlyArray<{
+  readonly depth: number;
+  readonly docsKeys: readonly string[];
+  readonly aliasDocsKeys: readonly string[];
+}> = [
+  { depth: 0, docsKeys: [], aliasDocsKeys: [] },
+  {
+    depth: 1,
+    docsKeys: [
+      'ROOT.name',
+      'ROOT.state',
+      'ROOT.pausedFrom',
+      'ROOT.workRecords',
+      'ROOT.byKey',
+      'ROOT.stop',
+      'ROOT.stop.<member 0>',
+      'ROOT.stop.<member 1>',
+    ],
+    aliasDocsKeys: [],
+  },
+  {
+    depth: 2,
+    docsKeys: [
+      'ROOT.name',
+      'ROOT.state',
+      'ROOT.pausedFrom',
+      'ROOT.workRecords',
+      'ROOT.workRecords.<item>',
+      'ROOT.byKey',
+      'ROOT.byKey.<key>',
+      'ROOT.stop',
+      'ROOT.stop.<member 0>',
+      'ROOT.stop.<member 1>',
+      'IssueState.<member 0>',
+      'IssueState.<member 1>',
+    ],
+    aliasDocsKeys: ['IssueState'],
+  },
+];

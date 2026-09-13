@@ -124,7 +124,8 @@ export type {
 // 共享节点（不可变契约），detached 深拷贝属 namespace-runtime 组合边界（ADR-0016）。
 //
 // Issue #335 / ADR-0024 决策 5：形状预算加法第三参 `options?`——预算在解析递归内生效
-// （valueSchema 同 depth 截断、别名闭包随展开层收缩、docs/aliasDocs 被裁路径省略，三件
+// （valueSchema 同 depth 截断、别名闭包随展开层收缩、docs/aliasDocs 切片按可见性收缩——
+// 已渲染宿主的槽位键在场、被截子树闭包内部省略（#359），三件
 // 事同一次遍历内同步收缩；先裁后收集）。无 options（含显式 `undefined`）时行为逐字节
 // 不变；`depth` ≥0 整数，计层原点 = 路径终点，容器各计一层、optional/union/enum 透明、
 // ref 为终态边界；`maxChildrenPerNode` 合法但对投影零操作（投影类型级、路径键控）。

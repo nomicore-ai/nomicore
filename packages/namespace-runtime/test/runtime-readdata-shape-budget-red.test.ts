@@ -216,7 +216,7 @@ describe('组 B：depth 截断省略 + 条目三字段（path 同基 / 尾段即
       { path: ['meta'], kind: 'depth', omitted: 2 },
       { path: ['tags'], kind: 'depth', omitted: 5 },
     ]);
-    // 键名的唯一在场位置 = 清单条目尾段（值内已省略）
+    // 被折容器键以折叠空壳在场；清单条目尾段 = 被折容器键名（「空壳 = 被裁」的辨识）
     expect(entries.map((e) => e.path[e.path.length - 1])).toStrictEqual(['meta', 'tags']);
     await runtime.close();
   });

@@ -14,6 +14,12 @@
  * SA4 R1 修复回归（iteration 1）：F1 锚补手造 optional 透明环（自环 + 2-环）——四态
  * （`{depth:0}`/`{depth:N}`/`{}`/width-only）终止且 ok、无裸异常、`{}` 与无预算读
  * **引用级**同构、重复调用逐引用确定（§6.3.5 测试口径；环状输出不可 stringify）。
+ *
+ * #359 修订（展开层槽位 docs 切片，Scope A 全槽位一致化）：docs 在场 ⟺ 位置在
+ * 返回的预算类型树可见（节点自身被渲染，或是已渲染宿主的槽位：字段 / `<item>` /
+ * `<member N>` / `<key>`）∪ 脊柱键；被截子树闭包内部（别名体成员注释、被截 ref 的
+ * aliasDocs）继续缺席。G5 矩阵与差分按此重录；新增 #359 describe（槽位矩阵 + m4
+ * 内联联合成员键翻转 + 内容逐字相等锚）。
  */
 import { createHash } from 'node:crypto';
 import { describe, expect, it } from 'vitest';
@@ -47,6 +53,8 @@ import {
   OPTIONAL_RING_FIELDS,
   poisonedFixtureDerived,
   recursiveAliasDerived,
+  SLOT_DOCS_MATRIX,
+  slotDocsDerived,
   unionRingDerived,
 } from './resolve-schema-at-path-budget-fixture.js';
 
@@ -458,7 +466,7 @@ describe('#335 G4 别名闭包收缩', () => {
 // —— G5：docs/aliasDocs 切片收缩 ——
 
 describe('#335 G5 docs/aliasDocs 切片收缩', () => {
-  it('G5.2 精确键集矩阵（被裁路径省略 / 脊柱键保留 pin / aliasDocs 随闭包）', () => {
+  it('G5.2 精确键集矩阵（#359 可见性切片：渲染槽位在场 / 被截闭包省略 / 脊柱键保留 pin / aliasDocs 随闭包）', () => {
     const derived = budgetFixtureDerived();
     for (const matrixCase of BUDGET_DOCS_MATRIX) {
       const result = expectOk(
@@ -486,13 +494,15 @@ describe('#335 G5 docs/aliasDocs 切片收缩', () => {
     }
   });
 
-  it('G5.2 被裁别名无 aliasDocs 条目、被裁路径键缺席（#272 d1/d2 差分）', () => {
+  it('G5.2 被裁别名无 aliasDocs 条目、展开层字段槽位 docs 在场（#272 d1/d2 差分；#359 修订）', () => {
     const derived = fixture272();
     const d1 = expectOk(budget(derived, ['assets', 'img1'], { depth: 1 }), 'd1');
     expect(Object.keys(d1.docs)).toEqual([]);
     expect(Object.keys(d1.aliasDocs)).toEqual(['AssetEntity']);
+    // [] d1：ROOT 展开层字段槽位随宿主在场（含类型被截的 audit/keywords/config）；
+    // 被截 ref（Audit）的 aliasDocs 与闭包内部键缺席
     const d0 = expectOk(budget(derived, [], { depth: 1 }), '[] d1');
-    expect(Object.keys(d0.docs)).toEqual(['ROOT.notes']);
+    expect(Object.keys(d0.docs)).toEqual(['ROOT.audit', 'ROOT.notes', 'ROOT.keywords', 'ROOT.config']);
     expect(Object.keys(d0.aliasDocs)).toEqual([]);
     const d2 = expectOk(budget(derived, [], { depth: 2 }), '[] d2');
     expect(Object.keys(d2.docs)).toEqual([
@@ -515,6 +525,58 @@ describe('#335 G5 docs/aliasDocs 切片收缩', () => {
     for (const key of Object.keys(result.aliasDocs)) {
       expect(Object.hasOwn(baseline.aliasDocs, key)).toBe(true);
     }
+  });
+});
+
+// —— #359：展开层槽位 docs 切片（Scope A 全槽位一致化）——
+
+describe('#359 展开层槽位 docs 切片', () => {
+  it('槽位切片矩阵：字段/`<item>`/`<key>`/`<member N>` 随渲染宿主在场，被截宿主与闭包内部缺席', () => {
+    const derived = slotDocsDerived();
+    for (const cell of SLOT_DOCS_MATRIX) {
+      const result = expectOk(budget(derived, [], { depth: cell.depth }), `[] d${cell.depth}`);
+      expect(Object.keys(result.docs), `[] d${cell.depth} docs 键集`).toEqual([...cell.docsKeys]);
+      expect(Object.keys(result.aliasDocs), `[] d${cell.depth} aliasDocs 键集`).toEqual([
+        ...cell.aliasDocsKeys,
+      ]);
+    }
+    // 负控（d1）：被截宿主自身的槽位键与被截 ref 闭包内部键不得随 depth 出现
+    const d1 = expectOk(budget(derived, [], { depth: 1 }), '[] d1');
+    expect(Object.hasOwn(d1.docs, 'ROOT.workRecords.<item>')).toBe(false); // 数组宿主被截 ⇒ 元素槽位缺席
+    expect(Object.hasOwn(d1.docs, 'ROOT.byKey.<key>')).toBe(false); // Record 宿主被截 ⇒ 键槽位缺席
+    expect(Object.hasOwn(d1.docs, 'IssueState.<member 0>')).toBe(false); // 被截 ref ⇒ 闭包成员键缺席
+    expect(Object.hasOwn(d1.aliasDocs, 'IssueState')).toBe(false); // 被截 ref ⇒ aliasDocs 缺席
+    expect(Object.hasOwn(d1.aliasDocs, 'WorkRecord')).toBe(false);
+    // 正控（d1）：可选缺席字段（pausedFrom）的字段槽位 docs 仍在场（schema 位存在 ≠ 值在场）
+    expect(d1.docs['ROOT.pausedFrom']).toEqual([' 暂停前状态，仅在暂停期在场 ']);
+  });
+
+  it('m4 内联联合：渲染宿主位的 `<member N>` 成员注释在场（成员类型被截亦然），被截宿主位缺席', () => {
+    const derived = m4();
+    const d1 = expectOk(budget(derived, [], { depth: 1 }), 'm4 [] d1');
+    expect(d1.docs['ROOT.pair.<member 0>']).toEqual([' 内联甲 ']);
+    expect(d1.docs['ROOT.pair.<member 1>']).toEqual([' 内联乙 ']);
+    expect(d1.docs['ROOT.mode.<member 0>']).toEqual([' 开 ']); // enum 终态：既有行为不动
+    const d0 = expectOk(budget(derived, [], { depth: 0 }), 'm4 [] d0');
+    expect(Object.hasOwn(d0.docs, 'ROOT.pair.<member 0>')).toBe(false); // ROOT 宿主被截 ⇒ 全部槽位缺席
+  });
+
+  it('切片 ⊆ 无预算键集且内容逐字相等（slotDocs 夹具全 depth）', () => {
+    const derived = slotDocsDerived();
+    const baseline = resolveSchemaAtPath(derived, []) as ObservedOk;
+    for (const depth of [0, 1, 2, 32]) {
+      const result = expectOk(budget(derived, [], { depth }), `[] d${depth}`);
+      for (const [key, content] of Object.entries(result.docs)) {
+        expect(baseline.docs[key]).toEqual(content);
+      }
+      for (const [key, content] of Object.entries(result.aliasDocs)) {
+        expect(baseline.aliasDocs[key]).toEqual(content);
+      }
+    }
+    // 充足 depth ≡ 无预算（逐字节）
+    expect(JSON.stringify(expectOk(budget(derived, [], { depth: 32 }), '[] d32'))).toBe(
+      JSON.stringify(resolveSchemaAtPath(derived, [])),
+    );
   });
 });
 
