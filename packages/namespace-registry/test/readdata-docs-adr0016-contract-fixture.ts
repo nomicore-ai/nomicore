@@ -25,10 +25,16 @@
  *   典型消费方式须覆盖「凭投影解读值并构造读后合法 mutation」场景；
  * - adr0016Refs：文件级出现 ADR-0016 / 0016-readdata 引用——文档必须挂接权威
  *   规范源（docs/AGENTS：链接权威源而非复制规则）；
- * - staleAnnotationViolations：行级注释形如 `// { ok: true, value: ... }` 且不含
- *   schema —— ADR-0016 后成功分支恰三键，此类两键全等形状注记即过时陈述；
- * - readDataOptionUsages：readData(path, …) 带第二实参的用法——ADR-0016 交付纪律
- *   always-on（无 opt-in 开关），文档不得发明带参读面。
+ * - staleAnnotationViolations：行级注释形如 `// { ok: true, value: ... }` 且缺
+ *   schema / truncated / truncations 任一键——ADR-0016 恰三键经 ADR-0024 决策 4 修订为
+ *   恒五键后，两键（缺 schema）与三键（缺截断键）全等形状注记均过时陈述；
+ * - readDataOptionUsages：readData(path, …) 带第二实参且**非预算形态**的用法——
+ *   ADR-0016 交付纪律 always-on（无 schema opt-in 开关）经 ADR-0024 决策 1 收窄为
+ *   「只禁 schema opt-in 形态（含未知键——options 封闭形状），放行预算 options
+ *   （depth / maxChildrenPerNode）」：文档不得发明 schema 开关或未知参数键，预算读
+ *   用法（ADR-0024）合法；
+ * - budgetDiscipline：typed-access 纪律三句同段在场（静态完整性需求不传预算 /
+ *   预算读一律可选访问 / 预算读不是写前完整快照——ADR-0024 决策 7 typed 纪律）。
  */
 import * as fs from 'node:fs';
 import * as path from 'node:path';
@@ -54,6 +60,9 @@ export function paragraphs(text: string): string[] {
 
 const RE_READ_DATA = /\breadData\b/u;
 const RE_SCHEMA = /\bschema\b/ui;
+/** 截断键锚（ADR-0024 决策 4 恒五键的截断事实通道两键）。 */
+const RE_TRUNCATED = /\btruncated\b/ui;
+const RE_TRUNCATIONS = /\btruncations\b/ui;
 /** 规范词形「schema 投影 / schema projection」（容忍反引号/角括号包裹与零空格）。 */
 const RE_SCHEMA_PROJECTION = /`?schema`?\s*(?:投影|projection)/ui;
 const RE_VALUE_SCHEMA = /\bvalueSchema\b/u;
@@ -93,24 +102,57 @@ export function adr0016Refs(text: string): boolean {
 }
 
 /**
- * 要求 R7（docs/integration 示例同步）：返回「两键全等成功形状注释行」（行注释
- * `// { ok: true, value: …` 且不含 schema）——ADR-0016 后成功分支恰三键
- * `{ ok, value, schema }`，此类注记是过时/矛盾陈述。
+ * 要求 R7（docs/integration 示例同步）：返回「缺键成功形状注释行」（行注释
+ * `// { ok: true, value: …` 且 schema / truncated / truncations 任一缺席）——
+ * ADR-0016 恰三键经 ADR-0024 决策 4 修订为恒五键
+ * `{ ok, value, schema, truncated, truncations }`，两键（ADR-0008 时代）与三键
+ * （ADR-0016 时代）全等注记均是过时/矛盾陈述。
  */
 export function staleAnnotationViolations(text: string): string[] {
   return text
     .split('\n')
     .map((line, i) => ({ line, i }))
     .filter(({ line }) => /\/\/\s*\{\s*ok\s*:\s*true/ui.test(line))
-    .filter(({ line }) => !RE_SCHEMA.test(line))
+    .filter(({ line }) => !RE_SCHEMA.test(line) || !RE_TRUNCATED.test(line) || !RE_TRUNCATIONS.test(line))
     .map(({ line, i }) => `L${i + 1}: ${line.trim()}`);
 }
 
-/** 负控：作用域文档不得出现 readData 带第二实参的用法（ADR-0016 always-on，无 opt-in）。 */
+/** 预算 options 合法键集（ADR-0024 决策 1 封闭形状；单一权威 = doc-runtime 校验器）。 */
+const BUDGET_OPTION_KEYS = new Set(['depth', 'maxChildrenPerNode']);
+
+/**
+ * 负控（ADR-0024 决策 1 修订）：readData 带第二实参且**非纯预算形态**的用法行——
+ * schema opt-in（`{ schema: true }` 类，ADR-0016 已拒、ADR-0024 不复活）、未知键
+ * （options 封闭形状，运行时 READ_OPTIONS_INVALID）与非对象字面量第二参均标记；
+ * 预算形态（depth / maxChildrenPerNode 任意组合、含空对象）放行。
+ */
 export function readDataOptionUsages(text: string): string[] {
   return text
     .split('\n')
     .map((line, i) => ({ line, i }))
-    .filter(({ line }) => /readData\s*\([^)]*,/u.test(line))
+    .filter(({ line }) => {
+      const call = line.match(/readData\s*\(([^)]*)\)/u);
+      if (!call) return false;
+      const args = call[1] ?? '';
+      const optionsLiteral = args.match(/,\s*\{([^{}]*)\}/u);
+      if (!optionsLiteral) return args.includes(','); // 非对象字面量第二参：保守标记
+      const keys = (optionsLiteral[1] ?? '')
+        .split(',')
+        .map((entry) => entry.trim().split(':')[0]?.trim().replace(/\?$/u, ''))
+        .filter((key): key is string => key !== undefined && key !== '');
+      return keys.some((key) => !BUDGET_OPTION_KEYS.has(key));
+    })
     .map(({ line, i }) => `L${i + 1}: ${line.trim()}`);
+}
+
+/** 要求 R8（#338 / ADR-0024 决策 7）：typed-access 预算纪律三句同段落锚定。 */
+const RE_BUDGET_TERM = /\bbudget\b|预算/ui;
+const RE_NO_BUDGET_FOR_STATIC = /静态完整|static (completeness|integrity)|不传预算|without (a )?budget|not pass (a )?budget/ui;
+const RE_OPTIONAL_ACCESS = /可选访问|optional access|DeepOptional/ui;
+const RE_NOT_PREWRITE_SNAPSHOT = /写前完整快照|pre-?write (complete )?snapshot|not a (pre-?write|complete) snapshot/ui;
+
+export function hasBudgetDisciplineParagraph(text: string): boolean {
+  return paragraphs(text).some(
+    (p) => RE_BUDGET_TERM.test(p) && RE_NO_BUDGET_FOR_STATIC.test(p) && RE_OPTIONAL_ACCESS.test(p) && RE_NOT_PREWRITE_SNAPSHOT.test(p),
+  );
 }
