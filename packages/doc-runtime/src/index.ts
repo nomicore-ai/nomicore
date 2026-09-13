@@ -29,6 +29,8 @@ export type {
   MutationIssue,
   MutationPath,
   ValidatedMutation,
+  BatchedMutation,
+  MutationEnvelope,
   ApplyValidatedMutationResult,
 } from './mutation.js';
 export { replaceSchemaAndRoot } from './schema-replace.js';

@@ -11,10 +11,20 @@
  * longer scans/copies/validates data outside the touched path and boundary.
  * Only `set([])` keeps the legacy full-ROOT pipeline (extract → double full
  * logical validation → clone → guarded transaction → verifySnapshotIntact).
+ *
+ * ADR 0026 adds the mutually exclusive batch envelope `{ ops: [...] }`: envelope
+ * validation (key closure / cardinality ≤ 16 / per-element reuse of the same
+ * single-operation parse core / `set([])` element ban / pairwise non-nesting)
+ * followed by per-operation prepare — any failure is an aggregated `ok:false`
+ * with zero writes — then a composed expected boundary per item (shared
+ * record/parent/union boundary siblings must not fake E201-C), one Yjs
+ * transaction committing every minimal edit in order, and per-operation
+ * boundary verification. Envelopes without an own `ops` key keep the exact
+ * single-operation path (byte-identical frozen surface).
  */
 import * as Y from 'yjs';
-import type { DerivedSchema, StructureNode } from '@nomicore/vfsl';
-import { validateLogicalSnapshot } from '@nomicore/vfsl';
+import type { BoundaryMutationPayload, DerivedSchema, MutationBoundaryPlan, StructureNode, ValidateResult } from '@nomicore/vfsl';
+import { applyMutationAtBoundary, planMutationBoundary, validateLogicalSnapshot } from '@nomicore/vfsl';
 import { extractYjsSnapshot, walk } from './extract.js';
 import { assertOutermostTransactionContext } from './tx-guard.js';
 import { buildDetachedValue, buildTopEntries } from './detached-build.js';
@@ -41,6 +51,17 @@ export type ApplyValidatedMutationResult =
   | { ok: true }
   | { ok: false; issues: MutationIssue[] };
 
+/** ADR 0026 批量信封（形态二）。运行时约束（`ops` 非空、≤16、元素为完整单操作信封、
+ *  元素不得携带 `guard`、批内路径互不嵌套）由运行时信封校验承载；类型面只定型元素
+ *  可静态约束，基数/嵌套约束不承载。 */
+export type BatchedMutation = { ops: readonly ValidatedMutation[] };
+
+/** ADR 0026 双形态信封联合：单操作对象（现役契约）或批量信封；两形态互斥（同现为形状错误）。 */
+export type MutationEnvelope = ValidatedMutation | BatchedMutation;
+
+/** ADR 0026 `ops` 元素上限（冻结词表常量；不导出——放宽须过设计评审）。 */
+const MAX_BATCH_OPS = 16;
+
 type Path = Array<string | number>;
 type ParsedMutation = ValidatedMutation & { path: Path };
 /** @internal 包内共享类型（issue #237：mutation-local.ts 消费；不经 index.ts 导出）。 */
@@ -53,7 +74,13 @@ export type PreparedCommit =
 type MutationPrepared =
   | { kind: 'legacy'; commit: PreparedCommit; proposed: unknown }
   | { kind: 'local'; commit: PreparedCommit; verify: VerifyBoundaryIntactInput }
+  | { kind: 'batch'; items: BatchItem[] }
   | { kind: 'fail'; issues: MutationIssue[] };
+/** 批量 item：单事务提交项 + 已组合期望边界的验证输入（@internal 包内类型）。 */
+interface BatchItem {
+  commit: PreparedCommit;
+  verify: VerifyBoundaryIntactInput;
+}
 type PlaceResult = { kind: 'ok'; value: unknown } | { kind: 'issue'; issue: MutationIssue };
 type StepResult = { kind: 'ok'; value: unknown } | { kind: 'issue'; issue: MutationIssue };
 /** @internal 包内共享类型（issue #237：mutation-local.ts 换根导航消费）。 */
@@ -62,7 +89,8 @@ export type LiveStep = { live: unknown; node: StructureNode };
 /** Apply one ADR-0007 set/delete/array-insert/array-delete operation synchronously.
  *  set([]) → legacy full-ROOT pipeline；普通非空路径 mutation → issue #237 局部管线
  *  （mutation-local.ts），成功写入保持单 guarded transaction + 最小 edit + 边界级
- *  提交后验证（无无条件完整 ROOT 重提重验）。 */
+ *  提交后验证（无无条件完整 ROOT 重提重验）。ADR 0026 批量信封 `{ops:[...]}` 走
+ *  逐操作 prepare → 单事务按序提交 → 逐操作边界验证（组合期望边界）。 */
 export function applyValidatedMutation(
   derived: DerivedSchema,
   doc: Y.Doc,
@@ -71,6 +99,15 @@ export function applyValidatedMutation(
   assertOutermostTransactionContext(doc, 'applyValidatedMutation');
   const ready = prepareMutation(derived, doc, mutation);
   if (ready.kind === 'fail') return { ok: false, issues: ready.issues };
+  if (ready.kind === 'batch') {
+    // ADR 0026：全部 prepare 成功 → 单 Yjs 事务内按序提交全部最小 edit（观察者要么见
+    // 全部要么不见、单条 owned update bytes）→ 逐操作边界验证（期望边界已在阶段 C 组合）。
+    transactGuarded(doc, () => {
+      for (const item of ready.items) commitPrepared(item.commit);
+    });
+    for (const item of ready.items) verifyBoundaryIntact(item.verify);
+    return { ok: true };
+  }
   transactGuarded(doc, () => commitPrepared(ready.commit));
   if (ready.kind === 'legacy') {
     if (ready.commit.kind === 'replace-root') {
@@ -86,6 +123,12 @@ export function applyValidatedMutation(
 
 function prepareMutation(derived: DerivedSchema, doc: Y.Doc, mutation: unknown): MutationPrepared {
   try {
+    // D1 信封分发：自有 `ops` 键（含 `{ops: undefined}`）→ 批量分支；其余（含非普通
+    // 对象）→ 单操作分支。单操作路径经 parseMutation 原样消费，行为逐字节不变。
+    const env = plainObjectOf(mutation);
+    if (env !== null && Object.hasOwn(env, 'ops')) {
+      return prepareBatchMutation(derived, doc, env);
+    }
     const parsed = parseMutation(mutation);
     if (parsed.kind === 'fail') return parsed;
     if (derived.structure.kind !== 'root') {
@@ -125,6 +168,171 @@ function prepareMutation(derived: DerivedSchema, doc: Y.Doc, mutation: unknown):
     }
     return failIssue([], `DOCRT-E205: applyValidatedMutation 内部错误（意外异常）:「${errDetailOf(err)}」`);
   }
+}
+
+/**
+ * ADR 0026 批量分支（槽内 S5 位置不变）——信封校验 E1–E5 全部先于任何逐操作
+ * prepare 与任何 live 读：任一步失败 = fail-fast 单 issue、无码、零写入。全部通过后
+ * 逐操作 `prepareLocalMutation`（复用同一单操作管线；`set([])` 已被 E4 排除 ⇒ 元素
+ * 只走局部最小 edit 管线），领域失败按 ops 顺序聚合后整体零写入；全部成功进入阶段 C
+ * 组合期望边界（§7.5.2）。fatal（DerivedInvariantError / 意外异常）穿出至既有 catch
+ * 分类（E204/E205），不进聚合。
+ */
+function prepareBatchMutation(
+  derived: DerivedSchema,
+  doc: Y.Doc,
+  env: Record<string, unknown>,
+): MutationPrepared {
+  // ── E1 顶层键封闭：恰 {'ops'}；`op` 同现 = 双形态；其余多余键 = 未知键 ──────────
+  const extra = Object.keys(env).filter((key) => key !== 'ops');
+  if (extra.length > 0) {
+    if (extra.includes('op')) {
+      return failIssue([], '批量信封形状错误：双形态同现（"ops" 与单操作字段组不得同时出现）');
+    }
+    return failIssue([], `未知信封键 "${extra[0]}"（批量信封只允许 "ops"）`);
+  }
+  // ── E2 ops 必须是数组、非空、≤ MAX_BATCH_OPS ─────────────────────────────────
+  const ops = env.ops;
+  if (!Array.isArray(ops)) {
+    return failIssue([], `批量信封形状错误：ops 必须是非空数组（实际 ${wordOf(ops)}）`);
+  }
+  if (ops.length === 0) {
+    return failIssue([], '批量信封形状错误：ops 必须是非空数组（空数组）');
+  }
+  if (ops.length > MAX_BATCH_OPS) {
+    return failIssue([], `批量信封形状错误：ops 元素数量超上限（${ops.length} > ${MAX_BATCH_OPS}）`);
+  }
+  // ── E3 逐元素解析（复用同一单操作解析核：动词封闭键集/缺键/path/值域；guard 与一切
+  //        未知键由封闭键集天然排除）；失败即止 ────────────────────────────────────
+  const parsed: ParsedMutation[] = [];
+  for (let i = 0; i < ops.length; i++) {
+    const element = parseMutationCore(ops[i], `批量元素 #${i}：`);
+    if (element.kind === 'fail') return element;
+    parsed.push(element.mutation);
+  }
+  // ── E4 set([]) 元素禁令（ADR 0008 L47 唯一全量形态只保留给单操作信封）──────────
+  for (let i = 0; i < parsed.length; i++) {
+    const m = parsed[i]!;
+    if (m.op === 'set' && m.path.length === 0) {
+      return failIssue(
+        [],
+        `批量元素 #${i}：禁止 set([])（空路径全量重装仅保留给单操作形态——ADR 0008 唯一全量形态；批量元素必须是非空路径最小 edit）`,
+      );
+    }
+  }
+  // ── E5 批内路径互不嵌套（祖先-后代或相同）；共享边界兄弟路径（不同键终段）合法放行 ──
+  for (let i = 0; i < parsed.length; i++) {
+    for (let j = i + 1; j < parsed.length; j++) {
+      const a = parsed[i]!.path;
+      const b = parsed[j]!.path;
+      if (isPrefixOrEqual(a, b) || isPrefixOrEqual(b, a)) {
+        return failIssue([], `批量信封形状错误：批内路径嵌套（#${i} 与 #${j} 的路径构成祖先-后代或相同关系）`);
+      }
+    }
+  }
+  // ── P 逐操作 prepare（无 live 写；任一失败 → 整体零写入 + 聚合全部失败 issues）──
+  if (derived.structure.kind !== 'root') {
+    throw new DerivedInvariantError('derived.structure 非 root（手造派生物）');
+  }
+  const issues: MutationIssue[] = [];
+  const items: BatchItem[] = [];
+  for (const m of parsed) {
+    const local = prepareLocalMutation(derived, doc, m);
+    if (local.kind === 'fail') {
+      issues.push(...local.issues);
+      continue;
+    }
+    items.push({ commit: local.commit, verify: local.verify });
+  }
+  if (issues.length > 0) return { kind: 'fail', issues };
+  // ── C 组合期望边界（全部 prepare 成功后、事务前；零 live 读）────────────────────
+  return composeBatchVerify(derived, parsed, items);
+}
+
+/**
+ * 阶段 C（设计 §7.5.2）：为每个批量 item 组合期望边界——把同批中写入位落在该 item 边界
+ * 子树内的其他操作足迹（按 ops 序）折入 `proposedBoundary`，使共享 record/parent/union
+ * 边界的合法兄弟操作不再触发伪 E201-C（ADR 0007 #237 §5「E201-C 只保留给真实提交后
+ * 偏离」）。边界规划以 `planMutationBoundary` 纯函数复跑（零 base 读、零 doc 状态，
+ * 与 prepare 内部同输入同结果）；折迭以合成 plan（apply 不消费 `kind`——见
+ * `validate-patch.ts` 分支仅按 `mutation.op`）调用同一 `applyMutationAtBoundary`。
+ * `target`/`array` 边界的 prefix 即操作自身写入位，严格前缀谓词天然零匹配（引理 3）。
+ * 合成失败（可达：union 成员 any-of 重叠使组合边界无成员可容——引理 4'）→ 聚合
+ * issues、整体零写入（fail-closed；不得弱化为死代码，否则提交 schema 非法文档）。
+ */
+function composeBatchVerify(
+  derived: DerivedSchema,
+  parsed: ParsedMutation[],
+  items: BatchItem[],
+): MutationPrepared {
+  const compIssues: MutationIssue[] = [];
+  const plans: Array<MutationBoundaryPlan | null> = [];
+  for (const m of parsed) {
+    const planned = planMutationBoundary(derived, m.path, m.op);
+    if (!planned.ok) {
+      // 结构性不可达（同输入确定性纯函数复跑；prepare 已以同参通过同款规划）——保留
+      // fail-closed 收口纯为防御。
+      compIssues.push(...issuesOf(planned.result));
+      plans.push(null);
+      continue;
+    }
+    plans.push(planned.plan);
+  }
+  for (let i = 0; i < items.length; i++) {
+    const plan = plans[i]!;
+    if (plan === null) continue;
+    let composed = items[i]!.verify.proposedBoundary;
+    for (let j = 0; j < parsed.length; j++) {
+      if (j === i) continue;
+      const mj = parsed[j]!;
+      if (!isStrictPrefix(plan.prefix, mj.path)) continue;
+      const synthetic: MutationBoundaryPlan = {
+        prefix: [...plan.prefix],
+        relPath: mj.path.slice(plan.prefix.length),
+        node: plan.node,
+        kind: plan.kind,
+      };
+      const applied = applyMutationAtBoundary(derived, synthetic, composed, payloadOf(mj));
+      if (!applied.ok) {
+        // 可达的保守收口：组合边界不再被任一 union 成员容纳 ⇒ 提交将产生 schema 非法
+        // 文档（顺序单操作语义下该操作同样被拒；批量原子语义 ⊆ 顺序组合语义）。
+        compIssues.push(...issuesOf(applied.result));
+        break;
+      }
+      composed = applied.proposedBoundary;
+    }
+    items[i] = { ...items[i]!, verify: { ...items[i]!.verify, proposedBoundary: composed } };
+  }
+  if (compIssues.length > 0) return { kind: 'fail', issues: compIssues };
+  return { kind: 'batch', items };
+}
+
+/** 逐操作 payload 构造（与 mutation-local.ts 各 case 逐字同款）。 */
+function payloadOf(m: ParsedMutation): BoundaryMutationPayload {
+  switch (m.op) {
+    case 'set': return { op: 'set', value: m.value };
+    case 'delete': return { op: 'delete' };
+    case 'array-insert': return { op: 'array-insert', index: m.index, values: m.values };
+    case 'array-delete': return { op: 'array-delete', index: m.index, count: m.count };
+  }
+}
+
+/** 严格前缀（引理 2：op_j 写位落在 boundary_i 子树内 ⟺ plan_i.prefix ⊊ path_j）。 */
+function isStrictPrefix(prefix: readonly (string | number)[], path: readonly (string | number)[]): boolean {
+  if (prefix.length >= path.length) return false;
+  for (let i = 0; i < prefix.length; i++) {
+    if (prefix[i] !== path[i]) return false;
+  }
+  return true;
+}
+
+/** 前缀或相等（E5 嵌套判定：段严格 `===`，string/number）。 */
+function isPrefixOrEqual(a: readonly (string | number)[], b: readonly (string | number)[]): boolean {
+  if (a.length > b.length) return false;
+  for (let i = 0; i < a.length; i++) {
+    if (a[i] !== b[i]) return false;
+  }
+  return true;
 }
 
 function prepareCommit(
@@ -314,11 +522,20 @@ function childNodeOf(
   return child;
 }
 
+/** 单操作信封解析（现役契约入口；消息零变化）。 */
 function parseMutation(input: unknown):
   | { kind: 'ok'; mutation: ParsedMutation }
   | { kind: 'fail'; issues: MutationIssue[] } {
+  return parseMutationCore(input, '');
+}
+
+/** 单操作解析核（单操作分支与批量元素循环共同消费的唯一实现；`prefix` 为空串时消息
+ *  逐字节不变，批量元素以 `批量元素 #i：` 前缀标注）。 */
+function parseMutationCore(input: unknown, prefix: string):
+  | { kind: 'ok'; mutation: ParsedMutation }
+  | { kind: 'fail'; issues: MutationIssue[] } {
   const env = plainObjectOf(input);
-  if (env === null) return failIssue([], `mutation 信封形状错误：期望普通对象，实际 ${wordOf(input)}`);
+  if (env === null) return failIssue([], `${prefix}mutation 信封形状错误：期望普通对象，实际 ${wordOf(input)}`);
   const op = env.op;
   const specs: Record<string, readonly string[]> = {
     set: ['op', 'path', 'value'],
@@ -326,31 +543,31 @@ function parseMutation(input: unknown):
     'array-insert': ['op', 'path', 'index', 'values'],
     'array-delete': ['op', 'path', 'index', 'count'],
   };
-  if (typeof op !== 'string' || !Object.hasOwn(specs, op)) return failIssue([], `未知操作 "${String(op)}"`);
+  if (typeof op !== 'string' || !Object.hasOwn(specs, op)) return failIssue([], `${prefix}未知操作 "${String(op)}"`);
   const operation = op as ValidatedMutation['op'];
   const allowed = specs[operation]!;
   const unknown = Object.keys(env).find((k) => !allowed.includes(k));
-  if (unknown !== undefined) return failIssue([], `未知信封键 "${unknown}"（操作 ${op}）`);
+  if (unknown !== undefined) return failIssue([], `${prefix}未知信封键 "${unknown}"（操作 ${op}）`);
   const missing = allowed.find((k) => !Object.hasOwn(env, k));
-  if (missing !== undefined) return failIssue([], `信封缺少必需键 "${missing}"（操作 ${op}）`);
-  if (!Array.isArray(env.path)) return failIssue([], 'path 必须是数组（段为 string|number）');
+  if (missing !== undefined) return failIssue([], `${prefix}信封缺少必需键 "${missing}"（操作 ${op}）`);
+  if (!Array.isArray(env.path)) return failIssue([], `${prefix}path 必须是数组（段为 string|number）`);
   const path = [...env.path] as Path;
   for (const seg of path) {
-    if (typeof seg !== 'string' && typeof seg !== 'number') return failIssue([], `path 段类型错误：期望 string|number，实际 ${typeof seg}`);
+    if (typeof seg !== 'string' && typeof seg !== 'number') return failIssue([], `${prefix}path 段类型错误：期望 string|number，实际 ${typeof seg}`);
   }
   if (op === 'set') {
-    if (env.value === undefined) return failIssue([], 'set 需携带非 undefined value');
+    if (env.value === undefined) return failIssue([], `${prefix}set 需携带非 undefined value`);
     return { kind: 'ok', mutation: { op, path, value: env.value } };
   }
   if (op === 'delete') return { kind: 'ok', mutation: { op, path } };
-  if (!strictNonNegativeInteger(env.index)) return failIssue(path, `${op} index 必须是严格非负整数`);
+  if (!strictNonNegativeInteger(env.index)) return failIssue(path, `${prefix}${op} index 必须是严格非负整数`);
   if (op === 'array-insert') {
-    if (!Array.isArray(env.values) || env.values.length === 0) return failIssue(path, 'array-insert values 必须是非空数组');
-    if (env.values.some((v) => v === undefined)) return failIssue(path, 'array-insert values 不得包含 undefined');
+    if (!Array.isArray(env.values) || env.values.length === 0) return failIssue(path, `${prefix}array-insert values 必须是非空数组`);
+    if (env.values.some((v) => v === undefined)) return failIssue(path, `${prefix}array-insert values 不得包含 undefined`);
     return { kind: 'ok', mutation: { op, path, index: env.index, values: [...env.values] } };
   }
   if (op !== 'array-delete') return failIssue([], `未知操作 "${String(op)}"`);
-  if (!strictPositiveInteger(env.count)) return failIssue(path, 'array-delete count 必须是严格正整数');
+  if (!strictPositiveInteger(env.count)) return failIssue(path, `${prefix}array-delete count 必须是严格正整数`);
   return { kind: 'ok', mutation: { op, path, index: env.index, count: env.count } };
 }
 
@@ -464,6 +681,11 @@ function wordOf(value: unknown): string {
 
 function failIssue(path: Path, message: string): { kind: 'fail'; issues: MutationIssue[] } {
   return { kind: 'fail', issues: [{ message, path }] };
+}
+
+/** ValidateResult → MutationIssue[]（ok:true 分支无 issues——调用点已判 !ok）。 */
+function issuesOf(result: ValidateResult): MutationIssue[] {
+  return result.ok ? [] : result.issues;
 }
 
 function issueOf(path: Path, message: string): { kind: 'issue'; issue: MutationIssue } {
