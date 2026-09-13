@@ -12,7 +12,7 @@ Treat the current repository as the owning host. Its schema, generated types, ap
 Load only the branch needed:
 
 - **Schema** — creating or changing `schema.vfsl`, choosing carriers, validating schema/example ROOT data, or replacing the SCHEMA of an existing namespace: read [schema.md](schema.md).
-- **Typed access** — generating `generated.ts`, wiring TypeScript, implementing namespace read/write code, or consuming and interpreting `readData()` results (value + projection text + `truncated`; shape-budget reads with `depth` / `maxChildrenPerNode`, the `‡` depth-fold marker, the `✂ 截断事实：` truncation-facts section, and re-read completion): read [typed-access.md](typed-access.md).
+- **Typed access** — generating `generated.ts`, wiring TypeScript, implementing namespace read/write code, consuming and interpreting `readData()` results (value + projection text + `truncated`; shape-budget reads with `depth` / `maxChildrenPerNode`, the `‡` depth-fold marker, the `✂ 截断事实：` truncation-facts section, and re-read completion), or selecting a meaningful slice of a wide container with window reads `readArray` / `readMap` (`n` + sort term, entry identity back-stitching, the `✂` window-facts line, loud failure codes): read [typed-access.md](typed-access.md).
 - **Cordis host** — configuring Instance identity, Clock, Timer, Persistence, Registry, namespace creation/opening, role-specific replication plugins, or shutdown: read [cordis-host.md](cordis-host.md).
 - **Replication** — choosing standalone versus embedded Hub/Peer hosting, or configuring authorization, targets, TLS, readiness, lifecycle, epoch bump, reset, or recovery: read [replication.md](replication.md).
 
