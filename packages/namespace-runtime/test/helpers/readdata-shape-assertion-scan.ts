@@ -1,11 +1,18 @@
 /**
- * issue #333（T0 pre-factor）验收仪器 —— readData 成功分支「形状断言」扫描器。
+ * issue #333（T0 pre-factor）+ issue #364（T2 四键修订）验收仪器 —— readData 成功分支
+ * 「形状断言」扫描器。
  *
- * 背景：readData 成功分支为恒五键 `{ ok, value, schema, truncated, truncations }`
- * （ADR-0024 决策 4——T3 已完成恰三键 → 五键的破坏性修订）。该形状的断言在 runtime 与
- * registry 测试中散布 20+ 处，T0 已把它们收敛为统一 helper / 集中化形状构造，使 T3 的
- * 形状修订只改一处。本文件提供**可复用的 AST 扫描器**，供
- * `readdata-shape-assertion-consolidation-gate.test.ts`（收敛门 + 仪器敏感性自控）使用。
+ * 背景：readData 成功分支为恒四键 `{ ok, value, schema, truncated }`（ADR-0027 决策 1
+ * ——#364 已完成恒五键 → 恒四键的破坏性修订；`truncations` 键退役、截断事实唯一载体 =
+ * 投影文本 ✂ 段）。该形状的断言在 runtime 与 registry 测试中散布 20+ 处，T0 已把它们
+ * 收敛为统一 helper / 集中化形状构造，使历次形状修订只改一处。本文件提供**可复用的
+ * AST 扫描器**，供 `readdata-shape-assertion-consolidation-gate.test.ts`
+ * （收敛门 + 仪器敏感性自控）使用。
+ *
+ * #364 修订：`SUCCESS_SHAPE_KEYS` 四键化；family B 同时识别**退役恒五键**字面量
+ * （带 `truncations` 的成功形状是陈旧形状，写死即违规——SA6 CT-9 I2「五键字面量样本
+ * 必须命中」）。family A 检测器（`ok:true && hasSchema`）零变化：对四键与五键成功形状
+ * 字面量天然继续命中。
  *
  * 仪器语义（AST 级，非文本/正则匹配——本仪器只回答一个问题：**还有多少处断言把成功
  * 分支的恒五键形状字面写死**；运行时行为验证由既有 readData 套件与 SA6 报告的突变
@@ -21,10 +28,11 @@
  *
  * family B（`exact-key-set-literal`）命中 = 成功分支键集的整键集断言：
  *   1. 被调方法 ∈ 深等家族；
- *   2. 实参是恰**五**元素字符串数组字面量，集合等于
- *      { ok, schema, truncated, truncations, value }（顺序无关）；
+ *   2. 实参是恰**四**元素字符串数组字面量（当前成功形状）或恰**五**元素字符串数组
+ *      字面量（#364 退役的恒五键形状——陈旧待清退，写死即违规），集合等于
+ *      `SUCCESS_SHAPE_KEYS` 或 `RETIRED_SUCCESS_SHAPE_KEYS`（顺序无关）；
  *   3. 断言主语的表达式子树里出现 `Object.keys(...)` / `Reflect.ownKeys(...)` 调用
- *      （把「这个读结果恰五键」写死为字面量）。
+ *      （把「这个读结果恰四键」写死为字面量）。
  *
  * 不命中（刻意的负样本族，见门测试敏感性自控）：
  *   - doc-runtime 成功分支恰两键 `{ ok: true, value }`（ADR-0016 分层：只进 schema 的
@@ -58,8 +66,11 @@ export const SHAPE_ASSERTION_SCOPE = [
 /** 深等家族方法名（全等断言；toMatchObject 等加法兼容断言刻意排除）。 */
 export const DEEP_EQUAL_METHODS = ['toEqual', 'toStrictEqual', 'deepStrictEqual', 'deepEqual'] as const;
 
-/** readData 成功分支恰五键键集（ADR-0024 决策 4——T3 已把恰三键修订为恒五键）。 */
-export const SUCCESS_SHAPE_KEYS = ['ok', 'schema', 'truncated', 'truncations', 'value'] as const;
+/** readData 成功分支恰四键键集（ADR-0027 决策 1；#364 把恒五键修订为恒四键）。 */
+export const SUCCESS_SHAPE_KEYS = ['ok', 'schema', 'truncated', 'value'] as const;
+
+/** #364 退役的恒五键成功形状（ADR-0024 决策 4 旧形）：写死为整键集断言即陈旧违规。 */
+export const RETIRED_SUCCESS_SHAPE_KEYS = ['ok', 'schema', 'truncated', 'truncations', 'value'] as const;
 
 export type ShapeAssertionKind = 'deep-equal-literal' | 'exact-key-set-literal';
 
@@ -180,7 +191,8 @@ function readDeepEqualCall(node: ts.CallExpression): DeepEqualCall | null {
   return { method, negated, argument: first, call: node };
 }
 
-/** family B：`expect(<含 Object.keys(...) 的表达式>).toEqual([五键字母序])`。 */
+/** family B：`expect(<含 Object.keys(...) 的表达式>).toEqual([成功形状键集字母序])`。
+ *  同时识别当前恒四键与 #364 退役的恒五键（陈旧形状写死同样违规）。 */
 function readExactKeySetArgument(call: DeepEqualCall): readonly string[] | null {
   const argument = unwrap(call.argument);
   if (!ts.isArrayLiteralExpression(argument)) return null;
@@ -189,8 +201,11 @@ function readExactKeySetArgument(call: DeepEqualCall): readonly string[] | null 
     if (!ts.isStringLiteral(element)) return null;
     values.push(element.text);
   }
-  if (values.length !== SUCCESS_SHAPE_KEYS.length) return null;
-  if ([...values].sort().join('\u0000') !== [...SUCCESS_SHAPE_KEYS].sort().join('\u0000')) return null;
+  const normalized = [...values].sort().join('\u0000');
+  const matches = [SUCCESS_SHAPE_KEYS, RETIRED_SUCCESS_SHAPE_KEYS].some(
+    (keys) => values.length === keys.length && normalized === [...keys].sort().join('\u0000'),
+  );
+  if (!matches) return null;
   if (!subjectReadsOwnKeys(call.call)) return null;
   return values;
 }

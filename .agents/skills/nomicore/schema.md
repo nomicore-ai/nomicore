@@ -4,7 +4,7 @@ Author the schema inside the independent host repository. Treat it as the single
 
 ## Semantics are part of the data contract
 
-A downstream agent reading namespace data through `readData()` receives three things together: the data value, its formal schema projection, and the doc semantics mounted on that schema (数据口径). Only the three combined make the data fully interpretable—a bare `"archived"` says nothing about being terminal and read-only; the member doc does. Write every JSDoc for that consumer: state the domain meaning, units, lifecycle, and edge-case conventions the type alone cannot express, at the alias, field, marker, and union/enum member level. A schema that validates but carries thin semantics ships ambiguity to every future reader.
+A downstream agent reading namespace data through `readData()` receives the data value together with its projection text (投影文本, ADR 0027): the formal schema slice and the doc semantics mounted on it (数据口径) rendered as one deterministic text — field lines read `名?: 类型 // 口径首行…`, alias blocks carry the alias-level contract. Only the value plus that text make the data fully interpretable—a bare `"archived"` says nothing about being terminal and read-only; the member doc rendered in the text does. Write every JSDoc for that consumer: state the domain meaning, units, lifecycle, and edge-case conventions the type alone cannot express, at the alias, field, marker, and union/enum member level. A schema that validates but carries thin semantics ships ambiguity to every future reader.
 
 Constraints a machine can check belong in the type, not in JSDoc—runtime validate never reads comments. Numeric domains (integerness, closed intervals) are written `number & Int`, `number & Int<min, max>`, or `number & Range<min, max>`; dynamic string keys use `string & Pattern<"…">` (ADR 0020; authoring guide §6「表达值约束」). `/** 非负整数 */ quantity: number` enforces nothing—write `number & Int<0, …>` and reserve JSDoc for what types cannot state (units, source, lifecycle, edge-case conventions).
 
@@ -22,7 +22,7 @@ Constraints a machine can check belong in the type, not in JSDoc—runtime valid
 
    The id base must equal `<domain>`. Define exactly one map-shaped `ROOT`. Keep SCHEMA identity and META lifecycle facts out of ROOT. Choose carriers by synchronization/write granularity and document non-obvious domain meaning with adjacent JSDoc.
 
-   Document every enum/union member with its own JSDoc (ADR 0019, M4 anchor): place the doc immediately before the member's leading `|`—or before the first member when it has no leading `|`—so per-member meaning reaches the IR, derived schema, generated TSDoc, and readData projections. Keep docs out of the `| /** d */ "b"` gap and off single-member unions (both fail VFSL-E305); express those at alias level instead.
+   Document every enum/union member with its own JSDoc (ADR 0019, M4 anchor): place the doc immediately before the member's leading `|`—or before the first member when it has no leading `|`—so per-member meaning reaches the IR, derived schema, generated TSDoc, and the readData projection text (each member renders its own comment line). Keep docs out of the `| /** d */ "b"` gap and off single-member unions (both fail VFSL-E305); express those at alias level instead.
 4. Validate directly from the Nomicore checkout before code generation:
 
    ```bash

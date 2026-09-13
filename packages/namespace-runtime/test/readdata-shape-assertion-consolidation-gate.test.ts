@@ -1,6 +1,6 @@
 /**
- * issue #333（T0 pre-factor）+ issue #336（T3 五键修订）验收门 —— readData 成功分支
- * 「恒五键」形状断言集中化。
+ * issue #333（T0 pre-factor）+ issue #336（T3 五键修订）+ issue #364（T2 四键修订）
+ * 验收门 —— readData 成功分支「恒四键」形状断言集中化。
  *
  * 任务类型 = 纯测试重构（零行为变化、零产品代码/公共类型变化）。因此本文件不是行为
  * 红灯契约，而是**收敛门 + 回归契约的执行面**：
@@ -10,12 +10,15 @@
  *   正是本门要消除的**结构性缺口**。红的原因即「未集中化」本身（失败消息给出逐条清单），
  *   不是环境/fixture/入口错误。
  * - **T0 后本门转绿**：所有成功形状断言经统一 helper / 集中化形状构造表达。
- * - **T3（issue #336）**：形状经 T0 单点修订为恒五键（`readdata-ok-shape.ts`），
- *   family B 判定随 `SUCCESS_SHAPE_KEYS` 常量自动随动；本文件正负样本同步五键化。
+ * - **T3（issue #336）**：形状经 T0 单点修订为恒五键（`readdata-ok-shape.ts`）；
+ *   family B 判定随 `SUCCESS_SHAPE_KEYS` 常量自动随动。
+ * - **#364（ADR-0027 决策 1）**：形状再修订为恒四键（`truncations` 键退役）；family B
+ *   同时识别当前四键与退役五键字面量（陈旧形状写死同样违规）；本文件正负样本同步
+ *   四键化 + 五键陈旧样本保留为正样本（SA6 CT-9 I2）。
  *
  * 行为零变化由既有 readData 套件承担（`runtime-readdata-hostile-path-guard`、
  * `runtime-readdata-schema-projection-red/control`、registry readData 相关套件），
- * 并由 SA6 报告记录的突变探针 M1/M2 证明这些断言对形状变化是敏感的（T3 五键修订
+ * 并由 SA6 报告记录的突变探针 M1/M2/M3 证明这些断言对形状变化是敏感的（历次形状修订
  * 必然击穿旧断言 → 必须集中化）。
  *
  * 门项：
@@ -39,9 +42,9 @@ const scan = scanReadDataShapeAssertions();
 const familyA = scan.assertionSites.filter((site) => site.kind === 'deep-equal-literal');
 const familyB = scan.assertionSites.filter((site) => site.kind === 'exact-key-set-literal');
 
-describe('issue #333 T0 + issue #336 T3 验收门：readData 成功分支恒五键形状断言已集中化', () => {
+describe('issue #333 T0 + issue #336 T3 + issue #364 验收门：readData 成功分支恒四键形状断言已集中化', () => {
   it('作用域覆盖非空且位置正确（防仪器空转）：两个测试树均被扫描、代表性文件在场', () => {
-    // 108 个 .ts（HEAD 实测）——阈值取保守下界，避免新增/删除测试文件误伤。
+    // 110+ 个 .ts（HEAD 实测）——阈值取保守下界，避免新增/删除测试文件误伤。
     expect(scan.filesScanned.length).toBeGreaterThanOrEqual(80);
     for (const anchor of [
       'packages/namespace-runtime/test/runtime-readdata-hostile-path-guard.test.ts',
@@ -61,16 +64,16 @@ describe('issue #333 T0 + issue #336 T3 验收门：readData 成功分支恒五�
   it('family A：成功形状深等字面量断言归零（AC1）', () => {
     expect(
       familyA,
-      `family A（readData 成功分支恒五键深等字面量）仍有 ${familyA.length} 处未集中化：\n${formatShapeAssertionInventory(
+      `family A（readData 成功分支恒四键深等字面量）仍有 ${familyA.length} 处未集中化：\n${formatShapeAssertionInventory(
         familyA,
       )}\n按文件分布：${JSON.stringify(countByFile(familyA))}`,
     ).toEqual([]);
   });
 
-  it('family B：恒五键键集字面量断言归零（与 family A 同属形状集中化半径）', () => {
+  it('family B：恒四键键集字面量断言归零（与 family A 同属形状集中化半径；退役五键同判违规）', () => {
     expect(
       familyB,
-      `family B（readData 成功分支恒五键键集字面量）仍有 ${familyB.length} 处未集中化：\n${formatShapeAssertionInventory(
+      `family B（readData 成功分支恒四键/退役恒五键键集字面量）仍有 ${familyB.length} 处未集中化：\n${formatShapeAssertionInventory(
         familyB,
       )}\n按文件分布：${JSON.stringify(countByFile(familyB))}`,
     ).toEqual([]);
@@ -82,12 +85,17 @@ describe('issue #333 T0 + issue #336 T3 验收门：readData 成功分支恒五�
 describe('仪器敏感性：正样本（必须命中）', () => {
   const POSITIVE_SAMPLES: readonly { name: string; source: string; kind: string }[] = [
     {
-      name: 'family A：单行恒五键 toEqual',
+      name: 'family A：单行恒四键 toEqual（当前成功形状未集中化）',
+      source: "expect(r).toEqual({ ok: true, value: 3, schema: null, truncated: false });",
+      kind: 'deep-equal-literal',
+    },
+    {
+      name: 'family A：单行退役恒五键 toEqual（#364 陈旧形状仍属未集中化）',
       source: "expect(r).toEqual({ ok: true, value: 3, schema: null, truncated: false, truncations: [] });",
       kind: 'deep-equal-literal',
     },
     {
-      name: 'family A：单行恰三键 toEqual（超集匹配——T3 修订后仍属未集中化形状）',
+      name: 'family A：单行恰三键 toEqual（超集匹配——四键修订后仍属未集中化形状）',
       source: "expect(r).toEqual({ ok: true, value: 3, schema: null });",
       kind: 'deep-equal-literal',
     },
@@ -97,9 +105,9 @@ describe('仪器敏感性：正样本（必须命中）', () => {
       kind: 'deep-equal-literal',
     },
     {
-      name: 'family A：多行 + schema 对象字面量',
+      name: 'family A：多行 + schema 投影文本',
       source:
-        "expect(r).toEqual({\n  ok: true,\n  value: { content: 'hi' },\n  schema: { valueSchema: { kind: 'scalar', type: 'number' }, aliases: {}, docs: {}, aliasDocs: {} },\n});",
+        "expect(r).toEqual({\n  ok: true,\n  value: { content: 'hi' },\n  schema: '# readData [meta]\\n\\n{ content: string }\\n',\n  truncated: false,\n});",
       kind: 'deep-equal-literal',
     },
     {
@@ -113,7 +121,13 @@ describe('仪器敏感性：正样本（必须命中）', () => {
       kind: 'deep-equal-literal',
     },
     {
-      name: 'family B：Object.keys(...).sort() 恒五键',
+      name: 'family B：Object.keys(...).sort() 恒四键（当前成功形状）',
+      source:
+        "expect(Object.keys(r).sort()).toEqual(['ok', 'schema', 'truncated', 'value']);",
+      kind: 'exact-key-set-literal',
+    },
+    {
+      name: 'family B：退役恒五键字面量（含 truncations 的陈旧形状必须命中）',
       source:
         "expect(Object.keys(r).sort()).toEqual(['ok', 'schema', 'truncated', 'truncations', 'value']);",
       kind: 'exact-key-set-literal',
@@ -121,7 +135,7 @@ describe('仪器敏感性：正样本（必须命中）', () => {
     {
       name: 'family B：展开写法 + 键序无关',
       source:
-        "expect([...Object.keys(r)].sort()).toEqual(['value', 'truncations', 'ok', 'truncated', 'schema']);",
+        "expect([...Object.keys(r)].sort()).toEqual(['value', 'ok', 'truncated', 'schema']);",
       kind: 'exact-key-set-literal',
     },
   ];
@@ -134,7 +148,7 @@ describe('仪器敏感性：正样本（必须命中）', () => {
     });
   }
 
-  it('形状制造点：readData 测试替身字面量被盘点（报告项）；五键替身同被盘点', () => {
+  it('形状制造点：readData 测试替身字面量被盘点（报告项）；退役五键替身同被盘点', () => {
     const producers = scanSourceForSuccessShapeProducers(
       "const stub = () => ({ ok: true, value: 'marker', schema: null });",
       'producer-sample.ts',
@@ -182,11 +196,11 @@ describe('仪器敏感性：负样本（不得误伤）', () => {
       source: "expect(Object.keys(hit).sort()).toEqual(['ok', 'value']);",
     },
     {
-      name: '恰三键键集断言（T3 五键修订后不再是成功形状——仪器不得命中）',
+      name: '恰三键键集断言（四键修订后不再是成功形状——仪器不得命中）',
       source: "expect(Object.keys(r).sort()).toEqual(['ok', 'schema', 'value']);",
     },
     {
-      name: 'schema 投影体四键键集（不是成功分支键集）',
+      name: 'schema 投影体四键键集（同为四元素、但键名不同——不是成功分支键集，不得命中）',
       source: "expect(Object.keys(r.schema).sort()).toEqual(['aliasDocs', 'aliases', 'docs', 'valueSchema']);",
     },
   ];

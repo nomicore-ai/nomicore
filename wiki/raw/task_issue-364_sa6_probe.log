@@ -1,0 +1,180 @@
+
+ RUN  v3.2.7 /home/wangjian/nomicore-fix-issue-364
+
+stdout | packages/namespace-runtime/test/zz-sa6-364-temp-probe.test.ts > SA6 #364 temporary probe > P0 baseline shape + oracle text render
+PROBE_BASELINE_KEYS=["ok","value","schema","truncated","truncations"]
+PROBE_BASELINE_SCHEMA_TYPEOF=object
+PROBE_BASELINE_JSON_PREFIX={"ok":true,"value":{"content":"hi","extra":7},"schema":{"valueSchema":{"kind":"ref","name":"Meta"},"aliases":{"Meta":{"kind":"object","fields":[{"name":"content","value":{"kind":"scalar","type":"string"}},{"name":"extra"
+PROBE_BUDGET_KEYS=["ok","value","schema","truncated","truncations"]
+PROBE_BUDGET_TRUNCATED=true
+PROBE_BUDGET_TRUNCATIONS=[{"path":["meta"],"kind":"depth","omitted":2},{"path":["tags"],"kind":"depth","omitted":5}]
+PROBE_BUDGET_SCHEMA_MARKERS=2
+PROBE_ORACLE_RESOLVE_OK=true
+PROBE_ORACLE_TEXT_START
+{
+  title: string // 页面标题
+  count: number
+  meta: Meta‡ // 元数据
+  tags: [...]‡ // 标签组
+  nick?: string // 可选昵称
+}
+
+‡ 截断标记：该类型位因读取预算（depth 耗尽）折叠；对该路径再读可展开。
+
+✂ 截断事实：
+- meta · depth · 省略 2 项
+- tags · depth · 省略 5 项
+
+PROBE_ORACLE_TEXT_END
+
+stdout | packages/namespace-runtime/test/zz-sa6-364-temp-probe.test.ts > SA6 #364 temporary probe > P2 divergence matrix: value truncations vs projection markers
+PROBE_CELL={"path":[],"options":{"depth":0},"valueOk":true,"resolvedOk":true,"runtimeOk":true,"vTrunc":true,"markers":1,"runtimeTruncated":true,"runtimeSchemaNull":false,"scissors":true,"dagger":true}
+PROBE_CELL={"path":[],"options":{"depth":1},"valueOk":true,"resolvedOk":true,"runtimeOk":true,"vTrunc":true,"markers":2,"runtimeTruncated":true,"runtimeSchemaNull":false,"scissors":true,"dagger":true}
+PROBE_CELL={"path":[],"options":{"depth":2},"valueOk":false,"resolvedOk":true,"runtimeOk":false,"vTrunc":null,"markers":0,"runtimeTruncated":null,"runtimeSchemaNull":false,"scissors":null,"dagger":null}
+PROBE_CELL={"path":[],"options":{"depth":3},"valueOk":false,"resolvedOk":true,"runtimeOk":false,"vTrunc":null,"markers":0,"runtimeTruncated":null,"runtimeSchemaNull":false,"scissors":null,"dagger":null}
+PROBE_CELL={"path":[],"options":{"maxChildrenPerNode":3},"valueOk":true,"resolvedOk":true,"runtimeOk":true,"vTrunc":true,"markers":0,"runtimeTruncated":true,"runtimeSchemaNull":false,"scissors":true,"dagger":false}
+PROBE_CELL={"path":[],"options":{"maxChildrenPerNode":1},"valueOk":true,"resolvedOk":true,"runtimeOk":true,"vTrunc":true,"markers":0,"runtimeTruncated":true,"runtimeSchemaNull":false,"scissors":true,"dagger":false}
+PROBE_CELL={"path":[],"options":{"depth":1,"maxChildrenPerNode":3},"valueOk":true,"resolvedOk":true,"runtimeOk":true,"vTrunc":true,"markers":2,"runtimeTruncated":true,"runtimeSchemaNull":false,"scissors":true,"dagger":true}
+PROBE_CELL={"path":[],"options":{"depth":0,"maxChildrenPerNode":3},"valueOk":true,"resolvedOk":true,"runtimeOk":true,"vTrunc":true,"markers":1,"runtimeTruncated":true,"runtimeSchemaNull":false,"scissors":true,"dagger":true}
+PROBE_CELL={"path":[],"options":{"depth":2,"maxChildrenPerNode":3},"valueOk":true,"resolvedOk":true,"runtimeOk":true,"vTrunc":true,"markers":0,"runtimeTruncated":true,"runtimeSchemaNull":false,"scissors":true,"dagger":false}
+PROBE_CELL={"path":["meta"],"options":{"depth":0},"valueOk":true,"resolvedOk":true,"runtimeOk":true,"vTrunc":true,"markers":1,"runtimeTruncated":true,"runtimeSchemaNull":false,"scissors":true,"dagger":true}
+PROBE_CELL={"path":["meta"],"options":{"depth":1},"valueOk":true,"resolvedOk":true,"runtimeOk":true,"vTrunc":false,"markers":0,"runtimeTruncated":false,"runtimeSchemaNull":false,"scissors":false,"dagger":false}
+PROBE_CELL={"path":["meta"],"options":{"depth":2},"valueOk":true,"resolvedOk":true,"runtimeOk":true,"vTrunc":false,"markers":0,"runtimeTruncated":false,"runtimeSchemaNull":false,"scissors":false,"dagger":false}
+PROBE_CELL={"path":["meta"],"options":{"depth":3},"valueOk":true,"resolvedOk":true,"runtimeOk":true,"vTrunc":false,"markers":0,"runtimeTruncated":false,"runtimeSchemaNull":false,"scissors":false,"dagger":false}
+PROBE_CELL={"path":["meta"],"options":{"maxChildrenPerNode":3},"valueOk":true,"resolvedOk":true,"runtimeOk":true,"vTrunc":false,"markers":0,"runtimeTruncated":false,"runtimeSchemaNull":false,"scissors":false,"dagger":false}
+PROBE_CELL={"path":["meta"],"options":{"maxChildrenPerNode":1},"valueOk":true,"resolvedOk":true,"runtimeOk":true,"vTrunc":true,"markers":0,"runtimeTruncated":true,"runtimeSchemaNull":false,"scissors":true,"dagger":false}
+PROBE_CELL={"path":["meta"],"options":{"depth":1,"maxChildrenPerNode":3},"valueOk":true,"resolvedOk":true,"runtimeOk":true,"vTrunc":false,"markers":0,"runtimeTruncated":false,"runtimeSchemaNull":false,"scissors":false,"dagger":false}
+PROBE_CELL={"path":["meta"],"options":{"depth":0,"maxChildrenPerNode":3},"valueOk":true,"resolvedOk":true,"runtimeOk":true,"vTrunc":true,"markers":1,"runtimeTruncated":true,"runtimeSchemaNull":false,"scissors":true,"dagger":true}
+PROBE_CELL={"path":["meta"],"options":{"depth":2,"maxChildrenPerNode":3},"valueOk":true,"resolvedOk":true,"runtimeOk":true,"vTrunc":false,"markers":0,"runtimeTruncated":false,"runtimeSchemaNull":false,"scissors":false,"dagger":false}
+PROBE_CELL={"path":["meta","content"],"options":{"depth":0},"valueOk":true,"resolvedOk":true,"runtimeOk":true,"vTrunc":false,"markers":0,"runtimeTruncated":false,"runtimeSchemaNull":false,"scissors":false,"dagger":false}
+PROBE_CELL={"path":["meta","content"],"options":{"depth":1},"valueOk":true,"resolvedOk":true,"runtimeOk":true,"vTrunc":false,"markers":0,"runtimeTruncated":false,"runtimeSchemaNull":false,"scissors":false,"dagger":false}
+PROBE_CELL={"path":["meta","content"],"options":{"depth":2},"valueOk":true,"resolvedOk":true,"runtimeOk":true,"vTrunc":false,"markers":0,"runtimeTruncated":false,"runtimeSchemaNull":false,"scissors":false,"dagger":false}
+PROBE_CELL={"path":["meta","content"],"options":{"depth":3},"valueOk":true,"resolvedOk":true,"runtimeOk":true,"vTrunc":false,"markers":0,"runtimeTruncated":false,"runtimeSchemaNull":false,"scissors":false,"dagger":false}
+PROBE_CELL={"path":["meta","content"],"options":{"maxChildrenPerNode":3},"valueOk":true,"resolvedOk":true,"runtimeOk":true,"vTrunc":false,"markers":0,"runtimeTruncated":false,"runtimeSchemaNull":false,"scissors":false,"dagger":false}
+PROBE_CELL={"path":["meta","content"],"options":{"maxChildrenPerNode":1},"valueOk":true,"resolvedOk":true,"runtimeOk":true,"vTrunc":false,"markers":0,"runtimeTruncated":false,"runtimeSchemaNull":false,"scissors":false,"dagger":false}
+PROBE_CELL={"path":["meta","content"],"options":{"depth":1,"maxChildrenPerNode":3},"valueOk":true,"resolvedOk":true,"runtimeOk":true,"vTrunc":false,"markers":0,"runtimeTruncated":false,"runtimeSchemaNull":false,"scissors":false,"dagger":false}
+PROBE_CELL={"path":["meta","content"],"options":{"depth":0,"maxChildrenPerNode":3},"valueOk":true,"resolvedOk":true,"runtimeOk":true,"vTrunc":false,"markers":0,"runtimeTruncated":false,"runtimeSchemaNull":false,"scissors":false,"dagger":false}
+PROBE_CELL={"path":["meta","content"],"options":{"depth":2,"maxChildrenPerNode":3},"valueOk":true,"resolvedOk":true,"runtimeOk":true,"vTrunc":false,"markers":0,"runtimeTruncated":false,"runtimeSchemaNull":false,"scissors":false,"dagger":false}
+PROBE_CELL={"path":["tags"],"options":{"depth":0},"valueOk":true,"resolvedOk":true,"runtimeOk":true,"vTrunc":true,"markers":1,"runtimeTruncated":true,"runtimeSchemaNull":false,"scissors":true,"dagger":true}
+PROBE_CELL={"path":["tags"],"options":{"depth":1},"valueOk":true,"resolvedOk":true,"runtimeOk":true,"vTrunc":false,"markers":0,"runtimeTruncated":false,"runtimeSchemaNull":false,"scissors":false,"dagger":false}
+PROBE_CELL={"path":["tags"],"options":{"depth":2},"valueOk":true,"resolvedOk":true,"runtimeOk":true,"vTrunc":false,"markers":0,"runtimeTruncated":false,"runtimeSchemaNull":false,"scissors":false,"dagger":false}
+PROBE_CELL={"path":["tags"],"options":{"depth":3},"valueOk":true,"resolvedOk":true,"runtimeOk":true,"vTrunc":false,"markers":0,"runtimeTruncated":false,"runtimeSchemaNull":false,"scissors":false,"dagger":false}
+PROBE_CELL={"path":["tags"],"options":{"maxChildrenPerNode":3},"valueOk":true,"resolvedOk":true,"runtimeOk":true,"vTrunc":true,"markers":0,"runtimeTruncated":true,"runtimeSchemaNull":false,"scissors":true,"dagger":false}
+PROBE_CELL={"path":["tags"],"options":{"maxChildrenPerNode":1},"valueOk":true,"resolvedOk":true,"runtimeOk":true,"vTrunc":true,"markers":0,"runtimeTruncated":true,"runtimeSchemaNull":false,"scissors":true,"dagger":false}
+PROBE_CELL={"path":["tags"],"options":{"depth":1,"maxChildrenPerNode":3},"valueOk":true,"resolvedOk":true,"runtimeOk":true,"vTrunc":true,"markers":0,"runtimeTruncated":true,"runtimeSchemaNull":false,"scissors":true,"dagger":false}
+PROBE_CELL={"path":["tags"],"options":{"depth":0,"maxChildrenPerNode":3},"valueOk":true,"resolvedOk":true,"runtimeOk":true,"vTrunc":true,"markers":1,"runtimeTruncated":true,"runtimeSchemaNull":false,"scissors":true,"dagger":true}
+PROBE_CELL={"path":["tags"],"options":{"depth":2,"maxChildrenPerNode":3},"valueOk":true,"resolvedOk":true,"runtimeOk":true,"vTrunc":true,"markers":0,"runtimeTruncated":true,"runtimeSchemaNull":false,"scissors":true,"dagger":false}
+PROBE_CELL={"path":["tags",1],"options":{"depth":0},"valueOk":true,"resolvedOk":true,"runtimeOk":true,"vTrunc":false,"markers":0,"runtimeTruncated":false,"runtimeSchemaNull":false,"scissors":false,"dagger":false}
+PROBE_CELL={"path":["tags",1],"options":{"depth":1},"valueOk":true,"resolvedOk":true,"runtimeOk":true,"vTrunc":false,"markers":0,"runtimeTruncated":false,"runtimeSchemaNull":false,"scissors":false,"dagger":false}
+PROBE_CELL={"path":["tags",1],"options":{"depth":2},"valueOk":true,"resolvedOk":true,"runtimeOk":true,"vTrunc":false,"markers":0,"runtimeTruncated":false,"runtimeSchemaNull":false,"scissors":false,"dagger":false}
+PROBE_CELL={"path":["tags",1],"options":{"depth":3},"valueOk":true,"resolvedOk":true,"runtimeOk":true,"vTrunc":false,"markers":0,"runtimeTruncated":false,"runtimeSchemaNull":false,"scissors":false,"dagger":false}
+PROBE_CELL={"path":["tags",1],"options":{"maxChildrenPerNode":3},"valueOk":true,"resolvedOk":true,"runtimeOk":true,"vTrunc":false,"markers":0,"runtimeTruncated":false,"runtimeSchemaNull":false,"scissors":false,"dagger":false}
+PROBE_CELL={"path":["tags",1],"options":{"maxChildrenPerNode":1},"valueOk":true,"resolvedOk":true,"runtimeOk":true,"vTrunc":false,"markers":0,"runtimeTruncated":false,"runtimeSchemaNull":false,"scissors":false,"dagger":false}
+PROBE_CELL={"path":["tags",1],"options":{"depth":1,"maxChildrenPerNode":3},"valueOk":true,"resolvedOk":true,"runtimeOk":true,"vTrunc":false,"markers":0,"runtimeTruncated":false,"runtimeSchemaNull":false,"scissors":false,"dagger":false}
+PROBE_CELL={"path":["tags",1],"options":{"depth":0,"maxChildrenPerNode":3},"valueOk":true,"resolvedOk":true,"runtimeOk":true,"vTrunc":false,"markers":0,"runtimeTruncated":false,"runtimeSchemaNull":false,"scissors":false,"dagger":false}
+PROBE_CELL={"path":["tags",1],"options":{"depth":2,"maxChildrenPerNode":3},"valueOk":true,"resolvedOk":true,"runtimeOk":true,"vTrunc":false,"markers":0,"runtimeTruncated":false,"runtimeSchemaNull":false,"scissors":false,"dagger":false}
+PROBE_CELL={"path":["nick"],"options":{"depth":0},"valueOk":true,"resolvedOk":true,"runtimeOk":true,"vTrunc":false,"markers":0,"runtimeTruncated":false,"runtimeSchemaNull":false,"scissors":false,"dagger":false}
+PROBE_CELL={"path":["nick"],"options":{"depth":1},"valueOk":true,"resolvedOk":true,"runtimeOk":true,"vTrunc":false,"markers":0,"runtimeTruncated":false,"runtimeSchemaNull":false,"scissors":false,"dagger":false}
+PROBE_CELL={"path":["nick"],"options":{"depth":2},"valueOk":true,"resolvedOk":true,"runtimeOk":true,"vTrunc":false,"markers":0,"runtimeTruncated":false,"runtimeSchemaNull":false,"scissors":false,"dagger":false}
+PROBE_CELL={"path":["nick"],"options":{"depth":3},"valueOk":true,"resolvedOk":true,"runtimeOk":true,"vTrunc":false,"markers":0,"runtimeTruncated":false,"runtimeSchemaNull":false,"scissors":false,"dagger":false}
+PROBE_CELL={"path":["nick"],"options":{"maxChildrenPerNode":3},"valueOk":true,"resolvedOk":true,"runtimeOk":true,"vTrunc":false,"markers":0,"runtimeTruncated":false,"runtimeSchemaNull":false,"scissors":false,"dagger":false}
+PROBE_CELL={"path":["nick"],"options":{"maxChildrenPerNode":1},"valueOk":true,"resolvedOk":true,"runtimeOk":true,"vTrunc":false,"markers":0,"runtimeTruncated":false,"runtimeSchemaNull":false,"scissors":false,"dagger":false}
+PROBE_CELL={"path":["nick"],"options":{"depth":1,"maxChildrenPerNode":3},"valueOk":true,"resolvedOk":true,"runtimeOk":true,"vTrunc":false,"markers":0,"runtimeTruncated":false,"runtimeSchemaNull":false,"scissors":false,"dagger":false}
+PROBE_CELL={"path":["nick"],"options":{"depth":0,"maxChildrenPerNode":3},"valueOk":true,"resolvedOk":true,"runtimeOk":true,"vTrunc":false,"markers":0,"runtimeTruncated":false,"runtimeSchemaNull":false,"scissors":false,"dagger":false}
+PROBE_CELL={"path":["nick"],"options":{"depth":2,"maxChildrenPerNode":3},"valueOk":true,"resolvedOk":true,"runtimeOk":true,"vTrunc":false,"markers":0,"runtimeTruncated":false,"runtimeSchemaNull":false,"scissors":false,"dagger":false}
+PROBE_CELL={"path":["count"],"options":{"depth":0},"valueOk":true,"resolvedOk":true,"runtimeOk":true,"vTrunc":false,"markers":0,"runtimeTruncated":false,"runtimeSchemaNull":false,"scissors":false,"dagger":false}
+PROBE_CELL={"path":["count"],"options":{"depth":1},"valueOk":true,"resolvedOk":true,"runtimeOk":true,"vTrunc":false,"markers":0,"runtimeTruncated":false,"runtimeSchemaNull":false,"scissors":false,"dagger":false}
+PROBE_CELL={"path":["count"],"options":{"depth":2},"valueOk":true,"resolvedOk":true,"runtimeOk":true,"vTrunc":false,"markers":0,"runtimeTruncated":false,"runtimeSchemaNull":false,"scissors":false,"dagger":false}
+PROBE_CELL={"path":["count"],"options":{"depth":3},"valueOk":true,"resolvedOk":true,"runtimeOk":true,"vTrunc":false,"markers":0,"runtimeTruncated":false,"runtimeSchemaNull":false,"scissors":false,"dagger":false}
+PROBE_CELL={"path":["count"],"options":{"maxChildrenPerNode":3},"valueOk":true,"resolvedOk":true,"runtimeOk":true,"vTrunc":false,"markers":0,"runtimeTruncated":false,"runtimeSchemaNull":false,"scissors":false,"dagger":false}
+PROBE_CELL={"path":["count"],"options":{"maxChildrenPerNode":1},"valueOk":true,"resolvedOk":true,"runtimeOk":true,"vTrunc":false,"markers":0,"runtimeTruncated":false,"runtimeSchemaNull":false,"scissors":false,"dagger":false}
+PROBE_CELL={"path":["count"],"options":{"depth":1,"maxChildrenPerNode":3},"valueOk":true,"resolvedOk":true,"runtimeOk":true,"vTrunc":false,"markers":0,"runtimeTruncated":false,"runtimeSchemaNull":false,"scissors":false,"dagger":false}
+PROBE_CELL={"path":["count"],"options":{"depth":0,"maxChildrenPerNode":3},"valueOk":true,"resolvedOk":true,"runtimeOk":true,"vTrunc":false,"markers":0,"runtimeTruncated":false,"runtimeSchemaNull":false,"scissors":false,"dagger":false}
+PROBE_CELL={"path":["count"],"options":{"depth":2,"maxChildrenPerNode":3},"valueOk":true,"resolvedOk":true,"runtimeOk":true,"vTrunc":false,"markers":0,"runtimeTruncated":false,"runtimeSchemaNull":false,"scissors":false,"dagger":false}
+PROBE_CELL={"path":["blob"],"options":{"depth":0},"valueOk":true,"resolvedOk":false,"runtimeOk":true,"vTrunc":true,"markers":null,"runtimeTruncated":true,"runtimeSchemaNull":true,"scissors":null,"dagger":null}
+PROBE_CELL={"path":["blob"],"options":{"depth":1},"valueOk":true,"resolvedOk":false,"runtimeOk":true,"vTrunc":true,"markers":null,"runtimeTruncated":true,"runtimeSchemaNull":true,"scissors":null,"dagger":null}
+PROBE_CELL={"path":["blob"],"options":{"depth":2},"valueOk":true,"resolvedOk":false,"runtimeOk":true,"vTrunc":false,"markers":null,"runtimeTruncated":false,"runtimeSchemaNull":true,"scissors":null,"dagger":null}
+PROBE_CELL={"path":["blob"],"options":{"depth":3},"valueOk":true,"resolvedOk":false,"runtimeOk":true,"vTrunc":false,"markers":null,"runtimeTruncated":false,"runtimeSchemaNull":true,"scissors":null,"dagger":null}
+PROBE_CELL={"path":["blob"],"options":{"maxChildrenPerNode":3},"valueOk":true,"resolvedOk":false,"runtimeOk":true,"vTrunc":false,"markers":null,"runtimeTruncated":false,"runtimeSchemaNull":true,"scissors":null,"dagger":null}
+PROBE_CELL={"path":["blob"],"options":{"maxChildrenPerNode":1},"valueOk":true,"resolvedOk":false,"runtimeOk":true,"vTrunc":true,"markers":null,"runtimeTruncated":true,"runtimeSchemaNull":true,"scissors":null,"dagger":null}
+PROBE_CELL={"path":["blob"],"options":{"depth":1,"maxChildrenPerNode":3},"valueOk":true,"resolvedOk":false,"runtimeOk":true,"vTrunc":true,"markers":null,"runtimeTruncated":true,"runtimeSchemaNull":true,"scissors":null,"dagger":null}
+PROBE_CELL={"path":["blob"],"options":{"depth":0,"maxChildrenPerNode":3},"valueOk":true,"resolvedOk":false,"runtimeOk":true,"vTrunc":true,"markers":null,"runtimeTruncated":true,"runtimeSchemaNull":true,"scissors":null,"dagger":null}
+PROBE_CELL={"path":["blob"],"options":{"depth":2,"maxChildrenPerNode":3},"valueOk":true,"resolvedOk":false,"runtimeOk":true,"vTrunc":false,"markers":null,"runtimeTruncated":false,"runtimeSchemaNull":true,"scissors":null,"dagger":null}
+PROBE_CELL={"path":["sentinel"],"options":{"depth":0},"valueOk":true,"resolvedOk":false,"runtimeOk":true,"vTrunc":true,"markers":null,"runtimeTruncated":true,"runtimeSchemaNull":true,"scissors":null,"dagger":null}
+PROBE_CELL={"path":["sentinel"],"options":{"depth":1},"valueOk":false,"resolvedOk":false,"runtimeOk":false,"vTrunc":null,"markers":null,"runtimeTruncated":null,"runtimeSchemaNull":false,"scissors":null,"dagger":null}
+PROBE_CELL={"path":["sentinel"],"options":{"depth":2},"valueOk":false,"resolvedOk":false,"runtimeOk":false,"vTrunc":null,"markers":null,"runtimeTruncated":null,"runtimeSchemaNull":false,"scissors":null,"dagger":null}
+PROBE_CELL={"path":["sentinel"],"options":{"depth":3},"valueOk":false,"resolvedOk":false,"runtimeOk":false,"vTrunc":null,"markers":null,"runtimeTruncated":null,"runtimeSchemaNull":false,"scissors":null,"dagger":null}
+PROBE_CELL={"path":["sentinel"],"options":{"maxChildrenPerNode":3},"valueOk":false,"resolvedOk":false,"runtimeOk":false,"vTrunc":null,"markers":null,"runtimeTruncated":null,"runtimeSchemaNull":false,"scissors":null,"dagger":null}
+PROBE_CELL={"path":["sentinel"],"options":{"maxChildrenPerNode":1},"valueOk":false,"resolvedOk":false,"runtimeOk":false,"vTrunc":null,"markers":null,"runtimeTruncated":null,"runtimeSchemaNull":false,"scissors":null,"dagger":null}
+PROBE_CELL={"path":["sentinel"],"options":{"depth":1,"maxChildrenPerNode":3},"valueOk":false,"resolvedOk":false,"runtimeOk":false,"vTrunc":null,"markers":null,"runtimeTruncated":null,"runtimeSchemaNull":false,"scissors":null,"dagger":null}
+PROBE_CELL={"path":["sentinel"],"options":{"depth":0,"maxChildrenPerNode":3},"valueOk":true,"resolvedOk":false,"runtimeOk":true,"vTrunc":true,"markers":null,"runtimeTruncated":true,"runtimeSchemaNull":true,"scissors":null,"dagger":null}
+PROBE_CELL={"path":["sentinel"],"options":{"depth":2,"maxChildrenPerNode":3},"valueOk":false,"resolvedOk":false,"runtimeOk":false,"vTrunc":null,"markers":null,"runtimeTruncated":null,"runtimeSchemaNull":false,"scissors":null,"dagger":null}
+PROBE_DIVERGENCES=[
+ "{\"path\":[],\"options\":{\"maxChildrenPerNode\":3},\"vTrunc\":true,\"mTrunc\":false,\"markers\":0,\"scissors\":true,\"dagger\":false,\"truncatedFlag\":true,\"truncations\":[{\"path\":[],\"kind\":\"width\",\"omitted\":4}]}",
+ "{\"path\":[],\"options\":{\"maxChildrenPerNode\":1},\"vTrunc\":true,\"mTrunc\":false,\"markers\":0,\"scissors\":true,\"dagger\":false,\"truncatedFlag\":true,\"truncations\":[{\"path\":[],\"kind\":\"width\",\"omitted\":6}]}",
+ "{\"path\":[],\"options\":{\"depth\":2,\"maxChildrenPerNode\":3},\"vTrunc\":true,\"mTrunc\":false,\"markers\":0,\"scissors\":true,\"dagger\":false,\"truncatedFlag\":true,\"truncations\":[{\"path\":[],\"kind\":\"width\",\"omitted\":4}]}",
+ "{\"path\":[\"meta\"],\"options\":{\"maxChildrenPerNode\":1},\"vTrunc\":true,\"mTrunc\":false,\"markers\":0,\"scissors\":true,\"dagger\":false,\"truncatedFlag\":true,\"truncations\":[{\"path\":[\"meta\"],\"kind\":\"width\",\"omitted\":1}]}",
+ "{\"path\":[\"tags\"],\"options\":{\"maxChildrenPerNode\":3},\"vTrunc\":true,\"mTrunc\":false,\"markers\":0,\"scissors\":true,\"dagger\":false,\"truncatedFlag\":true,\"truncations\":[{\"path\":[\"tags\"],\"kind\":\"width\",\"omitted\":2}]}",
+ "{\"path\":[\"tags\"],\"options\":{\"maxChildrenPerNode\":1},\"vTrunc\":true,\"mTrunc\":false,\"markers\":0,\"scissors\":true,\"dagger\":false,\"truncatedFlag\":true,\"truncations\":[{\"path\":[\"tags\"],\"kind\":\"width\",\"omitted\":4}]}",
+ "{\"path\":[\"tags\"],\"options\":{\"depth\":1,\"maxChildrenPerNode\":3},\"vTrunc\":true,\"mTrunc\":false,\"markers\":0,\"scissors\":true,\"dagger\":false,\"truncatedFlag\":true,\"truncations\":[{\"path\":[\"tags\"],\"kind\":\"width\",\"omitted\":2}]}",
+ "{\"path\":[\"tags\"],\"options\":{\"depth\":2,\"maxChildrenPerNode\":3},\"vTrunc\":true,\"mTrunc\":false,\"markers\":0,\"scissors\":true,\"dagger\":false,\"truncatedFlag\":true,\"truncations\":[{\"path\":[\"tags\"],\"kind\":\"width\",\"omitted\":2}]}"
+]
+
+stdout | packages/namespace-runtime/test/zz-sa6-364-temp-probe.test.ts > SA6 #364 temporary probe > P3 schema null + failure shape on HEAD
+PROBE_NULL={"keys":["ok","value","schema","truncated","truncations"],"schema":null,"truncated":false}
+PROBE_FAIL={"keys":["ok","code","path","message"],"code":"PATH_NOT_ALLOWED"}
+
+ ❯ packages/namespace-runtime/test/zz-sa6-364-temp-probe.test.ts (4 tests | 1 failed) 34ms
+   ✓ SA6 #364 temporary probe > P0 baseline shape + oracle text render 15ms
+   × SA6 #364 temporary probe > P1 target contract on HEAD (expected RED) 7ms
+     → expected [ 'ok', 'schema', 'truncated', …(2) ] to strictly equal [ Array(4) ]
+   ✓ SA6 #364 temporary probe > P2 divergence matrix: value truncations vs projection markers 9ms
+   ✓ SA6 #364 temporary probe > P3 schema null + failure shape on HEAD 2ms
+
+ Test Files  1 failed (1)
+      Tests  1 failed | 3 passed (4)
+   Start at  20:56:33
+   Duration  617ms (transform 323ms, setup 0ms, collect 427ms, tests 34ms, environment 0ms, prepare 53ms)
+
+
+==================== SA6 red-signature run (target contract on HEAD) ====================
+
+ RUN  v3.2.7 /home/wangjian/nomicore-fix-issue-364
+
+ ❯ packages/namespace-runtime/test/zz-sa6-364-temp-probe.test.ts (4 tests | 1 failed | 3 skipped) 17ms
+   ↓ SA6 #364 temporary probe > P0 baseline shape + oracle text render
+   × SA6 #364 temporary probe > P1 target contract on HEAD (expected RED) 16ms
+     → expected [ 'ok', 'schema', 'truncated', …(2) ] to strictly equal [ Array(4) ]
+   ↓ SA6 #364 temporary probe > P2 divergence matrix: value truncations vs projection markers
+   ↓ SA6 #364 temporary probe > P3 schema null + failure shape on HEAD
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  packages/namespace-runtime/test/zz-sa6-364-temp-probe.test.ts > SA6 #364 temporary probe > P1 target contract on HEAD (expected RED)
+AssertionError: expected [ 'ok', 'schema', 'truncated', …(2) ] to strictly equal [ Array(4) ]
+
+- Expected
++ Received
+
+  [
+    "ok",
+    "schema",
+    "truncated",
++   "truncations",
+    "value",
+  ]
+
+ ❯ packages/namespace-runtime/test/zz-sa6-364-temp-probe.test.ts:51:35
+     49|     const { runtime } = await makeBudgetRuntimeWithDoc();
+     50|     const r = runtime.readData(['meta']) as Any;
+     51|     expect(Object.keys(r).sort()).toStrictEqual(['ok', 'schema', 'trun…
+       |                                   ^
+     52|     expect('truncations' in r).toBe(false);
+     53|     expect(typeof r.schema).toBe('string');
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+
+
+ Test Files  1 failed (1)
+      Tests  1 failed | 3 skipped (4)
+   Start at  20:58:11

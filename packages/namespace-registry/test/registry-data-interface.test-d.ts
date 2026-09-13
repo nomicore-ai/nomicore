@@ -13,6 +13,29 @@ import type { NamespaceLeaseReadResult } from '@nomicore/namespace-registry';
 // @ts-expect-error removed envelope-oriented schema projection name
 import type { NamespaceLeaseSchemaEnvelope } from '@nomicore/namespace-registry';
 
+type Equal<A, B> = (<T>() => T extends A ? 1 : 2) extends (<T>() => T extends B ? 1 : 2) ? true : false;
+type AssertTrue<T extends true> = T;
+
+type LeaseReadDataOk = Extract<NamespaceLeaseReadDataResult, { ok: true }>;
+
+/** #364（ADR-0027 决策 1/4）：成功成员恒四键、schema 为投影文本（string | null）、
+ *  truncated 为布尔机器信号——赋给 runtime 结果别名的可赋值样例保持。 */
+type _readOkFourKeys = AssertTrue<
+  Equal<keyof LeaseReadDataOk, 'ok' | 'value' | 'schema' | 'truncated'>
+>;
+type _readOkSchema = AssertTrue<Equal<LeaseReadDataOk['schema'], string | null>>;
+type _readOkTruncated = AssertTrue<Equal<LeaseReadDataOk['truncated'], boolean>>;
+type _readOkNoTruncationsKey = AssertTrue<
+  Equal<Extract<NamespaceLeaseReadDataResult, { truncations: unknown }>, never>
+>;
+
+export type LeaseDataInterfaceAssertions = {
+  readonly readOkFourKeys: _readOkFourKeys;
+  readonly readOkSchema: _readOkSchema;
+  readonly readOkTruncated: _readOkTruncated;
+  readonly readOkNoTruncationsKey: _readOkNoTruncationsKey;
+};
+
 declare const lease: NamespaceLease;
 
 describe('NamespaceLease exposes Data, Schema, and Metadata concepts', () => {
@@ -36,5 +59,18 @@ describe('NamespaceLease exposes Data, Schema, and Metadata concepts', () => {
     lease.mutateRoot({ op: 'set', path: ['items'], value: {} });
     // @ts-expect-error envelope projection terminology removed from public lease
     lease.getSchemaEnvelope();
+  });
+
+  it('readData 成功面为四键投影文本：truncations 键与 schema.valueSchema 均 fail closed（#364）', () => {
+    const read = lease.readData(['items', 'a', 'quantity']);
+    if (read.ok) {
+      // @ts-expect-error 结构化 truncations 键已退役（截断事实唯一载体 = 投影文本 ✂ 段）
+      void read.truncations;
+      // @ts-expect-error schema 为投影文本 string | null——非 JSON 四件套对象
+      void read.schema.valueSchema;
+      // @ts-expect-error schema 无非空字符串之外的第三态：别名锚精确 string | null
+      const third: undefined = read.schema;
+      void third;
+    }
   });
 });

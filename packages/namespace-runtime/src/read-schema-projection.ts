@@ -1,10 +1,23 @@
 /**
- * @nomicore/namespace-runtime —— readData 语义 schema 投影组合面（issue #273 / ADR-0016）。
+ * @nomicore/namespace-runtime —— readData 投影文本组合面（issue #273 / ADR-0016；
+ * issue #364 / ADR-0027 决策 1/2/3/4 交付形态换代）。
  *
- * 本模块是 `readData` 成功分支的 schema 附加单点（ADR-0016 §分层 L75：「namespace-runtime
+ * 本模块是 `readData` 成功分支的 **schema 附加单点**（ADR-0016 §分层 L75：「namespace-runtime
  * 组合两者」）：D3a 状态守卫（无 active schema → null）+ D3b 敌意 path 规范化守卫 +
- * `resolveSchemaAtPath` 消费（resolver 只见普通数组副本）+ D5 每次读整体 identity-memo
- * 深拷贝（detached、可变普通副本、不冻结、零缓存）。
+ * `resolveSchemaAtPath` 消费（resolver 只见普通数组副本）+ **投影文本组装**（头行前贴
+ * → `renderProjectionText` 正文 → ✂ 段，ADR-0027 决策 2/3）。
+ *
+ * #364 交付形态（ADR-0027 决策 1/2/4）：
+ * - 返回**投影文本** `string | null`：`headLine(规范化 path, 有效预算) + '\n\n' +
+ *   renderProjectionText(resolved, 值通道 truncations)`；`null` 单义直通（无 active
+ *   schema / 路径偏离 / 敌意 path），**绝非空串**；
+ * - **detach 深拷贝层退役**（ADR-0027 决策 4）：渲染器进程内直读 resolver ok 产物，
+ *   文本是原始值（string），天然 detached——无对象可克隆，隔离不变量由形态保证；
+ *   每次读重新 resolve + render（零缓存、零 memo），`replaceSchema` 后同路径读反映新
+ *   derived（无陈旧文本）；
+ * - 头行事实源 = `normalizeReadPath` 产出的**普通数组快照**（实参 path 段值原样、不做
+ *   别名解析）+ 预算分支的组合层 canonical 有效预算（present-undefined 剥离、-0 归一、
+ *   仅 own-enumerable——`canonicalReadOptions` 现实现即此）；无预算分支省略预算段。
  *
  * 错误处置双域划界（D4，SA1 设计 §7-D3b/D4；公共契约在 NamespaceRuntime.readData JSDoc
  * 同步记录）：
@@ -12,66 +25,61 @@
  *   string|number 段、path 属性读取抛出的任意异常）→ `schema: null`（ADR-0016 情形③
  *   收敛；读恒 ok、`value` 语义零影响、绝不外抛——镜像 doc-runtime `safeSpreadPath`/
  *   E100 敌意面纪律）。收编点 = `normalizeReadPath` 的**内层 try**，它只包裹敌意 path
- *   扫描（输入域），**不包裹** `resolveSchemaAtPath` 调用——后续维护者不得把该内层
- *   try 误判为「F-1 前遗留的漏改」或误扩大到可信域；
- * - `InternalError`（可信域畸形 derived：ref 目标缺失、值树引用环、两树分歧、
- *   root/ROOT 缺失等——resolver 无顶层 catch 的刻意 loud 设计）→ throw 逃逸读面，
- *   internal-bug-only、生产不可达（`activeTools.derived` 恒为自身 P0/SCHEMA 写槽
- *   `compileSchemaEnvelope` ok 产物）。本模块对 resolver 调用不加任何 try/catch：
- *   `InternalError` 是唯一逃逸 throw 通道（敌意输入零 throw）。
+ *   扫描（输入域），**不包裹** `resolveSchemaAtPath` / `renderProjectionText` 调用——
+ *   后续维护者不得把该内层 try 误判为「F-1 前遗留的漏改」或误扩大到可信域；
+ * - `InternalError`（可信域畸形 derived / 畸形投影入参：ref 目标缺失、值树引用环、
+ *   两树分歧、root/ROOT 缺失等——resolver/renderer 无顶层 catch 的刻意 loud 设计）→
+ *   throw 逃逸读面，internal-bug-only、生产不可达（`activeTools.derived` 恒为自身
+ *   P0/SCHEMA 写槽 `compileSchemaEnvelope` ok 产物）。本模块对 resolver/renderer 调用
+ *   不加任何 try/catch：`InternalError` 是唯一逃逸 throw 通道（敌意输入零 throw），
+ *   且**无部分输出**（渲染器整体渲染、失败即 throw）。
  *
  * 组合顺序（D2，runtime.ts 落实）：值读先行——失败短路时本模块不可达（失败对象不带
  * schema 键）；成功读的 schema 由本模块产出（状态守卫先于 path 守卫：无 active schema
- * 时不触碰敌意对象）。
+ * 时不触碰敌意对象；头行只读规范化快照——敌意对象**单读**，不会观察到与 resolver
+ * 不同的第二次读视图）。
  *
- * 形状预算（issue #336 / ADR-0024 决策 5/6）：加法第三参 `options`（`undefined` ≡ 无预算
- * ——既有代码路径逐指令运行、逐字节不变）；预算分支把 `ResolveSchemaBudgetOptions` 原样
- * 交给 `resolveSchemaAtPath` 三参（canonical 净化属 runtime 组合层职责，本模块零校验、
- * 零净化）。深度拷贝器对投影层截断标记（`kind:'truncated'`，包装联合成员、**非**
- * ValueSchema 成员——ADR-0003 冻结面）显式分派克隆为全新普通可变副本；无预算读恒纯
- * `ValueSchema`、形状零变化。
- *
- * 深拷贝输入 `resolved` 只来自 resolver ok 分支（D3b 已把敌意面收敛在 null），拷贝器
- * 按 `kind` 显式分派；memo 先登记后递归——共享节点保共享同构、假想环不发散（防御性：
- * resolver 自身游走已带身份守卫，但拷贝器是独立遍历，不依赖该实现细节）。docs/aliasDocs
- * 虽为 resolver 每调用新鲜产物（#272 L447–463），仍统一拷贝——隔离不变量由本模块独立
- * 保证，不依赖 resolver 内部新鲜性实现细节。
+ * 形状预算（issue #336 / ADR-0024 决策 5/6；#364 交付形态换代后 options 闭合形状零变化）：
+ * 预算重载把 `ResolveSchemaBudgetOptions`（canonical）原样交给 `resolveSchemaAtPath`
+ * 三参，并把值通道截断清单（`ReadLogicalValueTruncationEntry[]`，结构同构
+ * `ProjectionTruncation`——零 cast 透传）交给渲染器第二参；无预算重载渲染器第二参缺席
+ * （`undefined` ≡ `[]` 三态逐字节同，T1 已锚）。清单源 = 值通道载体计数（零合成）。
  */
-import { resolveSchemaAtPath } from '@nomicore/vfsl';
+import { renderProjectionText, resolveSchemaAtPath } from '@nomicore/vfsl';
 import type {
   BudgetedReadDataSchemaProjection,
-  BudgetedValueSchema,
   ReadDataSchemaProjection,
   ResolveSchemaBudgetOptions,
-  SchemaTruncationClue,
-  SchemaTruncationMarker,
-  ValueSchema,
 } from '@nomicore/vfsl';
+import type { ReadLogicalValueTruncationEntry } from '@nomicore/doc-runtime';
 import type { RuntimeState } from './p0.js';
 
 /**
- * readData 成功分支的 schema 投影入口（D3a + D3b + resolver + D5；runtime.ts readData
- * ready 分支消费）。返回 detached 深拷贝投影，或 null（无 active schema / 敌意或异态
- * path / resolver 两码收敛——null 单义，不细分原因，不是读的失败）。
+ * readData 成功分支的**投影文本**入口（D3a + D3b + resolver + 头行 + renderer；
+ * runtime.ts readData ready 分支消费）。返回投影文本，或 null（无 active schema /
+ * 敌意或异态 path / resolver 路径偏离收敛——null 单义，不细分原因，不是读的失败）。
  *
- * 两参重载 = 无预算读（逐字节现行为）；三参重载 = 预算读（canonical 由组合层保证在
- * resolver 验收集内；`SCHEMA_OPTIONS_INVALID` 对 canonical 结构性不可达，该码的收敛
- * 面（`!resolved.ok → null`）原样保留给直接调用方）。
+ * 两参重载 = 无预算读（头行无预算段、渲染器第二参缺席）；四参重载 = 预算读
+ * （canonical options 由组合层保证在 resolver 验收集内；`truncations` = 值通道截断
+ * 清单，结构同构 `ProjectionTruncation`，零 cast 透传）。两重载渲染器入参均为可信域：
+ * 畸形 derived/投影 → `InternalError` throw 逃逸（无 catch、无部分输出）。
  */
 export function projectReadDataSchema(
   state: RuntimeState,
   path: readonly (string | number)[],
-): ReadDataSchemaProjection | null;
+): string | null;
 export function projectReadDataSchema(
   state: RuntimeState,
   path: readonly (string | number)[],
   options: ResolveSchemaBudgetOptions,
-): BudgetedReadDataSchemaProjection | null;
+  truncations: readonly ReadLogicalValueTruncationEntry[],
+): string | null;
 export function projectReadDataSchema(
   state: RuntimeState,
   path: readonly (string | number)[],
   options?: ResolveSchemaBudgetOptions,
-): ReadDataSchemaProjection | BudgetedReadDataSchemaProjection | null {
+  truncations?: readonly ReadLogicalValueTruncationEntry[],
+): string | null {
   const tools = state.activeTools;
   // D3a 情形①：无 active schema（preparing/unavailable；fatal 期 schemaState 停留
   // 'preparing' 且 activeTools 未安装——B5 天然覆盖，不读 state.fatal）。状态守卫先于
@@ -82,15 +90,90 @@ export function projectReadDataSchema(
   if (normalized === null) return null;
   // resolver 只见普通数组副本；可信域畸形 derived 的 InternalError 由此直通逃逸
   // （D4：不加 catch、不收敛 null、不降级码——唯一逃逸 throw 通道）。两分支显式分流
-  // （无 cast 过重载）：无预算走两参（逐指令 legacy 路径）、预算走三参。
+  // （无 cast 过重载）：无预算走两参（渲染器第二参缺席）、预算走三参 + 值通道清单。
   if (options === undefined) {
     const resolved = resolveSchemaAtPath(tools.derived, normalized);
     if (!resolved.ok) return null; // 情形②/③：路径偏离 schema / 静态解析失败（两码同收敛）
-    return detachReadSchemaProjection(resolved);
+    return assembleProjectionText(normalized, resolved, undefined);
   }
   const resolved = resolveSchemaAtPath(tools.derived, normalized, options);
   if (!resolved.ok) return null; // 对 canonical 结构性不可达（防御纵深保留给直接调用方）
-  return detachReadSchemaProjection(resolved);
+  return assembleProjectionText(normalized, resolved, options, truncations);
+}
+
+/**
+ * 投影文本组装序（ADR-0027 决策 2/3）：头行（实参 path 快照 + 有效预算）→ 恰 1 空行 →
+ * 渲染器正文（含 ✂ 段与 `‡` 页脚）。渲染器是 T1 冻结面——本模块零选项、零包装、
+ * 零 try/catch（畸形可信域入参 → renderer 内 `InternalError` 逃逸）。
+ */
+function assembleProjectionText(
+  normalizedPath: readonly (string | number)[],
+  resolved: ReadDataSchemaProjection | BudgetedReadDataSchemaProjection,
+  options: ResolveSchemaBudgetOptions | undefined,
+  truncations?: readonly ReadLogicalValueTruncationEntry[],
+): string {
+  const body = options === undefined
+    ? renderProjectionText(resolved)
+    : renderProjectionText(resolved, truncations);
+  return `${headLine(normalizedPath, options)}\n\n${body}`;
+}
+
+/**
+ * 头行（ADR-0027 决策 3 文法 `# readData [<path>] {depth:N}`；SA6 附录 A / 设计
+ * §7-D2 字节冻结）：
+ *
+ * ```
+ * headLine(path, options) = "# readData [" + pathText + "]" + budgetSuffix
+ * pathText     = path.length === 0 ? "" : path.map(foldSegment).join(".")
+ * foldSegment  = String(seg).replace(/\r\n|\n|\r/g, " ").trim()   // 行注入防御
+ * budgetSuffix = "" | " {depth:N}" | " {maxChildrenPerNode:K}"
+ *              | " {depth:N,maxChildrenPerNode:K}"                 // 键序固定、逗号无空格
+ * ```
+ *
+ * - `options` = 组合层 canonical 净化后的有效预算（present-undefined 已剥离、-0 已归一、
+ *   仅 own-enumerable）；两键皆缺席 → 无预算段（无预算读/空预算/canonical 等价面）；
+ * - path 段取自 `normalizeReadPath` 的普通数组快照（实参段值原样，不做别名解析）；
+ *   `foldSegment` 与渲染器 ✂ 段 path 记法同规则（`foldText`）——头行**恒不含换行**；
+ * - 空路径 → `# readData []`（SA6 C1/附录 B 操作性口径；ADR 决策 3 `[<path>]` 文法）；
+ * - 段含 `.`/空白等歧义字符如实呈现（呈现形态，不承诺 round-trip；程序化结构需求走
+ *   resolver 直达——ADR-0027 已知限制 1）。
+ */
+function headLine(
+  path: readonly (string | number)[],
+  options: ResolveSchemaBudgetOptions | undefined,
+): string {
+  const pathText = path.length === 0 ? '' : path.map(foldSegment).join('.');
+  let budgetSuffix = '';
+  if (options !== undefined) {
+    // 轴值只读 **own** 属性（canonical 净化产物只含有效 own 键）：继承键污染
+    // （Object.prototype.depth 等）不得泄露进头行——canonical 等价面（空预算 ≡ 无预算）
+    // 由「own 读取 + present-undefined 剥离」共同保证。
+    const depth = ownAxis(options, 'depth');
+    const maxChildrenPerNode = ownAxis(options, 'maxChildrenPerNode');
+    if (depth !== undefined && maxChildrenPerNode !== undefined) {
+      budgetSuffix = ` {depth:${String(depth)},maxChildrenPerNode:${String(maxChildrenPerNode)}}`;
+    } else if (depth !== undefined) {
+      budgetSuffix = ` {depth:${String(depth)}}`;
+    } else if (maxChildrenPerNode !== undefined) {
+      budgetSuffix = ` {maxChildrenPerNode:${String(maxChildrenPerNode)}}`;
+    }
+  }
+  return `# readData [${pathText}]${budgetSuffix}`;
+}
+
+/** 预算轴 own 属性读取（零原型链查找；present-undefined ≡ 缺席——镜像 canonical 纪律）。 */
+function ownAxis(
+  options: ResolveSchemaBudgetOptions,
+  key: 'depth' | 'maxChildrenPerNode',
+): number | undefined {
+  if (!Object.prototype.hasOwnProperty.call(options, key)) return undefined;
+  const value = options[key];
+  return value === undefined ? undefined : value;
+}
+
+/** 段呈现：`String(seg)` + 换行折叠为空格 + trim（与渲染器 ✂ 段 path 记法同规则）。 */
+function foldSegment(segment: string | number): string {
+  return String(segment).replace(/\r\n|\n|\r/g, ' ').trim();
 }
 
 /**
@@ -100,14 +183,14 @@ export function projectReadDataSchema(
  * 绝不调用迭代协议（不 spread、不 for..of、不 Array.from）。
  *
  * 设计要点（SA1 设计 §7-D3b）：
- * 1. 内层 try 只包裹敌意 path 扫描本身，不包裹 resolveSchemaAtPath 调用（D4 可信域
- *    通道保持零 catch——两域处置在代码结构上物理分离）；
+ * 1. 内层 try 只包裹敌意 path 扫描本身，不包裹 resolveSchemaAtPath/renderProjectionText
+ *    调用（D4 可信域通道保持零 catch——两域处置在代码结构上物理分离）；
  * 2. 迭代纯度校验使「exotic-but-indexable 但索引读正常」的数组（重定义迭代器的真数组
  *    T1、对 Symbol.iterator 键抛出的 Proxy T2）确定收敛 null——敌意对象的语义不可信
  *    （可非确定、可有副作用），纪律是 fail-closed 收敛（null），与 doc-runtime
  *    `safeSpreadPath` 敌意数组坍缩为 `[]` 同一姿势的 schema 面对偶；
- * 3. 普通数组副本传 resolver——即便未来 resolver 内部消费方式演变（其 for..of/
- *    [...path] 均只见普通数组），防御自包含、不依赖 resolver 实现细节；
+ * 3. 普通数组副本传 resolver（并作为头行段值事实源）——即便未来 resolver 内部消费方式
+ *    演变（其 for..of/[...path] 均只见普通数组），防御自包含、不依赖 resolver 实现细节；
  * 4. 段语义不在此重复：本守卫只做句法域检查（普通数组 + string|number），段的语义
  *    合法性仍由 resolver 两码单义收敛（D3 原有「resolver 是段语义唯一裁决者」保持）。
  */
@@ -129,175 +212,4 @@ function normalizeReadPath(path: readonly (string | number)[]): Array<string | n
   } catch {
     return null; // 敌意 trap/意外异常 → 收敛 null，绝不外抛
   }
-}
-
-/** identity-memo：同节点 → 同副本（保共享同构 + DAG 不膨胀 + 环不发散）。 */
-type CloneMemo = Map<object, unknown>;
-
-/**
- * D5：resolver ok 分支四件套整体深拷贝——每次读全新 wrapper + 全新四件套（零缓存）；
- * 可变普通副本（原型 Object.prototype，不冻结——红 #14 `Object.isFrozen` 锚）。
- * 纯/预算双重载：legacy 调用侧静态纯度由重载保住（预算实参含标记、不命中纯重载）。
- */
-function detachReadSchemaProjection(resolved: ReadDataSchemaProjection): ReadDataSchemaProjection;
-function detachReadSchemaProjection(
-  resolved: BudgetedReadDataSchemaProjection,
-): BudgetedReadDataSchemaProjection;
-function detachReadSchemaProjection(
-  resolved: ReadDataSchemaProjection | BudgetedReadDataSchemaProjection,
-): ReadDataSchemaProjection | BudgetedReadDataSchemaProjection {
-  const memo: CloneMemo = new Map<object, unknown>();
-  return {
-    valueSchema: cloneValueSchema(resolved.valueSchema, memo),
-    aliases: cloneValueSchemaRecord(resolved.aliases, memo),
-    docs: cloneDocsRecord(resolved.docs),
-    aliasDocs: cloneDocsRecord(resolved.aliasDocs),
-  };
-}
-
-/**
- * 值语义子树克隆：逐 `kind` 显式分派（普通对象/数组字面量构造，不冻结）。容器节点
- * 先登记后递归（构造外壳 → memo.set → 递归填成员）——共享节点保共享、假想环不发散
- * （防御性；合法 derived 无环，见模块头注）。
- *
- * 预算加宽（issue #336 D-3）：参数/返回扩为 `BudgetedValueSchema`，**10-case 显式分派、
- * 仍无 default**（穷尽性 fail-loud：ValueSchema 未来加 kind 即编译红）；新增
- * `case 'truncated'` —— 投影层截断标记克隆为全新普通可变对象（clue 全新普通副本、
- * memo 统一登记、标记为叶节点），**永不**下沉为 ValueSchema 成员（ADR-0003 冻结面）。
- * 纯/预算双重载保住 legacy 侧静态纯度（标量实参 → 纯重载，返回 ValueSchema）。
- */
-function cloneValueSchema(node: ValueSchema, memo: CloneMemo): ValueSchema;
-function cloneValueSchema(node: BudgetedValueSchema, memo: CloneMemo): BudgetedValueSchema;
-function cloneValueSchema(node: BudgetedValueSchema, memo: CloneMemo): BudgetedValueSchema {
-  const memoized = memo.get(node);
-  if (memoized !== undefined) return memoized as BudgetedValueSchema;
-  switch (node.kind) {
-    case 'object': {
-      const out: Extract<ValueSchema, { kind: 'object' }> = { kind: 'object', fields: [] };
-      memo.set(node, out); // 先登记后递归
-      for (const field of node.fields) {
-        out.fields.push({ name: field.name, value: cloneValueSchema(field.value, memo) });
-      }
-      if (node.keyPattern !== undefined) out.keyPattern = node.keyPattern;
-      return out;
-    }
-    case 'array': {
-      const out: Extract<ValueSchema, { kind: 'array' }> = { kind: 'array', element: node.element };
-      memo.set(node, out); // 先登记后递归（外壳暂持原引用，递归返回后立即整替——单线程内不可观测）
-      out.element = cloneValueSchema(node.element, memo);
-      return out;
-    }
-    case 'union': {
-      const out: Extract<ValueSchema, { kind: 'union' }> = { kind: 'union', members: [] };
-      memo.set(node, out); // 先登记后递归
-      for (const member of node.members) {
-        out.members.push(cloneValueSchema(member, memo));
-      }
-      if (node.discriminator !== undefined) out.discriminator = cloneDiscriminator(node.discriminator);
-      return out;
-    }
-    case 'optional': {
-      const out: Extract<ValueSchema, { kind: 'optional' }> = { kind: 'optional', value: node.value };
-      memo.set(node, out); // 先登记后递归
-      out.value = cloneValueSchema(node.value, memo);
-      return out;
-    }
-    case 'enum': {
-      const out: Extract<ValueSchema, { kind: 'enum' }> = { kind: 'enum', values: [...node.values] };
-      memo.set(node, out);
-      return out;
-    }
-    case 'ref': {
-      const out: Extract<ValueSchema, { kind: 'ref' }> = { kind: 'ref', name: node.name };
-      memo.set(node, out);
-      return out;
-    }
-    case 'pattern': {
-      const out: Extract<ValueSchema, { kind: 'pattern' }> = { kind: 'pattern', regex: node.regex };
-      memo.set(node, out);
-      return out;
-    }
-    // 数值约束叶（#315 / ADR 0020 决策 5）：条件键逐键携带——`int` 裸形（min/max 皆缺席）
-    // 不得补 undefined 槽；带参形态两键必在场。detached 纪律由既有 memo 机制继承。
-    case 'int': {
-      const out: Extract<ValueSchema, { kind: 'int' }> = { kind: 'int' };
-      memo.set(node, out);
-      if (node.min !== undefined) out.min = node.min;
-      if (node.max !== undefined) out.max = node.max;
-      return out;
-    }
-    case 'range': {
-      const out: Extract<ValueSchema, { kind: 'range' }> = { kind: 'range', min: node.min, max: node.max };
-      memo.set(node, out);
-      return out;
-    }
-    case 'scalar': {
-      const out: Extract<ValueSchema, { kind: 'scalar' }> = { kind: 'scalar', type: node.type };
-      memo.set(node, out);
-      return out;
-    }
-    case 'xml': {
-      const out: Extract<ValueSchema, { kind: 'xml' }> = { kind: 'xml' };
-      memo.set(node, out);
-      return out;
-    }
-    case 'truncated': {
-      // 投影层截断标记（包装联合成员，非 ValueSchema 成员）：clue 全新普通副本、
-      // memo 统一登记（防同标记多次出现时重复克隆——保共享同构）；叶节点、零递归。
-      const clue: SchemaTruncationClue = node.clue.via === 'ref'
-        ? { via: 'ref', name: node.clue.name }
-        : { via: 'container', containerKind: node.clue.containerKind };
-      const out: SchemaTruncationMarker = { kind: 'truncated', clue };
-      memo.set(node, out);
-      return out;
-    }
-  }
-}
-
-/** 判别式缓存克隆（纯数据：field 原语 + byValue 键为 String(字面量)——逐键构造，
- *  CreateDataPropertyOrThrow 语义防 '__proto__' 类键触发原型 setter）。 */
-function cloneDiscriminator(discriminator: {
-  field: string;
-  byValue: Record<string, number>;
-}): { field: string; byValue: Record<string, number> } {
-  return {
-    field: discriminator.field,
-    byValue: cloneNumberRecord(discriminator.byValue),
-  };
-}
-
-/** 别名表克隆：同 memo 传递——valueSchema 与 aliases 间共享节点产出同副本。
- *  纯/预算双重载同 `cloneValueSchema`（预算模式闭包体成员值位可含标记）。 */
-function cloneValueSchemaRecord(
-  rec: Record<string, ValueSchema>,
-  memo: CloneMemo,
-): Record<string, ValueSchema>;
-function cloneValueSchemaRecord(
-  rec: Record<string, BudgetedValueSchema>,
-  memo: CloneMemo,
-): Record<string, BudgetedValueSchema>;
-function cloneValueSchemaRecord(
-  rec: Record<string, BudgetedValueSchema>,
-  memo: CloneMemo,
-): Record<string, BudgetedValueSchema> {
-  // 键写入经 CreateDataPropertyOrThrow 语义（Object.fromEntries 逐键构造）——
-  // '__proto__' 类键不触发原型 setter。键域同时结构性排除该键（VFSL tokenizer 标识符
-  // 起始限 ASCII 字母，'_' 不可起始 → '__proto__' 不可作别名/语法路径段；SA2 N-5 独立
-  // 核验成立）——双层防御，防未来重构退化为裸赋值。
-  return Object.fromEntries(
-    Object.keys(rec).map((k) => [k, cloneValueSchema(rec[k] as BudgetedValueSchema, memo)]),
-  );
-}
-
-/** number 原语 record 克隆（判别式 byValue；同 CreateDataPropertyOrThrow 语义）。 */
-function cloneNumberRecord(rec: Record<string, number>): Record<string, number> {
-  return Object.fromEntries(Object.entries(rec));
-}
-
-/** docs/aliasDocs 克隆：新 record + 每条目新数组（[...entry]）；string 原语直传。
- *  键域与写入语义注释同 cloneValueSchemaRecord（N-5 判断依据保留）。 */
-function cloneDocsRecord(rec: Record<string, readonly string[]>): Record<string, readonly string[]> {
-  return Object.fromEntries(
-    Object.keys(rec).map((k) => [k, [...(rec[k] as readonly string[])]]),
-  );
 }

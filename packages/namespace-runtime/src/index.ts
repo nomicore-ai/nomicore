@@ -17,6 +17,15 @@
  * `ReadLogicalValueTruncationEntry` 转出（全部 type-only——值导出面仍恰
  * RuntimeWriteFatalError 一键）。
  *
+ * #364 增量（ADR-0027 决策 1/2/4，破坏性修订）：readData 成功分支再修订为**恒四键**
+ * `{ ok, value, schema, truncated }`——`schema` 为**投影文本**（头行 + 渲染器正文 + ✂ 段；
+ * `string | null`，null 单义直通），结构化 `truncations` 键退役（截断事实唯一载体 = 文本内
+ * ✂ 段），`truncated` 保留为机器信号；投影 detach 深拷贝层退役（文本原始值天然 detached）；
+ * 两联合成功成员坍缩为**同一四键类型**（联合名与双重载签名保留——失败面结构不同，
+ * READ_OPTIONS_INVALID 零泄漏锁不动）；`ReadLogicalValueTruncationEntry` 公共转出**退役**
+ * （原为已退役 truncations 键的命名面而设；值通道类型的消费方直依 `@nomicore/doc-runtime`）。
+ * 类型导出面其余键集不变。
+ *
  * #132 增量：Runtime 十二键（+enableReplication/bumpReplicationEpoch 复制管理操作键）；
  * getStatus 八键（+replication 复制域）；type-only 追加五个复制管理类型（值导出面仍
  * 恰一键——REPLICATION_ID_PATTERN 等值导出不进本入口）。
@@ -41,9 +50,9 @@ export type {
   NamespaceRuntimeReadDataResult,
   RuntimeReadDisabledResult,
 } from './runtime.js';
-// #336（ADR-0024 T3）：截断清单条目的公共命名面（消费方无需直依 doc-runtime——
-// 单源转出，零复制；doc-runtime 为 runtime 既有 dependency，d.ts 引用可解析）。
-export type { ReadLogicalValueTruncationEntry } from '@nomicore/doc-runtime';
+// #336（ADR-0024 T3）：`ReadLogicalValueTruncationEntry` 曾在此转出（truncations 键的
+// 公共命名面）。#364（ADR-0027 决策 1）退役该键后此转出成为死词汇——本入口不再导出；
+// 需要值通道截断事实类型的消费方直依 `@nomicore/doc-runtime`（其公共面既有且冻结）。
 export type { NamespaceRuntimeStatus } from './status.js';
 export type { ActiveSchemaInfo } from './p0.js';
 export type { RuntimeWriteFatalPhase } from './errors.js';
