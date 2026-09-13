@@ -137,7 +137,9 @@ describe('T0：公共面不漂移——fence 以 non-enumerable 键挂载、inde
       'mutateData',
       'namespaceId',
       'owner',
+      'readArray',
       'readData',
+      'readMap',
       'replaceSchema',
     ]);
     const desc = Object.getOwnPropertyDescriptor(fx.runtime, 'beginResetFence');

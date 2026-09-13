@@ -3,7 +3,9 @@ import type {
   DataMutationIssue,
   MutateDataResult,
   NamespaceRuntime,
+  NamespaceRuntimeReadArrayResult,
   NamespaceRuntimeReadDataResult,
+  NamespaceRuntimeReadMapResult,
 } from '@nomicore/namespace-runtime';
 
 // Breaking public interface: ROOT carrier terminology does not cross the Runtime seam.
@@ -42,6 +44,20 @@ describe('NamespaceRuntime exposes Data, Schema, and Metadata concepts', () => {
     const result = null as unknown as MutateDataResult;
     void issue;
     void result;
+  });
+
+  it('#369（ADR 0028 W2）：readArray/readMap 为公共窗口读成员（第二参必填、面词表 fail closed）', () => {
+    const array: NamespaceRuntimeReadArrayResult = runtime.readArray(['items'], { n: 1 });
+    const map: NamespaceRuntimeReadMapResult = runtime.readMap(['items'], { n: 1, orderBy: { by: 'key' } });
+    void array;
+    void map;
+
+    // @ts-expect-error 第二参必填（ADR 0028 决策 1：n 必填且无重载）
+    runtime.readArray(['items']);
+    // @ts-expect-error readArray 不收 field（决策 2 v1 词表）
+    runtime.readArray(['items'], { n: 1, orderBy: { field: 'x' } });
+    // @ts-expect-error readMap 不收 by:'index'
+    runtime.readMap(['items'], { n: 1, orderBy: { by: 'index' } });
   });
 
   it('#364：readData 成功分支为恰四键的投影文本形态（truncations/valueSchema 编译失败）', () => {

@@ -132,6 +132,23 @@ When constructing a write after a budget read, construct the mutation explicitly
 
 When a read is followed by a write, use the `schema` projection (projection text) returned with the value to interpret the value's domain and construct a legal `mutateData()` mutation (minimal, mergeable, semantic — next section). Static `PathAt` / `PathPatchValue` types remain the compile-time authority; the runtime projection text serves dynamically read values and agent-style consumers that must interpret data without generated types.
 
+### Window reads: `readArray` / `readMap`
+
+When you need a *meaningful* slice of a container — the newest K records, the K tasks with the highest priority — a `readData` width budget will not do: `maxChildrenPerNode` is a structurally blind guard (first K in carrier order), not a selector. Window reads ([ADR 0028](../../../docs/adr/0028-window-read.md)) are the value-aware selector on the lease public surface:
+
+```ts
+const recent = lease.readArray(['workRecords'], { n: 2, orderBy: { by: 'index', dir: 'desc' }, depth: 1 })
+const top = lease.readMap(['tasks'], { n: 2, orderBy: { field: 'priority', dir: 'desc' } })
+```
+
+- `n` is required and ≥ 1 (`n: 0` is invalid — to count entries, do a normal read); the sort term carries its own direction (`asc` default): `readArray` accepts only `{ by: 'index' }`, `readMap` accepts `{ by: 'key' }` (default) or a single-segment `{ field: 'priority' }`. `depth` / `maxChildrenPerNode` are the same shape-budget axes ([ADR 0024](../../../docs/adr/0024-readdata-shape-budget.md)), applied inside each selected entry; the target width is governed by `n`.
+- A successful window read returns the same **exactly four own keys** `{ ok, value, schema, truncated }`: `value` is the **entry list** — `{ index, value }` for `readArray`, `{ key, value }` for `readMap` — in the ordering basis' order. Identity rides along, so a follow-up read or mutation path is the target path plus `entry.index` / `entry.key`.
+- `schema` is the **element-scope projection text** (the ADR 0027 form, without a `readData` head line): the type block and docs of one entry, with `depth` fold markers inside the element subtree; it is path-keyed and data-independent, so an empty container still returns the element scope. For a Record-shaped key container the anchor is the dynamic key slot (`'<key>'`); for a closed `YMap<{…}>` shape that anchor does not resolve and the text falls back to the **container path**, whose type block statically enumerates every entry key and value type — in that fallback `depth` counts from the container, so pass `depth ≥ 1` for the full field scope. `schema` stays `null` when there is no active schema, the path strays off-schema, or no anchor resolves; as with `readData`, a null projection is not a read failure.
+- `truncated === kept < total`, where `total` is the target's candidate entry count (array length with sparse holes counted; map keys whose value is not `undefined`). When `kept < total` the text ends with a `✂ 截断事实：` window-facts line `- <path> · 窗口 · 基 <basis> <dir> · kept <n>/total <N>`; `total: 0` means `truncated: false` and no `✂` section.
+- Entry materialization is the composed depth anchor: every selected entry equals a same-budget read of that entry's own path; unselected children are never materialized.
+- Window reads are loud about absence where `readData` absorbs it: `WINDOW_TARGET_ABSENT` (missing key or out-of-range index), `WINDOW_CARRIER_MISMATCH` (present but the wrong carrier — call the other API), `WINDOW_OPTIONS_INVALID` (rule violations such as `n: 0`, or a `field` term on `readArray`); `PATH_NOT_ALLOWED` still rides through when a selected entry fails to materialize (fail-fast, no partial window). A released lease returns the frozen `NAMESPACE_LEASE_RELEASED` issue.
+- Division of labour with `readData` budgets: the width budget is a **structural guard** (it never looks at values), while a window read is the **value-aware selector** — use a window read to choose which entries to read at all, and a budget read for the shape and scope of each one.
+
 ## Mutation policy: minimal, mergeable, semantic
 
 Design every business write against three simultaneous criteria:

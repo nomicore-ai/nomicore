@@ -30,6 +30,12 @@
  * getStatus 八键（+replication 复制域）；type-only 追加五个复制管理类型（值导出面仍
  * 恰一键——REPLICATION_ID_PATTERN 等值导出不进本入口）。
  *
+ * #369 增量（ADR 0028 决策 1/3/6/7/9，纯加法）：Runtime 十四键
+ * （+readArray/readMap 窗口读组合面——成功恒四键 `{ ok, value, schema, truncated }`，
+ * `value` 为条目列表、`schema` 为元素口径投影文本 + ✂ 窗口事实块、`truncated === kept < total`）；
+ * type-only 追加四个窗口读别名（options 为 doc-runtime 单源别名；结果含 W1 失败成员与
+ * `RuntimeReadDisabledResult`）；值导出面仍恰 `RuntimeWriteFatalError` 一键。
+ *
  * 公共面纪律（AC1/AC2/AC6/AC9 锚定；issue #93 round 2 收口）：
  * - 值导出恰一键：RuntimeWriteFatalError（ADR-0008 点名的稳定 rejection 形状——
  *   instanceof 判别 committed/phase 是上层「不得自动重试非幂等写」纪律的依赖面）；
@@ -54,6 +60,14 @@ export type {
 // 公共命名面）。#364（ADR-0027 决策 1）退役该键后此转出成为死词汇——本入口不再导出；
 // 需要值通道截断事实类型的消费方直依 `@nomicore/doc-runtime`（其公共面既有且冻结）。
 export type { NamespaceRuntimeStatus } from './status.js';
+// issue #369（ADR 0028 W2）：窗口读公共类型（type-only——值导出面仍恰
+// RuntimeWriteFatalError 一键冻结；options 为 doc-runtime 单源别名）。
+export type {
+  NamespaceRuntimeReadArrayOptions,
+  NamespaceRuntimeReadArrayResult,
+  NamespaceRuntimeReadMapOptions,
+  NamespaceRuntimeReadMapResult,
+} from './window-read.js';
 export type { ActiveSchemaInfo } from './p0.js';
 export type { RuntimeWriteFatalPhase } from './errors.js';
 export type { DataMutationIssue, MutateDataResult } from './write.js';

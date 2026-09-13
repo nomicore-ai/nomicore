@@ -1,6 +1,7 @@
 /**
- * @nomicore/namespace-runtime —— Runtime 构造与十二键公共面（设计 §3/§4 D1/D2/D3/D6/D8'；
- * issue #132 增第十一/十二键 enableReplication/bumpReplicationEpoch）。
+ * @nomicore/namespace-runtime —— Runtime 构造与十四键公共面（设计 §3/§4 D1/D2/D3/D6/D8'；
+ * issue #132 增第十一/十二键 enableReplication/bumpReplicationEpoch；
+ * issue #369（ADR 0028 W2）增第十三/十四键 readArray/readMap——窗口读组合面）。
  *
  * 构造序（D1，R2 修订落实 SA2 #3/#4——一切 throw 与一切 seam 读取均在入队前）：
  *  V1 形状守卫（loud TypeError；seam 字段全部读取限于构造栈内有限次——校验与捕获
@@ -24,7 +25,8 @@
  * 队尾 barrier；详见接口 JSDoc 与 close.ts）+ enableReplication / bumpReplicationEpoch
  * （第十一/十二键，issue #132——Hub 显式复制管理操作，唯一公共 META 复制保留字段
  * 写入口；经同一 WriteSequencer，槽序 E1–E7 见 replication-write.ts）**。read/write
- * 与三数据投影 getter 的接纳门（lifecycle gate）住在公共方法层（D4/D5.1）：
+ * readArray/readMap（第十三/十四键，issue #369）与三数据投影 getter 的接纳门
+ * （lifecycle gate）住在公共方法层（D4/D5.1）：
  * closing/closed 期 read 同步结果联合拒绝、三 getter 同步 throw
  * RUNTIME_READ_DISABLED（D-2，#93 rev2）、两种写同步入队拒绝（零入队）；
  * 槽内不设 lifecycle gate——已接纳任务无条件排空（ADR-0008）。
@@ -37,7 +39,7 @@
  */
 import type * as Y from 'yjs';
 import type { DocHandle, ReplicationIdentityRef } from '@nomicore/persistence';
-import { readLogicalValueAtPath } from '@nomicore/doc-runtime';
+import { readArrayWindowAtPath, readLogicalValueAtPath, readMapWindowAtPath } from '@nomicore/doc-runtime';
 import type {
   ReadLogicalValueAtPathBudgetResult,
   ReadLogicalValueAtPathOptions,
@@ -59,6 +61,13 @@ import {
 import { runP0 } from './p0.js';
 import type { ActiveSchemaInfo, P0Env, RuntimeState } from './p0.js';
 import { projectReadDataSchema } from './read-schema-projection.js';
+import { composeArrayWindowRead, composeMapWindowRead } from './window-read.js';
+import type {
+  NamespaceRuntimeReadArrayOptions,
+  NamespaceRuntimeReadArrayResult,
+  NamespaceRuntimeReadMapOptions,
+  NamespaceRuntimeReadMapResult,
+} from './window-read.js';
 import { projectMetadata, projectSchemaEnvelope } from './projection.js';
 import { WriteSequencer } from './sequencer.js';
 import { buildStatus } from './status.js';
@@ -168,7 +177,8 @@ export type NamespaceRuntimeReadDataBudgetResult =
   | ReadLogicalValueBudgetFailure
   | RuntimeReadDisabledResult;
 
-/** Runtime 公共形状（D2 十键协议；键集/形状即公共契约——AC2/AC6/AC8 锚定）。 */
+/** Runtime 公共形状（D2 十键协议 + close + 复制管理两键 + 窗口读两键 = 十四键；
+ *  键集/形状即公共契约——AC2/AC6/AC8 锚定）。 */
 export interface NamespaceRuntime {
   /** 冻结的 owner 身份投影（只投影 userId）。 */
   readonly owner: Readonly<{ userId: string }>;
@@ -223,6 +233,49 @@ export interface NamespaceRuntime {
     ): NamespaceRuntimeReadDataBudgetResult;
     (path: readonly (string | number)[]): NamespaceRuntimeReadDataResult;
   };
+  /**
+   * 数组面窗口读（ADR 0028 决策 1/3/4/6/7；issue #369 W2）：对 `path` 终点序列容器
+   * （attached Y.Array / plain array）确定性选窗，一次调用拿到「条目列表值 + 元素口径
+   * 投影文本 + 窗口截断事实」。
+   *
+   * - `value` = **条目列表** `{ index, value }[]`（身份随行、呈现序 = 有序基之序）；
+   *   `{index,value}` 包装是传输形态，不进 schema 口径；空容器 → `value: []`；
+   * - `schema` = **元素口径投影文本**（ADR-0027 形态；无头行）：锚 = `[...path, 0]`
+   *   （单锚无回退），`renderProjectionText` 正文（含 `‡` 页脚与别名块）；截断且正文
+   *   非 null 时追加 B-8 ✂ 窗口事实块（`✂ 截断事实：` + 一行
+   *   `- <pathText> · 窗口 · 基 <basis> <dir> · kept <n>/total <N>`）；锚不可解析（无
+   *   active schema / 路径偏离 / 敌意 path / 异形）→ 严格 `null`（锚失败不是读失败）；
+   * - `truncated === kept < total`：`total` = 终点条目空间候选数（数组 = 长度，稀疏空洞
+   *   计入；`n` 治理终点宽度，`depth` / `maxChildrenPerNode` 只治理入选项内部）；
+   * - 组合式 depth 等价锚（决策 4）：每条目物化 ≡ 同预算 `readData([...path, index])`；
+   *   未入选子项零物化（O(N) 标识枚举计数 + 只物化入选项）；
+   * - options：`n` 必填 ≥1 有限整数（`n:0` 非法）；`orderBy` 仅收 `{by:'index',dir?}`；
+   *   第二参必填、无重载；合法性以 doc-runtime W1 校验器为单一权威；
+   * - 失败面（响亮不抛、同步结果联合）：W1 三码 `WINDOW_TARGET_ABSENT` /
+   *   `WINDOW_CARRIER_MISMATCH` / `WINDOW_OPTIONS_INVALID` + `PATH_NOT_ALLOWED`
+   *   原样透传（缺席**不吸收**、无半窗）；敌意 options 视图不稳定经接缝收编
+   *   `WINDOW_OPTIONS_INVALID`；lifecycle≠ready（closing/closed）→
+   *   `RuntimeReadDisabledResult`（零 options 读取、零 doc 触碰）。
+   */
+  readonly readArray: (
+    path: readonly (string | number)[],
+    options: NamespaceRuntimeReadArrayOptions,
+  ) => NamespaceRuntimeReadArrayResult;
+  /**
+   * 键面容窗口读（ADR 0028 决策 1/3/4/6/7；issue #369 W2）：对 `path` 终点键容器
+   * （attached Y.Map / plain object）确定性选窗——条目身份为 `key`（敌意键免疫：key 是
+   * 条目字段值而非属性名）。
+   *
+   * 与 `readArray` 同款四键结算与失败面；差异仅两处：
+   * - `orderBy` 词表：`{by:'key', dir?}`（缺省）或 `{field: 单段名, dir?}`（v1 恰单段）；
+   * - 元素口径锚链（B-6）：`[...path, '<key>']`（Record 形：值树含动态键槽）→ 不可解析
+   *   时回退 `[...path]` 容器口径（封闭对象形：容器类型块静态枚举全部条目键与值类型；
+   *   该口径下 `depth` 自容器起算——已知限制，`depth ≥ 1` 得完整字段口径）。
+   */
+  readonly readMap: (
+    path: readonly (string | number)[],
+    options: NamespaceRuntimeReadMapOptions,
+  ) => NamespaceRuntimeReadMapResult;
   /** SCHEMA 四标准键投影（D4；载体缺席 → null，载体异型 → loud throw NSRT-SCHEMA-E2；
    *  非 primitive 值 → loud throw）。
    *  lifecycle≠ready（closing/closed）期同步 throw RuntimeReadDisabledError（code
@@ -539,7 +592,7 @@ export function createNamespaceRuntimeWithSeam(input: NamespaceRuntimeSeamInput)
   // （Object.keys 十二键审计不漂移——runtime-acceptance-exports-audit /
   // runtime-registry-internal-seam 既有锚零回归）。
   const beginResetFence = createBeginResetFence(sequencer, state, closeAfterFence);
-  // V3e 公共面（十二键闭包对象；owner/namespaceId 由 V3a 捕获局部量构造——不再解引用成员）
+  // V3e 公共面（十四键闭包对象；owner/namespaceId 由 V3a 捕获局部量构造——不再解引用成员）
   const owner = Object.freeze({ userId });
 
   /**
@@ -610,10 +663,44 @@ export function createNamespaceRuntimeWithSeam(input: NamespaceRuntimeSeamInput)
     };
   }
 
+  /**
+   * 窗口读组合体（ADR 0028 决策 9 第三层；issue #369 W2；函数体 = S1 → S2 → S3–S6）。
+   *
+   * S1 lifecycle gate 先行（closing/closed → RUNTIME_READ_DISABLED，零 options 读取、
+   * 零 doc 触碰——镜像 readData B-1）；S2 W1 载体原语**直通**（raw 引用；失败成员原样
+   * 返回，绝不吸收、无半窗——options 合法性由 W1 单权威裁定，非法 options 零 doc 触碰）；
+   * W1 成功后交 `window-read.ts` 组合（S3 canonical 接缝 → S4 O(N) 计数 → S5 锚链投影
+   * 正文 → S6 四键结算 + ✂ 窗口事实块）。全方法同步、零 sequencer、零状态写入。
+   */
+  function readArray(
+    path: readonly (string | number)[],
+    options: NamespaceRuntimeReadArrayOptions,
+  ): NamespaceRuntimeReadArrayResult {
+    const lifecycle = state.lifecycle;
+    if (lifecycle !== 'ready') return readDisabled(lifecycle, path);
+    const windowResult = readArrayWindowAtPath(doc, path, options);
+    if (!windowResult.ok) return windowResult; // S2：三码 + PATH_NOT_ALLOWED 原样透传
+    return composeArrayWindowRead(state, doc, path, options, windowResult.value);
+  }
+
+  /** 键面容窗口读组合体（同 readArray 骨架；面符换 map、锚链两级见 window-read.ts）。 */
+  function readMap(
+    path: readonly (string | number)[],
+    options: NamespaceRuntimeReadMapOptions,
+  ): NamespaceRuntimeReadMapResult {
+    const lifecycle = state.lifecycle;
+    if (lifecycle !== 'ready') return readDisabled(lifecycle, path);
+    const windowResult = readMapWindowAtPath(doc, path, options);
+    if (!windowResult.ok) return windowResult;
+    return composeMapWindowRead(state, doc, path, options, windowResult.value);
+  }
+
   const runtime: NamespaceRuntime = {
     owner,
     namespaceId: docId,
     readData,
+    readArray,
+    readMap,
     getSchema: () => {
       // D2（#93 rev2，SA8 裁决 B）：数据投影 getter 停接纳——key 仅 lifecycle（裁决 H：
       // 绝不 keyed on fatal/schemaState）；拒绝先于触碰 live Y.Doc（INV 同 read() 分支）

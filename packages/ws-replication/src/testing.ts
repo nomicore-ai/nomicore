@@ -45,6 +45,8 @@ function decorateLease(
     owner: lease.owner,
     namespaceId: lease.namespaceId,
     readData: lease.readData.bind(lease),
+    readArray: lease.readArray.bind(lease),
+    readMap: lease.readMap.bind(lease),
     getSchema: lease.getSchema.bind(lease),
     getMetadata: lease.getMetadata.bind(lease),
     getActiveSchema: lease.getActiveSchema.bind(lease),

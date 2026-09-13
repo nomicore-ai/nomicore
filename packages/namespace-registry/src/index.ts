@@ -14,6 +14,10 @@
  * #112 导出链纪律（R1/M3）：DEFAULT_IDLE_TIMEOUT_MS 唯一运行时定义点在
  * registry.ts，plugin.ts 相对 import 后 re-export，本文件沿 plugin 链转出——零第二
  * 定义点。
+ *
+ * #369 增量（ADR 0028 W2，纯加法）：lease 公共面 +readArray/readMap（13 → 15 键）；
+ * type-only 追加四个窗口读别名（options 为 runtime/doc-runtime 单源别名；结果含
+ * released issue）；值导出面不变。
  */
 export {
   createNamespaceRegistry,
@@ -42,8 +46,12 @@ export type {
   NamespaceLeaseBumpReplicationEpochResult,
   NamespaceLeaseEnableReplicationResult,
   NamespaceLeaseMutateDataResult,
+  NamespaceLeaseReadArrayOptions,
+  NamespaceLeaseReadArrayResult,
   NamespaceLeaseReadDataBudgetResult,
   NamespaceLeaseReadDataResult,
+  NamespaceLeaseReadMapOptions,
+  NamespaceLeaseReadMapResult,
   NamespaceLeaseSchema,
   NamespaceLeaseReleasedIssue,
   NamespaceLeaseReplicationStatus,
