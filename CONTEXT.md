@@ -47,7 +47,7 @@ _Avoid_: 把投影当作 live derived schema 的共享引用、把 `null` 当读
 _Avoid_: 把投影文本当可解析的结构化契约（它是呈现形态——程序化结构需求走仓内 resolver 直达）、期望全文注释随行（首行制是刻意权衡）、在 ✂ 段之外寻找截断事实（结构化清单键已退役）、`schema:null` × 预算读时在值内找键级裁剪辨析（该边界只剩 `truncated` 布尔——ADR-0027 已知限制）
 
 **形状预算（shape budget）**:
-`readData(path, options?)` 可选携带的读取形状约束：`depth`（自目标节点向下允许展开的容器层数，0 = 目标容器自身折叠为空容器）与 `maxChildrenPerNode`（每个被展开节点最多保留的子项数，超出部分省略）。预算在载体投影递归内生效——未展开分支零物化成本；不传预算 = 完整投影（既有行为，零截断）。预算只约束值的形状，不是 schema 通道开关：语义 schema 投影仍 always-on（交付形态为投影文本，ADR-0027）。预算护栏不是导航或分页手段（map 子项序为插入序，不承诺稳定）。预算读的静态类型是 `DeepOptional<PathAt<…>>`（全字段可选形状）：必填字段的类型承诺只在无预算读成立。
+`readData(path, options?)` 可选携带的读取形状约束：`depth`（自目标节点向下允许展开的容器层数，0 = 目标容器自身折叠为空容器）与 `maxChildrenPerNode`（每个被展开节点最多保留的子项数，超出部分省略）。预算在载体投影递归内生效——未展开分支零物化成本；不传预算 = 完整投影（既有行为，零截断）。预算只约束值的形状，不是 schema 通道开关：语义 schema 投影仍 always-on（交付形态为投影文本，ADR-0027）。预算护栏不是导航或分页手段（map 子项序为插入序，不承诺稳定）。预算的 width 是**护栏**而非选择器——有意义的 N 项选择（按序取前/后、按键或值属性排序）走窗口读（ADR-0028）。预算读的静态类型是 `DeepOptional<PathAt<…>>`（全字段可选形状）：必填字段的类型承诺只在无预算读成立。
 _Avoid_: 字节预算（序列化期才精确可知，归调用方）、把预算读当分页 API、把预算参数误解为 schema opt-in（ADR-0016 拒绝的是后者）、对预算读的值使用非可选访问（必填承诺已不成立）
 
 **截断省略（truncation omission）**:
@@ -57,6 +57,10 @@ _Avoid_: 无截断事实伴随的同形空壳占位（暗示"数据为空"且对
 **截断事实段（truncation facts section，✂ 段）**:
 投影文本文末的规范性段落，预算读截断事实的唯一载体（ADR-0027，取代 ADR-0024 的结构化截断清单通道）：逐条呈现被裁位置（path，与 readData 实参同基）、裁因（depth 耗尽 / width 超限）与省略计数（depth = 被折容器直接子项数，width = 超限子项数——不是后代总数，统计后代违背零物化承诺）。depth 条目尾段即被折叠容器的键名（该键在值内以空壳在场，条目是"空壳 = 被裁"的辨识）；width 只在父路径记一条，不逐键。✂ 段是"这次没取"的补全地图，不是数据删除记录；格式属投影文法规格（快照锚定）；无截断时 `truncated:false` 且段整体不出现。
 _Avoid_: 条目携带被截容器内部的子键列表（职责归下一轮浅读）、把 ✂ 段当分页游标、以 ✂ 段缺席推断无截断（判读走 `truncated` 布尔）、在 ✂ 段之外寻找结构化截断键（已退役）
+
+**窗口读（window read）**:
+对 path 终点容器的确定性选窗读（ADR-0028），lease 公共面两个方法：`readArray`（序列容器：Y.Array 与 plain array，下标基）与 `readMap`（键容器：Y.Map 与 plain object，键基或值属性基）。`n` 必填且 ≥1（n=0 非法）。排序项（WindowTerm）= `by:'index'` / `by:'key'` / `field: 单段属性名` 携带 `dir`（asc 缺省）——方向永远挂在排序项上；readArray 缺省 `{by:'index'}`（asc = 自 [0] 取）、仅收 index 基，readMap 缺省 `{by:'key'}`、`'index'` 与多段 field 响亮拒绝。值 = **条目列表**（readArray 条目 `{index, value}`、readMap 条目 `{key, value}`，呈现序 = 有序基之序；身份随行可回溯原容器拼下一轮路径）。depth 为组合式：每个入选项等价于对该项路径的同预算 readData（标量原样、容器项 depth:0 折叠空壳、depth:1 第一层属性）；`maxChildrenPerNode` 只治理入选项内部——终点宽度由 n 治理。排序总序：number（数值序）→ string（码点序）→ 不可比组（缺失/null/布尔/容器）恒居序列尾（两方向窗口都先装可比项），平局按 key/下标 asc 恒定。schema 通道为元素口径投影文本（ADR-0027 形态）；窗口事实（kept/total + 基与方向）进 ✂ 段。目标缺席响亮失败（`WINDOW_TARGET_ABSENT`，不做缺席吸收）；载体不符 `WINDOW_CARRIER_MISMATCH`；规则非法 `WINDOW_OPTIONS_INVALID`。与形状预算的分工：预算的 width 是结构盲的护栏，窗口读是值感知的选择器。
+_Avoid_: 把窗口读当分页 API（无 offset/cursor）、期望 insertion 基（不确定序不提供）、n=0 计数探针、readArray 传 field / readMap 传 by:'index'（v1 词表外响亮拒绝）、把 maxChildrenPerNode 当终点宽度（终点由 n 治理）、期望缺席吸收（窗口读对缺席报错）、期望容器壳出现在 value 里（窗口即结果）
 
 **ROOT**:
 Data 在 VFSL/Y.Doc 实现中的根载体保留名（大小写是契约）：每个模块必须恰好声明一个 map 形的 `type ROOT = …`（裸对象 / `YMap` / `Record`），并物化为 doc 根 `getMap('ROOT')`。ROOT 属于 schema、生成器和运行时实现词汇，不进入普通 namespace 消费接口。其余无人引用的别名是惰性积木，不进数据面。
