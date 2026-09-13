@@ -337,18 +337,33 @@ if (!created.ok) {
 const lease = created.lease
 const notesId = lease.namespaceId // 重新打开与后续引用的凭据
 
-// readData 成功分支恒五键（ADR 0016；ADR 0024 修订）：schema 为该路径的语义 schema
-// 投影或 null（null 不是读的失败——读的 ok 恒真）；truncated / truncations 恒在场
-// （无截断时 false / 空清单）。
+// readData 成功分支恒四键（ADR 0016；ADR 0024 修订；交付形态经 ADR 0027 改为投影文本）：
+// schema 为该路径的投影文本（string）或 null（null 不是读的失败——读的 ok 恒真）；
+// truncated 是布尔机器信号（无截断时 false），截断事实的唯一载体是文本末的 ✂ 段。
 console.log(lease.readData(['title']))
-// { ok: true, value: 'first', schema: { valueSchema, aliases, docs, aliasDocs }, truncated: false, truncations: [] }
+// { ok: true, value: 'first', schema: '# readData [title]\n\nstring // 页面标题', truncated: false }
+
+// 投影文本样张（预算读 { depth: 1 }；组装序 = 头行 → 正文 → ✂ 段）：
+// # readData [] {depth:1}
+//
+// {
+//   title: string // 页面标题
+//   count: number
+//   meta: Meta‡ // 元数据
+// }
+//
+// ‡ 截断标记：该类型位因读取预算（depth 耗尽）折叠；对该路径再读可展开。
+//
+// ✂ 截断事实：
+// - meta · depth · 省略 2 项
 
 // 形状预算（ADR 0024）：第二参 options（封闭形状 { depth?, maxChildrenPerNode? }）
-// 在一次读内以同一预算贯通值与 schema 投影两通道——未展开分支零物化；depth 耗尽处
-// 容器子项折叠为同形空容器（键在场）+ truncations 条目，width 超限的超出前缀键省略；
-// 标量等终态子项不耗层、原样物化。schema 投影同 depth 裁剪，docs 切片按可见性收缩
-// （已渲染宿主的槽位 docs 随值同行，被截闭包内部省略——ADR 0024 #359 amendment）。
-// 不传 options = 完整投影；非法 options 响亮拒绝 READ_OPTIONS_INVALID（同步、不抛）。
+// 在一次读内以同一预算贯通值与投影文本——未展开分支零物化；depth 耗尽处容器子项
+// 折叠为同形空容器（键在场）+ ✂ 段条目，width 超限的超出前缀键省略；标量等终态
+// 子项不耗层、原样物化。文本正文同 depth 裁剪（折叠处以 ‡ 标记），行尾口径注释按
+// 可见性收缩（已渲染宿主的槽位口径随行，被截闭包内部省略——ADR 0024 #359 amendment）。
+// 无预算读省略头行预算段；不传 options = 完整投影文本；非法 options 响亮拒绝
+// READ_OPTIONS_INVALID（同步、不抛）。
 const shallow = lease.readData([], { depth: 1, maxChildrenPerNode: 5 })
 
 const changed = await lease.mutateData({

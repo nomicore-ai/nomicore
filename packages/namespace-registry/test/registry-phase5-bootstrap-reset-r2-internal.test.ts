@@ -268,7 +268,9 @@ function makeLegacyFakeRuntime(opts: { replicationId?: string; replicationEpoch?
   return {
     owner: { userId: 'u-alice' },
     namespaceId: NS_B,
-    readData: () => ({ ok: true, value: 1 }),
+    // #364（ADR-0027 决策 1）：成功分支恒四键——本替身声明面为 unknown（编译器不拦），
+    // 旧两键形 `{ok:true,value:1}` 是仓内最后一处伪形，靠清单同步消灭。
+    readData: () => ({ ok: true, value: 1, schema: null, truncated: false }),
     getSchema: () => null,
     getMetadata: () => ({ docId: NS_B }),
     getActiveSchema: () => null,

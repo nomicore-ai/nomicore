@@ -445,15 +445,17 @@ export type DeleteNamespaceResult = Readonly<{ ok: true }> | DeleteNamespaceIssu
 
 // —— Lease 代理能力的公开 alias（§3.2）：结构性表达 Runtime 能力，不转导 Runtime 名称 ——
 
-/** lease.read 结果 = runtime read 正常联合（ADR-0016 形状：成功分支带语义 schema
- *  投影）| released issue——别名跟随 runtime（D6，lease.ts Equal 锁强制）。 */
+/** lease.read 结果 = runtime read 正常联合（#364 / ADR-0027 决策 1：成功分支恒四键
+ *  `{ ok, value, schema: 投影文本 string | null, truncated }`）| released issue——
+ *  别名跟随 runtime（D6，lease.ts Equal 锁强制）。 */
 export type NamespaceLeaseReadDataResult =
   | NamespaceRuntimeReadDataResult
   | NamespaceLeaseReleasedIssue;
 
-/** lease.read 预算结果（#336 ADR-0024 决策 6「registry lease 原样透传」）= runtime 预算
- *  联合（五键成功面 + READ_OPTIONS_INVALID）| released issue——别名跟随 runtime（具名组合
- *  锁在 lease.ts）；lease 层零预算解释/零校验，透传即代理语义的加法扩展。 */
+/** lease.read 预算结果（#336 ADR-0024 决策 6「registry lease 原样透传」；#364 ADR-0027
+ *  决策 1/4 成功成员与 legacy 同型）= runtime 预算联合（四键成功面 = 投影文本 +
+ *  READ_OPTIONS_INVALID）| released issue——别名跟随 runtime（具名组合锁在 lease.ts）；
+ *  lease 层零预算解释/零校验，透传即代理语义的加法扩展。 */
 export type NamespaceLeaseReadDataBudgetResult =
   | NamespaceRuntimeReadDataBudgetResult
   | NamespaceLeaseReleasedIssue;

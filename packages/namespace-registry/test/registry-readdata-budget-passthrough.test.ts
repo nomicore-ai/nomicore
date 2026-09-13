@@ -1,16 +1,17 @@
 /**
- * issue #336（ADR-0024 T3）registry lease 预算 options 原样透传 —— **红灯**（设计 §12-T5）。
- *
- * 红灯机理：当前 `lease.readData(path)` 单参、无 options 透传（lease.ts L276–279）——
- * 捕获 stub 断言「第二参同一引用」在 `undefined` 处红；真实装配五键断言在
- * `truncated`/`truncations` 处红。
+ * issue #336（ADR-0024 T3）registry lease 预算 options 原样透传 + issue #364（ADR-0027
+ * 决策 1/2/4）交付形态换代后的 lease 面锚（非红灯：本文件在目标实现下全绿）。
  *
  * 契约面：
  * 1. active 期 `lease.readData(path, opts)` → runtime 收到**同一引用**（raw 直传：零复制、
  *    零净化上移、零预算解释）；敌意 options 构造器直传亦然（lease 层零触达敌意 trap）；
- * 2. released 短路先于一切透传（`NAMESPACE_LEASE_RELEASED` 冻结 issue 原样，含带 options 调用）；
+ * 2. released 短路先于一切透传（`NAMESPACE_LEASE_RELEASED` 冻结 issue 原样，含带 options
+ *    调用；失败面恰 `{ok,code,message}` 三键——#364 零变化）；
  * 3. 单参 `lease.readData(path)` 仍走 legacy 通道（第二参未传）；
- * 4. 真实装配（production runtime factory 路径）：lease 预算结果与 runtime 直调逐字段相等。
+ * 4. 真实装配（production runtime factory 路径）：lease 预算结果与 runtime 直调**逐字段
+ *    相等**（含投影文本逐字节），成功分支恒四键 `{ ok, value, schema, truncated }`——
+ *    `schema` 为投影文本 string（头行 + 渲染正文 + ✂ 段），结构化 `truncations` 键已
+ *    随 ADR-0027 决策 1 退役（截断事实唯一载体 = 文本内 `✂ 截断事实：` 段）。
  */
 import { describe, expect, it } from 'vitest';
 import * as Y from 'yjs';
@@ -201,7 +202,7 @@ describe('lease 预算 options 原样透传（active 期 raw 引用直传）', (
 });
 
 describe('真实装配：lease 预算读与 runtime 直调逐字段相等（production factory 路径）', () => {
-  it('lease.readData([], {depth:1}) 五键 + 截断事实 ≡ runtime.readData([], {depth:1})', async () => {
+  it('lease.readData([], {depth:1}) 恒四键 + 投影文本 ≡ runtime.readData([], {depth:1})（含文本逐字节）', async () => {
     let realRuntime: NamespaceRuntime | undefined;
     const lease = await openLease((handle) => {
       realRuntime = createBudgetRuntimeFromHandle(handle);
@@ -212,11 +213,20 @@ describe('真实装配：lease 预算读与 runtime 直调逐字段相等（prod
 
     const viaLease = lease.readData([], { depth: 1 }) as NamespaceLeaseReadDataBudgetResult;
     const direct = realRuntime.readData([], { depth: 1 });
+    // 生产装配字节等价锚：lease 结果与 runtime 直调逐字段相等（投影文本逐字节同源）。
     expect(viaLease).toStrictEqual(direct);
+    // 契约钥匙：恰四键（helper 的 READDATA_OK_KEYS；结构化 truncations 键退役）。
     expectReadDataOkKeys(viaLease);
     if (!viaLease.ok) throw new Error(`契约前提失败：${JSON.stringify(viaLease)}`);
     expect(viaLease.truncated).toBe(true);
-    expect(viaLease.truncations.length).toBeGreaterThan(0);
+    // schema 位 = 投影文本（string）：头行（实参 path + canonical 预算段）→ 渲染正文 → ✂ 段。
+    expect(typeof viaLease.schema).toBe('string');
+    const schema = viaLease.schema as string;
+    expect(schema.startsWith('# readData [] {depth:1}\n\n')).toBe(true);
+    // 截断事实唯一载体 = ✂ 段：在场且逐条列出值通道截断（depth 折叠 meta/tags）。
+    expect(schema).toContain('✂ 截断事实：');
+    expect(schema).toContain('- meta · depth · 省略 2 项');
+    expect(schema).toContain('- tags · depth · 省略 5 项');
     await lease.release();
   });
 });

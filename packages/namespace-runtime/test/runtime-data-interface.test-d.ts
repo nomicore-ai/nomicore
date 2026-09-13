@@ -43,4 +43,22 @@ describe('NamespaceRuntime exposes Data, Schema, and Metadata concepts', () => {
     void issue;
     void result;
   });
+
+  it('#364：readData 成功分支为恰四键的投影文本形态（truncations/valueSchema 编译失败）', () => {
+    const read = runtime.readData(['items', 'a', 'quantity']);
+    if (!read.ok) throw new Error('前提失败：readData 应成功');
+    // @ts-expect-error truncations 键退役（截断事实唯一载体 = 投影文本 ✂ 段）
+    void read.truncations;
+    if (read.schema === null) throw new Error('前提失败：投影文本应非 null');
+    // @ts-expect-error schema 为投影文本 string——不再有 valueSchema 成员
+    void read.schema.valueSchema;
+
+    const budgeted = runtime.readData(['items'], { depth: 1 });
+    if (!budgeted.ok) throw new Error('前提失败：预算 readData 应成功');
+    // @ts-expect-error 预算成功成员与 legacy 同型：truncations 同样退役
+    void budgeted.truncations;
+    if (budgeted.schema === null) throw new Error('前提失败：预算投影文本应非 null');
+    // @ts-expect-error 预算成功成员 schema 同为 string——无 valueSchema 成员
+    void budgeted.schema.valueSchema;
+  });
 });
