@@ -1,0 +1,99 @@
+Testing types with tsc and vue-tsc is an experimental feature.
+Breaking changes might not follow SemVer, please pin Vitest's version when using it.
+
+ RUN  v3.2.7 /home/wangjian/nomicore-fix-issue-364
+
+ ❯ packages/namespace-runtime/test/runtime-readdata-projection-text-red.test.ts (32 tests | 2 failed) 92ms
+   ✓ 组 A：成功分支恒四键 {ok,value,schema,truncated}，truncations 键退役（CT-1/AC1） > A1 无预算成功读：恰四键（own 键集 + 无 symbol）、truncations 不在场、JSON 无该词汇 10ms
+   × 组 A：成功分支恒四键 {ok,value,schema,truncated}，truncations 键退役（CT-1/AC1） > A2 预算成功读（触发/不触发截断两态）：同恰四键 9ms
+     → expected [ 'ok', 'schema', 'truncated', …(2) ] to strictly equal [ Array(4) ]
+   ✓ 组 A：成功分支恒四键 {ok,value,schema,truncated}，truncations 键退役（CT-1/AC1） > A3 ok 恒真、value 键恒在场（缺席为显式 undefined）、truncated 恒为 boolean 2ms
+   ✓ 组 A：成功分支恒四键 {ok,value,schema,truncated}，truncations 键退役（CT-1/AC1） > A4 失败分支键集严格 {ok,code,path,message}：PATH_NOT_ALLOWED / READ_OPTIONS_INVALID / RUNTIME_READ_DISABLED 均不含 schema/truncated/truncations 2ms
+   × 组 B：schema ≡ 头行 + renderProjectionText(独立编译 derived, 值通道截断清单)（CT-2/AC2） > B1/B3 严格夹具矩阵（10 路径 × 9 预算）：逐字节 `===`；resolver 失败 ⇔ 严格 null；truncated 与值通道一致 3ms
+     → expected [ 'ok', 'schema', 'truncated', …(2) ] to strictly equal [ Array(4) ]
+   ✓ 组 B：schema ≡ 头行 + renderProjectionText(独立编译 derived, 值通道截断清单)（CT-2/AC2） > B1/B3 raw 夹具矩阵（14 路径 × 9 预算）：schema:null 与路径偏离同基、truncated 独立透传 13ms
+   ✓ 组 B：schema ≡ 头行 + renderProjectionText(独立编译 derived, 值通道截断清单)（CT-2/AC2） > B2 无预算格：渲染器第二参缺席（组合层不合成清单）——文本与无预算 oracle 逐字节同 1ms
+   ✓ 组 B：schema ≡ 头行 + renderProjectionText(独立编译 derived, 值通道截断清单)（CT-2/AC2） > B4 每次读重新求值：同参连续读逐字节相等；replaceSchema 后同路径读反映新 derived（无陈旧缓存） 5ms
+   ✓ 组 B：schema ≡ 头行 + renderProjectionText(独立编译 derived, 值通道截断清单)（CT-2/AC2） > B5 oracle 独立性（测试结构不变量）：期望串由独立编译的 derived 渲染，绝不从 r.schema 反推 1ms
+   ✓ 组 C：头行 = "# readData [<实参 path 点分>]" + 有效预算段（CT-3/AC3） > C1 空路径无预算：文本以 "# readData []\n\n" 开头 1ms
+   ✓ 组 C：头行 = "# readData [<实参 path 点分>]" + 有效预算段（CT-3/AC3） > C2 多段路径（含数字段）：meta.content / tags.1 点分呈现 1ms
+   ✓ 组 C：头行 = "# readData [<实参 path 点分>]" + 有效预算段（CT-3/AC3） > C3 头行反映实参 path 而非解析路径/别名名：["meta"] → meta（不是 Meta），ref 命中时同样如实 1ms
+   ✓ 组 C：头行 = "# readData [<实参 path 点分>]" + 有效预算段（CT-3/AC3） > C4 预算段三形（键序 depth → maxChildrenPerNode、逗号无空格） 1ms
+   ✓ 组 C：头行 = "# readData [<实参 path 点分>]" + 有效预算段（CT-3/AC3） > C5 无预算省略预算段：无 options / {} / {depth:undefined} / 非 enumerable / 继承键污染 → 全文与无 options 读逐字节相等 2ms
+   ✓ 组 C：头行 = "# readData [<实参 path 点分>]" + 有效预算段（CT-3/AC3） > C6 行注入防御：path 段含 \n / \r\n → 头行内折叠为空格、文本行数不增 2ms
+   ✓ 组 C：头行 = "# readData [<实参 path 点分>]" + 有效预算段（CT-3/AC3） > C7 schema === null 时无头行（# readData 不可达；严格 null、非空串） 2ms
+   ✓ 组 D：truncated === 本次读发生过截断；文本 ✂ 段为唯一截断载体（CT-4/AC4） > D1/D5 无预算读与充足预算读：truncated=false、文本无 ✂、无 ‡ 2ms
+   ✓ 组 D：truncated === 本次读发生过截断；文本 ✂ 段为唯一截断载体（CT-4/AC4） > D3 depth 截断（[] + depth:1）：truncated=true、✂ 段在场、正文含 ‡ 且页脚在场 1ms
+   ✓ 组 D：truncated === 本次读发生过截断；文本 ✂ 段为唯一截断载体（CT-4/AC4） > D4 width-only 截断（["tags"] + maxChildrenPerNode:3）：truncated=true、✂ 段在场、正文无 ‡；正文与无预算读逐字节相等（全文因头行预算段+✂段必不等） 1ms
+   ✓ 组 D：truncated === 本次读发生过截断；文本 ✂ 段为唯一截断载体（CT-4/AC4） > D6 schema:null × 预算截断（raw 键 blob + depth:0）：严格 null 且 truncated === true（诚实共存） 1ms
+   ✓ 组 D：truncated === 本次读发生过截断；文本 ✂ 段为唯一截断载体（CT-4/AC4） > D7 值通道折叠/省略语义零变化：depth 空壳 + 条目、width 键省略、omitted = 直接子项数（oracle 直调对照） 1ms
+   ✓ 组 E：schema:null 三情形单义直通 + 失败/生命周期不变（CT-5/AC5） > E1 三情形（无 active schema / 路径偏离 / 敌意 path）：严格 null、ok 恒真、value 照常、零外抛 13ms
+   ✓ 组 E：schema:null 三情形单义直通 + 失败/生命周期不变（CT-5/AC5） > E2 敌意 path 的敌意函数/trap 零调用：迭代器零调用、Proxy get trap 对 Symbol.iterator 零触达 2ms
+   ✓ 组 E：schema:null 三情形单义直通 + 失败/生命周期不变（CT-5/AC5） > E3 生命周期：closing/closed → RUNTIME_READ_DISABLED 恰四键失败形，先于一切 options 读取（敌意 trap 零执行） 2ms
+   ✓ 组 E：schema:null 三情形单义直通 + 失败/生命周期不变（CT-5/AC5） > E4 定序：非法 path + 非法 options → PATH_NOT_ALLOWED；closed + 非法 options → RUNTIME_READ_DISABLED 1ms
+   ✓ 组 E：schema:null 三情形单义直通 + 失败/生命周期不变（CT-5/AC5） > E5 可信域 InternalError 逃逸通道保持唯一：注入畸形 derived → readData throw（构造名 InternalError），不得被组合层收敛为 schema:null 1ms
+   ✓ 组 E：schema:null 三情形单义直通 + 失败/生命周期不变（CT-5/AC5） > E6 敌意输入零 throw：敌意 path / 敌意 options 下 readData 均不抛、成功面照常 3ms
+   ✓ 组 F：options 闭合形状 {depth?,maxChildrenPerNode?} 零变化（CT-6/AC6） > F1 非法 options 矩阵 → READ_OPTIONS_INVALID 恰 {ok,code,path,message}，path 新鲜回显、message 非空、绝不静默 schema:null 2ms
+   ✓ 组 F：options 闭合形状 {depth?,maxChildrenPerNode?} 零变化（CT-6/AC6） > F2 差分矩阵：runtime 接受集/拒绝码 ≡ readLogicalValueAtPath 权威（零泄漏单源） 1ms
+   ✓ 组 F：options 闭合形状 {depth?,maxChildrenPerNode?} 零变化（CT-6/AC6） > F3 canonical 等价：{} / {depth:undefined} / 非 enumerable / 继承键污染 → 全文逐字节等于无 options 读（含头行无预算段） 1ms
+   ✓ 组 G：投影 detach 深拷贝层退役——文本天然 detached（CT-7/AC7） > G1 schema 非 null 时为 string；结果对象图内无投影对象（JSON 不出现 "valueSchema"） 2ms
+   ✓ 组 G：投影 detach 深拷贝层退役——文本天然 detached（CT-7/AC7） > G2 文本与 runtime 活 schema 零交叉污染：同参连续/交错读逐字节相等；改写 r.value 后重读文本不变 2ms
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 2 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  packages/namespace-runtime/test/runtime-readdata-projection-text-red.test.ts > 组 A：成功分支恒四键 {ok,value,schema,truncated}，truncations 键退役（CT-1/AC1） > A2 预算成功读（触发/不触发截断两态）：同恰四键
+AssertionError: expected [ 'ok', 'schema', 'truncated', …(2) ] to strictly equal [ Array(4) ]
+
+- Expected
++ Received
+
+  [
+    "ok",
+    "schema",
+    "truncated",
++   "truncations",
+    "value",
+  ]
+
+ ❯ expectReadDataOkKeys packages/namespace-runtime/test/helpers/readdata-ok-shape.ts:69:38
+     67| /** 键集侧（family B 替换）：恰四键整键集断言（只断键集，不比较值）。 */
+     68| export function expectReadDataOkKeys(actual: object): void {
+     69|   expect(Object.keys(actual).sort()).toStrictEqual(READDATA_OK_KEYS);
+       |                                      ^
+     70| }
+     71|
+ ❯ packages/namespace-runtime/test/runtime-readdata-projection-text-red.test.ts:187:7
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/2]⎯
+
+ FAIL  packages/namespace-runtime/test/runtime-readdata-projection-text-red.test.ts > 组 B：schema ≡ 头行 + renderProjectionText(独立编译 derived, 值通道截断清单)（CT-2/AC2） > B1/B3 严格夹具矩阵（10 路径 × 9 预算）：逐字节 `===`；resolver 失败 ⇔ 严格 null；truncated 与值通道一致
+AssertionError: expected [ 'ok', 'schema', 'truncated', …(2) ] to strictly equal [ Array(4) ]
+
+- Expected
++ Received
+
+  [
+    "ok",
+    "schema",
+    "truncated",
++   "truncations",
+    "value",
+  ]
+
+ ❯ expectReadDataOkKeys packages/namespace-runtime/test/helpers/readdata-ok-shape.ts:69:38
+     67| /** 键集侧（family B 替换）：恰四键整键集断言（只断键集，不比较值）。 */
+     68| export function expectReadDataOkKeys(actual: object): void {
+     69|   expect(Object.keys(actual).sort()).toStrictEqual(READDATA_OK_KEYS);
+       |                                      ^
+     70| }
+     71|
+ ❯ packages/namespace-runtime/test/runtime-readdata-projection-text-red.test.ts:279:9
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/2]⎯
+
+
+ Test Files  1 failed (1)
+      Tests  2 failed | 30 passed (32)
+Type Errors  no errors
+   Start at  22:09:24
+   Duration  673ms (transform 315ms, setup 0ms, collect 436ms, tests 92ms, environment 0ms, prepare 45ms)
