@@ -21,6 +21,19 @@
  * transaction committing every minimal edit in order, and per-operation
  * boundary verification. Envelopes without an own `ops` key keep the exact
  * single-operation path (byte-identical frozen surface).
+ *
+ * ADR 0025 adds the optional single-condition `guard` to both envelope shapes'
+ * *top level* (`{ op, path, ..., guard }` / `{ ops, guard }`; batch elements must
+ * never carry `guard` — shape error): guard shape validation happens in the same
+ * envelope parse (no stable code, zero writes, not retryable), evaluation happens
+ * in the prepare phase after the parse and before the local/legacy fork (single)
+ * or before per-operation prepare (batch) — a pure `readLogicalValueAtPath`
+ * projection read of the committed carrier asserting `equals` (structural deep
+ * equality) or `absent` (no value). A mismatch is a zero-write single issue
+ * carrying the stable code `MUTATION_GUARD_MISMATCH` with `issue.path` = the
+ * guard condition path (retryable CAS rejection); guard evaluation precedes
+ * schema validation and never enters a Yjs transaction. Guard-less envelopes keep
+ * byte-identical behavior (optional key only).
  */
 import * as Y from 'yjs';
 import type { BoundaryMutationPayload, DerivedSchema, MutationBoundaryPlan, StructureNode, ValidateResult } from '@nomicore/vfsl';
@@ -34,11 +47,19 @@ import { carrierOf } from './carrier.js';
 import { makeRefResolver } from './resolve.js';
 import { DerivedInvariantError, DocRuntimeFatalError, transactGuarded } from './fatal.js';
 import { prepareLocalMutation } from './mutation-local.js';
+import { readLogicalValueAtPath } from './read.js';
+import type { ReadLogicalValueResult } from './read.js';
 
 export interface MutationIssue {
   message: string;
   path: Array<string | number>;
+  /** 模块稳定码；键缺席 = 无码信封/形状错误（不可重试）。现役值：MUTATION_GUARD_MISMATCH。 */
+  code?: string;
 }
+
+/** ADR 0025 稳定码（doc-runtime 首个领域拒绝稳定码）：guard 评估不满足——零写入单 issue、
+ *  `issue.path` = guard 条件路径、可重试（CAS 竞争拒绝）。形状错误族一律键缺席（不可重试）。 */
+export const MUTATION_GUARD_MISMATCH = 'MUTATION_GUARD_MISMATCH';
 
 export type MutationPath = readonly (string | number)[];
 export type ValidatedMutation =
@@ -47,23 +68,38 @@ export type ValidatedMutation =
   | { op: 'array-insert'; path: MutationPath; index: number; values: readonly unknown[] }
   | { op: 'array-delete'; path: MutationPath; index: number; count: number };
 
+/** ADR 0025 条件写判别联合（定稿；ADR 0025 L23–27）：`equals` 结构深相等（undefined
+ *  键过滤，与读取面缺席吸收一致）/ `absent` 无值，恰现其一；guard 路径段纪律同 mutation
+ *  path，长度 ≥1（`[]` 属形状错误——ROOT 整树 CAS v1 拒绝）。
+ *  `?: never` 为 ADR 判别联合的静态 fail-closed 收紧（exclusive-union 惯用法）：TS 联合的
+ *  excess-property 检查不拒绝「某键存在于联合任一成员」的对象字面量，故字面联合会静态接纳
+ *  `{equals, absent}` 同现；补 `?: never` 后与运行时 `parseGuard` ③a 拒绝面完全一致，且
+ *  合法值集合不变（成员一的 `absent`、成员二的 `equals` 本就不存在）。 */
+export type MutationGuard =
+  | { path: readonly (string | number)[]; equals: unknown; absent?: never }
+  | { path: readonly (string | number)[]; absent: true; equals?: never };
+
+/** ADR 0025 单操作信封：四操作 + 可选顶层 guard（键缺席即现役无 guard 契约，逐字节不变）。 */
+export type GuardedMutation = ValidatedMutation & { guard?: MutationGuard };
+
 export type ApplyValidatedMutationResult =
   | { ok: true }
   | { ok: false; issues: MutationIssue[] };
 
-/** ADR 0026 批量信封（形态二）。运行时约束（`ops` 非空、≤16、元素为完整单操作信封、
- *  元素不得携带 `guard`、批内路径互不嵌套）由运行时信封校验承载；类型面只定型元素
- *  可静态约束，基数/嵌套约束不承载。 */
-export type BatchedMutation = { ops: readonly ValidatedMutation[] };
+/** ADR 0026 批量信封（形态二）+ ADR 0025 顶层可选 guard。运行时约束（`ops` 非空、≤16、
+ *  元素为完整单操作信封、**元素不得携带 `guard`**（0026 L29）、批内路径互不嵌套）由运行时
+ *  信封校验承载；类型面只定型元素可静态约束，基数/嵌套约束不承载。guard 只允许出现在顶层。 */
+export type BatchedMutation = { ops: readonly ValidatedMutation[]; guard?: MutationGuard };
 
-/** ADR 0026 双形态信封联合：单操作对象（现役契约）或批量信封；两形态互斥（同现为形状错误）。 */
-export type MutationEnvelope = ValidatedMutation | BatchedMutation;
+/** ADR 0026 + ADR 0025 双形态信封联合：单操作对象（含可选顶层 guard）或批量信封（含可选
+ *  顶层 guard）；两形态互斥（同现为形状错误）。 */
+export type MutationEnvelope = GuardedMutation | BatchedMutation;
 
 /** ADR 0026 `ops` 元素上限（冻结词表常量；不导出——放宽须过设计评审）。 */
 const MAX_BATCH_OPS = 16;
 
 type Path = Array<string | number>;
-type ParsedMutation = ValidatedMutation & { path: Path };
+type ParsedMutation = ValidatedMutation & { path: Path; guard?: MutationGuard };
 /** @internal 包内共享类型（issue #237：mutation-local.ts 消费；不经 index.ts 导出）。 */
 export type PreparedCommit =
   | { kind: 'replace-root'; rootMap: Y.Map<unknown>; entries: Array<[string, unknown]> }
@@ -134,6 +170,12 @@ function prepareMutation(derived: DerivedSchema, doc: Y.Doc, mutation: unknown):
     if (derived.structure.kind !== 'root') {
       throw new DerivedInvariantError('derived.structure 非 root（手造派生物）');
     }
+    // ADR 0025 L48–51：guard 评估在信封解析成功后、局部/legacy 分叉前、schema 校验之前；
+    // 纯读 committed 载体（零写入、零事件）、不进事务；不满足 → 零写入单 issue（带稳定码）。
+    if (parsed.mutation.guard !== undefined) {
+      const verdict = evaluateGuard(doc, parsed.mutation.guard);
+      if (verdict.kind === 'mismatch') return { kind: 'fail', issues: [verdict.issue] };
+    }
     // set([]) 是唯一合法全量形态：legacy 完整 ROOT 管线原样（extract → 旧 ROOT 全量
     // 逻辑校验 → clone → applyToJson → proposed 全量校验 → 单事务 → verifyInstall +
     // verifySnapshotIntact）。其余全部走 issue #237 局部管线。
@@ -183,8 +225,9 @@ function prepareBatchMutation(
   doc: Y.Doc,
   env: Record<string, unknown>,
 ): MutationPrepared {
-  // ── E1 顶层键封闭：恰 {'ops'}；`op` 同现 = 双形态；其余多余键 = 未知键 ──────────
-  const extra = Object.keys(env).filter((key) => key !== 'ops');
+  // ── E1 顶层键封闭：恰 {'ops'} ∪ 可选 'guard'（ADR 0025 L72–74：guard 适用于两种形态
+  //        顶层）；`op` 同现 = 双形态；其余多余键 = 未知键 ────────────────────────────
+  const extra = Object.keys(env).filter((key) => key !== 'ops' && key !== 'guard');
   if (extra.length > 0) {
     if (extra.includes('op')) {
       return failIssue([], '批量信封形状错误：双形态同现（"ops" 与单操作字段组不得同时出现）');
@@ -203,10 +246,10 @@ function prepareBatchMutation(
     return failIssue([], `批量信封形状错误：ops 元素数量超上限（${ops.length} > ${MAX_BATCH_OPS}）`);
   }
   // ── E3 逐元素解析（复用同一单操作解析核：动词封闭键集/缺键/path/值域；guard 与一切
-  //        未知键由封闭键集天然排除）；失败即止 ────────────────────────────────────
+  //        未知键由封闭键集天然排除——allowGuard=false，ADR 0026 L29 冻结面）──────
   const parsed: ParsedMutation[] = [];
   for (let i = 0; i < ops.length; i++) {
-    const element = parseMutationCore(ops[i], `批量元素 #${i}：`);
+    const element = parseMutationCore(ops[i], `批量元素 #${i}：`, false);
     if (element.kind === 'fail') return element;
     parsed.push(element.mutation);
   }
@@ -230,10 +273,24 @@ function prepareBatchMutation(
       }
     }
   }
-  // ── P 逐操作 prepare（无 live 写；任一失败 → 整体零写入 + 聚合全部失败 issues）──
+  // ── E6 顶层可选 guard 形状校验（ADR 0025 L53–58 形状错误族；无码 fail-fast、零写入）──
+  let guard: MutationGuard | undefined;
+  if (Object.hasOwn(env, 'guard')) {
+    const parsedGuard = parseGuard(env.guard, '');
+    if (parsedGuard.kind === 'fail') return parsedGuard;
+    guard = parsedGuard.guard;
+  }
+  // ── 前置内部不变量：derived.structure 必须 root（fatal 位保持在先，不被领域结果掩盖）──
   if (derived.structure.kind !== 'root') {
     throw new DerivedInvariantError('derived.structure 非 root（手造派生物）');
   }
+  // ── G 顶层 guard 评估（恰一次、读批前 committed、先于逐操作 prepare；ADR 0025 L74）──
+  // 不满足 → 恰 1 issue（拒绝点上尚无操作 issues 可聚合）、整体零写入。
+  if (guard !== undefined) {
+    const verdict = evaluateGuard(doc, guard);
+    if (verdict.kind === 'mismatch') return { kind: 'fail', issues: [verdict.issue] };
+  }
+  // ── P 逐操作 prepare（无 live 写；任一失败 → 整体零写入 + 聚合全部失败 issues）──
   const issues: MutationIssue[] = [];
   const items: BatchItem[] = [];
   for (const m of parsed) {
@@ -522,16 +579,19 @@ function childNodeOf(
   return child;
 }
 
-/** 单操作信封解析（现役契约入口；消息零变化）。 */
+/** 单操作信封解析（现役契约入口；消息零变化；顶层可选 guard 属 ADR 0025 演进面）。 */
 function parseMutation(input: unknown):
   | { kind: 'ok'; mutation: ParsedMutation }
   | { kind: 'fail'; issues: MutationIssue[] } {
-  return parseMutationCore(input, '');
+  return parseMutationCore(input, '', true);
 }
 
 /** 单操作解析核（单操作分支与批量元素循环共同消费的唯一实现；`prefix` 为空串时消息
- *  逐字节不变，批量元素以 `批量元素 #i：` 前缀标注）。 */
-function parseMutationCore(input: unknown, prefix: string):
+ *  逐字节不变，批量元素以 `批量元素 #i：` 前缀标注）。
+ *  `allowGuard`：仅单操作顶层与批量顶层形态为 true（ADR 0025 L72–74）；批量元素循环传
+ *  false ⇒ `guard` 键由动词封闭键集天然排除，维持无码形状错误（ADR 0026 L29 冻结面）。
+ *  可选键集为旁路（不进入 specs 必需键检查）：无 guard 输入的未知键消息逐字节不变。 */
+function parseMutationCore(input: unknown, prefix: string, allowGuard: boolean):
   | { kind: 'ok'; mutation: ParsedMutation }
   | { kind: 'fail'; issues: MutationIssue[] } {
   const env = plainObjectOf(input);
@@ -546,7 +606,7 @@ function parseMutationCore(input: unknown, prefix: string):
   if (typeof op !== 'string' || !Object.hasOwn(specs, op)) return failIssue([], `${prefix}未知操作 "${String(op)}"`);
   const operation = op as ValidatedMutation['op'];
   const allowed = specs[operation]!;
-  const unknown = Object.keys(env).find((k) => !allowed.includes(k));
+  const unknown = Object.keys(env).find((k) => !allowed.includes(k) && !(allowGuard && k === 'guard'));
   if (unknown !== undefined) return failIssue([], `${prefix}未知信封键 "${unknown}"（操作 ${op}）`);
   const missing = allowed.find((k) => !Object.hasOwn(env, k));
   if (missing !== undefined) return failIssue([], `${prefix}信封缺少必需键 "${missing}"（操作 ${op}）`);
@@ -555,20 +615,143 @@ function parseMutationCore(input: unknown, prefix: string):
   for (const seg of path) {
     if (typeof seg !== 'string' && typeof seg !== 'number') return failIssue([], `${prefix}path 段类型错误：期望 string|number，实际 ${typeof seg}`);
   }
+  let base: ParsedMutation;
   if (op === 'set') {
     if (env.value === undefined) return failIssue([], `${prefix}set 需携带非 undefined value`);
-    return { kind: 'ok', mutation: { op, path, value: env.value } };
+    base = { op, path, value: env.value };
+  } else if (op === 'delete') {
+    base = { op, path };
+  } else {
+    if (!strictNonNegativeInteger(env.index)) return failIssue(path, `${prefix}${op} index 必须是严格非负整数`);
+    if (op === 'array-insert') {
+      if (!Array.isArray(env.values) || env.values.length === 0) return failIssue(path, `${prefix}array-insert values 必须是非空数组`);
+      if (env.values.some((v) => v === undefined)) return failIssue(path, `${prefix}array-insert values 不得包含 undefined`);
+      base = { op, path, index: env.index, values: [...env.values] };
+    } else {
+      if (op !== 'array-delete') return failIssue([], `未知操作 "${String(op)}"`);
+      if (!strictPositiveInteger(env.count)) return failIssue(path, `${prefix}array-delete count 必须是严格正整数`);
+      base = { op, path, index: env.index, count: env.count };
+    }
   }
-  if (op === 'delete') return { kind: 'ok', mutation: { op, path } };
-  if (!strictNonNegativeInteger(env.index)) return failIssue(path, `${prefix}${op} index 必须是严格非负整数`);
-  if (op === 'array-insert') {
-    if (!Array.isArray(env.values) || env.values.length === 0) return failIssue(path, `${prefix}array-insert values 必须是非空数组`);
-    if (env.values.some((v) => v === undefined)) return failIssue(path, `${prefix}array-insert values 不得包含 undefined`);
-    return { kind: 'ok', mutation: { op, path, index: env.index, values: [...env.values] } };
+  // 可选 guard 形状校验放在 op 自身全部形状检查之后（SA2 N3）：非 guard 缺陷消息保持既有
+  // 优先级；guard 形状错误一律无码（不可重试，ADR 0025 L53–58）。
+  if (!allowGuard || !Object.hasOwn(env, 'guard')) return { kind: 'ok', mutation: base };
+  const parsedGuard = parseGuard(env.guard, prefix);
+  if (parsedGuard.kind === 'fail') return parsedGuard;
+  return { kind: 'ok', mutation: { ...base, guard: parsedGuard.guard } };
+}
+
+/** guard 形状错误全表（ADR 0025 L53–58 + 设计 §5 D4 确定性检查序）：一律 `failIssue([], …)`
+ *  ——信封级错误、path `[]`、键缺席构造（`code === undefined`，不可重试）。检查序：
+ *  ① 普通对象 → ② 未知键 → ③ equals/absent 恰其一 → ④ absent 字面 true →
+ *  ⑤ equals 非 undefined / 任意深度不含非有限数 → ⑥ path 存在/数组/段型/非空。 */
+function parseGuard(value: unknown, prefix: string):
+  | { kind: 'ok'; guard: MutationGuard }
+  | { kind: 'fail'; issues: MutationIssue[] } {
+  const env = plainObjectOf(value);
+  if (env === null) return failIssue([], `${prefix}guard 形状错误：必须是普通对象（实际 ${wordOf(value)}）`);
+  const unknown = Object.keys(env).find((k) => k !== 'path' && k !== 'equals' && k !== 'absent');
+  if (unknown !== undefined) {
+    return failIssue([], `${prefix}guard 形状错误：未知键 "${unknown}"（只允许 "path" 与 "equals"/"absent" 恰其一）`);
   }
-  if (op !== 'array-delete') return failIssue([], `未知操作 "${String(op)}"`);
-  if (!strictPositiveInteger(env.count)) return failIssue(path, `${prefix}array-delete count 必须是严格正整数`);
-  return { kind: 'ok', mutation: { op, path, index: env.index, count: env.count } };
+  const hasEquals = Object.hasOwn(env, 'equals');
+  const hasAbsent = Object.hasOwn(env, 'absent');
+  if (hasEquals && hasAbsent) return failIssue([], `${prefix}guard 形状错误："equals" 与 "absent" 不得同时出现`);
+  if (!hasEquals && !hasAbsent) return failIssue([], `${prefix}guard 形状错误：缺判别键（"equals" 与 "absent" 必须恰现其一）`);
+  if (hasAbsent && env.absent !== true) {
+    return failIssue([], `${prefix}guard 形状错误："absent" 必须是字面 true（实际 ${wordOf(env.absent)}）`);
+  }
+  if (hasEquals && env.equals === undefined) {
+    return failIssue([], `${prefix}guard 形状错误："equals" 不得为 undefined（无值断言请用 absent: true）`);
+  }
+  if (hasEquals && containsNonFiniteNumber(env.equals)) {
+    return failIssue([], `${prefix}guard 形状错误："equals" 含非有限数（NaN/Infinity 值域外）`);
+  }
+  if (!Object.hasOwn(env, 'path')) return failIssue([], `${prefix}guard 形状错误：缺 "path"`);
+  if (!Array.isArray(env.path)) return failIssue([], `${prefix}guard 形状错误：path 必须是数组（段为 string|number）`);
+  const path = [...env.path] as Path;
+  for (const seg of path) {
+    if (typeof seg !== 'string' && typeof seg !== 'number') {
+      return failIssue([], `${prefix}guard 形状错误：path 段类型错误：期望 string|number，实际 ${typeof seg}`);
+    }
+  }
+  if (path.length === 0) {
+    return failIssue([], `${prefix}guard 形状错误：path 不得为空数组（ROOT 整树 CAS v1 拒绝——ADR 0025）`);
+  }
+  if (hasAbsent) return { kind: 'ok', guard: { path, absent: true } };
+  return { kind: 'ok', guard: { path, equals: env.equals } };
+}
+
+/** `equals` 任意深度含非有限数（number 顶层或嵌套；数组/plain object 递归）。
+ *  其余载体（string/boolean/null/bigint/Date…）不含——留给评估期自然不相等，不扩大立法面。 */
+function containsNonFiniteNumber(value: unknown): boolean {
+  if (typeof value === 'number') return !Number.isFinite(value);
+  if (Array.isArray(value)) return value.some((entry) => containsNonFiniteNumber(entry));
+  const obj = plainObjectOf(value);
+  if (obj !== null) return Object.keys(obj).some((key) => containsNonFiniteNumber(obj[key]));
+  return false;
+}
+
+/** guard 评估判决（prepare 阶段一次性纯读；ADR 0025 L42–44）。 */
+type GuardVerdict = { kind: 'satisfied' } | { kind: 'mismatch'; issue: MutationIssue };
+
+/** absent 成员判别（parse 产物恰携其一；`in` 收窄经谓词显式化，避免 exclusive-union 的
+ *  可选 `never` 键影响调用点收窄）。 */
+type AbsentGuard = { path: readonly (string | number)[]; absent: true };
+
+function isAbsentGuard(guard: MutationGuard): guard is AbsentGuard {
+  return 'absent' in guard;
+}
+
+/** 复用既有投影读取与深相等（SA8 required action 4，不新起第二套语义）：
+ *  - equals：`readLogicalValueAtPath` 投影逻辑值 ⊗ `logicalValuesEqual`（undefined 键过滤
+ *    结构深相等）；读失败（PATH_NOT_ALLOWED/E100）不满足；
+ *  - absent：读失败或投影 undefined（缺键吸收）满足；键有值不满足。
+ *  纯读零写入零事件（INV-R1/R9），不进事务；调用点在 `transactGuarded` 之外。 */
+function evaluateGuard(doc: Y.Doc, guard: MutationGuard): GuardVerdict {
+  const read = readLogicalValueAtPath(doc, guard.path);
+  const satisfied = isAbsentGuard(guard)
+    ? !read.ok || read.value === undefined
+    : read.ok && logicalValuesEqual(read.value, guard.equals);
+  if (satisfied) return { kind: 'satisfied' };
+  return { kind: 'mismatch', issue: mismatchIssue(guard, read) };
+}
+
+/** 评估不满足的单 issue（ADR 0025 L58）：稳定码 + `issue.path` 为 guard 条件路径的新鲜
+ *  等价副本；message 含期望/实际有界摘要（截断防爆，单侧 ≤256 字符 + 标记）。 */
+function mismatchIssue(guard: MutationGuard, read: ReadLogicalValueResult): MutationIssue {
+  const guardPath = renderGuardPath(guard.path);
+  const actual = read.ok ? summarizeLogicalValue(read.value) : '不可读（PATH_NOT_ALLOWED）';
+  const message = isAbsentGuard(guard)
+    ? `${MUTATION_GUARD_MISMATCH}: guard 条件不满足（guard 路径 ${guardPath}：期望 absent 无值，实际=${actual}）`
+    : `${MUTATION_GUARD_MISMATCH}: guard 条件不满足（guard 路径 ${guardPath}：期望 equals=${summarizeLogicalValue(guard.equals)}，实际=${actual}）`;
+  return { message, path: [...guard.path], code: MUTATION_GUARD_MISMATCH };
+}
+
+const GUARD_SUMMARY_LIMIT = 256;
+const GUARD_SUMMARY_MARK = '…(截断)';
+
+/** 有界摘要（确定性字符截断 + 标记；远低于诊断 message 4096B 预算）。 */
+function truncateSummary(text: string): string {
+  return text.length <= GUARD_SUMMARY_LIMIT ? text : `${text.slice(0, GUARD_SUMMARY_LIMIT)}${GUARD_SUMMARY_MARK}`;
+}
+
+/** guard 路径渲染（JSON 数组文本，截断有界）。 */
+function renderGuardPath(path: readonly (string | number)[]): string {
+  return truncateSummary(JSON.stringify(path));
+}
+
+/** 期望/实际值摘要：undefined 显式标注读得无值；`JSON.stringify` 抛错或返回非字符串
+ *  （function/symbol 等）时回退 `<不可序列化：类型>`；其余截断有界。 */
+function summarizeLogicalValue(value: unknown): string {
+  if (value === undefined) return 'undefined（读得无值）';
+  try {
+    const text = JSON.stringify(value);
+    if (typeof text !== 'string') return `<不可序列化：${wordOf(value)}>`;
+    return truncateSummary(text);
+  } catch {
+    return `<不可序列化：${wordOf(value)}>`;
+  }
 }
 
 function applyToJson(root: unknown, mutation: ParsedMutation): PlaceResult {
