@@ -29,13 +29,15 @@ declare const options: ResolveSchemaBudgetOptions;
 declare const budgeted: BudgetedResolveSchemaAtPathResult;
 declare const marker: SchemaTruncationMarker;
 
-type NineKinds =
+type ElevenKinds =
   | 'object'
   | 'array'
   | 'xml'
   | 'union'
   | 'enum'
   | 'pattern'
+  | 'int'
+  | 'range'
   | 'scalar'
   | 'optional'
   | 'ref';
@@ -106,14 +108,14 @@ describe('#335 G1 公共 API 与类型面', () => {
     }
   });
 
-  it('G1.4 ValueSchema 九 kind 冻结（新增 kind 即红）', () => {
-    expectTypeOf<ValueSchema['kind']>().toEqualTypeOf<NineKinds>();
+  it('G1.4 ValueSchema 十一 kind 冻结（新增 kind 即红；int/range 自 ADR 0020 并入）', () => {
+    expectTypeOf<ValueSchema['kind']>().toEqualTypeOf<ElevenKinds>();
     // @ts-expect-error 标记不是 ValueSchema 成员（投影层包装、非扩 kind）
     const invalid: ValueSchema = marker;
     expectTypeOf(invalid).toEqualTypeOf<ValueSchema>();
-    // @ts-expect-error 'truncated' 不在九 kind 冻结面内
+    // @ts-expect-error 'truncated' 不在十一 kind 冻结面内
     const invalidKind: ValueSchema['kind'] = 'truncated';
-    expectTypeOf(invalidKind).toEqualTypeOf<NineKinds>();
+    expectTypeOf(invalidKind).toEqualTypeOf<ElevenKinds>();
   });
 
   it('G1.5 预算结果 ok 分支：valueSchema/aliases 容纳标记成员（含失败三码）', () => {
@@ -122,7 +124,7 @@ describe('#335 G1 公共 API 与类型面', () => {
       expectTypeOf(budgeted.aliases).toEqualTypeOf<Record<string, BudgetedValueSchema>>();
       expectTypeOf(budgeted.docs).toEqualTypeOf<Record<string, readonly string[]>>();
       expectTypeOf(budgeted.aliasDocs).toEqualTypeOf<Record<string, readonly string[]>>();
-      // 十案判别共享 `kind` 字面量：truncated 分支在联合内可达
+      // 十二案判别共享 `kind` 字面量（十一 kind + 标记）：truncated 分支在联合内可达
       if (budgeted.valueSchema.kind === 'truncated') {
         expectTypeOf(budgeted.valueSchema).toEqualTypeOf<SchemaTruncationMarker>();
       }

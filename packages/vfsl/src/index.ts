@@ -129,7 +129,7 @@ export type {
 // 不变；`depth` ≥0 整数，计层原点 = 路径终点，容器各计一层、optional/union/enum 透明、
 // ref 为终态边界；`maxChildrenPerNode` 合法但对投影零操作（投影类型级、路径键控）。
 // 截断标记为投影层包装联合（`SchemaTruncationMarker`，`kind:'truncated'` + 成员级线索
-// ——ref 名优先、无 ref 名时容器 kind），不扩展 ValueSchema 九 kind 冻结面；预算读的
+// ——ref 名优先、无 ref 名时容器 kind），不扩展 ValueSchema 十一 kind 冻结面；预算读的
 // `valueSchema` 与 `aliases` 字段类型经重载加宽为投影包装联合，无预算读恒纯 ValueSchema。
 // options 属敌意通道（封闭形状）：非法 / 未知键 / present-undefined / 抛错 getter/Proxy
 // → 判别联合失败 `SCHEMA_OPTIONS_INVALID`（同步、不抛、path 新鲜副本）；校验次序 =

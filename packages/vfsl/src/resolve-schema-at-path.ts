@@ -76,7 +76,7 @@ export type SchemaTruncationClue =
 /**
  * 投影层截断标记（ADR 0024 决策 5「截断节点选型」钉死）：投影层包装形态，
  * **非** ValueSchema 成员、**非**值域哨兵——判别字段复用 `kind` 字面量 `'truncated'`
- * （十案判别，消费方 `switch (node.kind)` 可穷举收窄）。标记不携带预算种类与被截容器
+ * （十二案判别 = 十一 kind + 标记，消费方 `switch (node.kind)` 可穷举收窄）。标记不携带预算种类与被截容器
  * 子键清单（下次浅读或投影截断节点即下一层结构）。
  */
 export interface SchemaTruncationMarker {
@@ -174,11 +174,11 @@ export function isSchemaTruncationMarker(node: unknown): node is SchemaTruncatio
  * 形状预算（ADR 0024 决策 5；`options` 加法第三参，**无 options 行为逐字节不变**）：
  * 预算在解析递归内生效——valueSchema 同 depth 截断、别名传递闭包随展开层收缩、
  * docs/aliasDocs 切片被裁路径省略，三者在同一次遍历内同步收缩（先裁后收集）。
- * 计层规则：容器（object/array）各计 1 层；optional/union/enum/pattern/scalar/xml
- * 透明或终态；ref 为终态边界（被裁位标记携带 ref 名）。计层原点 = 路径终点（到达
+ * 计层规则：容器（object/array）各计 1 层；optional/union/enum/pattern/int/range/
+ * scalar/xml 透明或终态；ref 为终态边界（被裁位标记携带 ref 名）。计层原点 = 路径终点（到达
  * 终点前的路径游走段不受预算）。`maxChildrenPerNode` 合法但对投影零操作（投影是
  * 类型级、路径键控，无实例键）。截断标记为投影层包装（`kind:'truncated'`），
- * 不扩 ValueSchema 九 kind 冻结面；标记携带成员级类型线索（ref 名优先，无 ref 名
+ * 不扩 ValueSchema 十一 kind 冻结面；标记携带成员级类型线索（ref 名优先，无 ref 名
  * 时容器 kind）。
  *
  * `options` 属敌意通道（封闭形状，own-property 语义）：非对象 / null / 数组 / 未知
@@ -377,7 +377,7 @@ function validateBudgetOptions(options: unknown): number | null {
 // —— 预算游走（§6.3 计层规约 + §6.3.5 两相环防御）——
 
 /**
- * 预算壳构造（实现内部单点桥接）：运行时形状 = 原九 kind 家族 + 成员值位可含标记
+ * 预算壳构造（实现内部单点桥接）：运行时形状 = 原十一 kind 家族 + 成员值位可含标记
  * （公共面按 §6.8 pin 为浅层包装联合 `BudgetedValueSchema`，不公开平行类型族）。
  */
 function budgetShell(shell: object): BudgetedValueSchema {
@@ -538,7 +538,8 @@ class BudgetWalk {
         return node;
       }
       default: {
-        // pattern / scalar / xml：终态、预算无关、无内部声明位
+        // pattern / int / range / scalar / xml：终态、预算无关、无内部声明位
+        // （int/range 为 ADR 0020 数值约束叶——rebase 并入后落位于此分支）
         this.emitted.add(path);
         return node;
       }

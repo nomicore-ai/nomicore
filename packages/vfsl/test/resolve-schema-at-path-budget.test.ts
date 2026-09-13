@@ -171,7 +171,7 @@ function markerDigest(result: ObservedOk, base: string): string[] {
 }
 
 function collectKinds(node: ObservedNode, out: Set<string>): void {
-  if (node.kind === 'truncated') return; // 标记是投影层形态、不入九 kind 扫描
+  if (node.kind === 'truncated') return; // 标记是投影层形态、不入十一 kind 扫描
   out.add(node.kind);
   if (node.kind === 'object') for (const f of node.fields ?? []) collectKinds(f.value, out);
   if (node.kind === 'array' && node.element !== undefined) collectKinds(node.element, out);
@@ -343,7 +343,7 @@ describe('#335 G2/G3 计层规则与截断标记', () => {
     expect(mode0.valueSchema).toEqual({ kind: 'truncated', clue: { via: 'ref', name: 'Mode' } });
   });
 
-  it('G3.4 标记是投影层形态：derived 深比较零变异、非标记节点 kind ⊂ 九 kind', () => {
+  it('G3.4 标记是投影层形态：derived 深比较零变异、非标记节点 kind ⊂ 十一 kind', () => {
     const derived = budgetFixtureDerived();
     const before = JSON.stringify(derived);
     const result = expectOk(budget(derived, [], { depth: 1 }), '[] d1');
@@ -352,7 +352,7 @@ describe('#335 G2/G3 计层规则与截断标记', () => {
     collectKinds(result.valueSchema, kinds);
     for (const body of Object.values(result.aliases)) collectKinds(body, kinds);
     for (const kind of kinds) {
-      expect(['object', 'array', 'xml', 'union', 'enum', 'pattern', 'scalar', 'optional', 'ref']).toContain(kind);
+      expect(['object', 'array', 'xml', 'union', 'enum', 'pattern', 'int', 'range', 'scalar', 'optional', 'ref']).toContain(kind);
     }
   });
 
