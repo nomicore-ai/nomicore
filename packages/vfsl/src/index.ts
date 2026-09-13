@@ -148,6 +148,12 @@ export type {
   SchemaTruncationMarker,
 } from './resolve-schema-at-path.js';
 
+// issue #363 / T1：投影文本渲染器（ADR 0027 决策 2/3，验收缝 1）——投影四件套
+// （resolver ok 产物）+ 可选截断清单 → 确定性投影文本；零选项、同步、纯函数、逐字节
+// 确定（含 `‡` 页脚与 ✂ 段文法）。纯加法：既有 20 导出零改动。
+export { renderProjectionText } from './render-projection-text.js';
+export type { ProjectionTruncation } from './render-projection-text.js';
+
 // issue #25 / F1：SchemaSource 接缝（ADR 0005 §1/§2）——FileSchemaSource 阶段态仓内文件源、
 // 方言断言助手与接缝层结构化错误；消费方（F2 生成器 / G dogfood / CI）经接缝取文本。
 export { FileSchemaSource, assertVfslDialect, SchemaSourceError } from './schemasource.js';
