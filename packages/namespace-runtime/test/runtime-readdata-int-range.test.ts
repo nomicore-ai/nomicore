@@ -27,6 +27,11 @@ import type { ReadDataSchemaProjection } from '@nomicore/vfsl';
 import { realPersistenceScheduler } from './real-persistence-scheduler.js';
 import { createNamespaceRuntimeWithSeam } from '../src/runtime.js';
 import type { NamespaceRuntime } from '../src/index.js';
+// rebase 合流（#338）：ADR 0020 的 int/range 测试基线写于 ADR-0024 之前，成功
+// 形状恰三键；ADR-0024 决策 4 后 readData 成功分支恒五键——断言经统一 helper
+// 集中化（readdata-ok-shape，#333/#336 单点）。
+import { expectReadDataOkKeys } from './helpers/readdata-ok-shape.js';
+import type { ReadDataOkShape } from './helpers/readdata-ok-shape.js';
 
 /** #316 私有 schema 文本：int（裸/区间）/ range / 数组元素 / Record 值 / union 叶 + pattern 配对面。 */
 const TXT_316 = `
@@ -82,7 +87,7 @@ async function makeReadyRuntime316(): Promise<NamespaceRuntime> {
   return runtime;
 }
 
-type ReadOkResult = { ok: true; value: unknown; schema: ReadDataSchemaProjection | null };
+type ReadOkResult = ReadDataOkShape;
 
 /** 单点窄化：readData ok:false → loud throw（绝不假绿）。 */
 function readOk(runtime: NamespaceRuntime, path: readonly (string | number)[]): ReadOkResult {
@@ -111,7 +116,7 @@ function oracle(path: readonly (string | number)[]): ReadDataSchemaProjection {
   };
 }
 
-describe('C3c — readData 端到端：Int/Range 叶的语义 schema 投影（三键成功形状 + 预写值）', () => {
+describe('C3c — readData 端到端：Int/Range 叶的语义 schema 投影（恒五键成功形状 + 预写值）', () => {
   it('前置：writeData/readData 装置可观察预写值（b=50 等），schema.state=ready', async () => {
     const runtime = await makeReadyRuntime316();
     try {
@@ -122,11 +127,13 @@ describe('C3c — readData 端到端：Int/Range 叶的语义 schema 投影（�
     }
   });
 
-  it("['b']：ok 恰三键 {ok,value,schema}；value=50；schema.valueSchema = {kind:'int',min:1,max:100}", async () => {
+  it("['b']：ok 恒五键 {ok,value,schema,truncated,truncations}；value=50；schema.valueSchema = {kind:'int',min:1,max:100}", async () => {
     const runtime = await makeReadyRuntime316();
     try {
       const r = readOk(runtime, ['b']);
-      expect(Object.keys(r).sort()).toEqual(['ok', 'schema', 'value']);
+      expectReadDataOkKeys(r);
+      expect(r.truncated).toBe(false);
+      expect(r.truncations).toEqual([]);
       expect(r.value).toBe(50);
       expect(r.schema).not.toBeNull();
       expect(r.schema!.valueSchema).toEqual({ kind: 'int', min: 1, max: 100 });
