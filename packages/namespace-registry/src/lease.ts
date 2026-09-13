@@ -274,10 +274,12 @@ export function createLeaseController(
   }
 
   /**
-   * #336（ADR-0024 决策 6）lease readData 双重载透传：released 短路先于一切透传（冻结
-   * issue 原样）；active 期 raw options 引用**原样直传** entry.runtime.readData（lease 层
-   * 零预算解释、零校验、零敌意触达——canonical 净化是 runtime 接缝职责；差一层就不是
-   * 「原样透传」）。重载序镜像 runtime：legacy 排最后（ReturnType 取末签名）。
+   * #336（ADR-0024 决策 6）lease readData 双重载透传（#364 / ADR-0027 决策 1/4 交付形态
+   * 换代后**零语义变化**）：released 短路先于一切透传（冻结 issue 原样）；active 期 raw
+   * options 引用**原样直传** entry.runtime.readData（lease 层零预算解释、零校验、零敌意
+   * 触达——canonical 净化是 runtime 接缝职责；差一层就不是「原样透传」）。重载序镜像
+   * runtime：legacy 排最后（ReturnType 取末签名）。成功面形状 = runtime 同型四键
+   * `{ ok, value, schema: 投影文本 string | null, truncated }`（别名跟随，Equal 锁强制）。
    */
   function leaseReadData(path: readonly (string | number)[]): NamespaceLeaseReadDataResult;
   function leaseReadData(

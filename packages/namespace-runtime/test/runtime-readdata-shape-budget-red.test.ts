@@ -1,29 +1,34 @@
 /**
- * issue #336（ADR-0024 T3）主缝预算契约 —— **红灯**（SA6 契约产物的替代面：本任务无
- * `task_issue-336_sa6_contract.md`，验收权威 = Issue AC + ADR-0024 验收节 L120–130 +
- * SA1 设计 §12-T1 用例规格）。
+ * issue #336（ADR-0024 T3）× issue #364（ADR-0027 决策 1/2/3/4）主缝预算契约。
  *
- * 红灯机理（当前 HEAD `cdfdff6`）：runtime `readData` 仍是单参、成功分支恰三键
- * `{ ok, value, schema }`、第二实参被忽略——本文件全部五键/预算/失败码断言在
- * `truncated`/`truncations`/`READ_OPTIONS_INVALID` 处红；SA3 在 runtime 组合层落位
- * （双通道同预算 + 五键信封 + 接缝净化）后转绿。
+ * #364 交付形态换代（本文件 2024 版 #336 五键契约的原子翻新）：
+ * - 成功分支**恒四键** `{ ok, value, schema, truncated }`——结构化 `truncations` 键退役，
+ *   截断事实唯一载体 = 投影文本内 `✂ 截断事实：` 段（ADR-0027 决策 1）；
+ * - `schema` = 投影文本（头行 + `renderProjectionText` 正文 + ✂ 段）或严格 null；
+ * - 值通道（doc-runtime）**零变化**：预算读仍返回 `{ok,value,truncated,truncations}`——
+ *   本文件的截断清单断言全部改走**值通道 oracle**（`readLogicalValueAtPath(doc, path,
+ *   options)`，经 `makeBudgetRuntimeWithDoc` 暴露同一 doc），文本面断言走 ✂ 段与头行。
  *
- * 用例组（设计 §12-T1）：
- * A 五键恒形 / B depth 截断与清单 / C omitted 计数语义 / D 两通道对齐（主缝断言 +
- * F-x 敌意夹具延拓）/ E width 对投影无操作 / F READ_OPTIONS_INVALID 矩阵 + 差分 +
- * 敌意净化面（F-x1～F-x6）/ G 零物化哨兵 / H schema:null 与 always-on。
+ * 用例组（沿用 #336 设计 §12-T1，断言面按 #364 重锚）：
+ * A 四键恒形 / B depth 截断（值通道 oracle + ✂ 段）/ C omitted 计数语义（同上）/
+ * D 两通道对齐（文本锚 + 敌意 options oracle 一致）/ E width 对投影正文无操作 /
+ * F READ_OPTIONS_INVALID 矩阵 + 差分 + 敌意净化面（F-x1～F-x6）/ G 零物化哨兵 /
+ * H schema:null 与 always-on。
  *
- * 断言纪律（设计 §7.6-F-1 N3 钉死）：预算读结果只用 `expectReadDataOkKeys`（五键键集）
- * + 定点断言（`r.value` / `r.truncated` / `r.truncations` / `r.schema` 逐字段）——
- * **不**对含标记投影做 `expectReadDataOk` 整形状断言（helper `schema` 保持纯面）。
+ * 断言纪律（#364 SA6 §12 头注）：只观察公共接缝运行时输出；预算读结果只用
+ * `expectReadDataOkKeys`（恰四键键集）+ 定点断言（`r.value` / `r.truncated` /
+ * `r.schema` 文本）；截断清单事实只从值通道 oracle 读取，绝不从 `r.schema` 文本反推。
  */
 import { describe, expect, it } from 'vitest';
 import * as Y from 'yjs';
 import { readLogicalValueAtPath } from '@nomicore/doc-runtime';
 import type { ReadLogicalValueAtPathOptions } from '@nomicore/doc-runtime';
+import { compileSchemaEnvelope, renderProjectionText, resolveSchemaAtPath } from '@nomicore/vfsl';
+import type { DerivedSchema } from '@nomicore/vfsl';
 import type { NamespaceRuntime } from '../src/index.js';
 import { expectReadDataOkKeys } from './helpers/readdata-ok-shape.js';
 import {
+  ENV_336,
   createBudgetRuntimeFromHandle,
   descriptorGetSplitProxy,
   makeBudgetHandle,
@@ -38,18 +43,19 @@ import {
 
 // ───────────────────────── 形状校准（单点 cast，不改值、不吞错） ─────────────────────────
 
+/** 值通道截断条目（`readLogicalValueAtPath` 预算成功面；doc-runtime 形状冻结）。 */
 interface TruncationEntry {
   readonly path: readonly (string | number)[];
   readonly kind: 'depth' | 'width';
   readonly omitted: number;
 }
 
+/** readData 成功分支恰四键（#364 形状；schema 为投影文本或严格 null）。 */
 interface BudgetOkShape {
   readonly ok: true;
   readonly value: unknown;
-  readonly schema: unknown;
+  readonly schema: string | null;
   readonly truncated: boolean;
-  readonly truncations: readonly TruncationEntry[];
 }
 
 interface FailureShape {
@@ -82,159 +88,204 @@ const asOptions = (value: unknown): ReadLogicalValueAtPathOptions =>
 const FAILURE_KEYS = ['code', 'message', 'ok', 'path'] as const;
 
 function expectFailureKeys(r: object, label: string): void {
-  expect(Object.keys(r).sort(), `${label}：失败分支键集不得含截断键`).toStrictEqual([...FAILURE_KEYS]);
+  expect(Object.keys(r).sort(), `${label}：失败分支键集不得含成功键`).toStrictEqual([...FAILURE_KEYS]);
 }
 
-// ───────────────────────── 两通道对齐 recipe（T2 §6.10：归一后位置集比较） ─────────────────────────
+// ───────────────────────── oracle recipe（SA6 §12.0；全公共 API） ─────────────────────────
 
-function normalizeSegment(seg: string | number): string {
-  return typeof seg === 'number' ? '<item>' : seg;
+interface Budget {
+  readonly depth?: number;
+  readonly maxChildrenPerNode?: number;
 }
 
+/** 组合层头行（SA6 附录 A / 设计 §7-D2 冻结格式；空路径 pathText = 空串）。 */
+function foldSegment(segment: string | number): string {
+  return String(segment).replace(/\r\n|\n|\r/g, ' ').trim();
+}
+
+function headLine(path: readonly (string | number)[], options?: Budget): string {
+  const pathText = path.length === 0 ? '' : path.map(foldSegment).join('.');
+  let suffix = '';
+  if (options !== undefined) {
+    const depth = options.depth;
+    const width = options.maxChildrenPerNode;
+    if (depth !== undefined && width !== undefined) {
+      suffix = ` {depth:${String(depth)},maxChildrenPerNode:${String(width)}}`;
+    } else if (depth !== undefined) {
+      suffix = ` {depth:${String(depth)}}`;
+    } else if (width !== undefined) {
+      suffix = ` {maxChildrenPerNode:${String(width)}}`;
+    }
+  }
+  return `# readData [${pathText}]${suffix}`;
+}
+
+const COMPILED_336 = compileSchemaEnvelope(ENV_336);
+if (!COMPILED_336.ok) throw new Error('装置前提失败：ENV_336 必须可编译');
+const DERIVED_336: DerivedSchema = COMPILED_336.derived;
+
+/** 独立求值 oracle：期望串由独立编译的 derived 渲染（反伪绿——绝不从 `r.schema` 反推）。 */
+function oracleText(
+  doc: Y.Doc,
+  path: readonly (string | number)[],
+  options?: Budget,
+): string | null {
+  const resolved = options === undefined
+    ? resolveSchemaAtPath(DERIVED_336, path)
+    : resolveSchemaAtPath(DERIVED_336, path, options);
+  if (!resolved.ok) return null;
+  if (options === undefined) {
+    return `${headLine(path)}\n\n${renderProjectionText(resolved)}`;
+  }
+  const valueOracle = readLogicalValueAtPath(doc, path, options);
+  if (!valueOracle.ok) throw new Error('装置前提失败：oracle 值通道预算读必须成功');
+  return `${headLine(path, options)}\n\n${renderProjectionText(resolved, valueOracle.truncations)}`;
+}
+
+/** 值通道截断清单 oracle（预算读；doc-runtime 单源，绝不从投影文本反推）。 */
+function valueEntries(
+  doc: Y.Doc,
+  path: readonly (string | number)[],
+  options: Budget,
+): readonly TruncationEntry[] {
+  const t1 = readLogicalValueAtPath(doc, path, options);
+  if (!t1.ok) throw new Error(`装置前提失败：值通道预算读必须成功（${JSON.stringify(path)}）`);
+  return t1.truncations;
+}
+
+/** 文本锚：✂ 段在场断言（截断事实唯一载体）。 */
+const TRUNCATION_SECTION = '✂ 截断事实：';
+/** 文本锚：`‡` 页脚（depth 折叠标记；width 对投影正文无操作 → 缺席）。 */
+const MARKER_FOOTER = '‡ 截断标记：';
+
+/** 值通道条目的稳定排序键（集合比较用；顺序无关）。 */
 function positionKey(path: readonly (string | number)[]): string {
-  return path.map(normalizeSegment).join('\u0000');
+  return path.map((seg) => (typeof seg === 'number' ? '<item>' : seg)).join('\u0000');
 }
 
-/** 走投影标记位（object 字段名 / array `<item>` / union 成员剥离 / optional 透明 / ref 终态）。 */
-function collectMarkers(
-  node: unknown,
-  path: Array<string | number>,
-  out: Array<Array<string | number>>,
+/** 头行块（首个 `\n\n` 前）与正文块（头行之后；含 ✂ 段与 `‡` 页脚）。 */
+function headBlock(text: string): string {
+  const index = text.indexOf('\n\n');
+  if (index < 0) throw new Error(`契约前提失败：投影文本缺头行分隔（${JSON.stringify(text.slice(0, 80))}）`);
+  return text.slice(0, index);
+}
+
+function bodyBlock(text: string): string {
+  const index = text.indexOf('\n\n');
+  if (index < 0) throw new Error('契约前提失败：投影文本缺头行分隔');
+  return text.slice(index + 2);
+}
+
+/** 渲染器**正文**（剥离头行、✂ 段与尾随空行）——width 无操作对偶（组 E）。 */
+function projectionBodyOnly(text: string): string {
+  const body = bodyBlock(text);
+  const cut = body.indexOf(TRUNCATION_SECTION);
+  const withoutSection = cut < 0 ? body : body.slice(0, cut);
+  return withoutSection.replace(/\n+$/u, '');
+}
+
+/** 全文本一致性锚：`r.schema` 逐字节等于独立 oracle（含 null）。 */
+function expectTextOracle(
+  r: BudgetOkShape,
+  doc: Y.Doc,
+  path: readonly (string | number)[],
+  options: Budget | undefined,
+  label: string,
 ): void {
-  if (node === null || typeof node !== 'object') return;
-  const rec = node as Record<string, unknown>;
-  switch (rec.kind) {
-    case 'truncated':
-      out.push([...path]);
-      return;
-    case 'object': {
-      const fields = (rec.fields ?? []) as Array<{ name: string; value: unknown }>;
-      for (const field of fields) collectMarkers(field.value, [...path, field.name], out);
-      return;
-    }
-    case 'array':
-      collectMarkers(rec.element, [...path, '<item>'], out);
-      return;
-    case 'union': {
-      const members = (rec.members ?? []) as unknown[];
-      for (const member of members) collectMarkers(member, path, out);
-      return;
-    }
-    case 'optional':
-      collectMarkers(rec.value, path, out);
-      return;
-    default:
-      return; // ref / enum / pattern / scalar / xml：终态，无标记位
-  }
-}
-
-/**
- * 终点子树标记位置集（以读取路径为前缀归一为 ROOT 基——与值通道 truncations 条目同基）。
- * 闭包体（`schema.aliases`）标记按设计 §12-T1-D 走弱断言（单独返回），不并入精确集。
- */
-function projectionMarkers(
-  schema: unknown,
-  readPath: readonly (string | number)[],
-): { readonly terminal: Set<string>; readonly aliasMarkers: number } {
-  const rec = (schema ?? null) as Record<string, unknown> | null;
-  if (rec === null || typeof rec !== 'object') return { terminal: new Set(), aliasMarkers: 0 };
-  const raw: Array<Array<string | number>> = [];
-  collectMarkers(rec.valueSchema, [], raw);
-  const prefix = readPath.map(normalizeSegment);
-  const terminal = new Set(raw.map((p) => positionKey([...prefix, ...p.map(normalizeSegment)])));
-  let aliasMarkers = 0;
-  const aliases = (rec.aliases ?? {}) as Record<string, unknown>;
-  for (const name of Object.keys(aliases)) {
-    const found: Array<Array<string | number>> = [];
-    collectMarkers(aliases[name], [], found);
-    aliasMarkers += found.length;
-  }
-  return { terminal, aliasMarkers };
-}
-
-/** 值通道 depth 条目位置集（数字段归一 `<item>`）。 */
-function depthEntries(r: BudgetOkShape): Set<string> {
-  return new Set(
-    r.truncations.filter((e) => e.kind === 'depth').map((e) => positionKey(e.path)),
+  expect(r.schema, `${label}：schema 必须逐字节等于 oracle（含 null）`).toBe(
+    oracleText(doc, path, options),
   );
 }
 
-/** 对齐断言：终点子树标记集 ≡ 值通道 depth 条目集（集合相等、顺序无关）。 */
-function expectChannelsAligned(r: BudgetOkShape, readPath: readonly (string | number)[], label: string): void {
-  const markers = projectionMarkers(r.schema, readPath);
-  expect([...markers.terminal].sort(), `${label}：两通道截断位置集合必须一一对应`).toStrictEqual(
-    [...depthEntries(r)].sort(),
-  );
-  // 闭包体标记弱断言（存在性 ⊆ 引用位裁剪并集——本 fixture 无多引用跨预算构造）。
-  expect(markers.aliasMarkers, `${label}：闭包体标记数不得超过终点子树标记位`).toBeLessThanOrEqual(
-    markers.terminal.size,
-  );
-}
+// ═════════════════════════════ 组 A：恒四键 ═════════════════════════════
 
-// ═════════════════════════════ 组 A：五键恒形 ═════════════════════════════
-
-describe('组 A：成功分支恒五键（预算读 + 无预算读；ADR-0024 决策 4）', () => {
-  it('A1 无 options 读：恒五键、truncated=false、truncations 为空数组且恒在场（恰三键 → 五键破坏性修订）', async () => {
-    const runtime = await makeBudgetRuntime();
+describe('组 A：成功分支恒四键 {ok,value,schema,truncated}（ADR-0027 决策 1；truncations 键退役）', () => {
+  it('A1 无 options 读：恰四键、truncated=false、schema 为投影文本（头行无预算段 + 正文）', async () => {
+    const { runtime, doc } = await makeBudgetRuntimeWithDoc();
     const r = ok(runtime.readData([]), 'A1');
     expectReadDataOkKeys(r);
     expect(r.truncated).toBe(false);
-    expect(Array.isArray(r.truncations)).toBe(true);
-    expect(r.truncations).toStrictEqual([]);
+    expect('truncations' in r).toBe(false);
+    expect(typeof r.schema).toBe('string');
+    expect(headBlock(r.schema!)).toBe('# readData []');
+    expect(r.schema!.includes(TRUNCATION_SECTION)).toBe(false);
     expect(r.value).toStrictEqual({ title: 'hello', count: 3, meta: { content: 'hi', extra: 7 }, tags: ['a', 'b', 'c', 'd', 'e'] });
+    expectTextOracle(r, doc, [], undefined, 'A1');
     await runtime.close();
   });
 
-  it('A2 触发截断的预算读：恒五键、truncated === (truncations.length > 0)（B14）', async () => {
-    const runtime = await makeBudgetRuntime();
+  it('A2 触发截断的预算读：恰四键、truncated === 值通道截断布尔、✂ 段在场（B14 重锚）', async () => {
+    const { runtime, doc } = await makeBudgetRuntimeWithDoc();
     const r = ok(runtime.readData(['meta'], { depth: 0 }), 'A2');
     expectReadDataOkKeys(r);
-    expect(r.truncations.length).toBeGreaterThan(0);
-    expect(r.truncated).toBe(r.truncations.length > 0);
+    const entries = valueEntries(doc, ['meta'], { depth: 0 });
+    expect(entries.length).toBeGreaterThan(0);
+    expect(r.truncated).toBe(entries.length > 0);
+    expect(r.schema!.includes(TRUNCATION_SECTION)).toBe(true);
+    expectTextOracle(r, doc, ['meta'], { depth: 0 }, 'A2');
     await runtime.close();
   });
 
-  it('A3 未触发截断的预算读（充足 depth）：恒五键、truncated=false、truncations=[]', async () => {
-    const runtime = await makeBudgetRuntime();
+  it('A3 未触发截断的预算读（充足 depth）：恰四键、truncated=false、值通道清单空、文本无 ✂', async () => {
+    const { runtime, doc } = await makeBudgetRuntimeWithDoc();
     const r = ok(runtime.readData(['meta'], { depth: 9 }), 'A3');
     expectReadDataOkKeys(r);
     expect(r.truncated).toBe(false);
-    expect(r.truncations).toStrictEqual([]);
+    expect(valueEntries(doc, ['meta'], { depth: 9 })).toStrictEqual([]);
+    expect(r.schema!.includes(TRUNCATION_SECTION)).toBe(false);
+    expectTextOracle(r, doc, ['meta'], { depth: 9 }, 'A3');
     await runtime.close();
   });
 });
 
-// ═════════════════════════════ 组 B：depth 截断与清单 ═════════════════════════════
+// ═════════════════════════════ 组 B：depth 截断（值通道 oracle + ✂ 段） ═════════════════════════════
 
-describe('组 B：depth 截断省略 + 条目三字段（path 同基 / 尾段即被裁键名 / omitted）', () => {
-  it('B1 readData([], {depth:1})：被裁容器折叠为同形空容器、其子键全省略；depth 条目 path 尾段即被裁键名', async () => {
-    const runtime = await makeBudgetRuntime();
+describe('组 B：depth 截断省略 + 条目三字段（值通道 oracle）+ ✂ 段事实', () => {
+  it('B1 readData([], {depth:1})：折叠空壳 + 值通道两条 depth 条目（path 尾段即被裁键名）；文本 ✂ 段逐条在场', async () => {
+    const { runtime, doc } = await makeBudgetRuntimeWithDoc();
     const r = ok(runtime.readData([], { depth: 1 }), 'B1');
     expect(r.value).toStrictEqual({ title: 'hello', count: 3, meta: {}, tags: [] });
-    const entries = [...r.truncations].sort((a, b) => positionKey(a.path).localeCompare(positionKey(b.path)));
+    const entries = [...valueEntries(doc, [], { depth: 1 })].sort((a, b) =>
+      positionKey(a.path).localeCompare(positionKey(b.path)),
+    );
     expect(entries).toStrictEqual([
       { path: ['meta'], kind: 'depth', omitted: 2 },
       { path: ['tags'], kind: 'depth', omitted: 5 },
     ]);
     // 被折容器键以折叠空壳在场；清单条目尾段 = 被折容器键名（「空壳 = 被裁」的辨识）
     expect(entries.map((e) => e.path[e.path.length - 1])).toStrictEqual(['meta', 'tags']);
+    // 文本面：✂ 段在场且逐条列出同一事实（截断事实唯一载体）
+    expect(r.truncated).toBe(true);
+    expect(r.schema).not.toBeNull();
+    expect(r.schema!.includes(TRUNCATION_SECTION)).toBe(true);
+    expect(r.schema!).toContain('- meta · depth · 省略 2 项');
+    expect(r.schema!).toContain('- tags · depth · 省略 5 项');
+    expectTextOracle(r, doc, [], { depth: 1 }, 'B1');
     await runtime.close();
   });
 
-  it('B2 depth:0 目标容器骨架读：同形空容器 + 单条 depth 条目，value 键恒在场（ADR-0024 L26）', async () => {
-    const runtime = await makeBudgetRuntime();
+  it('B2 depth:0 目标容器骨架读：同形空容器 + 值通道单条 depth 条目 + 文本 ✂ 条目；value 键恒在场（ADR-0024 L26）', async () => {
+    const { runtime, doc } = await makeBudgetRuntimeWithDoc();
     const r = ok(runtime.readData(['meta'], { depth: 0 }), 'B2');
     expect(Object.prototype.hasOwnProperty.call(r, 'value')).toBe(true);
     expect(r.value).toStrictEqual({});
-    expect(r.truncations).toStrictEqual([{ path: ['meta'], kind: 'depth', omitted: 2 }]);
+    expect(valueEntries(doc, ['meta'], { depth: 0 })).toStrictEqual([
+      { path: ['meta'], kind: 'depth', omitted: 2 },
+    ]);
+    expect(r.truncated).toBe(true);
+    expect(r.schema!).toContain('- meta · depth · 省略 2 项');
     await runtime.close();
   });
 
-  it('B3 数组目标 depth:0：同形空数组 + 单条 depth 条目（omitted = 元素数）', async () => {
-    const runtime = await makeBudgetRuntime();
+  it('B3 数组目标 depth:0：同形空数组 + 值通道单条 depth 条目（omitted = 元素数）+ 文本 ✂ 条目', async () => {
+    const { runtime, doc } = await makeBudgetRuntimeWithDoc();
     const r = ok(runtime.readData(['tags'], { depth: 0 }), 'B3');
     expect(r.value).toStrictEqual([]);
-    expect(r.truncations).toStrictEqual([{ path: ['tags'], kind: 'depth', omitted: 5 }]);
+    expect(valueEntries(doc, ['tags'], { depth: 0 })).toStrictEqual([
+      { path: ['tags'], kind: 'depth', omitted: 5 },
+    ]);
+    expect(r.truncated).toBe(true);
+    expect(r.schema!).toContain('- tags · depth · 省略 5 项');
     await runtime.close();
   });
 });
@@ -242,56 +293,73 @@ describe('组 B：depth 截断省略 + 条目三字段（path 同基 / 尾段即
 // ═════════════════════════════ 组 C：omitted 计数语义 ═════════════════════════════
 
 describe('组 C：omitted = 被截容器直接子项数（非后代总数）+ width 父路径单条', () => {
-  it('C1 depth 条目 omitted = 直接子项数：blob 直接子项 2、每子项 3 后代（后代总数 6）→ omitted === 2', async () => {
-    const runtime = await makeBudgetRuntime({ raw: true });
+  it('C1 depth 条目 omitted = 直接子项数：blob 直接子项 2、每子项 3 后代（后代总数 6）→ omitted === 2；schema:null 诚实共存', async () => {
+    const { runtime, doc } = await makeBudgetRuntimeWithDoc({ raw: true });
     const r = ok(runtime.readData(['blob'], { depth: 0 }), 'C1');
-    expect(r.truncations).toHaveLength(1);
-    const entry = r.truncations[0]!;
+    const entries = valueEntries(doc, ['blob'], { depth: 0 });
+    expect(entries).toHaveLength(1);
+    const entry = entries[0]!;
     expect(entry.kind).toBe('depth');
     expect(entry.omitted).toBe(2); // 直接子项数（p、q）
     expect(entry.omitted).not.toBe(6); // 显式排除「后代总数」口径（6 = 3 + 3）
     expect(r.value).toStrictEqual({});
+    // schema 外键（raw 复制）→ 投影文本不可达：截断事实仅剩 truncated 布尔 + 值通道清单
+    expect(r.truncated).toBe(true);
+    expect(r.schema).toBeNull();
     await runtime.close();
   });
 
-  it('C2 width 条目：rawTotal 5 保留 3 → 父路径单条 {kind:width, omitted:2}，被裁子键零罗列', async () => {
-    const runtime = await makeBudgetRuntime();
+  it('C2 width 条目：rawTotal 5 保留 3 → 父路径单条 {kind:width, omitted:2}，被裁子键零罗列；文本 ✂ 段条目在场、正文无 ‡', async () => {
+    const { runtime, doc } = await makeBudgetRuntimeWithDoc();
     const r = ok(runtime.readData(['tags'], { maxChildrenPerNode: 3 }), 'C2');
     expect(r.value).toStrictEqual(['a', 'b', 'c']);
-    expect(r.truncations).toStrictEqual([{ path: ['tags'], kind: 'width', omitted: 2 }]);
+    expect(valueEntries(doc, ['tags'], { maxChildrenPerNode: 3 })).toStrictEqual([
+      { path: ['tags'], kind: 'width', omitted: 2 },
+    ]);
+    expect(r.truncated).toBe(true);
+    expect(r.schema!).toContain('- tags · width · 省略 2 项');
+    expect(r.schema!.includes(MARKER_FOOTER)).toBe(false);
+    expectTextOracle(r, doc, ['tags'], { maxChildrenPerNode: 3 }, 'C2');
     await runtime.close();
   });
 });
 
-// ═════════════════════════════ 组 D：两通道对齐（主缝断言） ═════════════════════════════
+// ═════════════════════════════ 组 D：两通道对齐（文本锚） ═════════════════════════════
 
-describe('组 D：同一预算下值截断位置与投影截断标记一一对应（ADR-0024 L81）', () => {
-  it('D1 readData([], {depth:1})：终点子树标记集 ≡ 值通道 depth 条目集（{meta, tags}）', async () => {
-    const runtime = await makeBudgetRuntime();
+describe('组 D：同一预算下值截断位置与投影文本截断事实一一对应（ADR-0024 L81；#364 文本锚）', () => {
+  it('D1 readData([], {depth:1})：正文含 ‡ 页脚、头行印预算段、✂ 段列 {meta, tags} 两条', async () => {
+    const { runtime, doc } = await makeBudgetRuntimeWithDoc();
     const r = ok(runtime.readData([], { depth: 1 }), 'D1');
-    expectChannelsAligned(r, [], 'D1');
-    const markers = projectionMarkers(r.schema, []);
-    expect([...markers.terminal].sort()).toStrictEqual([positionKey(['meta']), positionKey(['tags'])].sort());
+    expect(headBlock(r.schema!)).toBe('# readData [] {depth:1}');
+    const body = bodyBlock(r.schema!);
+    expect(body).toContain(MARKER_FOOTER);
+    expect(r.schema!).toContain('- meta · depth · 省略 2 项');
+    expect(r.schema!).toContain('- tags · depth · 省略 5 项');
+    expectTextOracle(r, doc, [], { depth: 1 }, 'D1');
     await runtime.close();
   });
 
-  it('D2 readData(["meta"], {depth:0})：终点位标记与 depth 条目同基（读取路径为前缀）', async () => {
-    const runtime = await makeBudgetRuntime();
+  it('D2 readData(["meta"], {depth:0})：头行印 depth:0、正文标记位 Meta‡ + ‡ 页脚、✂ 段同基', async () => {
+    const { runtime, doc } = await makeBudgetRuntimeWithDoc();
     const r = ok(runtime.readData(['meta'], { depth: 0 }), 'D2');
-    expectChannelsAligned(r, ['meta'], 'D2');
-    const markers = projectionMarkers(r.schema, ['meta']);
-    expect([...markers.terminal]).toStrictEqual([positionKey(['meta'])]);
+    expect(headBlock(r.schema!)).toBe('# readData [meta] {depth:0}');
+    const body = bodyBlock(r.schema!);
+    expect(body).toContain('Meta‡');
+    expect(body).toContain(MARKER_FOOTER);
+    expect(r.schema!).toContain('- meta · depth · 省略 2 项');
+    expectTextOracle(r, doc, ['meta'], { depth: 0 }, 'D2');
     await runtime.close();
   });
 
-  it('D3 F-x1 非 enumerable own depth：两通道同盲 → 五键 ok、零截断、投影与无预算读逐字节相等', async () => {
+  it('D3 F-x1 非 enumerable own depth：两通道同盲 → 四键 ok、零截断、全文与无预算读逐字节相等', async () => {
     const runtime = await makeBudgetRuntime();
     const plain = ok(runtime.readData([]), 'D3-plain');
     const r = ok(runtime.readData([], asOptions(nonEnumerableDepthOptions(7))), 'D3');
     expectReadDataOkKeys(r);
     expect(r.truncated).toBe(false);
-    expect(r.truncations).toStrictEqual([]);
-    expect(JSON.stringify(r.schema)).toBe(JSON.stringify(plain.schema));
+    expect(r.schema).not.toBeNull();
+    expect(r.schema!.includes(TRUNCATION_SECTION)).toBe(false);
+    expect(r.schema).toBe(plain.schema);
     await runtime.close();
   });
 
@@ -313,47 +381,53 @@ describe('组 D：同一预算下值截断位置与投影截断标记一一对�
     const r = polluted!;
     expectReadDataOkKeys(r);
     expect(r.truncated).toBe(false);
-    expect(r.truncations).toStrictEqual([]);
-    expect(JSON.stringify(r.schema)).toBe(JSON.stringify(plain.schema));
+    expect(r.schema!.includes(TRUNCATION_SECTION)).toBe(false);
+    expect(r.schema).toBe(plain.schema);
     await runtime.close();
   });
 
-  it('D5 F-x3 descriptor/get 分叉 Proxy（desc depth=1 / get 1.5）：两通道按 descriptor 视图（1）对齐，get trap 零调用，无 schema:null 静默组合', async () => {
-    const runtime = await makeBudgetRuntime();
+  it('D5 F-x3 descriptor/get 分叉 Proxy（desc depth=1 / get 1.5）：文本按 descriptor 视图（1）对齐 oracle，get trap 零调用，无 schema:null 静默组合', async () => {
+    const { runtime, doc } = await makeBudgetRuntimeWithDoc();
     const probe = descriptorGetSplitProxy(1, 1.5);
     const r = ok(runtime.readData([], asOptions(probe.options)), 'D5');
     expectReadDataOkKeys(r);
     expect(probe.getCalls()).toBe(0); // 零 [[Get]] 执行锚
     expect(r.truncated).toBe(true);
     expect(r.schema).not.toBeNull(); // ER-1 静默形态（ok ∧ schema:null ∧ truncated）不得出现
-    expectChannelsAligned(r, [], 'D5');
-    expect([...projectionMarkers(r.schema, []).terminal].sort()).toStrictEqual(
-      [positionKey(['meta']), positionKey(['tags'])].sort(),
-    );
+    expect(headBlock(r.schema!)).toBe('# readData [] {depth:1}');
+    expectTextOracle(r, doc, [], { depth: 1 }, 'D5');
     await runtime.close();
   });
 
-  it('D6 F-x4 抛错 get trap Proxy（descriptor 诚实 depth=1）：五键 ok、get trap 零调用、绝不 throw、两通道对齐', async () => {
-    const runtime = await makeBudgetRuntime();
+  it('D6 F-x4 抛错 get trap Proxy（descriptor 诚实 depth=1）：四键 ok、get trap 零调用、绝不 throw、文本与 oracle 逐字节一致', async () => {
+    const { runtime, doc } = await makeBudgetRuntimeWithDoc();
     const probe = throwingGetProxy(1);
     const r = ok(runtime.readData([], asOptions(probe.options)), 'D6');
     expectReadDataOkKeys(r);
     expect(probe.getCalls()).toBe(0);
-    expectChannelsAligned(r, [], 'D6');
+    expect(r.truncated).toBe(true);
+    expectTextOracle(r, doc, [], { depth: 1 }, 'D6');
     await runtime.close();
   });
 });
 
 // ═════════════════════════════ 组 E：width 对投影无操作 ═════════════════════════════
 
-describe('组 E：仅 width 触发的预算读，schema 与同路径无预算读逐字节相等（ADR-0024 L125）', () => {
-  it('E1 readData(["tags"], {maxChildrenPerNode:3}).schema ≡ readData(["tags"]).schema（toStrictEqual + JSON 逐字节）', async () => {
+describe('组 E：仅 width 触发的预算读——渲染器正文与同路径无预算读逐字节相等（ADR-0024 L125；#364 正文口径）', () => {
+  it('E1 readData(["tags"], {maxChildrenPerNode:3})：truncated=true、✂ 段在场、正文无 ‡、渲染器正文逐字节相等；全文必不等（头行预算段 + ✂ 段）', async () => {
     const runtime = await makeBudgetRuntime();
     const budgeted = ok(runtime.readData(['tags'], { maxChildrenPerNode: 3 }), 'E1-budget');
     const plain = ok(runtime.readData(['tags']), 'E1-plain');
     expect(budgeted.truncated).toBe(true); // 证明 width 确实触发
-    expect(budgeted.schema).toStrictEqual(plain.schema);
-    expect(JSON.stringify(budgeted.schema)).toBe(JSON.stringify(plain.schema));
+    expect(plain.truncated).toBe(false);
+    expect(budgeted.schema).not.toBeNull();
+    expect(plain.schema).not.toBeNull();
+    expect(budgeted.schema!.includes(TRUNCATION_SECTION)).toBe(true);
+    expect(budgeted.schema!.includes('‡')).toBe(false); // width 对投影正文无操作
+    expect(projectionBodyOnly(budgeted.schema!)).toBe(projectionBodyOnly(plain.schema!));
+    expect(budgeted.schema).not.toBe(plain.schema); // 头行预算段 + ✂ 段两处事实差
+    expect(headBlock(budgeted.schema!)).toBe('# readData [tags] {maxChildrenPerNode:3}');
+    expect(headBlock(plain.schema!)).toBe('# readData [tags]');
     await runtime.close();
   });
 });
@@ -378,7 +452,7 @@ describe('组 F：READ_OPTIONS_INVALID 公共失败分支（同步、不抛、�
     { name: 'width 未知键', value: { maxChildrenPerNode: 2, bogus: 1 } },
   ];
 
-  it('F1 基础矩阵：非法 options → 恰四键 {ok,code,path,message}，path 新鲜回显、message 非空、绝不含截断键', async () => {
+  it('F1 基础矩阵：非法 options → 恰四键 {ok,code,path,message}，path 新鲜回显、message 非空、绝不含成功键', async () => {
     const runtime = await makeBudgetRuntime();
     for (const c of HOSTILE_CASES) {
       const r = failure(runtime.readData(['meta'], asOptions(c.value)), `F1/${c.name}`);
@@ -387,11 +461,12 @@ describe('组 F：READ_OPTIONS_INVALID 公共失败分支（同步、不抛、�
       expect(r.path, `F1/${c.name}：path 新鲜回显`).toStrictEqual(['meta']);
       expect(typeof r.message === 'string' && r.message.length > 0, `F1/${c.name}：message 恒非空`).toBe(true);
       expect((r as { truncated?: unknown }).truncated, `F1/${c.name}：失败分支不得带截断键`).toBeUndefined();
+      expect((r as { schema?: unknown }).schema, `F1/${c.name}：失败分支不得带 schema 键`).toBeUndefined();
     }
     await runtime.close();
   });
 
-  it('F2 无 options 调用恒不产生该码（结构不可达）+ 五键成功面', async () => {
+  it('F2 无 options 调用恒不产生该码（结构不可达）+ 恰四键成功面', async () => {
     const runtime = await makeBudgetRuntime();
     const r = ok(runtime.readData(['meta']), 'F2');
     expectReadDataOkKeys(r);
@@ -399,39 +474,44 @@ describe('组 F：READ_OPTIONS_INVALID 公共失败分支（同步、不抛、�
     await runtime.close();
   });
 
-  it('F3 差分矩阵：runtime 接受集 ≡ readLogicalValueAtPath 接受集（T1 单一校验权威，确定性夹具）', async () => {
+  it('F3 差分矩阵：接受集/码 ≡ readLogicalValueAtPath 权威；成功格 truncated 与值通道一致、✂ 在场 ⇔ 值通道清单非空（零泄漏单源）', async () => {
     const { runtime, doc } = await makeBudgetRuntimeWithDoc();
     for (const c of HOSTILE_CASES) {
       const r = runtime.readData(['meta'], asOptions(c.value));
       const t1 = readLogicalValueAtPath(doc, ['meta'], asOptions(c.value));
-      expect(r.ok, `F3/${c.name}：接受集必须与 T1 权威一致`).toBe(t1.ok);
+      expect(r.ok, `F3/${c.name}：接受集必须与值通道权威一致`).toBe(t1.ok);
       if (!r.ok && !t1.ok) {
         expect(r.code, `F3/${c.name}`).toBe(t1.code);
       } else if (r.ok && t1.ok) {
         expect(r.value, `F3/${c.name}`).toStrictEqual(t1.value);
-        expect(r.truncations, `F3/${c.name}`).toStrictEqual(t1.truncations);
+        expect(r.truncated, `F3/${c.name}：truncated 逐字段透传值通道`).toBe(t1.truncated);
+        expect(r.schema, `F3/${c.name}：schema 非 null`).not.toBeNull();
+        expect(r.schema!.includes(TRUNCATION_SECTION), `F3/${c.name}：✂ 在场 ⇔ 值通道清单非空`).toBe(
+          t1.truncations.length > 0,
+        );
       }
     }
     await runtime.close();
   });
 
-  it('F4 净化证明：{depth: undefined}（≡ 缺席）→ 五键 ok、零截断、投影与无 options 读 JSON 相等', async () => {
+  it('F4 净化证明：{depth: undefined}（≡ 缺席）→ 恰四键 ok、零截断、全文与无 options 读逐字节相等', async () => {
     const runtime = await makeBudgetRuntime();
     const plain = ok(runtime.readData([]), 'F4-plain');
     const r = ok(runtime.readData([], asOptions({ depth: undefined })), 'F4');
     expectReadDataOkKeys(r);
     expect(r.truncated).toBe(false);
-    expect(r.truncations).toStrictEqual([]);
-    expect(JSON.stringify(r.schema)).toBe(JSON.stringify(plain.schema));
+    expect(r.schema!.includes(TRUNCATION_SECTION)).toBe(false);
+    expect(r.schema).toBe(plain.schema);
     await runtime.close();
   });
 
-  it('F5 空 options {}：五键 ok、零截断（无预算等价）', async () => {
+  it('F5 空 options {}：恰四键 ok、零截断、全文与无 options 读逐字节相等（无预算等价）', async () => {
     const runtime = await makeBudgetRuntime();
+    const plain = ok(runtime.readData([]), 'F5-plain');
     const r = ok(runtime.readData([], asOptions({})), 'F5');
     expectReadDataOkKeys(r);
     expect(r.truncated).toBe(false);
-    expect(r.truncations).toStrictEqual([]);
+    expect(r.schema).toBe(plain.schema);
     await runtime.close();
   });
 
@@ -482,11 +562,16 @@ describe('组 F：READ_OPTIONS_INVALID 公共失败分支（同步、不抛、�
 // ═════════════════════════════ 组 G：零物化哨兵 ═════════════════════════════
 
 describe('组 G：零物化——被截子树内含不可表示值时预算读仍 ok（ADR-0024 L124）', () => {
-  it('G1 readData(["sentinel"], {depth:0}) 折叠含有 non-finite 的子树 → ok:true（零递归）；无预算读同路径响亮失败（哨兵真实）', async () => {
-    const runtime = await makeBudgetRuntime({ raw: true });
+  it('G1 readData(["sentinel"], {depth:0}) 折叠含有 non-finite 的子树 → ok:true、值通道单条 depth 条目（零递归）；无预算读同路径响亮失败（哨兵真实）', async () => {
+    const { runtime, doc } = await makeBudgetRuntimeWithDoc({ raw: true });
     const folded = ok(runtime.readData(['sentinel'], { depth: 0 }), 'G1-budget');
     expect(folded.value).toStrictEqual({});
-    expect(folded.truncations).toStrictEqual([{ path: ['sentinel'], kind: 'depth', omitted: 2 }]);
+    expect(valueEntries(doc, ['sentinel'], { depth: 0 })).toStrictEqual([
+      { path: ['sentinel'], kind: 'depth', omitted: 2 },
+    ]);
+    // schema 外键（raw 复制）→ 文本不可达：截断事实由 truncated 布尔 + 值通道清单承载
+    expect(folded.truncated).toBe(true);
+    expect(folded.schema).toBeNull();
     const plain = failure(runtime.readData(['sentinel']), 'G1-plain');
     expect(plain.code).toBe('PATH_NOT_ALLOWED');
     await runtime.close();
@@ -496,7 +581,7 @@ describe('组 G：零物化——被截子树内含不可表示值时预算读�
 // ═════════════════════════════ 组 H：schema:null 与 always-on ═════════════════════════════
 
 describe('组 H：schema:null 单义 + 预算参数不是 schema 开关（ADR-0016 L22 / ADR-0024 L75）', () => {
-  it('H1 preparing 期（P0 前）预算读：值通道照常、五键共存、schema 为 null', async () => {
+  it('H1 preparing 期（P0 前）预算读：值通道照常、恰四键共存、schema 为 null', async () => {
     let release!: () => void;
     const gate = new Promise<void>((resolve) => {
       release = resolve;
@@ -513,7 +598,7 @@ describe('组 H：schema:null 单义 + 预算参数不是 schema 开关（ADR-00
     await runtime.close();
   });
 
-  it('H2 路径偏离 schema（raw 键）+ 预算：值通道照常、五键共存、schema 为 null', async () => {
+  it('H2 路径偏离 schema（raw 键）+ 预算：值通道照常、恰四键共存、schema 为 null', async () => {
     const runtime = await makeBudgetRuntime({ raw: true });
     const r = ok(runtime.readData(['rogue'], { depth: 1 }), 'H2');
     expectReadDataOkKeys(r);

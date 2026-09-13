@@ -1,0 +1,637 @@
+Testing types with tsc and vue-tsc is an experimental feature.
+Breaking changes might not follow SemVer, please pin Vitest's version when using it.
+
+ RUN  v3.2.7 /home/wangjian/nomicore-fix-issue-364
+
+ ❯ packages/namespace-runtime/test/runtime-readdata-projection-text-red.test.ts (32 tests | 19 failed) 83ms
+   × 组 A：成功分支恒四键 {ok,value,schema,truncated}，truncations 键退役（CT-1/AC1） > A1 无预算成功读：恰四键（own 键集 + 无 symbol）、truncations 不在场、JSON 无该词汇 16ms
+     → expected [ 'ok', 'schema', 'truncated', …(2) ] to strictly equal [ Array(4) ]
+   × 组 A：成功分支恒四键 {ok,value,schema,truncated}，truncations 键退役（CT-1/AC1） > A2 预算成功读（触发/不触发截断两态）：同恰四键 2ms
+     → expected [ 'ok', 'schema', 'truncated', …(2) ] to strictly equal [ Array(4) ]
+   ✓ 组 A：成功分支恒四键 {ok,value,schema,truncated}，truncations 键退役（CT-1/AC1） > A3 ok 恒真、value 键恒在场（缺席为显式 undefined）、truncated 恒为 boolean 2ms
+   ✓ 组 A：成功分支恒四键 {ok,value,schema,truncated}，truncations 键退役（CT-1/AC1） > A4 失败分支键集严格 {ok,code,path,message}：PATH_NOT_ALLOWED / READ_OPTIONS_INVALID / RUNTIME_READ_DISABLED 均不含 schema/truncated/truncations 2ms
+   × 组 B：schema ≡ 头行 + renderProjectionText(独立编译 derived, 值通道截断清单)（CT-2/AC2） > B1/B3 严格夹具矩阵（10 路径 × 9 预算）：逐字节 `===`；resolver 失败 ⇔ 严格 null；truncated 与值通道一致 2ms
+     → expected [ 'ok', 'schema', 'truncated', …(2) ] to strictly equal [ Array(4) ]
+   × 组 B：schema ≡ 头行 + renderProjectionText(独立编译 derived, 值通道截断清单)（CT-2/AC2） > B1/B3 raw 夹具矩阵（14 路径 × 9 预算）：schema:null 与路径偏离同基、truncated 独立透传 3ms
+     → B1-raw/[]/{"depth":0}：schema 必须逐字节等于 oracle（含 null）: expected { valueSchema: { …(2) }, …(3) } to be '# readData [] {depth:0}\n\n[...]‡\n\n…' // Object.is equality
+   × 组 B：schema ≡ 头行 + renderProjectionText(独立编译 derived, 值通道截断清单)（CT-2/AC2） > B2 无预算格：渲染器第二参缺席（组合层不合成清单）——文本与无预算 oracle 逐字节同 3ms
+     → expected { valueSchema: { …(2) }, …(3) } to be '# readData []\n\n{\n  title: string /…' // Object.is equality
+   × 组 B：schema ≡ 头行 + renderProjectionText(独立编译 derived, 值通道截断清单)（CT-2/AC2） > B4 每次读重新求值：同参连续读逐字节相等；replaceSchema 后同路径读反映新 derived（无陈旧缓存） 2ms
+     → expected { …(4) } to be { …(4) } // Object.is equality
+
+If it should pass with deep equality, replace "toBe" with "toStrictEqual"
+
+Expected: { …(4) }
+Received: serializes to the same string
+
+   × 组 B：schema ≡ 头行 + renderProjectionText(独立编译 derived, 值通道截断清单)（CT-2/AC2） > B5 oracle 独立性（测试结构不变量）：期望串由独立编译的 derived 渲染，绝不从 r.schema 反推 2ms
+     → expected { valueSchema: { …(2) }, …(3) } to be '# readData [meta] {depth:0}\n\nMeta‡\…' // Object.is equality
+   × 组 C：头行 = "# readData [<实参 path 点分>]" + 有效预算段（CT-3/AC3） > C1 空路径无预算：文本以 "# readData []\n\n" 开头 2ms
+     → r.schema.startsWith is not a function
+   × 组 C：头行 = "# readData [<实参 path 点分>]" + 有效预算段（CT-3/AC3） > C2 多段路径（含数字段）：meta.content / tags.1 点分呈现 1ms
+     → text.indexOf is not a function
+   × 组 C：头行 = "# readData [<实参 path 点分>]" + 有效预算段（CT-3/AC3） > C3 头行反映实参 path 而非解析路径/别名名：["meta"] → meta（不是 Meta），ref 命中时同样如实 1ms
+     → text.indexOf is not a function
+   × 组 C：头行 = "# readData [<实参 path 点分>]" + 有效预算段（CT-3/AC3） > C4 预算段三形（键序 depth → maxChildrenPerNode、逗号无空格） 1ms
+     → text.indexOf is not a function
+   × 组 C：头行 = "# readData [<实参 path 点分>]" + 有效预算段（CT-3/AC3） > C5 无预算省略预算段：无 options / {} / {depth:undefined} / 非 enumerable / 继承键污染 → 全文与无 options 读逐字节相等 4ms
+     → expected { valueSchema: { …(2) }, …(3) } to be { valueSchema: { …(2) }, …(3) } // Object.is equality
+
+If it should pass with deep equality, replace "toBe" with "toStrictEqual"
+
+Expected: { valueSchema: { …(2) }, …(3) }
+Received: serializes to the same string
+
+   × 组 C：头行 = "# readData [<实参 path 点分>]" + 有效预算段（CT-3/AC3） > C6 行注入防御：path 段含 \n / \r\n → 头行内折叠为空格、文本行数不增 1ms
+     → text.indexOf is not a function
+   ✓ 组 C：头行 = "# readData [<实参 path 点分>]" + 有效预算段（CT-3/AC3） > C7 schema === null 时无头行（# readData 不可达；严格 null、非空串） 1ms
+   × 组 D：truncated === 本次读发生过截断；文本 ✂ 段为唯一截断载体（CT-4/AC4） > D1/D5 无预算读与充足预算读：truncated=false、文本无 ✂、无 ‡ 1ms
+     → r.schema.includes is not a function
+   × 组 D：truncated === 本次读发生过截断；文本 ✂ 段为唯一截断载体（CT-4/AC4） > D3 depth 截断（[] + depth:1）：truncated=true、✂ 段在场、正文含 ‡ 且页脚在场 1ms
+     → r.schema.includes is not a function
+   × 组 D：truncated === 本次读发生过截断；文本 ✂ 段为唯一截断载体（CT-4/AC4） > D4 width-only 截断（["tags"] + maxChildrenPerNode:3）：truncated=true、✂ 段在场、正文无 ‡；正文与无预算读逐字节相等（全文因头行预算段+✂段必不等） 1ms
+     → budgeted.schema.includes is not a function
+   ✓ 组 D：truncated === 本次读发生过截断；文本 ✂ 段为唯一截断载体（CT-4/AC4） > D6 schema:null × 预算截断（raw 键 blob + depth:0）：严格 null 且 truncated === true（诚实共存） 1ms
+   ✓ 组 D：truncated === 本次读发生过截断；文本 ✂ 段为唯一截断载体（CT-4/AC4） > D7 值通道折叠/省略语义零变化：depth 空壳 + 条目、width 键省略、omitted = 直接子项数（oracle 直调对照） 1ms
+   ✓ 组 E：schema:null 三情形单义直通 + 失败/生命周期不变（CT-5/AC5） > E1 三情形（无 active schema / 路径偏离 / 敌意 path）：严格 null、ok 恒真、value 照常、零外抛 13ms
+   ✓ 组 E：schema:null 三情形单义直通 + 失败/生命周期不变（CT-5/AC5） > E2 敌意 path 的敌意函数/trap 零调用：迭代器零调用、Proxy get trap 对 Symbol.iterator 零触达 1ms
+   ✓ 组 E：schema:null 三情形单义直通 + 失败/生命周期不变（CT-5/AC5） > E3 生命周期：closing/closed → RUNTIME_READ_DISABLED 恰四键失败形，先于一切 options 读取（敌意 trap 零执行） 2ms
+   ✓ 组 E：schema:null 三情形单义直通 + 失败/生命周期不变（CT-5/AC5） > E4 定序：非法 path + 非法 options → PATH_NOT_ALLOWED；closed + 非法 options → RUNTIME_READ_DISABLED 2ms
+   ✓ 组 E：schema:null 三情形单义直通 + 失败/生命周期不变（CT-5/AC5） > E5 可信域 InternalError 逃逸通道保持唯一：注入畸形 derived → readData throw（构造名 InternalError），不得被组合层收敛为 schema:null 1ms
+   ✓ 组 E：schema:null 三情形单义直通 + 失败/生命周期不变（CT-5/AC5） > E6 敌意输入零 throw：敌意 path / 敌意 options 下 readData 均不抛、成功面照常 2ms
+   ✓ 组 F：options 闭合形状 {depth?,maxChildrenPerNode?} 零变化（CT-6/AC6） > F1 非法 options 矩阵 → READ_OPTIONS_INVALID 恰 {ok,code,path,message}，path 新鲜回显、message 非空、绝不静默 schema:null 2ms
+   ✓ 组 F：options 闭合形状 {depth?,maxChildrenPerNode?} 零变化（CT-6/AC6） > F2 差分矩阵：runtime 接受集/拒绝码 ≡ readLogicalValueAtPath 权威（零泄漏单源） 1ms
+   × 组 F：options 闭合形状 {depth?,maxChildrenPerNode?} 零变化（CT-6/AC6） > F3 canonical 等价：{} / {depth:undefined} / 非 enumerable / 继承键污染 → 全文逐字节等于无 options 读（含头行无预算段） 2ms
+     → expected { …(4) } to be { …(4) } // Object.is equality
+
+If it should pass with deep equality, replace "toBe" with "toStrictEqual"
+
+Expected: { …(4) }
+Received: serializes to the same string
+
+   × 组 G：投影 detach 深拷贝层退役——文本天然 detached（CT-7/AC7） > G1 schema 非 null 时为 string；结果对象图内无投影对象（JSON 不出现 "valueSchema"） 3ms
+     → expected 'object' to be 'string' // Object.is equality
+   × 组 G：投影 detach 深拷贝层退役——文本天然 detached（CT-7/AC7） > G2 文本与 runtime 活 schema 零交叉污染：同参连续/交错读逐字节相等；改写 r.value 后重读文本不变 2ms
+     → expected { …(4) } to be { …(4) } // Object.is equality
+
+If it should pass with deep equality, replace "toBe" with "toStrictEqual"
+
+Expected: { …(4) }
+Received: serializes to the same string
+
+ ❯ packages/namespace-registry/test/registry-readdata-projection-text-red.test.ts (6 tests | 3 failed) 26ms
+   × A′ 真实装配：lease 成功读恒四键 + schema 为投影文本（CT-1 A6 / CT-4） > A′1 无预算 lease 读：恰四键、schema 为 string、truncations 不在场、头行反映实参 path 17ms
+     → expected [ 'ok', 'schema', 'truncated', …(2) ] to strictly equal [ Array(4) ]
+   × A′ 真实装配：lease 成功读恒四键 + schema 为投影文本（CT-1 A6 / CT-4） > A′2 预算 lease 读：恰四键、truncated=true、✂ 段在场（截断事实唯一载体）、头行含预算段 3ms
+     → expected [ 'ok', 'schema', 'truncated', …(2) ] to strictly equal [ Array(4) ]
+   × A′ 真实装配：lease 成功读恒四键 + schema 为投影文本（CT-1 A6 / CT-4） > A′3 width-only lease 读：truncated=true、✂ 段在场、正文无 ‡（预算段事实 + 投影无操作对偶） 2ms
+     → viaLease.schema.includes is not a function
+   ✓ A′ 真实装配：lease 成功读恒四键 + schema 为投影文本（CT-1 A6 / CT-4） > A′4 lease schema:null 单义（路径偏离）：严格 null、ok 恒真、value 照常 2ms
+   ✓ B′ released 短路先于一切透传 + options 引用直传（CT-1 A5 / CT-6 F4，零语义变化） > B′1 released 带 options 调用：冻结 released issue 恰 {ok,code,message}，零 runtime 触达、同参稳定单例 1ms
+   ✓ B′ released 短路先于一切透传 + options 引用直传（CT-1 A5 / CT-6 F4，零语义变化） > B′2 active 期 raw options 同一引用抵达 runtime（零复制/零校验/零触达）；单参调用走 legacy 通道 1ms
+
+⎯⎯⎯⎯⎯⎯ Failed Tests 22 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  packages/namespace-registry/test/registry-readdata-projection-text-red.test.ts > A′ 真实装配：lease 成功读恒四键 + schema 为投影文本（CT-1 A6 / CT-4） > A′1 无预算 lease 读：恰四键、schema 为 string、truncations 不在场、头行反映实参 path
+AssertionError: expected [ 'ok', 'schema', 'truncated', …(2) ] to strictly equal [ Array(4) ]
+
+- Expected
++ Received
+
+  [
+    "ok",
+    "schema",
+    "truncated",
++   "truncations",
+    "value",
+  ]
+
+ ❯ packages/namespace-registry/test/registry-readdata-projection-text-red.test.ts:152:42
+    150|
+    151|     const viaLease = lease.readData(['meta']);
+    152|     expect(Object.keys(viaLease).sort()).toStrictEqual(['ok', 'schema'…
+       |                                          ^
+    153|     expect('truncations' in viaLease).toBe(false);
+    154|     expect(JSON.stringify(viaLease)).not.toContain('"truncations"');
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/22]⎯
+
+ FAIL  packages/namespace-registry/test/registry-readdata-projection-text-red.test.ts > A′ 真实装配：lease 成功读恒四键 + schema 为投影文本（CT-1 A6 / CT-4） > A′2 预算 lease 读：恰四键、truncated=true、✂ 段在场（截断事实唯一载体）、头行含预算段
+AssertionError: expected [ 'ok', 'schema', 'truncated', …(2) ] to strictly equal [ Array(4) ]
+
+- Expected
++ Received
+
+  [
+    "ok",
+    "schema",
+    "truncated",
++   "truncations",
+    "value",
+  ]
+
+ ❯ packages/namespace-registry/test/registry-readdata-projection-text-red.test.ts:175:42
+    173|
+    174|     const viaLease = lease.readData([], { depth: 1 }) as NamespaceLeas…
+    175|     expect(Object.keys(viaLease).sort()).toStrictEqual(['ok', 'schema'…
+       |                                          ^
+    176|     if (!viaLease.ok) throw new Error(`契约前提失败：${JSON.stringify(viaLeas…
+    177|     expect(typeof viaLease.schema).toBe('string');
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/22]⎯
+
+ FAIL  packages/namespace-registry/test/registry-readdata-projection-text-red.test.ts > A′ 真实装配：lease 成功读恒四键 + schema 为投影文本（CT-1 A6 / CT-4） > A′3 width-only lease 读：truncated=true、✂ 段在场、正文无 ‡（预算段事实 + 投影无操作对偶）
+TypeError: viaLease.schema.includes is not a function
+ ❯ packages/namespace-registry/test/registry-readdata-projection-text-red.test.ts:198:29
+    196|     if (!viaLease.ok) throw new Error(`契约前提失败：${JSON.stringify(viaLeas…
+    197|     expect(viaLease.truncated).toBe(true);
+    198|     expect(viaLease.schema!.includes(TRUNCATION_SECTION)).toBe(true);
+       |                             ^
+    199|     const index = viaLease.schema!.indexOf('\n\n');
+    200|     expect(viaLease.schema!.slice(index + 2).includes('‡')).toBe(false…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[3/22]⎯
+
+ FAIL  packages/namespace-runtime/test/runtime-readdata-projection-text-red.test.ts > 组 A：成功分支恒四键 {ok,value,schema,truncated}，truncations 键退役（CT-1/AC1） > A1 无预算成功读：恰四键（own 键集 + 无 symbol）、truncations 不在场、JSON 无该词汇
+AssertionError: expected [ 'ok', 'schema', 'truncated', …(2) ] to strictly equal [ Array(4) ]
+
+- Expected
++ Received
+
+  [
+    "ok",
+    "schema",
+    "truncated",
++   "truncations",
+    "value",
+  ]
+
+ ❯ expectReadDataOkKeys packages/namespace-runtime/test/helpers/readdata-ok-shape.ts:69:38
+     67| /** 键集侧（family B 替换）：恰四键整键集断言（只断键集，不比较值）。 */
+     68| export function expectReadDataOkKeys(actual: object): void {
+     69|   expect(Object.keys(actual).sort()).toStrictEqual(READDATA_OK_KEYS);
+       |                                      ^
+     70| }
+     71|
+ ❯ packages/namespace-runtime/test/runtime-readdata-projection-text-red.test.ts:158:5
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[4/22]⎯
+
+ FAIL  packages/namespace-runtime/test/runtime-readdata-projection-text-red.test.ts > 组 A：成功分支恒四键 {ok,value,schema,truncated}，truncations 键退役（CT-1/AC1） > A2 预算成功读（触发/不触发截断两态）：同恰四键
+AssertionError: expected [ 'ok', 'schema', 'truncated', …(2) ] to strictly equal [ Array(4) ]
+
+- Expected
++ Received
+
+  [
+    "ok",
+    "schema",
+    "truncated",
++   "truncations",
+    "value",
+  ]
+
+ ❯ expectReadDataOkKeys packages/namespace-runtime/test/helpers/readdata-ok-shape.ts:69:38
+     67| /** 键集侧（family B 替换）：恰四键整键集断言（只断键集，不比较值）。 */
+     68| export function expectReadDataOkKeys(actual: object): void {
+     69|   expect(Object.keys(actual).sort()).toStrictEqual(READDATA_OK_KEYS);
+       |                                      ^
+     70| }
+     71|
+ ❯ packages/namespace-runtime/test/runtime-readdata-projection-text-red.test.ts:174:7
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[5/22]⎯
+
+ FAIL  packages/namespace-runtime/test/runtime-readdata-projection-text-red.test.ts > 组 B：schema ≡ 头行 + renderProjectionText(独立编译 derived, 值通道截断清单)（CT-2/AC2） > B1/B3 严格夹具矩阵（10 路径 × 9 预算）：逐字节 `===`；resolver 失败 ⇔ 严格 null；truncated 与值通道一致
+AssertionError: expected [ 'ok', 'schema', 'truncated', …(2) ] to strictly equal [ Array(4) ]
+
+- Expected
++ Received
+
+  [
+    "ok",
+    "schema",
+    "truncated",
++   "truncations",
+    "value",
+  ]
+
+ ❯ expectReadDataOkKeys packages/namespace-runtime/test/helpers/readdata-ok-shape.ts:69:38
+     67| /** 键集侧（family B 替换）：恰四键整键集断言（只断键集，不比较值）。 */
+     68| export function expectReadDataOkKeys(actual: object): void {
+     69|   expect(Object.keys(actual).sort()).toStrictEqual(READDATA_OK_KEYS);
+       |                                      ^
+     70| }
+     71|
+ ❯ packages/namespace-runtime/test/runtime-readdata-projection-text-red.test.ts:266:9
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[6/22]⎯
+
+ FAIL  packages/namespace-runtime/test/runtime-readdata-projection-text-red.test.ts > 组 B：schema ≡ 头行 + renderProjectionText(独立编译 derived, 值通道截断清单)（CT-2/AC2） > B1/B3 raw 夹具矩阵（14 路径 × 9 预算）：schema:null 与路径偏离同基、truncated 独立透传
+AssertionError: B1-raw/[]/{"depth":0}：schema 必须逐字节等于 oracle（含 null）: expected { valueSchema: { …(2) }, …(3) } to be '# readData [] {depth:0}\n\n[...]‡\n\n…' // Object.is equality
+
+- Expected:
+"# readData [] {depth:0}
+
+[...]‡
+
+‡ 截断标记：该类型位因读取预算（depth 耗尽）折叠；对该路径再读可展开。
+
+✂ 截断事实：
+- [] · depth · 省略 7 项
+"
+
++ Received:
+{
+  "aliasDocs": {},
+  "aliases": {},
+  "docs": {},
+  "valueSchema": {
+    "clue": {
+      "containerKind": "object",
+      "via": "container",
+    },
+    "kind": "truncated",
+  },
+}
+
+ ❯ packages/namespace-runtime/test/runtime-readdata-projection-text-red.test.ts:295:73
+    293|         const actual = okOrThrow(r, label);
+    294|         const expected = oracle(doc, path, options);
+    295|         expect(actual.schema, `${label}：schema 必须逐字节等于 oracle（含 null）`…
+       |                                                                         ^
+    296|         expect(actual.truncated, `${label}：truncated === 值通道布尔`).toBe(…
+    297|       }
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[7/22]⎯
+
+ FAIL  packages/namespace-runtime/test/runtime-readdata-projection-text-red.test.ts > 组 B：schema ≡ 头行 + renderProjectionText(独立编译 derived, 值通道截断清单)（CT-2/AC2） > B2 无预算格：渲染器第二参缺席（组合层不合成清单）——文本与无预算 oracle 逐字节同
+AssertionError: expected { valueSchema: { …(2) }, …(3) } to be '# readData []\n\n{\n  title: string /…' // Object.is equality
+
+- Expected:
+"# readData []
+
+{
+  title: string // 页面标题
+  count: number
+  meta: Meta // 元数据
+  tags: string[] // 标签组
+  nick?: string // 可选昵称
+}
+
+type Meta = {
+  content: string // 备注内容
+  extra: number // 附加计数
+}
+"
+
++ Received:
+{
+  "aliasDocs": {},
+  "aliases": {
+    "Meta": {
+      "fields": [
+        {
+          "name": "content",
+          "value": {
+            "kind": "scalar",
+            "type": "string",
+          },
+        },
+        {
+          "name": "extra",
+          "value": {
+            "kind": "scalar",
+            "type": "number",
+          },
+        },
+      ],
+      "kind": "object",
+    },
+  },
+  "docs": {
+    "Meta.content": [
+      " 备注内容 ",
+    ],
+    "Meta.extra": [
+      " 附加计数 ",
+    ],
+    "ROOT.meta": [
+      " 元数据 ",
+    ],
+    "ROOT.nick": [
+      " 可选昵称 ",
+    ],
+    "ROOT.tags": [
+      " 标签组 ",
+    ],
+    "ROOT.title": [
+      " 页面标题 ",
+    ],
+  },
+  "valueSchema": {
+    "fields": [
+      {
+        "name": "title",
+        "value": {
+          "kind": "scalar",
+          "type": "string",
+        },
+      },
+      {
+        "name": "count",
+        "value": {
+          "kind": "scalar",
+          "type": "number",
+        },
+      },
+      {
+        "name": "meta",
+        "value": {
+          "kind": "ref",
+          "name": "Meta",
+        },
+      },
+      {
+        "name": "tags",
+        "value": {
+          "element": {
+            "kind": "scalar",
+            "type": "string",
+          },
+          "kind": "array",
+        },
+      },
+      {
+        "name": "nick",
+        "value": {
+          "kind": "optional",
+          "value": {
+            "kind": "scalar",
+            "type": "string",
+          },
+        },
+      },
+    ],
+    "kind": "object",
+  },
+}
+
+ ❯ packages/namespace-runtime/test/runtime-readdata-projection-text-red.test.ts:307:22
+    305|     const resolved = resolveSchemaAtPath(DERIVED_336, []);
+    306|     if (!resolved.ok) throw new Error('装置前提失败：[] 必须可解析');
+    307|     expect(r.schema).toBe(`${headLine([])}\n\n${renderProjectionText(r…
+       |                      ^
+    308|     expect(r.schema).toBe(oracle(doc, []).text);
+    309|     await runtime.close();
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[8/22]⎯
+
+ FAIL  packages/namespace-runtime/test/runtime-readdata-projection-text-red.test.ts > 组 B：schema ≡ 头行 + renderProjectionText(独立编译 derived, 值通道截断清单)（CT-2/AC2） > B4 每次读重新求值：同参连续读逐字节相等；replaceSchema 后同路径读反映新 derived（无陈旧缓存）
+AssertionError: expected { …(4) } to be { …(4) } // Object.is equality
+
+If it should pass with deep equality, replace "toBe" with "toStrictEqual"
+
+Expected: { …(4) }
+Received: serializes to the same string
+
+
+Compared values have no visual difference.
+
+ ❯ packages/namespace-runtime/test/runtime-readdata-projection-text-red.test.ts:316:27
+    314|     const first = okOrThrow(runtime.readData(['meta']), 'B4-first');
+    315|     const second = okOrThrow(runtime.readData(['meta']), 'B4-second');
+    316|     expect(second.schema).toBe(first.schema);
+       |                           ^
+    317|     const replaced = { ...ENV_336, text: ENV_336.text.replace('/** 元数据…
+    318|     expect(replaced.text).not.toBe(ENV_336.text);
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[9/22]⎯
+
+ FAIL  packages/namespace-runtime/test/runtime-readdata-projection-text-red.test.ts > 组 B：schema ≡ 头行 + renderProjectionText(独立编译 derived, 值通道截断清单)（CT-2/AC2） > B5 oracle 独立性（测试结构不变量）：期望串由独立编译的 derived 渲染，绝不从 r.schema 反推
+AssertionError: expected { valueSchema: { …(2) }, …(3) } to be '# readData [meta] {depth:0}\n\nMeta‡\…' // Object.is equality
+
+- Expected:
+"# readData [meta] {depth:0}
+
+Meta‡
+
+‡ 截断标记：该类型位因读取预算（depth 耗尽）折叠；对该路径再读可展开。
+
+✂ 截断事实：
+- meta · depth · 省略 2 项
+"
+
++ Received:
+{
+  "aliasDocs": {},
+  "aliases": {},
+  "docs": {
+    "ROOT.meta": [
+      " 元数据 ",
+    ],
+  },
+  "valueSchema": {
+    "clue": {
+      "name": "Meta",
+      "via": "ref",
+    },
+    "kind": "truncated",
+  },
+}
+
+ ❯ packages/namespace-runtime/test/runtime-readdata-projection-text-red.test.ts:334:22
+    332|     // 独立构造路径：expected 来自 DERIVED_336（模块级独立编译），actual 来自 runtime 内部编译。
+    333|     expect(expected.text).not.toBeNull();
+    334|     expect(r.schema).toBe(expected.text);
+       |                      ^
+    335|     // 反向锚：若期望串从 actual 派生，下面这行不可能成立（改写 derived 的注释应改变期望）。
+    336|     const mutated = ENV_336.text.replace('/** 元数据 */', '/** 改名 */');
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[10/22]⎯
+
+ FAIL  packages/namespace-runtime/test/runtime-readdata-projection-text-red.test.ts > 组 C：头行 = "# readData [<实参 path 点分>]" + 有效预算段（CT-3/AC3） > C1 空路径无预算：文本以 "# readData []\n\n" 开头
+TypeError: r.schema.startsWith is not a function
+ ❯ packages/namespace-runtime/test/runtime-readdata-projection-text-red.test.ts:353:22
+    351|     const r = okOrThrow(runtime.readData([]), 'C1');
+    352|     expect(r.schema).not.toBeNull();
+    353|     expect(r.schema!.startsWith('# readData []\n\n')).toBe(true);
+       |                      ^
+    354|     expect(headBlock(r.schema!)).toBe('# readData []');
+    355|     await runtime.close();
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[11/22]⎯
+
+ FAIL  packages/namespace-runtime/test/runtime-readdata-projection-text-red.test.ts > 组 C：头行 = "# readData [<实参 path 点分>]" + 有效预算段（CT-3/AC3） > C2 多段路径（含数字段）：meta.content / tags.1 点分呈现
+TypeError: text.indexOf is not a function
+ ❯ headBlock packages/namespace-runtime/test/runtime-readdata-projection-text-red.test.ts:139:22
+    137| /** 头行块（首个 `\n\n` 前）与正文块（头行之后；含 ✂ 段与页脚）。 */
+    138| function headBlock(text: string): string {
+    139|   const index = text.indexOf('\n\n');
+       |                      ^
+    140|   if (index < 0) throw new Error(`契约前提失败：投影文本缺头行分隔（${JSON.stringify(te…
+    141|   return text.slice(0, index);
+ ❯ packages/namespace-runtime/test/runtime-readdata-projection-text-red.test.ts:361:12
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[12/22]⎯
+
+ FAIL  packages/namespace-runtime/test/runtime-readdata-projection-text-red.test.ts > 组 C：头行 = "# readData [<实参 path 点分>]" + 有效预算段（CT-3/AC3） > C3 头行反映实参 path 而非解析路径/别名名：["meta"] → meta（不是 Meta），ref 命中时同样如实
+TypeError: text.indexOf is not a function
+ ❯ headBlock packages/namespace-runtime/test/runtime-readdata-projection-text-red.test.ts:139:22
+    137| /** 头行块（首个 `\n\n` 前）与正文块（头行之后；含 ✂ 段与页脚）。 */
+    138| function headBlock(text: string): string {
+    139|   const index = text.indexOf('\n\n');
+       |                      ^
+    140|   if (index < 0) throw new Error(`契约前提失败：投影文本缺头行分隔（${JSON.stringify(te…
+    141|   return text.slice(0, index);
+ ❯ packages/namespace-runtime/test/runtime-readdata-projection-text-red.test.ts:370:12
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[13/22]⎯
+
+ FAIL  packages/namespace-runtime/test/runtime-readdata-projection-text-red.test.ts > 组 C：头行 = "# readData [<实参 path 点分>]" + 有效预算段（CT-3/AC3） > C4 预算段三形（键序 depth → maxChildrenPerNode、逗号无空格）
+TypeError: text.indexOf is not a function
+ ❯ headBlock packages/namespace-runtime/test/runtime-readdata-projection-text-red.test.ts:139:22
+    137| /** 头行块（首个 `\n\n` 前）与正文块（头行之后；含 ✂ 段与页脚）。 */
+    138| function headBlock(text: string): string {
+    139|   const index = text.indexOf('\n\n');
+       |                      ^
+    140|   if (index < 0) throw new Error(`契约前提失败：投影文本缺头行分隔（${JSON.stringify(te…
+    141|   return text.slice(0, index);
+ ❯ packages/namespace-runtime/test/runtime-readdata-projection-text-red.test.ts:380:12
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[14/22]⎯
+
+ FAIL  packages/namespace-runtime/test/runtime-readdata-projection-text-red.test.ts > 组 C：头行 = "# readData [<实参 path 点分>]" + 有效预算段（CT-3/AC3） > C5 无预算省略预算段：无 options / {} / {depth:undefined} / 非 enumerable / 继承键污染 → 全文与无 options 读逐字节相等
+AssertionError: expected { valueSchema: { …(2) }, …(3) } to be { valueSchema: { …(2) }, …(3) } // Object.is equality
+
+If it should pass with deep equality, replace "toBe" with "toStrictEqual"
+
+Expected: { valueSchema: { …(2) }, …(3) }
+Received: serializes to the same string
+
+
+Compared values have no visual difference.
+
+ ❯ packages/namespace-runtime/test/runtime-readdata-projection-text-red.test.ts:392:26
+    390|     const plain = okOrThrow(runtime.readData([]), 'C5-plain');
+    391|     const empty = okOrThrow(runtime.readData([], asOptions({})), 'C5-e…
+    392|     expect(empty.schema).toBe(plain.schema);
+       |                          ^
+    393|     const undefinedAxis = okOrThrow(runtime.readData([], asOptions({ d…
+    394|     expect(undefinedAxis.schema).toBe(plain.schema);
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[15/22]⎯
+
+ FAIL  packages/namespace-runtime/test/runtime-readdata-projection-text-red.test.ts > 组 C：头行 = "# readData [<实参 path 点分>]" + 有效预算段（CT-3/AC3） > C6 行注入防御：path 段含 \n / \r\n → 头行内折叠为空格、文本行数不增
+TypeError: text.indexOf is not a function
+ ❯ headBlock packages/namespace-runtime/test/runtime-readdata-projection-text-red.test.ts:139:22
+    137| /** 头行块（首个 `\n\n` 前）与正文块（头行之后；含 ✂ 段与页脚）。 */
+    138| function headBlock(text: string): string {
+    139|   const index = text.indexOf('\n\n');
+       |                      ^
+    140|   if (index < 0) throw new Error(`契约前提失败：投影文本缺头行分隔（${JSON.stringify(te…
+    141|   return text.slice(0, index);
+ ❯ packages/namespace-runtime/test/runtime-readdata-projection-text-red.test.ts:428:12
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[16/22]⎯
+
+ FAIL  packages/namespace-runtime/test/runtime-readdata-projection-text-red.test.ts > 组 D：truncated === 本次读发生过截断；文本 ✂ 段为唯一截断载体（CT-4/AC4） > D1/D5 无预算读与充足预算读：truncated=false、文本无 ✂、无 ‡
+TypeError: r.schema.includes is not a function
+ ❯ packages/namespace-runtime/test/runtime-readdata-projection-text-red.test.ts:460:24
+    458|       expect(r.truncated, label).toBe(false);
+    459|       expect(r.schema, label).not.toBeNull();
+    460|       expect(r.schema!.includes(TRUNCATION_SECTION), `${label}：无截断不得渲染…
+       |                        ^
+    461|       expect(r.schema!.includes('‡'), `${label}：无截断不得有标记`).toBe(false);
+    462|     }
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[17/22]⎯
+
+ FAIL  packages/namespace-runtime/test/runtime-readdata-projection-text-red.test.ts > 组 D：truncated === 本次读发生过截断；文本 ✂ 段为唯一截断载体（CT-4/AC4） > D3 depth 截断（[] + depth:1）：truncated=true、✂ 段在场、正文含 ‡ 且页脚在场
+TypeError: r.schema.includes is not a function
+ ❯ packages/namespace-runtime/test/runtime-readdata-projection-text-red.test.ts:470:22
+    468|     const r = okOrThrow(runtime.readData([], { depth: 1 }), 'D3');
+    469|     expect(r.truncated).toBe(true);
+    470|     expect(r.schema!.includes(TRUNCATION_SECTION)).toBe(true);
+       |                      ^
+    471|     const body = bodyBlock(r.schema!);
+    472|     expect(body).toContain('‡');
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[18/22]⎯
+
+ FAIL  packages/namespace-runtime/test/runtime-readdata-projection-text-red.test.ts > 组 D：truncated === 本次读发生过截断；文本 ✂ 段为唯一截断载体（CT-4/AC4） > D4 width-only 截断（["tags"] + maxChildrenPerNode:3）：truncated=true、✂ 段在场、正文无 ‡；正文与无预算读逐字节相等（全文因头行预算段+✂段必不等）
+TypeError: budgeted.schema.includes is not a function
+ ❯ packages/namespace-runtime/test/runtime-readdata-projection-text-red.test.ts:482:29
+    480|     const plain = okOrThrow(runtime.readData(['tags']), 'D4-plain');
+    481|     expect(budgeted.truncated).toBe(true);
+    482|     expect(budgeted.schema!.includes(TRUNCATION_SECTION)).toBe(true);
+       |                             ^
+    483|     const body = bodyBlock(budgeted.schema!);
+    484|     expect(body.includes('‡')).toBe(false);
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[19/22]⎯
+
+ FAIL  packages/namespace-runtime/test/runtime-readdata-projection-text-red.test.ts > 组 F：options 闭合形状 {depth?,maxChildrenPerNode?} 零变化（CT-6/AC6） > F3 canonical 等价：{} / {depth:undefined} / 非 enumerable / 继承键污染 → 全文逐字节等于无 options 读（含头行无预算段）
+AssertionError: expected { …(4) } to be { …(4) } // Object.is equality
+
+If it should pass with deep equality, replace "toBe" with "toStrictEqual"
+
+Expected: { …(4) }
+Received: serializes to the same string
+
+
+Compared values have no visual difference.
+
+ ❯ packages/namespace-runtime/test/runtime-readdata-projection-text-red.test.ts:727:32
+    725|     candidates.push(polluted!);
+    726|     for (const candidate of candidates) {
+    727|       expect(candidate.schema).toBe(plain.schema);
+       |                                ^
+    728|       expect(candidate.truncated).toBe(false);
+    729|     }
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[20/22]⎯
+
+ FAIL  packages/namespace-runtime/test/runtime-readdata-projection-text-red.test.ts > 组 G：投影 detach 深拷贝层退役——文本天然 detached（CT-7/AC7） > G1 schema 非 null 时为 string；结果对象图内无投影对象（JSON 不出现 "valueSchema"）
+AssertionError: expected 'object' to be 'string' // Object.is equality
+
+Expected: "string"
+Received: "object"
+
+ ❯ packages/namespace-runtime/test/runtime-readdata-projection-text-red.test.ts:740:29
+    738|     const runtime = await makeBudgetRuntime();
+    739|     const r = okOrThrow(runtime.readData(['meta'], { depth: 1 }), 'G1'…
+    740|     expect(typeof r.schema).toBe('string');
+       |                             ^
+    741|     expect(JSON.stringify(r)).not.toContain('"valueSchema"');
+    742|     expect(JSON.stringify(r)).not.toContain('"aliasDocs"');
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[21/22]⎯
+
+ FAIL  packages/namespace-runtime/test/runtime-readdata-projection-text-red.test.ts > 组 G：投影 detach 深拷贝层退役——文本天然 detached（CT-7/AC7） > G2 文本与 runtime 活 schema 零交叉污染：同参连续/交错读逐字节相等；改写 r.value 后重读文本不变
+AssertionError: expected { …(4) } to be { …(4) } // Object.is equality
+
+If it should pass with deep equality, replace "toBe" with "toStrictEqual"
+
+Expected: { …(4) }
+Received: serializes to the same string
+
+
+Compared values have no visual difference.
+
+ ❯ packages/namespace-runtime/test/runtime-readdata-projection-text-red.test.ts:751:27
+    749|     const other = okOrThrow(runtime.readData(['tags'], { depth: 0 }), …
+    750|     const second = okOrThrow(runtime.readData(['meta'], { depth: 1 }),…
+    751|     expect(second.schema).toBe(first.schema);
+       |                           ^
+    752|     // 调用方改写值深对象（r.value 是普通快照）——不得影响后续文本。
+    753|     (first.value as Record<string, unknown>)['content'] = 'tampered';
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[22/22]⎯
+
+
+ Test Files  2 failed (2)
+      Tests  22 failed | 16 passed (38)
+Type Errors  no errors
+   Start at  21:44:47
+   Duration  969ms (transform 377ms, setup 0ms, collect 595ms, tests 109ms, environment 0ms, prepare 82ms)

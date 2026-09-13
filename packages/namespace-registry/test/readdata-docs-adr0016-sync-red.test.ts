@@ -1,29 +1,29 @@
 /**
- * SA6 红灯契约 — issue #274：typed-access skill 与 docs/integration 覆盖
- * readData 语义 schema 投影（ADR 0016）的**文档同步验收**。
+ * SA6 契约 — issue #274（ADR 0016）+ issue #364（ADR-0027 决策 1/2/3 交付形态换代）：
+ * typed-access skill 与 docs/integration 覆盖 readData 投影交付的**文档同步验收**。
  *
- * 任务类型：feature（文档能力缺口——仓库行为已随 #273/#272 合入 HEAD，规范面
- * （ADR-0016/ADR-0008 修订节/CONTEXT 词条）已就位，缺的是**面向集成方与 agent
- * 消费者**的文档同步：typed-access 指引未说明成功读的 `schema` 字段形态/null
- * 语义/典型消费方式；docs/integration 的 readData 示例仍含与 ADR-0016 矛盾的
- * 两键全等形状注记。
+ * 任务类型：feature（文档能力缺口——仓库行为与规范面（ADR-0027 交付形态换代）已就位，
+ * 缺的是**面向集成方与 agent 消费者**的文档同步：typed-access 指引未说明成功读的
+ * `schema` 交付形态（投影文本/头行/✂ 段）与 null 语义/消费方式；docs/integration 的
+ * readData 示例仍含旧四件套交付陈述或旧形状注记。
  *
- * 断言面（全部 RED at HEAD）：
- * - R1  typed-access.md 引用 ADR-0016（挂接权威源）；
+ * 断言面（全部在目标文档同步后 GREEN）：
+ * - R1  typed-access.md **同时**引用 ADR-0027（交付形态）与 ADR-0016/0024（语义/预算）；
  * - R2  typed-access.md 说明「成功读随值携带路径语义 schema 投影（projection/投影）」；
- * - R3  typed-access.md 说明投影体四键（valueSchema/aliases/docs/aliasDocs 具名
- *       或 ReadDataSchemaProjection）；
- * - R4  typed-access.md 说明 docs/aliasDocs 切片键规约与派生 schema 文档表同构
- *       （路径寻址/别名名锚定）；
+ * - R3′ typed-access.md 具名**投影文本**交付及其载体（头行 `# readData [` / ✂ 截断段）——
+ *       旧四件套（valueSchema/aliases/docs/aliasDocs）陈述随 ADR-0027 决策 1 退役；
+ * - R4′ typed-access.md 说明头行文法（`# readData [<path>]` + 预算段）与 `✂ 截断事实：`
+ *       段（截断事实唯一载体）；
  * - R5  typed-access.md 给出「schema 为 null 不是读的失败」判读指引；
  * - R6  typed-access.md 说明典型消费方式：凭投影解读值并构造读后合法 mutation；
- * - R7  docs/integration/cordis-plugin-hosting.md 的 readData 成功形状注记
- *       `// { ok: true, value: 'first' }` 不含 schema——与运行时实际输出
- *       （`{ ok: true, value, schema }`，#273 已合入）矛盾，必须同步。
+ * - R7  docs/integration/cordis-plugin-hosting.md 的 readData 成功形状注记不含缺键
+ *       旧形状、不含退役的 `truncations` 键与恒五键表述——与运行时实际输出
+ *       （恒四键 + 投影文本，ADR-0027）一致。
  *
  * 匹配器为内容锚（见 `readdata-docs-adr0016-contract-fixture.ts` 头注），其敏感性
- * 由同目录 control 文件的样本双向校验（正样本绿/负样本红），防关键词空转伪绿。
- * 本文件在目标文档同步后应全绿；同步前每一条失败的断言消息即缺口的可观测证据。
+ * 由同目录 control 文件的样本双向校验（正样本绿/负样本红——含旧词汇负样本），
+ * 防关键词空转伪绿。本文件在目标文档同步后应全绿；每一条失败的断言消息即缺口的
+ * 可观测证据。
  */
 import { describe, expect, it } from 'vitest';
 import {
@@ -35,6 +35,7 @@ import {
   hasNullSemanticsParagraph,
   hasShapeParagraph,
   readRepoDoc,
+  retiredVocabularyViolations,
   staleAnnotationViolations,
 } from './readdata-docs-adr0016-contract-fixture.js';
 
@@ -42,10 +43,10 @@ const TYPED_ACCESS = readRepoDoc(SCOPE_DOCS.typedAccess);
 const CORDIS_HOSTING = readRepoDoc(SCOPE_DOCS.cordisHosting);
 
 describe('issue #274 R1–R2：typed-access 说明成功读的 schema 字段与投影形态', () => {
-  it('R1 typed-access.md 引用 ADR-0016（权威形态来源挂接）', () => {
+  it('R1 typed-access.md 同时引用 ADR-0027（交付形态）与 ADR-0016/0024（语义/预算）权威源', () => {
     expect(
       adr0016Refs(TYPED_ACCESS),
-      'typed-access.md 必须引用 ADR 0016（或 docs/adr/0016-readdata-semantic-schema-projection.md 锚点）作为 readData 语义 schema 投影的权威形态来源',
+      'typed-access.md 必须同时引用 ADR 0027（投影文本交付形态权威）与 ADR 0016/0024（语义面/预算面权威）——交付词汇换代后只引旧 ADR 即词汇漂移',
     ).toBe(true);
   });
 
@@ -57,18 +58,18 @@ describe('issue #274 R1–R2：typed-access 说明成功读的 schema 字段与�
   });
 });
 
-describe('issue #274 R3–R4：schema 字段形态（四键投影体 + docs 键规约）', () => {
-  it('R3 typed-access.md 说明投影体四键（valueSchema/aliases/docs/aliasDocs 具名，或 ReadDataSchemaProjection）', () => {
+describe('issue #274 R3′–R4′：投影文本交付形态与头行/✂ 文法规约（ADR-0027 词汇）', () => {
+  it('R3′ typed-access.md 具名投影文本交付（schema 为投影文本 string | null + 头行/✂ 段载体）', () => {
     expect(
       hasFourKeyParagraph(TYPED_ACCESS),
-      'typed-access.md 须具名投影体四键（同一段落含 valueSchema 与 aliasDocs——值语义子树/别名闭包/注释切片形态；贴出 ReadDataSchemaProjection 接口亦可）',
+      'typed-access.md 须具名「投影文本 / projection text」交付形态及其载体（头行 `# readData [` 或 `✂ 截断事实：` 段）——旧四件套（valueSchema/aliases/docs/aliasDocs）陈述已随 ADR-0027 决策 1 退役',
     ).toBe(true);
   });
 
-  it('R4 typed-access.md 说明 docs/aliasDocs 切片键规约与派生 schema 文档表同构（路径寻址/别名名锚定）', () => {
+  it('R4′ typed-access.md 说明头行文法（实参 path + 预算段）与 ✂ 截断事实段（唯一载体）', () => {
     expect(
       hasKeyConventionParagraph(TYPED_ACCESS),
-      'typed-access.md 须说明 docs/aliasDocs 的键规约与派生 schema 文档三表同构（§3 绝对语法路径/合成段寻址、别名以别名名锚定——含 aliasDocs + 同构/synthetic/寻址/键规约 等锚词）',
+      'typed-access.md 须说明投影文本文法：头行 `# readData [<path>]` + 预算段 `{depth:N[,maxChildrenPerNode:K]}` 与文末 `✂ 截断事实：` 段（截断事实唯一载体）同段在场',
     ).toBe(true);
   });
 });
@@ -89,13 +90,21 @@ describe('issue #274 R5–R6：null 语义判读 + 典型消费方式', () => {
   });
 });
 
-describe('issue #274 R7：docs/integration readData 示例形状注记同步', () => {
-  it('R7 cordis-plugin-hosting.md 不再含两键全等成功形状注记（缺 schema 的 `// { ok: true, value: … }`）', () => {
+describe('issue #274 R7：docs/integration readData 示例形状注记同步（ADR-0027 四键 + 投影文本）', () => {
+  it('R7 cordis-plugin-hosting.md 不再含缺键或旧五键成功形状注记（`// { ok: true, … }`）', () => {
     const violations = staleAnnotationViolations(CORDIS_HOSTING);
     expect(
       violations,
-      'cordis-plugin-hosting.md 的 readData 成功形状注记必须同步为含 schema 的形状（或删除全等注记）；ADR-0016 后成功分支恰三键 { ok, value, schema }。当前过时注记：'
+      'cordis-plugin-hosting.md 的 readData 成功形状注记必须同步为恒四键 + 投影文本（`// { ok: true, value, schema: <投影文本>, truncated }`）；旧两键/三键形状注记与仍含 truncations 的旧五键注记均过时。当前过时注记：'
         + violations.join(' | '),
+    ).toEqual([]);
+  });
+
+  it('R7 cordis-plugin-hosting.md 无退役交付词汇（恒五键 / 五键字面量 / truncations 交付键 / 四件套交付陈述）', () => {
+    const violations = retiredVocabularyViolations(CORDIS_HOSTING);
+    expect(
+      violations,
+      'cordis-plugin-hosting.md 的 readData 交付陈述必须完成 ADR-0027 词汇清退。当前旧词汇：' + violations.join(' | '),
     ).toEqual([]);
   });
 });
