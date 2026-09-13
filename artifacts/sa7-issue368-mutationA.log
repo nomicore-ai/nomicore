@@ -1,0 +1,306 @@
+
+ RUN  v3.2.7 /home/wangjian/nomicore-fix-issue-368
+
+ ✓ packages/doc-runtime/test/issue-368-window-read-contract-red.test.ts (45 tests) 37ms
+stdout | packages/doc-runtime/test/sa7-368-dynamic-probe.test.ts > SA7-A fail-fast propagation > A2 prefix discipline: n:2 (window excludes poison) -> ok with exactly f1,f2; no substitution/backfill
+[SA7-DATAFLOW] route=W1-R4 step=A2-prefix-ok value={"n":2,"keys":["f1","f2"]}
+
+stdout | packages/doc-runtime/test/sa7-368-dynamic-probe.test.ts > SA7-A fail-fast propagation > A4 zero doc side effects: update counter stays 0 across success/failure/absent/mismatch/invalid/hostile calls
+[SA7-DATAFLOW] route=W1-R2 step=A4-zero-updates value={"updates":0}
+
+stdout | packages/doc-runtime/test/sa7-368-dynamic-probe.test.ts > SA7-A fail-fast propagation > A5 hostile options: accessor getters never execute, no throw, WINDOW_OPTIONS_INVALID
+[SA7-DATAFLOW] route=W1-R1 step=A5-hostile-options value={"accessorRuns":0,"code":"WINDOW_OPTIONS_INVALID"}
+
+stdout | packages/doc-runtime/test/sa7-368-dynamic-probe.test.ts > SA7-A fail-fast propagation > A6 stage precedence: G0 (path shape) beats OPT (options) beats N1 (navigation absence)
+[SA7-DATAFLOW] route=W1-R1/R2 step=A6-precedence value={"g0":"PATH_NOT_ALLOWED","opt":"WINDOW_OPTIONS_INVALID","nav":"WINDOW_TARGET_ABSENT"}
+
+stdout | packages/doc-runtime/test/sa7-368-dynamic-probe.test.ts > SA7-A fail-fast propagation > A7 re-entry after failure: results stable, no old-path revival, doc still readable
+[SA7-DATAFLOW] route=W1-R4 step=A7-reentry-stable value={"identical":true}
+
+stdout | packages/doc-runtime/test/sa7-368-dynamic-probe.test.ts > SA7-B deterministic ordering (non-finite tail) > B1 field base: asc/desc full order via depth:0 + n:5 boundary; tail position/dir invariance
+[SA7-DATAFLOW] route=W1-R3 step=B1-field-order value={"asc":["n1","n2","s1","q1","q2","q3","q4","q5"],"desc":["n2","n1","s1","q1","q2","q3","q4","q5"]}
+
+stdout | packages/doc-runtime/test/sa7-368-dynamic-probe.test.ts > SA7-B deterministic ordering (non-finite tail) > B2 insertion-order independence + twin-doc determinism: 3 insertion permutations -> identical windows
+[SA7-DATAFLOW] route=W1-R3 step=B2-insertion-independence value={"identicalAcrossPerms":true}
+
+stdout | packages/doc-runtime/test/sa7-368-dynamic-probe.test.ts > SA7-B deterministic ordering (non-finite tail) > B3 repeat-call determinism: 5x identical JSON
+[SA7-DATAFLOW] route=W1-R3 step=B3-repeat-determinism value={"distinct":1}
+
+stdout | packages/doc-runtime/test/sa7-368-dynamic-probe.test.ts > SA7-B deterministic ordering (non-finite tail) > B4b representable-incomparable twin doc: null placeholders (same group-2 classification) -> full ordered base ok:true
+[SA7-DATAFLOW] route=W1-R3 step=B4b-twin-ordered-base value={"asc":[2,0,5,1,3,4],"desc":[0,2,5,1,3,4]}
+
+stdout | packages/doc-runtime/test/sa7-368-dynamic-probe.test.ts > SA7-C pins observation semantics > C1b representable-incomparable twin doc: full legacy order == depth:0 order (fold is not an ordering artifact)
+[SA7-DATAFLOW] route=W1-R3 step=C1b-twin-crosscheck value={"ascLegacyEqualsFold":true,"descLegacyEqualsFold":true}
+
+stdout | packages/doc-runtime/test/sa7-368-dynamic-probe.test.ts > SA7-C pins observation semantics > C2 depth:0 folds values to empty shells while classification stays pre-fold (string group keeps s1 in place)
+[SA7-DATAFLOW] route=W1-R3 step=C2-pre-fold-classification value={"third":"s1","allShells":true}
+
+ ❯ packages/doc-runtime/test/sa7-368-dynamic-probe.test.ts (17 tests | 6 failed) 26ms
+   × SA7-A fail-fast propagation > A1 no-half-window: n:3 full select incl. poisoned f3 -> sync failure union, path to item, message non-empty, repeat-stable 10ms
+     → expected true to be false // Object.is equality
+   ✓ SA7-A fail-fast propagation > A2 prefix discipline: n:2 (window excludes poison) -> ok with exactly f1,f2; no substitution/backfill 1ms
+   × SA7-A fail-fast propagation > A3 first-failure-wins in ordered base (not insertion order): two poisoned items -> earliest sorted item reported 1ms
+     → expected true to be false // Object.is equality
+   ✓ SA7-A fail-fast propagation > A4 zero doc side effects: update counter stays 0 across success/failure/absent/mismatch/invalid/hostile calls 1ms
+   ✓ SA7-A fail-fast propagation > A5 hostile options: accessor getters never execute, no throw, WINDOW_OPTIONS_INVALID 1ms
+   ✓ SA7-A fail-fast propagation > A6 stage precedence: G0 (path shape) beats OPT (options) beats N1 (navigation absence) 0ms
+   ✓ SA7-A fail-fast propagation > A7 re-entry after failure: results stable, no old-path revival, doc still readable 1ms
+   ✓ SA7-B deterministic ordering (non-finite tail) > B1 field base: asc/desc full order via depth:0 + n:5 boundary; tail position/dir invariance 1ms
+   ✓ SA7-B deterministic ordering (non-finite tail) > B2 insertion-order independence + twin-doc determinism: 3 insertion permutations -> identical windows 1ms
+   ✓ SA7-B deterministic ordering (non-finite tail) > B3 repeat-call determinism: 5x identical JSON 1ms
+   × SA7-B deterministic ordering (non-finite tail) > B4 array face: asc/desc first entries + tail-first fail-fast identity stable across dirs 1ms
+     → expected undefined to be 'PATH_NOT_ALLOWED' // Object.is equality
+   ✓ SA7-B deterministic ordering (non-finite tail) > B4b representable-incomparable twin doc: null placeholders (same group-2 classification) -> full ordered base ok:true 1ms
+   × SA7-B deterministic ordering (non-finite tail) > B5 zero-materialization sentinel: poisoned non-selected items unobservable (ok:true), selected -> fail-fast 1ms
+     → expected undefined to be 'PATH_NOT_ALLOWED' // Object.is equality
+   × SA7-C pins observation semantics > C1 legacy incremental probing reconstructs the same ordered base as depth:0 observation (asc & desc) 1ms
+     → expected true to be false // Object.is equality
+   ✓ SA7-C pins observation semantics > C1b representable-incomparable twin doc: full legacy order == depth:0 order (fold is not an ordering artifact) 1ms
+   ✓ SA7-C pins observation semantics > C2 depth:0 folds values to empty shells while classification stays pre-fold (string group keeps s1 in place) 0ms
+   × SA7-C pins observation semantics > C3 P2b consistency: legacy successes + fail identity agree with null-twin ordered base in both dirs 2ms
+     → expected undefined to strictly equal [ 'arr', 1 ]
+ ❯ packages/doc-runtime/test/issue-368-window-read-design-pins.test.ts (11 tests | 5 failed) 21ms
+   × W1-P1 D8 透传：入选项物化失败 → fail-fast PATH_NOT_ALLOWED（SA2-F1 阻断最小集） > P1 排序键 1/2/3 全选（n:3）→ f3 物化失败即整窗失败：同步不抛 / ok:false / code 严格 / 无 value 半窗 / path 精确到项 / message 非空 10ms
+     → expected true to be false // Object.is equality
+   × W1-P2 D4 non-finite 排序键归不可比尾组（SA2-F1 阻断最小集） > P2 field 基：NaN / -Infinity / +Infinity 全落尾组，组内键 asc 恒定，两方向组位不变，插入序打乱下锚稳定 2ms
+     → 期望窗口读 ok:false，实际 {"ok":true,"value":[{"key":"n1","value":{"score":2}},{"key":"n2","value":{"score":10}},{"key":"s1","value":{"score":"a"}},{"key":"q4","value":{}},{"key":"q5","value":{"score":true}}]}: expected true to be false // Object.is equality
+   × W1-P2b D4 × D3 数组面值键 non-finite 归尾 > P2b asc 首位 = 下标 2（值 1）、desc 首位 = 下标 0（值 5）；尾组首项 = 下标 1（NaN）且不随 dir 变位 2ms
+     → 期望窗口读 ok:false，实际 {"ok":true,"value":[{"index":2,"value":1},{"index":0,"value":5},{"index":5,"value":"a"}]}: expected true to be false // Object.is equality
+   ✓ W1-P3 D5 field 单段字面键（点号不拆分、空串合法） > P3a 含点号的 field 寻址 child 自身字面键：拆分实现会把 c2 钻到 7 → 首位差异（红） 1ms
+   ✓ W1-P3 D5 field 单段字面键（点号不拆分、空串合法） > P3b 空串 field 是合法字面键名 0ms
+   ✓ W1-P4 D6 条目空间：undefined 值键出条目空间 > P4 Y.Map 显式 set('u', undefined) 与 plain object {u: undefined} 的 'u' 均不在条目空间（n 全量窗口，排除恰被截掉） 1ms
+   ✓ W1-P5 D7 空路径 [] = ROOT 自身 > P5 fresh doc 键面 → []；含键 ROOT → 键窗口；数组面 → WINDOW_CARRIER_MISMATCH 1ms
+   ✓ W1-P6 D7 detached 目标/项 > P6a 经 plain holder 到达 detached Y.Map → PATH_NOT_ALLOWED（面符但不可读，非 MISMATCH / 非 ABSENT） 0ms
+   × W1-P6 D7 detached 目标/项 > P6b plain array 内 detached Y.Map 项入选 → 物化期同通道 PATH_NOT_ALLOWED（path 精确到项） 1ms
+     → 期望窗口读 ok:false，实际 {"ok":true,"value":[]}: expected true to be false // Object.is equality
+   × W1-P7 D9/B-5 own 键集自诺 > P7 成功恰两键 {ok,value}；失败恰四键 {code,ok,path,message}（含 P1 失败结算） 2ms
+     → expected [ 'ok', 'value' ] to strictly equal [ 'code', 'ok', 'path', 'message' ]
+   ✓ W1-P8 D10 / SA2-F2 身份锚码点比较器 > P8 astral 与 BMP 平局键：码点序锚两方向均 [\uFFFD, \u{1F600}]（码元序实现反序 → 红） 1ms
+
+⎯⎯⎯⎯⎯⎯ Failed Tests 11 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  packages/doc-runtime/test/issue-368-window-read-design-pins.test.ts > W1-P1 D8 透传：入选项物化失败 → fail-fast PATH_NOT_ALLOWED（SA2-F1 阻断最小集） > P1 排序键 1/2/3 全选（n:3）→ f3 物化失败即整窗失败：同步不抛 / ok:false / code 严格 / 无 value 半窗 / path 精确到项 / message 非空
+AssertionError: expected true to be false // Object.is equality
+
+- Expected
++ Received
+
+- false
++ true
+
+ ❯ packages/doc-runtime/test/issue-368-window-read-design-pins.test.ts:139:18
+    137|
+    138|     const r = result as WindowResult;
+    139|     expect(r.ok).toBe(false);
+       |                  ^
+    140|     expect(r.code).toBe('PATH_NOT_ALLOWED');
+    141|     // 无半窗：失败联合不得携带部分条目（跳项实现会返回 f1/f2 两条 ok:true）。
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/11]⎯
+
+ FAIL  packages/doc-runtime/test/issue-368-window-read-design-pins.test.ts > W1-P2 D4 non-finite 排序键归不可比尾组（SA2-F1 阻断最小集） > P2 field 基：NaN / -Infinity / +Infinity 全落尾组，组内键 asc 恒定，两方向组位不变，插入序打乱下锚稳定
+AssertionError: 期望窗口读 ok:false，实际 {"ok":true,"value":[{"key":"n1","value":{"score":2}},{"key":"n2","value":{"score":10}},{"key":"s1","value":{"score":"a"}},{"key":"q4","value":{}},{"key":"q5","value":{"score":true}}]}: expected true to be false // Object.is equality
+
+- Expected
++ Received
+
+- false
++ true
+
+ ❯ expectErr packages/doc-runtime/test/issue-368-window-read-design-pins.test.ts:87:67
+     85|   expect(result !== null && typeof result === 'object', `期望窗口读失败结算对象，实…
+     86|   const r = result as WindowResult;
+     87|   expect(r.ok === true, `期望窗口读 ok:false，实际 ${JSON.stringify(r)}`).toBe…
+       |                                                                   ^
+     88|   expect(r.code, `期望稳定码 ${code}，实际 ${String(r.code)}`).toBe(code);
+     89|   return r;
+ ❯ packages/doc-runtime/test/issue-368-window-read-design-pins.test.ts:180:22
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/11]⎯
+
+ FAIL  packages/doc-runtime/test/issue-368-window-read-design-pins.test.ts > W1-P2b D4 × D3 数组面值键 non-finite 归尾 > P2b asc 首位 = 下标 2（值 1）、desc 首位 = 下标 0（值 5）；尾组首项 = 下标 1（NaN）且不随 dir 变位
+AssertionError: 期望窗口读 ok:false，实际 {"ok":true,"value":[{"index":2,"value":1},{"index":0,"value":5},{"index":5,"value":"a"}]}: expected true to be false // Object.is equality
+
+- Expected
++ Received
+
+- false
++ true
+
+ ❯ expectErr packages/doc-runtime/test/issue-368-window-read-design-pins.test.ts:87:67
+     85|   expect(result !== null && typeof result === 'object', `期望窗口读失败结算对象，实…
+     86|   const r = result as WindowResult;
+     87|   expect(r.ok === true, `期望窗口读 ok:false，实际 ${JSON.stringify(r)}`).toBe…
+       |                                                                   ^
+     88|   expect(r.code, `期望稳定码 ${code}，实际 ${String(r.code)}`).toBe(code);
+     89|   return r;
+ ❯ packages/doc-runtime/test/issue-368-window-read-design-pins.test.ts:232:20
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[3/11]⎯
+
+ FAIL  packages/doc-runtime/test/issue-368-window-read-design-pins.test.ts > W1-P6 D7 detached 目标/项 > P6b plain array 内 detached Y.Map 项入选 → 物化期同通道 PATH_NOT_ALLOWED（path 精确到项）
+AssertionError: 期望窗口读 ok:false，实际 {"ok":true,"value":[]}: expected true to be false // Object.is equality
+
+- Expected
++ Received
+
+- false
++ true
+
+ ❯ expectErr packages/doc-runtime/test/issue-368-window-read-design-pins.test.ts:87:67
+     85|   expect(result !== null && typeof result === 'object', `期望窗口读失败结算对象，实…
+     86|   const r = result as WindowResult;
+     87|   expect(r.ok === true, `期望窗口读 ok:false，实际 ${JSON.stringify(r)}`).toBe…
+       |                                                                   ^
+     88|   expect(r.code, `期望稳定码 ${code}，实际 ${String(r.code)}`).toBe(code);
+     89|   return r;
+ ❯ packages/doc-runtime/test/issue-368-window-read-design-pins.test.ts:323:15
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[4/11]⎯
+
+ FAIL  packages/doc-runtime/test/issue-368-window-read-design-pins.test.ts > W1-P7 D9/B-5 own 键集自诺 > P7 成功恰两键 {ok,value}；失败恰四键 {code,ok,path,message}（含 P1 失败结算）
+AssertionError: expected [ 'ok', 'value' ] to strictly equal [ 'code', 'ok', 'path', 'message' ]
+
+- Expected
++ Received
+
+  [
+-   "code",
+    "ok",
+-   "path",
+-   "message",
++   "value",
+  ]
+
+ ❯ packages/doc-runtime/test/issue-368-window-read-design-pins.test.ts:340:36
+    338|
+    339|     const p1Failure = mapWindow()(makeP1Doc(), ['field'], { n: 3, orde…
+    340|     expect(Object.keys(p1Failure)).toStrictEqual(['code', 'ok', 'path'…
+       |                                    ^
+    341|   });
+    342| });
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[5/11]⎯
+
+ FAIL  packages/doc-runtime/test/sa7-368-dynamic-probe.test.ts > SA7-A fail-fast propagation > A1 no-half-window: n:3 full select incl. poisoned f3 -> sync failure union, path to item, message non-empty, repeat-stable
+AssertionError: expected true to be false // Object.is equality
+
+- Expected
++ Received
+
+- false
++ true
+
+ ❯ packages/doc-runtime/test/sa7-368-dynamic-probe.test.ts:79:21
+     77|         r = readMapWindowAtPath(doc, ['field'], { n: 3, orderBy: { fie…
+     78|       }, 'must be synchronous, never throw').not.toThrow();
+     79|       expect(r?.ok).toBe(false);
+       |                     ^
+     80|       expect(r?.code).toBe('PATH_NOT_ALLOWED');
+     81|       expect(Object.prototype.hasOwnProperty.call(r, 'value')).toBe(fa…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[6/11]⎯
+
+ FAIL  packages/doc-runtime/test/sa7-368-dynamic-probe.test.ts > SA7-A fail-fast propagation > A3 first-failure-wins in ordered base (not insertion order): two poisoned items -> earliest sorted item reported
+AssertionError: expected true to be false // Object.is equality
+
+- Expected
++ Received
+
+- false
++ true
+
+ ❯ packages/doc-runtime/test/sa7-368-dynamic-probe.test.ts:115:18
+    113|     expect(keysOf(order.value)).toStrictEqual(['g1', 'g2', 'g3', 'g4']…
+    114|     const r = readMapWindowAtPath(doc, ['field'], { n: 4, orderBy: { f…
+    115|     expect(r.ok).toBe(false);
+       |                  ^
+    116|     expect(r.code).toBe('PATH_NOT_ALLOWED');
+    117|     expect(r.path).toStrictEqual(['field', 'g2']); // first in ordered…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[7/11]⎯
+
+ FAIL  packages/doc-runtime/test/sa7-368-dynamic-probe.test.ts > SA7-B deterministic ordering (non-finite tail) > B4 array face: asc/desc first entries + tail-first fail-fast identity stable across dirs
+AssertionError: expected undefined to be 'PATH_NOT_ALLOWED' // Object.is equality
+
+- Expected:
+"PATH_NOT_ALLOWED"
+
++ Received:
+undefined
+
+ ❯ packages/doc-runtime/test/sa7-368-dynamic-probe.test.ts:236:25
+    234|       const ascN = readArrayWindowAtPath(doc, ['arr'], { n }) as R;
+    235|       const descN = readArrayWindowAtPath(doc, ['arr'], { n, orderBy: …
+    236|       expect(ascN.code).toBe('PATH_NOT_ALLOWED');
+       |                         ^
+    237|       expect(ascN.path).toStrictEqual(['arr', 1]);
+    238|       expect(descN.code).toBe('PATH_NOT_ALLOWED');
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[8/11]⎯
+
+ FAIL  packages/doc-runtime/test/sa7-368-dynamic-probe.test.ts > SA7-B deterministic ordering (non-finite tail) > B5 zero-materialization sentinel: poisoned non-selected items unobservable (ok:true), selected -> fail-fast
+AssertionError: expected undefined to be 'PATH_NOT_ALLOWED' // Object.is equality
+
+- Expected:
+"PATH_NOT_ALLOWED"
+
++ Received:
+undefined
+
+ ❯ packages/doc-runtime/test/sa7-368-dynamic-probe.test.ts:279:23
+    277|     ]);
+    278|     const fail = readArrayWindowAtPath(doc, ['arr'], { n: 3 }) as R;
+    279|     expect(fail.code).toBe('PATH_NOT_ALLOWED');
+       |                       ^
+    280|     expect(fail.path).toStrictEqual(['arr', 1]);
+    281|     log('W1-R3/R4', 'B5-sentinel', { n2: 'ok:true (NaN unselected, zer…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[9/11]⎯
+
+ FAIL  packages/doc-runtime/test/sa7-368-dynamic-probe.test.ts > SA7-C pins observation semantics > C1 legacy incremental probing reconstructs the same ordered base as depth:0 observation (asc & desc)
+AssertionError: expected true to be false // Object.is equality
+
+- Expected
++ Received
+
+- false
++ true
+
+ ❯ packages/doc-runtime/test/sa7-368-dynamic-probe.test.ts:304:22
+    302|       for (let n = 4; n <= 9; n++) {
+    303|         const r = readMapWindowAtPath(doc, ['tasks'], { n, orderBy: { …
+    304|         expect(r.ok).toBe(false);
+       |                      ^
+    305|         expect(r.code).toBe('PATH_NOT_ALLOWED');
+    306|         tailViaFailFast.push((r.path as string[])[1] as string);
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[10/11]⎯
+
+ FAIL  packages/doc-runtime/test/sa7-368-dynamic-probe.test.ts > SA7-C pins observation semantics > C3 P2b consistency: legacy successes + fail identity agree with null-twin ordered base in both dirs
+AssertionError: expected undefined to strictly equal [ 'arr', 1 ]
+
+- Expected:
+[
+  "arr",
+  1,
+]
+
++ Received:
+undefined
+
+ ❯ packages/doc-runtime/test/sa7-368-dynamic-probe.test.ts:377:25
+    375|       }
+    376|       const fail = readArrayWindowAtPath(doc, ['arr'], { n: 4, orderBy…
+    377|       expect(fail.path).toStrictEqual(['arr', base[3]]);
+       |                         ^
+    378|       const sortedBase = dir === 'asc' ? base : [0, 2, 5, 1, 3, 4];
+    379|       expect(prefix).toStrictEqual(sortedBase.slice(0, 3));
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[11/11]⎯
+
+
+ Test Files  2 failed | 1 passed (3)
+      Tests  11 failed | 62 passed (73)
+   Start at  20:41:32
+   Duration  954ms (transform 258ms, setup 0ms, collect 466ms, tests 85ms, environment 0ms, prepare 130ms)
