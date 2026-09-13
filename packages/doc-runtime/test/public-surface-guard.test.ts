@@ -49,3 +49,13 @@ describe('@nomicore/doc-runtime 公共入口 — applyValidatedMutation 恢复�
     expect(mutationValueExports).toEqual(['applyValidatedMutation']);
   });
 });
+
+// ── P4：条件写稳定码值导出（ADR 0025 L58/L87；issue #347 AC7）────────────────────────
+
+describe('@nomicore/doc-runtime 公共入口 — MUTATION_GUARD_MISMATCH 值导出（ADR 0025 / issue #347）', () => {
+  it('P4 值导出 MUTATION_GUARD_MISMATCH 存在、为字符串且等于冻结字面量（公共面审计覆盖每一导出）', () => {
+    expect(Object.prototype.hasOwnProperty.call(ns, 'MUTATION_GUARD_MISMATCH')).toBe(true);
+    expect(typeof ns.MUTATION_GUARD_MISMATCH).toBe('string');
+    expect(ns.MUTATION_GUARD_MISMATCH).toBe('MUTATION_GUARD_MISMATCH');
+  });
+});
