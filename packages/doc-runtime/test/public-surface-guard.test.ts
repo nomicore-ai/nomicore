@@ -59,3 +59,19 @@ describe('@nomicore/doc-runtime 公共入口 — MUTATION_GUARD_MISMATCH 值导�
     expect(ns.MUTATION_GUARD_MISMATCH).toBe('MUTATION_GUARD_MISMATCH');
   });
 });
+
+// ── ADR 0028 缝 1 值导出：载体级窗口原语（issue #368 W1）─────────────────────────────
+
+describe('@nomicore/doc-runtime 公共入口 — 窗口原语两枚值导出（ADR 0028 决策 9-子弹 1 / issue #368）', () => {
+  it('P-W1 值导出 readArrayWindowAtPath / readMapWindowAtPath 存在且为函数（守卫逐导出记账）', () => {
+    for (const name of ['readArrayWindowAtPath', 'readMapWindowAtPath']) {
+      expect(Object.prototype.hasOwnProperty.call(ns, name), `公共值导出 ${name} 必须经 src/index.ts 在场`).toBe(true);
+      expect(typeof ns[name], `公共值导出 ${name} 必须为函数`).toBe('function');
+    }
+  });
+
+  it('P-W2 命名空间键审计：窗口面恰两枚值导出（防以别名/改头换面绕过公共面纪律）', () => {
+    const windowValueExports = Object.keys(ns).filter((k) => /Window/.test(k)).sort();
+    expect(windowValueExports).toEqual(['readArrayWindowAtPath', 'readMapWindowAtPath']);
+  });
+});
