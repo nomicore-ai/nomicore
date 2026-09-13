@@ -13,8 +13,12 @@
  * 对投影零操作（投影是类型级、路径键控，无实例键）。预算在解析递归内生效：
  * valueSchema 同 depth 截断（被裁位放**投影层截断标记** `SchemaTruncationMarker`，
  * 携带成员级线索——ref 名优先、无 ref 名时容器 kind）、别名传递闭包随展开层收缩、
- * docs/aliasDocs 切片被裁路径省略，三者在**同一次遍历**内同步收缩（先裁后收集：
- * `depth` 耗尽位置零物化、零子位路径 emit）。无 `options`（含显式 `undefined`）时
+ * docs/aliasDocs 切片按**可见性**收缩（Issue #359 / ADR 0024 决策 5 修订：docs 在场
+ * ⟺ 位置在返回的预算类型树可见——已渲染宿主的槽位（字段 / `<item>` / `<member N>` /
+ * `<key>`）随宿主在场、字段级 docs 随物化的值同行；被截子树**闭包内部**（别名体成员
+ * 注释、被截 ref 的 aliasDocs）继续省略），三者在**同一次遍历**内同步收缩（先裁后
+ * 收集：`depth` 耗尽位置零递归、被截子树内部零路径 emit——被截位自身的槽位键作为
+ * 已渲染宿主的槽位照常在场）。无 `options`（含显式 `undefined`）时
  * 走既有代码路径，行为逐字节不变。
  *
  * 解析语义与写侧路径守卫 drillStep（validate-patch.ts，issue #53 §3.3 规则 1，
@@ -173,7 +177,8 @@ export function isSchemaTruncationMarker(node: unknown): node is SchemaTruncatio
  *
  * 形状预算（ADR 0024 决策 5；`options` 加法第三参，**无 options 行为逐字节不变**）：
  * 预算在解析递归内生效——valueSchema 同 depth 截断、别名传递闭包随展开层收缩、
- * docs/aliasDocs 切片被裁路径省略，三者在同一次遍历内同步收缩（先裁后收集）。
+ * docs/aliasDocs 切片按可见性收缩（#359：已渲染宿主的槽位键在场，被截子树闭包内部
+ * 省略），三者在同一次遍历内同步收缩（先裁后收集）。
  * 计层规则：容器（object/array）各计 1 层；optional/union/enum/pattern/int/range/
  * scalar/xml 透明或终态；ref 为终态边界（被裁位标记携带 ref 名）。计层原点 = 路径终点（到达
  * 终点前的路径游走段不受预算）。`maxChildrenPerNode` 合法但对投影零操作（投影是
@@ -317,8 +322,10 @@ export function resolveSchemaAtPath(
     ? walked[0]!
     : budgetShell({ kind: 'union', members: walked });
   const aliases = walk.aliases();
-  // docs/aliasDocs：want = 脊柱位 ∪ 渲染位（emitted，精确匹配）——被裁路径与其后代省略、
-  // 被裁别名（被裁 ref 的目标）无条目；三源合并序/扫描序/空过滤/memberDocs 稀疏兼容照抄。
+  // docs/aliasDocs：want = 脊柱位 ∪ 渲染位（emitted，精确匹配）——渲染位 = 返回的
+  // valueSchema/aliases 中可见的语法位置（节点自身位 + 已渲染宿主的槽位：字段 /
+  // `<item>` / `<member N>` / `<key>`）；被截子树内部与其闭包别名（被裁 ref 的目标）
+  // 无条目；三源合并序/扫描序/空过滤/memberDocs 稀疏兼容照抄。
   const { docs, aliasDocs } = sliceDocs(
     derived,
     (k) => spine.has(k) || walk.emitted.has(k),
@@ -390,33 +397,13 @@ function truncationMarker(clue: SchemaTruncationClue): SchemaTruncationMarker {
 }
 
 /**
- * 该渲染位是否**被裁**（先裁后 emit 的谓词，评审 N1 精确化）：optional 对计层透明，
- * 其内位经透明包装后根位为标记 ⟹ 该语法位被裁、不入 emitted（如 `[]` d=1 的
- * `ROOT.config`）；union 壳（成员部分或全部标记）不算被裁——宿主位照常 emit
- * （§6.10 多重标记语义）。
- *
- * **环安全（SA4 R1 修复，§6.3.5 终止性硬约束）**：剥离链按**节点对象身份**去重——
- * 手造 optional 自引用环 / 2-环（透明环）重访即视为**未截断**并终止（环位经进行中集
- * 透传原引用、环上不可能存在标记，故「未截断」与 §6.3.5 透传语义一致）。无环输入的
- * 剥离链每节点至多出现一次，visited 集对既有输出零影响；本修复不拒收输入、不新增
- * throw（值树对象图环不在可信域 InternalError 清单内）。
- */
-function isTruncated(node: BudgetedValueSchema): boolean {
-  let current: BudgetedValueSchema = node;
-  const stripped = new Set<BudgetedValueSchema>();
-  while (current.kind === 'optional') {
-    if (stripped.has(current)) return false; // 透明环重入：透传原引用、环上无标记
-    stripped.add(current);
-    current = current.value;
-  }
-  return current.kind === 'truncated';
-}
-
-/**
  * 预算游走上下文（§7.3；每调用局部、零跨调用状态——ADR 0016 L65 纯函数纪律）。
  * 两相环防御：`inProgress`（进入即登记、完成即移除）对环重入**透传原节点引用**
  * （不构造、不 emit、不抛；与无预算读共享原引用的输出语义同构）；`memo`（完成后
- * 写表）对 DAG 记忆化复用。渲染位路径集 `emitted` 供 docs 选键（精确匹配）。
+ * 写表）对 DAG 记忆化复用。渲染位路径集 `emitted` 供 docs 选键（精确匹配）——
+ * 成员 = 返回的预算类型树中**可见**的语法位置：节点自身位（被截位除外——标记不
+ * 进 emitted）+ 已渲染宿主的槽位（字段 / `<item>` / `<member N>` / `<key>`，
+ * #359：槽位随宿主渲染无条件在场，类型闭包被截不连坐槽位）。
  */
 class BudgetWalk {
   /** 已渲染的语法路径集（容器壳位/字段值位/`<item>`/`<member N>`/终态自身/保留 ref 位/闭包锚）。 */
@@ -470,7 +457,9 @@ class BudgetWalk {
           // 容器消耗一层：字段值位以 budget-1 渲染
           const child = this.walk(field.value, budget - 1, `${path}.${field.name}`);
           if (child !== field.value) pristine = false;
-          if (!isTruncated(child)) this.emitted.add(`${path}.${field.name}`); // 先裁后 emit
+          // #359 槽位随宿主：字段槽位属于已渲染宿主（值通道同行交付该行的值或同形空壳），
+          // 类型闭包被截不连坐槽位——字段级 docs 随物化的值同行
+          this.emitted.add(`${path}.${field.name}`);
           fields.push({ name: field.name, value: child });
         }
         // 身份短路：零标记子树 ⟹ 整体返回原节点引用（充足 depth ≡ 无预算的字节恒等基础）
@@ -485,7 +474,8 @@ class BudgetWalk {
         if (budget === 0) return truncationMarker({ via: 'container', containerKind: 'array' });
         this.emitted.add(path); // 容器壳位
         const child = this.walk(node.element, budget - 1, `${path}.<item>`);
-        if (!isTruncated(child)) this.emitted.add(`${path}.<item>`);
+        // #359 槽位随宿主：元素槽位随渲染数组在场；被截数组的元素槽位随宿主一起缺席
+        this.emitted.add(`${path}.<item>`);
         if (child === node.element) return node;
         return budgetShell({ kind: 'array', element: child });
       }
@@ -498,7 +488,8 @@ class BudgetWalk {
           const member = node.members[i]!;
           const child = this.walk(member, budget, `${path}.<member ${i}>`);
           if (child !== member) pristine = false;
-          if (!isTruncated(child)) this.emitted.add(`${path}.<member ${i}>`);
+          // #359 槽位随宿主：成员槽位随渲染联合宿主在场（M4 成员注释同行）
+          this.emitted.add(`${path}.<member ${i}>`);
           members.push(child);
         }
         if (pristine) return node;
@@ -807,7 +798,8 @@ function collectAliasClosure(
 
 /**
  * docs/aliasDocs 切片（§8.6，D2/D3）：选键 = 调用方谓词 `want`（无预算分支 = 脊柱 ∪
- * 终点候选子树后代 ∪ 闭包别名内部；预算分支 = 脊柱 ∪ 渲染位 emitted 精确匹配）——
+ * 终点候选子树后代 ∪ 闭包别名内部；预算分支 = 脊柱 ∪ 渲染位 emitted 精确匹配——
+ * 渲染位 = 返回类型树中可见的位置：节点自身位 + 已渲染宿主的槽位，#359）——
  * 键不发明、内容逐字；合并内容
  * `docs[k] = [...fieldDocs[k], ...markerDocs[k], ...memberDocs[k]]`
  * （field → marker → member 末位；fieldDocs 在 `<member N>` 键上恒无条目，实际合并 =

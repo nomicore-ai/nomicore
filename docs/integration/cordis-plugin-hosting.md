@@ -344,8 +344,10 @@ console.log(lease.readData(['title']))
 // { ok: true, value: 'first', schema: { valueSchema, aliases, docs, aliasDocs }, truncated: false, truncations: [] }
 
 // 形状预算（ADR 0024）：第二参 options（封闭形状 { depth?, maxChildrenPerNode? }）
-// 在一次读内以同一预算贯通值与 schema 投影两通道——未展开分支零物化，被裁子项的键
-// 从值中省略、事实进 truncations 清单（键缺席且不在清单 = 真缺席；在清单 = 被裁）。
+// 在一次读内以同一预算贯通值与 schema 投影两通道——未展开分支零物化；depth 耗尽处
+// 容器子项折叠为同形空容器（键在场）+ truncations 条目，width 超限的超出前缀键省略；
+// 标量等终态子项不耗层、原样物化。schema 投影同 depth 裁剪，docs 切片按可见性收缩
+// （已渲染宿主的槽位 docs 随值同行，被截闭包内部省略——ADR 0024 #359 amendment）。
 // 不传 options = 完整投影；非法 options 响亮拒绝 READ_OPTIONS_INVALID（同步、不抛）。
 const shallow = lease.readData([], { depth: 1, maxChildrenPerNode: 5 })
 
@@ -373,6 +375,15 @@ await reopened.lease.release()
 `create()` 是排他创建：与 active/idle/closing Registry entry 或 target-owner 持久化重复碰撞时由 Registry **内部重生成换 ID 重试**（至多 8 次），重试预算耗尽则 reject `NamespaceRegistryFatalError`（`committed:false`、`phase: 'namespace-id-generation'`）——普通 create 不再返回 `NAMESPACE_ALREADY_EXISTS`（该码保留在公共类型联合中供后续受信任导入切片使用）；读取已有 namespace 使用 `open()`。每次成功调用返回独立 `NamespaceLease`。业务完成后必须 `release()`；支持显式资源管理的运行时也可使用 `await using`。
 
 写入由 schema 校验，失败返回结构化结果并保持零写入。调用方按 `result.ok` 与稳定的 `code` 分支，不要匹配 message 文本。
+
+### 跨 realm / 动态插件调用 readData 的两条陷阱
+
+在插件 VM、跨 realm 宿主或任何"代码运行在另一个 JS realm"的环境里调用 `lease.readData(path, options)` 时，有两个**静默或响亮的 realm 同一性陷阱**（实测来自 DSH 动态插件集成，issue #359 附记）：
+
+1. **`options` 必须是宿主 realm 的 plain object**（`Object.prototype` 或 `null` 原型）。插件 VM 里的对象字面量 `{ depth: 1 }` 原型属于插件 realm，会被 options 校验按"非 plain 原型对象"拒收——`READ_OPTIONS_INVALID`（响亮、可诊断，但容易误判为调用方写错形状）。修法：让宿主侧代构 options，或经 JSON 往返（`JSON.parse('{"depth":1}')`）拿到宿主 realm 对象。
+2. **`path` 必须是宿主 realm 的数组**。schema 投影通道的敌意路径守卫对 `Symbol.iterator` 做**同一性比较**（`path[Symbol.iterator] !== Array.prototype[Symbol.iterator]` 即收敛 `schema: null`）——跨 realm 数组的迭代器来自另一个 realm 的 `Array.prototype`，比较恒假。结果：**值通道完全正常、`schema` 静默为 `null`**，极易误诊为投影通道损坏。修法：在宿主 realm 派生新数组（如 `hostArray.concat(rawPath)` 或逐段拷贝）后再传入。
+
+排查口诀：`readData` 值对、`schema` 为 `null`、无其他失败迹象 ⟹ 先怀疑 path 的 realm 同一性；`READ_OPTIONS_INVALID` 且形状看似合法 ⟹ 先怀疑 options 的原型。
 
 ## 停止与重载
 

@@ -200,8 +200,9 @@ export interface NamespaceRuntime {
    *  数（width 对投影无操作）。合法性以 doc-runtime 校验器为**单一权威**：非法 options
    *  （负数/非整数/非有限数/非对象/含未知多余键/accessor 键）响亮拒绝为新增稳定失败码
    *  `READ_OPTIONS_INVALID`（同步、不抛；不借用 PATH_NOT_ALLOWED / RUNTIME_READ_DISABLED
-   *  ——预算缺陷不是路径缺陷，亦非生命周期缺陷）；键名的唯一在场位置 = 截断清单 depth
-   *  条目的 path 尾段。敌意 options（Proxy/descriptor-视图不稳定）同样收敛
+   *  ——预算缺陷不是路径缺陷，亦非生命周期缺陷）；depth 耗尽处被折容器键以折叠空壳在场，
+   *  depth 条目 path 尾段 = 被折容器键名（「空壳 = 被裁」的辨识——ADR-0024 #359
+   *  amendment；width 超限才是键省略）。敌意 options（Proxy/descriptor-视图不稳定）同样收敛
    *  `READ_OPTIONS_INVALID`，绝不外抛、绝不静默为 `schema:null`。
    *  错误双域划界（D4；敌意/异态 path → schema:null 收敛、绝不外抛；`InternalError`
    *  ——可信域畸形 derived——→ throw 逃逸，internal-bug-only、生产不可达——唯一逃逸
