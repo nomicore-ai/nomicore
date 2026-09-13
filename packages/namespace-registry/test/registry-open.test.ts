@@ -184,6 +184,8 @@ function makeRuntime(overrides: {
     owner: overrides.owner ?? { userId: 'runtime-owner' },
     namespaceId: overrides.namespaceId ?? 'runtime-ns',
     readData: overrides.readData ?? (() => readDataOk('runtime-value', null)),
+    readArray: () => ({ ok: false, code: 'PATH_NOT_ALLOWED', path: [], message: 'stub: 窗口读未接线' }),
+    readMap: () => ({ ok: false, code: 'PATH_NOT_ALLOWED', path: [], message: 'stub: 窗口读未接线' }),
     getSchema: () => null,
     getMetadata: () => ({ marker: 'meta' }),
     getActiveSchema: () => null,
@@ -900,7 +902,7 @@ describe('lease 语义（§7 逐方法表格）', () => {
     return { lease: a, other: b, registry, persistence };
   }
 
-  it('owner 为冻结独立投影；lease 冻结；十二键面 + asyncDispose 键；不暴露 runtime/doc', async () => {
+  it('owner 为冻结独立投影；lease 冻结；十五键面（ADR 0028 W2 窗口读两键）+ asyncDispose 键；不暴露 runtime/doc', async () => {
     const persistence = new StubPersistence();
     persistence.queueLoad({ result: new StubHandle({ userId: 'u-alice' }, 'ns-1') });
     const runtime = makeRuntime({ owner: { userId: 'runtime-owner-marker' }, namespaceId: 'runtime-ns' });
@@ -926,7 +928,9 @@ describe('lease 语义（§7 逐方法表格）', () => {
         'namespaceId',
         'openReplicationSession',
         'owner',
+        'readArray',
         'readData',
+        'readMap',
         'release',
         'replaceSchema',
       ].sort(),

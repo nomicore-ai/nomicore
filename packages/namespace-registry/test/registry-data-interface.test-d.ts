@@ -2,7 +2,9 @@ import { describe, it } from 'vitest';
 import type {
   NamespaceLease,
   NamespaceLeaseMutateDataResult,
+  NamespaceLeaseReadArrayResult,
   NamespaceLeaseReadDataResult,
+  NamespaceLeaseReadMapResult,
   NamespaceLeaseSchema,
 } from '@nomicore/namespace-registry';
 
@@ -59,6 +61,18 @@ describe('NamespaceLease exposes Data, Schema, and Metadata concepts', () => {
     lease.mutateRoot({ op: 'set', path: ['items'], value: {} });
     // @ts-expect-error envelope projection terminology removed from public lease
     lease.getSchemaEnvelope();
+  });
+
+  it('#369（ADR 0028 W2）：readArray/readMap 为公共窗口读成员（lease 别名跟随 runtime、第二参必填）', () => {
+    const array: NamespaceLeaseReadArrayResult = lease.readArray(['items'], { n: 1 });
+    const map: NamespaceLeaseReadMapResult = lease.readMap(['items'], { n: 1, orderBy: { field: 'priority' } });
+    void array;
+    void map;
+
+    // @ts-expect-error 第二参必填（ADR 0028 决策 1）
+    lease.readArray(['items']);
+    // @ts-expect-error readMap 不收 by:'index'
+    lease.readMap(['items'], { n: 1, orderBy: { by: 'index' } });
   });
 
   it('readData 成功面为四键投影文本：truncations 键与 schema.valueSchema 均 fail closed（#364）', () => {

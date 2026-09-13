@@ -284,7 +284,9 @@ describe('AC4：factory 产出的 Runtime 保持 P0 队首/读取/写序列器/f
         'mutateData',
         'namespaceId',
         'owner',
+        'readArray',
         'readData',
+        'readMap',
         'replaceSchema',
       ]);
       expect(runtime.owner).toEqual({ userId: 'u-alice' });

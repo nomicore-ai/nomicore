@@ -106,6 +106,8 @@ function makeRecordingRuntime(): {
       calls.push({ path: args[0], options: args[1], argc: args.length });
       return result;
     },
+    readArray: () => ({ ok: false, code: 'PATH_NOT_ALLOWED', path: [], message: 'stub: 窗口读未接线' }),
+    readMap: () => ({ ok: false, code: 'PATH_NOT_ALLOWED', path: [], message: 'stub: 窗口读未接线' }),
     getSchema: () => null,
     getMetadata: () => ({ marker: 'meta' }),
     getActiveSchema: () => null,

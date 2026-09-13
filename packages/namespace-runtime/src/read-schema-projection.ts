@@ -80,43 +80,77 @@ export function projectReadDataSchema(
   options?: ResolveSchemaBudgetOptions,
   truncations?: readonly ReadLogicalValueTruncationEntry[],
 ): string | null {
-  const tools = state.activeTools;
-  // D3a 情形①：无 active schema（preparing/unavailable；fatal 期 schemaState 停留
-  // 'preparing' 且 activeTools 未安装——B5 天然覆盖，不读 state.fatal）。状态守卫先于
-  // path 守卫：无 active schema 时不触碰敌意对象（零敌意代码执行面、零无谓扫描）。
-  if (state.schemaState !== 'ready' || tools === undefined) return null;
-  // D3b 敌意 path 规范化守卫（F-1）：异态/异常 → null（情形③收敛，绝不外抛）。
-  const normalized = normalizeReadPath(path);
-  if (normalized === null) return null;
-  // resolver 只见普通数组副本；可信域畸形 derived 的 InternalError 由此直通逃逸
-  // （D4：不加 catch、不收敛 null、不降级码——唯一逃逸 throw 通道）。两分支显式分流
-  // （无 cast 过重载）：无预算走两参（渲染器第二参缺席）、预算走三参 + 值通道清单。
-  if (options === undefined) {
-    const resolved = resolveSchemaAtPath(tools.derived, normalized);
-    if (!resolved.ok) return null; // 情形②/③：路径偏离 schema / 静态解析失败（两码同收敛）
-    return assembleProjectionText(normalized, resolved, undefined);
-  }
-  const resolved = resolveSchemaAtPath(tools.derived, normalized, options);
-  if (!resolved.ok) return null; // 对 canonical 结构性不可达（防御纵深保留给直接调用方）
-  return assembleProjectionText(normalized, resolved, options, truncations);
+  const shared = resolveSchemaBody(state, path, options);
+  if (shared === null) return null;
+  const body = shared.budgeted
+    ? renderProjectionText(shared.resolved, truncations)
+    : renderProjectionText(shared.resolved);
+  return `${headLine(shared.normalized, options)}\n\n${body}`;
 }
 
 /**
- * 投影文本组装序（ADR-0027 决策 2/3）：头行（实参 path 快照 + 有效预算）→ 恰 1 空行 →
- * 渲染器正文（含 ✂ 段与 `‡` 页脚）。渲染器是 T1 冻结面——本模块零选项、零包装、
- * 零 try/catch（畸形可信域入参 → renderer 内 `InternalError` 逃逸）。
+ * 投影文本**正文变体**（issue #369 W2 / ADR 0028 决策 6 元素口径锚；设计 §7.3 S5）：
+ * 与 `projectReadDataSchema` 共用同一前奏（D3a 状态守卫 → D3b 敌意 path 规范化 →
+ * resolver），但**无头行、无值通道截断清单**——`schema = renderProjectionText(resolved)`
+ * 的正文（含 `‡` 页脚与别名块，结尾恰一个 `\n`），或 null（无 active schema / 路径偏离 /
+ * 敌意 path；null 单义，绝非空串）。
+ *
+ * 窗口读组合层（`window-read.ts`）用它渲染元素口径/容器口径锚；renderer 是 T1 冻结面，
+ * 本函数零选项、零包装、零 try/catch（可信域畸形 derived/投影 → `InternalError` 逃逸，
+ * 与 `projectReadDataSchema` 唯一逃逸 throw 通道一致）。
  */
-function assembleProjectionText(
-  normalizedPath: readonly (string | number)[],
-  resolved: ReadDataSchemaProjection | BudgetedReadDataSchemaProjection,
-  options: ResolveSchemaBudgetOptions | undefined,
-  truncations?: readonly ReadLogicalValueTruncationEntry[],
-): string {
-  const body = options === undefined
-    ? renderProjectionText(resolved)
-    : renderProjectionText(resolved, truncations);
-  return `${headLine(normalizedPath, options)}\n\n${body}`;
+export function projectSchemaTextBody(
+  state: RuntimeState,
+  path: readonly (string | number)[],
+  options?: ResolveSchemaBudgetOptions,
+): string | null {
+  const shared = resolveSchemaBody(state, path, options);
+  if (shared === null) return null;
+  return renderProjectionText(shared.resolved);
 }
+
+/**
+ * 共享前奏（D3a + D3b + resolver；`projectReadDataSchema` 与 `projectSchemaTextBody`
+ * 单点实现，输出逐字节不变是既有 readData 快照测试锚）：
+ * - D3a 情形①：无 active schema（preparing/unavailable；fatal 期 schemaState 停留
+ *   'preparing' 且 activeTools 未安装——B5 天然覆盖，不读 state.fatal）。状态守卫先于
+ *   path 守卫：无 active schema 时不触碰敌意对象（零敌意代码执行面、零无谓扫描）；
+ * - D3b 敌意 path 规范化守卫（F-1）：异态/异常 → null（情形③收敛，绝不外抛）；
+ * - resolver 只见普通数组副本；可信域畸形 derived 的 InternalError 由此直通逃逸
+ *   （D4：不加 catch、不收敛 null、不降级码——唯一逃逸 throw 通道）。两分支显式分流
+ *   （无 cast 过重载）：无预算走两参（渲染器第二参缺席）、预算走三参。
+ */
+function resolveSchemaBody(
+  state: RuntimeState,
+  path: readonly (string | number)[],
+  options: ResolveSchemaBudgetOptions | undefined,
+): ResolvedSchemaBody | null {
+  const tools = state.activeTools;
+  if (state.schemaState !== 'ready' || tools === undefined) return null;
+  const normalized = normalizeReadPath(path);
+  if (normalized === null) return null;
+  if (options === undefined) {
+    const resolved = resolveSchemaAtPath(tools.derived, normalized);
+    if (!resolved.ok) return null; // 情形②/③：路径偏离 schema / 静态解析失败（两码同收敛）
+    return { normalized, resolved, budgeted: false };
+  }
+  const resolved = resolveSchemaAtPath(tools.derived, normalized, options);
+  if (!resolved.ok) return null; // 对 canonical 结构性不可达（防御纵深保留给直接调用方）
+  return { normalized, resolved, budgeted: true };
+}
+
+/** 共享前奏产物：规范化 path 快照 + resolver ok 产物（预算分支判别用于渲染器第二参）。 */
+type ResolvedSchemaBody =
+  | {
+      readonly normalized: Array<string | number>;
+      readonly resolved: ReadDataSchemaProjection;
+      readonly budgeted: false;
+    }
+  | {
+      readonly normalized: Array<string | number>;
+      readonly resolved: BudgetedReadDataSchemaProjection;
+      readonly budgeted: true;
+    };
 
 /**
  * 头行（ADR-0027 决策 3 文法 `# readData [<path>] {depth:N}`；SA6 附录 A / 设计
@@ -193,8 +227,14 @@ function foldSegment(segment: string | number): string {
  *    演变（其 for..of/[...path] 均只见普通数组），防御自包含、不依赖 resolver 实现细节；
  * 4. 段语义不在此重复：本守卫只做句法域检查（普通数组 + string|number），段的语义
  *    合法性仍由 resolver 两码单义收敛（D3 原有「resolver 是段语义唯一裁决者」保持）。
+ *
+ * 导出（issue #369 W2 / SA4 F-369-1）：窗口读组合层（`window-read.ts` S5/S6）以本函数
+ * 作为 raw path 的**唯一**已验证快照来源——锚链与 ✂ 事实行 pathText 共用同一次快照，
+ * 绝不对实参 path 做第二次迭代/spread（二次 spread 既开敌意外抛通道，又使 pathText
+ * 可与实际读取路径漂移）。快照缺席（null）时窗口面收敛 `schema: null`（ADR-0027 null
+ * 单义），与 readData 头行「头行只读规范化快照」同款纪律。
  */
-function normalizeReadPath(path: readonly (string | number)[]): Array<string | number> | null {
+export function normalizeReadPath(path: readonly (string | number)[]): Array<string | number> | null {
   try {
     if (!Array.isArray(path)) return null; // 防御（值通道 G0 已挡非数组；此处为内部直调者兜底）
     // 迭代纯度：重定义/Proxy 陷阱 → null（属性读 + 同一性比较，不调用迭代器——

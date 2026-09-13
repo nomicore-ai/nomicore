@@ -40,6 +40,10 @@ import type {
   NamespaceRuntimeReadDataBudgetResult,
   NamespaceRuntimeReadDataOptions,
   NamespaceRuntimeReadDataResult,
+  NamespaceRuntimeReadArrayOptions,
+  NamespaceRuntimeReadArrayResult,
+  NamespaceRuntimeReadMapOptions,
+  NamespaceRuntimeReadMapResult,
   ReplaceSchemaInput,
   ReplaceSchemaResult,
 } from '@nomicore/namespace-runtime';
@@ -460,6 +464,25 @@ export type NamespaceLeaseReadDataBudgetResult =
   | NamespaceRuntimeReadDataBudgetResult
   | NamespaceLeaseReleasedIssue;
 
+/** lease.readArray 窗口 options（ADR 0028 决策 1/2；runtime 单源别名跟随——
+ *  `n` 必填 ≥1、`orderBy` 仅收 `by:'index'`；lease 层零校验、原样透传）。 */
+export type NamespaceLeaseReadArrayOptions = NamespaceRuntimeReadArrayOptions;
+
+/** lease.readArray 结果（ADR 0028 决策 7 恒四键成功面）= runtime 窗口联合（成功四键 |
+ *  W1 失败成员 | RUNTIME_READ_DISABLED 停接纳）| released issue——别名跟随 runtime
+ *  （Equal 锁在 lease.ts）。 */
+export type NamespaceLeaseReadArrayResult =
+  | NamespaceRuntimeReadArrayResult
+  | NamespaceLeaseReleasedIssue;
+
+/** lease.readMap 窗口 options（同 readArray；`orderBy` 为 `by:'key'` 或单段 field）。 */
+export type NamespaceLeaseReadMapOptions = NamespaceRuntimeReadMapOptions;
+
+/** lease.readMap 结果 = runtime 键面窗口联合 | released issue（同上）。 */
+export type NamespaceLeaseReadMapResult =
+  | NamespaceRuntimeReadMapResult
+  | NamespaceLeaseReleasedIssue;
+
 /** lease.getSchema 结果（runtime 同签名：载体缺席 → null）。 */
 export type NamespaceLeaseSchema = SchemaEnvelope | null;
 
@@ -679,6 +702,23 @@ export interface NamespaceLease {
     options: NamespaceRuntimeReadDataOptions,
   ): NamespaceLeaseReadDataBudgetResult;
   readData(path: readonly (string | number)[]): NamespaceLeaseReadDataResult;
+  /** 数组面窗口读（ADR 0028 决策 1；issue #369 W2）：对 `path` 终点序列容器确定性
+   *  选窗——成功恒四键 `{ ok, value, schema, truncated }`（`value` = 条目列表
+   *  `{index,value}[]`、`schema` = 元素口径投影文本 + ✂ 窗口事实块、
+   *  `truncated === kept < total`）。第二参必填（`n` 必填 ≥1）；active 期 options
+   *  **原样透传**（raw 引用直传 runtime 接缝；lease 层零解析、零校验）；released 短路
+   *  先于一切透传（冻结 issue）。失败面 = W1 三码 + `PATH_NOT_ALLOWED` 原样 |
+   *  RUNTIME_READ_DISABLED | released issue。 */
+  readArray(
+    path: readonly (string | number)[],
+    options: NamespaceLeaseReadArrayOptions,
+  ): NamespaceLeaseReadArrayResult;
+  /** 键面容窗口读（同 readArray 骨架；条目身份为 `key`，`orderBy` 为 `by:'key'` 或
+   *  单段 `field`；封闭对象形元素口径走容器路径回退——见 runtime JSDoc）。 */
+  readMap(
+    path: readonly (string | number)[],
+    options: NamespaceLeaseReadMapOptions,
+  ): NamespaceLeaseReadMapResult;
   getSchema(): NamespaceLeaseSchema;
   getMetadata(): NamespaceLeaseMetadata;
   getActiveSchema(): NamespaceLeaseActiveSchema;

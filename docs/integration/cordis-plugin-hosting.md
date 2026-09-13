@@ -387,6 +387,42 @@ console.log(reopened.lease.readData(['count']))
 await reopened.lease.release()
 ```
 
+### 窗口读（`readArray` / `readMap`，ADR 0028）
+
+需要「最新 K 条 / 按字段取前 K 条」这类**值感知**选择时用窗口读；形状预算的 width 是结构盲护栏（按载体序保留前 K），不是选择器——两者分工：窗口读决定**读哪些条目**，预算读决定**每个条目读多深**。
+
+```ts
+// readArray：序列容器（Y.Array / plain array）按下标基选窗；readMap：键容器
+// （Y.Map / plain object）按键基或单段值属性基选窗。n 必填 ≥1（n:0 非法）。
+const recent = lease.readArray(['workRecords'], {
+  n: 2,
+  orderBy: { by: 'index', dir: 'desc' }, // asc 缺省；readArray 仅收 by:'index'
+  depth: 1, // 与 readData 同一形状预算轴，作用于每个入选项内部
+})
+// 成功恒四键 { ok, value, schema, truncated }：
+//   value = 条目列表 [{ index, value }, …]（readMap 为 [{ key, value }, …]，有序基之序，
+//           身份随行——下一轮路径直接拼 [...path, entry.index | entry.key]）；
+//   schema = 元素口径投影文本（ADR 0027 形态、无头行）：入选项类型块 + docs，
+//           depth 截断标记落元素子树内；路径键控、与数据无关（空容器照常返回元素口径）。
+//           键面 Record 形锚定动态键槽；封闭对象形（YMap<{…}>）回退容器路径口径——
+//           该口径 depth 自容器起算，传 depth ≥ 1 得完整字段口径。
+//   truncated = kept < total；total=0 时 false 且无 ✂ 段。
+if (!recent.ok) throw new Error(`${recent.code}: ${recent.message}`)
+console.log(recent.value, recent.schema)
+// ✂ 窗口事实段样张（kept < total 时存在于 schema 文本末块）：
+// ✂ 截断事实：
+// - workRecords · 窗口 · 基 index desc · kept 2/total 3
+
+// 失败面响亮（与 readData 的缺席吸收方向相反，互不污染）：
+//   WINDOW_TARGET_ABSENT   目标缺席（缺键 / 数组越界）
+//   WINDOW_CARRIER_MISMATCH 在场但载体不符（换另一个 API）
+//   WINDOW_OPTIONS_INVALID 规则非法（n:0 / readArray 传 field / readMap 传 by:'index' 等）
+//   入选项物化失败仍原样透传 PATH_NOT_ALLOWED（fail-fast、无半窗）。
+// 入选项组合式等价：每个入选项 ≡ 对该项路径的同预算读；未入选子项零物化。
+```
+
+（本段示例复用上方 `lease`；窗口读只读不写、不进 sequencer，失败可直接重试。）
+
 `create()` 是排他创建：与 active/idle/closing Registry entry 或 target-owner 持久化重复碰撞时由 Registry **内部重生成换 ID 重试**（至多 8 次），重试预算耗尽则 reject `NamespaceRegistryFatalError`（`committed:false`、`phase: 'namespace-id-generation'`）——普通 create 不再返回 `NAMESPACE_ALREADY_EXISTS`（该码保留在公共类型联合中供后续受信任导入切片使用）；读取已有 namespace 使用 `open()`。每次成功调用返回独立 `NamespaceLease`。业务完成后必须 `release()`；支持显式资源管理的运行时也可使用 `await using`。
 
 写入由 schema 校验，失败返回结构化结果并保持零写入。调用方按 `result.ok` 与稳定的 `code` 分支，不要匹配 message 文本。
