@@ -8,13 +8,14 @@
 
 v1 冻结语法子集，覆盖 PRD #3 Implementation Decisions 列出的全部允许语法：
 类型别名、封闭对象字面量、`?:` 可选属性、原始类型、字面量联合、`T[]`、
-`Record<K, V>`、`string & Pattern<"正则">`（唯一允许的交叉类型）、注释。
+`Record<K, V>`、交叉类型白名单四例（`string & Pattern<"正则">`、`number & Int`、
+`number & Int<min, max>`、`number & Range<min, max>`；ADR 0020）、注释。
 
 ```ebnf
 (* VFSL v1 冻结子集 — EBNF，覆盖 PRD #3 全部允许语法 *)
 TypeAlias     = "type", Ident, "=", TypeExpr, ";" ;
 TypeExpr      = ObjectType | UnionType | ArrayType | RecordType | PatternType
-              | PrimitiveType | LiteralType | Marker ;
+              | IntType | RangeType | PrimitiveType | LiteralType | Marker ;
 Marker        = "YMap", "<", ObjectType, ">"
               | "YArray", "<", TypeExpr, ">"
               | "YPlainArray", "<", TypeExpr, ">"
@@ -27,10 +28,13 @@ UnionType     = TypeExpr, "|", TypeExpr ;
 ArrayType     = TypeExpr, "[", "]" ;
 RecordType    = "Record", "<", TypeExpr, ",", TypeExpr, ">" ;
 PatternType   = "string", "&", "Pattern", "<", StringLiteral, ">" ;
+IntType       = "number", "&", "Int"
+              | "number", "&", "Int", "<", NumberLiteral, ",", NumberLiteral, ">" ;
+RangeType     = "number", "&", "Range", "<", NumberLiteral, ",", NumberLiteral, ">" ;
 LiteralType   = StringLiteral | NumberLiteral ;
 PrimitiveType = "string" | "number" | "boolean" | "null" | "unknown" ;
 StringLiteral = '"', { char }, '"' ;
-NumberLiteral = digit, { digit } ;
+NumberLiteral = [ "-" ], digit, { digit }, [ ".", digit, { digit } ] ;
 Comment       = LineComment | BlockComment | DocComment ;
 LineComment   = "//", { char }, eol ;
 BlockComment  = "/*", { char }, "*/" ;

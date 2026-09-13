@@ -138,7 +138,7 @@ interface EmitTables {
  * N3（§4）：段② 发射前置守卫。别名名 × 协议导出面（12 名冻结名单）碰撞 → 命名化响亮失败，
  * 先于一切发射（失败零产出）。ROOT 不在协议导出面（ROOT 是 ADR-0003 根别名约定、非别名侧
  * 可声明名），集合成员测试天然排除，无需特判。不重复检查 parse 层保留名（RESERVED_NAMES
- * 16 名已在解析层拒收，parser.ts E303——单一真相，发射层不二次裁决）。
+ * 18 名已在解析层拒收，parser.ts E303——单一真相，发射层不二次裁决）。
  */
 function assertNoProtocolNameCollision(aliases: Record<string, StructureNode>): void {
   const collisions = Object.keys(aliases).filter((name) => PROTOCOL_EXPORT_NAMES.has(name));
@@ -333,8 +333,17 @@ function emitInner(node: StructureNode, value: ValueSchema, path: string, tables
         .join(' | ');
     }
     case 'leaf': {
-      // scalar / enum / pattern / 标量联合（可空叶 = 值侧标量联合 → T | null）
-      if (value.kind !== 'scalar' && value.kind !== 'enum' && value.kind !== 'pattern' && value.kind !== 'union') {
+      // scalar / enum / pattern / int / range / 标量联合（可空叶 = 值侧标量联合 → T | null）
+      // ★ 非 switch 位点（typecheck 不强制，手改；ADR 0020 决策 7）：int/range 数值约束叶
+      // 与 pattern 同层标量叶，放行后经 projectValue 发射 number；其余未知 kind 仍响亮 desync。
+      if (
+        value.kind !== 'scalar' &&
+        value.kind !== 'enum' &&
+        value.kind !== 'pattern' &&
+        value.kind !== 'int' &&
+        value.kind !== 'range' &&
+        value.kind !== 'union'
+      ) {
         throw desync(node, value, path);
       }
       // #307 发射位 4（ADR 0019 决策 6.4）：内联枚举 / 标量联合成员 doc 同行内前置。
