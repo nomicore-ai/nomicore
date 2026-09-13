@@ -37,7 +37,7 @@ Generate projections in the independent host and use them to type-check business
    Do not generate with `--semicolon-free` and check without it, or the reverse. The formats are intentionally byte-incompatible, so a mismatch fails closed as stale.
 
 4. Prove that each consuming package's TypeScript **Program** contains its generated projection. `generated.ts` augments `@nomicore/vfsl-protocol`; merely generating or committing it does nothing when it is outside the Program. Follow [Program wiring](#program-wiring) and choose the narrowest compliant branch.
-5. Review generated diffs. Modify `schema.vfsl` or the generator contract—not `generated.ts`—when output is wrong.
+5. Review generated diffs. Modify `schema.vfsl` or the generator contract—not `generated.ts`—when output is wrong. Numeric constraint leaves (`number & Int`, `number & Int<min, max>`, `number & Range<min, max>`) intentionally project as plain `number` (ADR 0020 decision 7): the domain is enforced by runtime validate and carried by the readData schema projection (`kind: 'int' | 'range'` with `min`/`max`), not by generated types—such a diff is expected, not a generator bug.
 6. Keep runtime validation and static typing distinct:
    - business code uses generated `VfslPathMap`, `PathAt`, `PathValue`, `PathPatchValue`, and `PathElementValue` through a host-owned adapter;
    - the adapter calls public `NamespaceLease.readData()` (a successful read returns `{ ok, value, schema }` — see [Read result: value plus semantic schema projection](#read-result-value-plus-semantic-schema-projection)) and `mutateData()`;

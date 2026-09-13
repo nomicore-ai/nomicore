@@ -30,6 +30,7 @@ Replace an existing namespace's SCHEMA only through a Hub-owned `NamespaceLease`
 | --- | --- | --- |
 | Add optional field | Usually omit | Prove current complete ROOT validates |
 | Widen compatible value constraint | Usually omit | Prove current complete ROOT validates |
+| Tighten a value constraint (e.g. `number` → `number & Int<min, max>` / `Range<min, max>`, ADR 0020) | Omit iff the complete current ROOT validates | Validate current data first; if existing values violate the narrowed domain, use the replace branch with a corrected complete ROOT |
 | Add required field | Supply | Build complete final ROOT containing the field |
 | Remove/rename field | Usually supply | Build complete final ROOT without stale/unknown keys |
 | Change carrier or container shape | Supply | Explicitly rebuild complete logical data for the new shape |
