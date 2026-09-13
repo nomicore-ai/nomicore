@@ -138,7 +138,7 @@ interface EmitTables {
  * N3（§4）：段② 发射前置守卫。别名名 × 协议导出面（12 名冻结名单）碰撞 → 命名化响亮失败，
  * 先于一切发射（失败零产出）。ROOT 不在协议导出面（ROOT 是 ADR-0003 根别名约定、非别名侧
  * 可声明名），集合成员测试天然排除，无需特判。不重复检查 parse 层保留名（RESERVED_NAMES
- * 16 名已在解析层拒收，parser.ts E303——单一真相，发射层不二次裁决）。
+ * 18 名已在解析层拒收，parser.ts E303——单一真相，发射层不二次裁决）。
  */
 function assertNoProtocolNameCollision(aliases: Record<string, StructureNode>): void {
   const collisions = Object.keys(aliases).filter((name) => PROTOCOL_EXPORT_NAMES.has(name));

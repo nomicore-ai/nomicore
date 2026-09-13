@@ -150,6 +150,14 @@ type Ratio = number & Range<0, 1>;          // [0, 1] 内的有限数（含双�
 type Temperature = number & Range<-40, 85>; // 负端点合法
 ```
 
+常见错误（均解析期 VFSL-E100 拒绝，见 [`v1-spec.md`](./v1-spec.md) §3「Int / Range」）：
+
+```vfsl
+type PercentA = number & Int<0.5, 1.5>; // 错：Int 端点须为整数值；浮点区间改用 Range<0.5, 1.5>
+type Band = number & Range<1, 0>;       // 错：空区间（min > max），几乎必是笔误；写 Range<0, 1>
+type Scale = 1e3 | 2e3;                 // 错：指数记号不在 v1；写 1000 | 2000
+```
+
 注意：
 
 - 数字字面量支持可选负号与十进制小数（负号须紧邻数字）；`.5` / `1.` / 指数记号 / `-0` 均 → VFSL-E100；小数按 IEEE-754 双精度解释，枚举成员相等语义为 f64 严格相等；
