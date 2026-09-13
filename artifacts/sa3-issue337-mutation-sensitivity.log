@@ -1,0 +1,82 @@
+### D2 object branch non-EOPT (add | undefined)
+packages/vfsl-protocol/test/vfsl-protocol-deep-optional.test-d.ts(57,5): error TS2578: Unused '@ts-expect-error' directive.
+error_count=1
+restored_ok=yes
+### D3 object branch loses optionality (drop ?, shallow)
+packages/vfsl-protocol/test/vfsl-protocol-budget-access.test-d.ts(67,76): error TS2344: Type '{ n?: number; }' does not satisfy the constraint '{ n?: "Expected: number, Actual: never" | "Expected: undefined, Actual: never"; }'.
+  Types of property 'n' are incompatible.
+    Type 'number' is not assignable to type '"Expected: number, Actual: never" | "Expected: undefined, Actual: never"'.
+packages/vfsl-protocol/test/vfsl-protocol-budget-access.test-d.ts(80,7): error TS2344: Type '{ kind?: "image"; url?: string; } | { kind?: "text"; body?: string; }' does not satisfy the constraint '{ url: never; body: never; kind?: "Expected: undefined, Actual: never" | "Expected: literal string: image, Actual: never" | "Expected: literal string: text, Actual: never"; }'.
+  Property 'body' is missing in type '{ kind?: "image"; url?: string; }' but required in type '{ url: never; body: never; kind?: "Expected: undefined, Actual: never" | "Expected: literal string: image, Actual: never" | "Expected: literal string: text, Actual: never"; }'.
+packages/vfsl-protocol/test/vfsl-protocol-budget-access.test-d.ts(86,7): error TS2344: Type 'Record<`${number}`, { v?: string; } | undefined>' does not satisfy the constraint 'never[]'.
+  Type 'Record<`${number}`, { v?: string; } | undefined>' is missing the following properties from type 'never[]': length, pop, push, concat, and 29 more.
+packages/vfsl-protocol/test/vfsl-protocol-budget-access.test-d.ts(91,81): error TS2344: Type '{ a?: string; }[]' does not satisfy the constraint '{ a?: "Expected: undefined, Actual: never" | "Expected: string, Actual: never"; }[]'.
+  Type '{ a?: string; }' is not assignable to type '{ a?: "Expected: undefined, Actual: never" | "Expected: string, Actual: never"; }' with 'exactOptionalPropertyTypes: true'. Consider adding 'undefined' to the types of the target's properties.
+    Types of property 'a' are incompatible.
+      Type 'string' is not assignable to type '"Expected: undefined, Actual: never" | "Expected: string, Actual: never"'.
+packages/vfsl-protocol/test/vfsl-protocol-budget-access.test-d.ts(96,11): error TS2740: Type '{}' is missing the following properties from type '{ label: string; kind: "image" | "text"; box: { n: number; }; ents: { [x: string]: { kind: "image"; url: string; } | { kind: "text"; body: string; }; }; kw: { [x: `${number}`]: { v: string; }; }; plainArr: { a: string; }[]; }': label, kind, box, ents, and 2 more.
+packages/vfsl-protocol/test/vfsl-protocol-budget-access.test-d.ts(107,5): error TS2578: Unused '@ts-expect-error' directive.
+packages/vfsl-protocol/test/vfsl-protocol-budget-access.test-d.ts(132,5): error TS2578: Unused '@ts-expect-error' directive.
+packages/vfsl-protocol/test/vfsl-protocol-budget-access.test-d.ts(141,11): error TS2741: Property 'n' is missing in type '{}' but required in type '{ n: number; }'.
+packages/vfsl-protocol/test/vfsl-protocol-budget-access.test-d.ts(147,5): error TS2578: Unused '@ts-expect-error' directive.
+packages/vfsl-protocol/test/vfsl-protocol-budget-access.test-d.ts(216,7): error TS2578: Unused '@ts-expect-error' directive.
+packages/vfsl-protocol/test/vfsl-protocol-budget-access.test-d.ts(224,9): error TS2578: Unused '@ts-expect-error' directive.
+packages/vfsl-protocol/test/vfsl-protocol-deep-optional.test-d.ts(41,81): error TS2344: Type '{ a?: string; n?: { b?: number; }; }' does not satisfy the constraint '{ n?: { b: "Expected: never, Actual: number"; }; a?: "Expected: undefined, Actual: never" | "Expected: string, Actual: never"; }'.
+  The types of 'n.b' are incompatible between these types.
+    Type 'number' is not assignable to type '"Expected: never, Actual: number"'.
+packages/vfsl-protocol/test/vfsl-protocol-deep-optional.test-d.ts(48,11): error TS2739: Type '{}' is missing the following properties from type '{ a: string; n: { b: number; }; }': a, n
+packages/vfsl-protocol/test/vfsl-protocol-deep-optional.test-d.ts(49,70): error TS2741: Property 'b' is missing in type '{}' but required in type '{ b: number; }'.
+packages/vfsl-protocol/test/vfsl-protocol-deep-optional.test-d.ts(63,11): error TS2739: Type '{}' is missing the following properties from type '{ a: string; n: { b: number; }; }': a, n
+packages/vfsl-protocol/test/vfsl-protocol-deep-optional.test-d.ts(64,5): error TS2578: Unused '@ts-expect-error' directive.
+packages/vfsl-protocol/test/vfsl-protocol-deep-optional.test-d.ts(84,75): error TS2344: Type '{ a?: string; } | undefined' does not satisfy the constraint '"Expected: undefined, Actual: never" | "Expected: ..., Actual: never"'.
+  Type 'undefined' is not assignable to type '"Expected: undefined, Actual: never" | "Expected: ..., Actual: never"'.
+packages/vfsl-protocol/test/vfsl-protocol-deep-optional.test-d.ts(90,65): error TS2344: Type '{ a?: string; }[]' does not satisfy the constraint '{ a?: "Expected: undefined, Actual: never" | "Expected: string, Actual: never"; }[]'.
+  Type '{ a?: string; }' is not assignable to type '{ a?: "Expected: undefined, Actual: never" | "Expected: string, Actual: never"; }' with 'exactOptionalPropertyTypes: true'. Consider adding 'undefined' to the types of the target's properties.
+    Types of property 'a' are incompatible.
+      Type 'string' is not assignable to type '"Expected: undefined, Actual: never" | "Expected: string, Actual: never"'.
+packages/vfsl-protocol/test/vfsl-protocol-deep-optional.test-d.ts(92,46): error TS2344: Type '{ a?: string; }' does not satisfy the constraint '{ a?: "Expected: undefined, Actual: never" | "Expected: string, Actual: never"; }'.
+  Types of property 'a' are incompatible.
+    Type 'string' is not assignable to type '"Expected: undefined, Actual: never" | "Expected: string, Actual: never"'.
+packages/vfsl-protocol/test/vfsl-protocol-deep-optional.test-d.ts(96,74): error TS2344: Type 'readonly { a?: string; }[]' does not satisfy the constraint 'never[]'.
+  The type 'readonly { a?: string; }[]' is 'readonly' and cannot be assigned to the mutable type 'never[]'.
+packages/vfsl-protocol/test/vfsl-protocol-deep-optional.test-d.ts(100,73): error TS2344: Type '[string?, { a?: number; }?]' does not satisfy the constraint '{ 0?: string; 1?: "Expected: undefined, Actual: never" | "Expected: ..., Actual: never"; }'.
+  Types of property '1' are incompatible.
+    Type '{ a?: number; }' is not assignable to type '"Expected: undefined, Actual: never" | "Expected: ..., Actual: never"'.
+packages/vfsl-protocol/test/vfsl-protocol-deep-optional.test-d.ts(104,75): error TS2344: Type '{ list?: { a?: string; }[]; }' does not satisfy the constraint '{ list?: { a?: "Expected: undefined, Actual: never" | "Expected: string, Actual: never"; }[]; }'.
+  Types of property 'list' are incompatible.
+    Type '{ a?: string; }[]' is not assignable to type '{ a?: "Expected: undefined, Actual: never" | "Expected: string, Actual: never"; }[]'.
+      Type '{ a?: string; }' is not assignable to type '{ a?: "Expected: undefined, Actual: never" | "Expected: string, Actual: never"; }' with 'exactOptionalPropertyTypes: true'. Consider adding 'undefined' to the types of the target's properties.
+        Types of property 'a' are incompatible.
+          Type 'string' is not assignable to type '"Expected: undefined, Actual: never" | "Expected: string, Actual: never"'.
+packages/vfsl-protocol/test/vfsl-protocol-deep-optional.test-d.ts(109,44): error TS2344: Type 'string | undefined' does not satisfy the constraint '"Expected: undefined, Actual: never" | "Expected: string, Actual: never"'.
+  Type 'undefined' is not assignable to type '"Expected: undefined, Actual: never" | "Expected: string, Actual: never"'.
+packages/vfsl-protocol/test/vfsl-protocol-deep-optional.test-d.ts(110,39): error TS2344: Type 'Record<`${number}`, string | undefined>' does not satisfy the constraint '"Expected: string, Actual: never"'.
+packages/vfsl-protocol/test/vfsl-protocol-deep-optional.test-d.ts(115,7): error TS2344: Type '({ kind?: "image"; url?: string; } | { kind?: "text"; body?: string; })[]' does not satisfy the constraint '{ url: never; body: never; kind?: "Expected: undefined, Actual: never" | "Expected: literal string: image, Actual: never" | "Expected: literal string: text, Actual: never"; }[]'.
+  Type '{ kind?: "image"; url?: string; } | { kind?: "text"; body?: string; }' is not assignable to type '{ url: never; body: never; kind?: "Expected: undefined, Actual: never" | "Expected: literal string: image, Actual: never" | "Expected: literal string: text, Actual: never"; }' with 'exactOptionalPropertyTypes: true'. Consider adding 'undefined' to the types of the target's properties.
+    Property 'body' is missing in type '{ kind?: "image"; url?: string; }' but required in type '{ url: never; body: never; kind?: "Expected: undefined, Actual: never" | "Expected: literal string: image, Actual: never" | "Expected: literal string: text, Actual: never"; }'.
+packages/vfsl-protocol/test/vfsl-protocol-deep-optional.test-d.ts(123,7): error TS2344: Type '{ kind?: "image"; url?: string; } | { kind?: "text"; body?: string; }' does not satisfy the constraint '{ url: never; body: never; kind?: "Expected: undefined, Actual: never" | "Expected: literal string: image, Actual: never" | "Expected: literal string: text, Actual: never"; }'.
+  Property 'body' is missing in type '{ kind?: "image"; url?: string; }' but required in type '{ url: never; body: never; kind?: "Expected: undefined, Actual: never" | "Expected: literal string: image, Actual: never" | "Expected: literal string: text, Actual: never"; }'.
+packages/vfsl-protocol/test/vfsl-protocol-deep-optional.test-d.ts(135,85): error TS2344: Type '{ n?: number; }' does not satisfy the constraint '{ n?: "Expected: number, Actual: never" | "Expected: undefined, Actual: never"; }'.
+  Types of property 'n' are incompatible.
+    Type 'number' is not assignable to type '"Expected: number, Actual: never" | "Expected: undefined, Actual: never"'.
+packages/vfsl-protocol/test/vfsl-protocol-deep-optional.test-d.ts(154,7): error TS2578: Unused '@ts-expect-error' directive.
+packages/vfsl-protocol/test/vfsl-protocol-deep-optional.test-d.ts(161,11): error TS2322: Type '{}' is not assignable to type 'DeepOptional<Entity>'.
+packages/vfsl-protocol/test/vfsl-protocol-deep-optional.test-d.ts(166,9): error TS2578: Unused '@ts-expect-error' directive.
+error_count=30
+restored_ok=yes
+### D4 variable-length array element gains | undefined
+packages/vfsl-protocol/test/vfsl-protocol-budget-access.test-d.ts(91,81): error TS2344: Type '{ a?: string; }[]' does not satisfy the constraint '"Expected: ..., Actual: undefined"[]'.
+  Type '{ a?: string; }' is not assignable to type '"Expected: ..., Actual: undefined"'.
+packages/vfsl-protocol/test/vfsl-protocol-deep-optional.test-d.ts(90,65): error TS2344: Type '{ a?: string; }[]' does not satisfy the constraint '"Expected: ..., Actual: undefined"[]'.
+  Type '{ a?: string; }' is not assignable to type '"Expected: ..., Actual: undefined"'.
+packages/vfsl-protocol/test/vfsl-protocol-deep-optional.test-d.ts(92,46): error TS2344: Type '{ a?: string; }' does not satisfy the constraint '"Expected: ..., Actual: undefined"'.
+packages/vfsl-protocol/test/vfsl-protocol-deep-optional.test-d.ts(96,74): error TS2344: Type 'readonly { a?: string; }[]' does not satisfy the constraint 'never[]'.
+  The type 'readonly { a?: string; }[]' is 'readonly' and cannot be assigned to the mutable type 'never[]'.
+packages/vfsl-protocol/test/vfsl-protocol-deep-optional.test-d.ts(104,75): error TS2344: Type '{ list?: { a?: string; }[]; }' does not satisfy the constraint '{ list?: "Expected: undefined, Actual: ..." | "Expected: ..., Actual: ..."; }'.
+  Types of property 'list' are incompatible.
+    Type '{ a?: string; }[]' is not assignable to type '"Expected: undefined, Actual: ..." | "Expected: ..., Actual: ..."'.
+packages/vfsl-protocol/test/vfsl-protocol-deep-optional.test-d.ts(115,7): error TS2344: Type '({ kind?: "image"; url?: string; } | { kind?: "text"; body?: string; })[]' does not satisfy the constraint '"Expected: ..., Actual: undefined"[]'.
+  Type '{ kind?: "image"; url?: string; } | { kind?: "text"; body?: string; }' is not assignable to type '"Expected: ..., Actual: undefined"'.
+    Type '{ kind?: "image"; url?: string; }' is not assignable to type '"Expected: ..., Actual: undefined"'.
+error_count=6
+restored_ok=yes

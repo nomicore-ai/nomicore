@@ -71,6 +71,39 @@ export type VfslValueOf<T> =
 /** 读投影：从 PathAt 节点取「读出的值类型」（成员独有字段含 undefined，见 A.6）。（A.5） */
 export type PathValue<Node> = VfslValueOf<Node>;
 
+/**
+ * 预算读投影（ADR-0024 决策 7）：把读值类型递归映射为「全字段可选」形状——对象全字段可选并递归；
+ * 变长数组元素递归可选化（元素不加多余 `| undefined`、readonly 修饰保留）；元组元素可选（定长位置
+ * 可被 width 截断）；标量 / `null` / `undefined` / 字面量联合原样。
+ *
+ * 作用域 = **读值类型域**（`PathValue` 的产型域），不是协议节点载体域。ADR-0024 L92 / CONTEXT.md
+ * L46 的记法 `DeepOptional<PathAt<Map, P>>` 是速写，规范展开为：
+ *
+ *     DeepOptional<PathAt<Map, P>>  ≡  DeepOptional<PathValue<PathAt<Map, P>>>
+ *
+ * 节点载体直套会产出 `{readonly __brand?; readonly __value?; readonly __kind?}` 壳而非读值类型——
+ * 载体先经 `PathValue` 剥壳（单一剥壳权威），本类型不感知载体 brand。
+ *
+ * 语义契约：
+ * - 封闭对象字段全可选且 EOPT 精确（`{a?: string}`，非 `{a?: string | undefined}`）；
+ * - 索引签名（含数组载体的 `Record<`${number}`, E>` 投影）值位递归可选化并补 `| undefined`
+ *   （缺席 = 查找落空，与「成员独有字段 read → `T | undefined`」同源口径）；
+ * - 判别联合逐成员映射，判别字段**不豁免**（ADR-0024 L94）；可选化判别字段的 narrowing 由
+ *   test-d 锚定（TS 支持时不得预防性保持必选）；
+ * - 预算读不是写前完整快照（ADR-0024 L95）：缺省字段可能在预算内被折叠/裁剪，访问一律按可选处理。
+ *
+ * 域外输入（不做防御分支）：函数/类实例/`Date` 等非成功读值域类型，以及未先经 `PathValue` 的协议
+ * 节点载体。零 per-schema 生成、零运行时值（ADR-0024 L92、ADR-0004 D3）。
+ */
+export type DeepOptional<T> =
+  T extends readonly unknown[]
+    ? number extends T['length']
+      ? { [K in keyof T]: DeepOptional<T[K]> }   // 变长数组：元素必选、递归、readonly 保留
+      : { [K in keyof T]?: DeepOptional<T[K]> }  // 元组：元素可选（定长声明可被 width 截断）
+    : T extends object
+      ? { [K in keyof T]?: DeepOptional<T[K]> }  // 对象：全字段可选并递归；索引签名值位补 | undefined
+      : T;                                       // 标量 / null / undefined 原样
+
 /** kind 投影：取节点的 __kind；失败走 'unknown'、根走 'map'（D5）。（A.5） */
 export type PathKind<Node> =
   Node extends UnknownPath<infer _P> ? 'unknown'
@@ -114,7 +147,7 @@ type ArrayEditRest<M, P extends readonly unknown[]> =
     ? [error: '路径不可解析 (UnknownPath)']
     : PathKind<PathAt<M, NoInfer<P>>> extends 'array' ? [] : [error: '非 array 节点'];
 
-/** 访问面：六个类型严格方法。const P（TS5.0）保留路径字面量元组；NoInfer<P> 令 P 只从 path 实参推断；fail-closed 由必需 rest 标记承担（缺参 → TS2554），value 兼有 never 兜底。设计源见 A.7.1.2。 */
+/** 访问面：七个类型严格方法（`readBudgeted` 为 #337 预算读加法）。const P（TS5.0）保留路径字面量元组；NoInfer<P> 令 P 只从 path 实参推断；fail-closed 由必需 rest 标记承担（缺参 → TS2554），value 兼有 never 兜底。设计源见 A.7.1.2。 */
 export interface VfslTypedAccess<Map> {
   /** 写投影：path 落 UnknownPath → rest=[error]（缺参 TS2554）；value 用写投影（丢弃 undefined），失败亦 never → 双重 fail-closed。 */
   patch<const P extends readonly string[]>(
@@ -127,6 +160,23 @@ export interface VfslTypedAccess<Map> {
     path: P,
     ...rest: FailClosedRest<Map, P>
   ): PathValue<PathAt<Map, NoInfer<P>>>;
+  /**
+   * 预算读投影（ADR-0024 决策 7；L91/L92 分叉的预算侧）：带 options 的读返回
+   * `DeepOptional<PathValue<PathAt<Map, P>>>`——全字段可选、在场标量保留精确类型；同路径无 options 的
+   * `read` 仍返回 `PathValue<PathAt<…>>` 完整子树承诺（零降级）。
+   *
+   * - options 为内联封闭形状 `{depth?, maxChildrenPerNode?}`（与 doc-runtime 预算校验同构；未知键
+   *   编译期拒绝）——协议包不 import 运行时包（ADR-0004 D3）；
+   * - 运行时失败通道（`PATH_NOT_ALLOWED` / `READ_OPTIONS_INVALID` / released）归动态结果联合，本访问面
+   *   只描述成功读类型，不越权描述失败；
+   * - fail-closed 由 rest 缺参承担（未知字面量路径 → TS2554，与 `read` 同机制，不放松）；
+   * - 预算读不是写前完整快照（ADR-0024 L95）：字段可能缺席，访问按可选处理。
+   */
+  readBudgeted<const P extends readonly string[]>(
+    path: P,
+    options: { depth?: number; maxChildrenPerNode?: number },
+    ...rest: FailClosedRest<Map, P>
+  ): DeepOptional<PathValue<PathAt<Map, NoInfer<P>>>>;
   /** kind 投影：返回 PathKind（失败 'unknown'、根 'map'）。fail-closed 由 rest 缺参承担。 */
   kindOf<const P extends readonly string[]>(
     path: P,

@@ -1,0 +1,97 @@
+# SA6 #337 diagnostic — type-level probes (tsc -p .scratch/sa6-337/tsconfig.probe.json; options inherit repo tsconfig.base: strict + exactOptionalPropertyTypes)
+# HEAD: cb8aaff0297a802432ba7532a407c65218852dce  date: 2026-09-12T19:04:01Z
+#
+## (a) full probe compile output (expected: probe-gap TS2305+TS2344 x4; probe-narrow TS2322 x1; probe-eopt TS2375 x1; probe-baseline/probe-cond/probe-model zero diagnostics)
+.scratch/sa6-337/probe-eopt.ts(5,7): error TS2375: Type '{ a?: string | undefined; }' is not assignable to type '{ a?: string; }' with 'exactOptionalPropertyTypes: true'. Consider adding 'undefined' to the types of the target's properties.
+  Types of property 'a' are incompatible.
+    Type 'string | undefined' is not assignable to type 'string'.
+      Type 'undefined' is not assignable to type 'string'.
+.scratch/sa6-337/probe-gap.ts(5,15): error TS2305: Module '"@nomicore/vfsl-protocol"' has no exported member 'DeepOptional'.
+.scratch/sa6-337/probe-gap.ts(12,23): error TS2344: Type 'false' does not satisfy the constraint 'true'.
+.scratch/sa6-337/probe-gap.ts(13,23): error TS2344: Type 'false' does not satisfy the constraint 'true'.
+.scratch/sa6-337/probe-gap.ts(14,23): error TS2344: Type 'false' does not satisfy the constraint 'true'.
+.scratch/sa6-337/probe-gap.ts(21,23): error TS2344: Type 'false' does not satisfy the constraint 'true'.
+.scratch/sa6-337/probe-narrow.ts(23,13): error TS2322: Type 'string | undefined' is not assignable to type 'string'.
+  Type 'undefined' is not assignable to type 'string'.
+# tsc exit=2
+#
+## (b) probe-baseline.ts diagnostics (AC1 fingerprint; empty = compiles clean at HEAD)
+(no probe-baseline diagnostics)
+#
+## (c) probe-narrow.ts diagnostics (AC3 narrowing measurement; expected exactly one TS2322 at the mustBeString line)
+.scratch/sa6-337/probe-narrow.ts(23,13): error TS2322: Type 'string | undefined' is not assignable to type 'string'.
+#
+## (d) DeepOptional semantics model (probe-model.ts) measured types under repo options (EOPT=true)
+eopt=true strict=true
+--- vObj
+  type={ a?: string; nested?: { b?: number; }; }
+  props=["a?: string","nested?: { b?: number; }"]
+  arrLike=false tuple=false readonlyArr=false
+  numberIndex=n/a
+--- vScalar
+  type=string
+  props=["toString: () => string","charAt: (pos: number) => string","charCodeAt: (index: number) => number","concat: (...strings: string[]) => string","indexOf: (searchString: string, position?: number | undefined) => number","lastIndexOf: (searchString: string, position?: number | undefined) => number"]
+  arrLike=false tuple=false readonlyArr=false
+  numberIndex=string
+--- vNullable
+  type=string | null
+  props=[]
+  arrLike=false tuple=false readonlyArr=false
+  numberIndex=n/a
+--- vLitUnion
+  type="image" | "text"
+  props=["toString: () => string","charAt: (pos: number) => string","charCodeAt: (index: number) => number","concat: (...strings: string[]) => string","indexOf: (searchString: string, position?: number | undefined) => number","lastIndexOf: (searchString: string, position?: number | undefined) => number"]
+  arrLike=false tuple=false readonlyArr=false
+  numberIndex=string
+--- vArrHomomorphic
+  type=({ a?: string; } | undefined)[]
+  props=["length: number","toString: () => string","toLocaleString: { (): string; (locales: string | string[], options?: (NumberFormatOptions & DateTimeFormatOptions) | undefined): string; }","pop: () => { a?: string; } | undefined","push: (...items: ({ a?: string; } | undefined)[]) => number","concat: { (...items: ConcatArray<{ a?: string; } | undefined>[]): ({ a?: string; } | undefined)[]; (...items: ({ a?: string; } | ConcatArray<{ a?: string; } | undefined> | undefined)[]): ({ a?: string; } | undefined)[]; }"]
+  arrLike=true tuple=false readonlyArr=true
+  numberIndex={ a?: string; } | undefined
+--- vArrAware
+  type={ a?: string; }[]
+  props=["length: number","toString: () => string","toLocaleString: { (): string; (locales: string | string[], options?: (NumberFormatOptions & DateTimeFormatOptions) | undefined): string; }","pop: () => { a?: string; } | undefined","push: (...items: { a?: string; }[]) => number","concat: { (...items: ConcatArray<{ a?: string; }>[]): { a?: string; }[]; (...items: ({ a?: string; } | ConcatArray<{ a?: string; }>)[]): { a?: string; }[]; }"]
+  arrLike=true tuple=false readonlyArr=true
+  numberIndex={ a?: string; }
+--- vReadonlyArrHomomorphic
+  type=readonly ({ a?: string; } | undefined)[]
+  props=["length: number","toString: () => string","toLocaleString: { (): string; (locales: string | string[], options?: (NumberFormatOptions & DateTimeFormatOptions) | undefined): string; }","concat: { (...items: ConcatArray<{ a?: string; } | undefined>[]): ({ a?: string; } | undefined)[]; (...items: ({ a?: string; } | ConcatArray<{ a?: string; } | undefined> | undefined)[]): ({ a?: string; } | undefined)[]; }","join: (separator?: string | undefined) => string","slice: (start?: number | undefined, end?: number | undefined) => ({ a?: string; } | undefined)[]"]
+  arrLike=true tuple=false readonlyArr=true
+  numberIndex={ a?: string; } | undefined
+--- vTupleHomomorphic
+  type=[string?, { a?: number; }?]
+  props=["0?: string","1?: { a?: number; }","length: 0 | 2 | 1","toString: () => string","toLocaleString: { (): string; (locales: string | string[], options?: (NumberFormatOptions & DateTimeFormatOptions) | undefined): string; }","pop: () => string | { a?: number; } | undefined"]
+  arrLike=false tuple=true readonlyArr=true
+  numberIndex=string | { a?: number; } | undefined
+--- vEntity
+  type={ kind?: "image"; url?: string; } | { kind?: "text"; body?: string; }
+  props=["kind?: \"image\" | \"text\""]
+  arrLike=false tuple=false readonlyArr=false
+  numberIndex=n/a
+--- vEntityArray
+  type=({ kind?: "image"; url?: string; } | { kind?: "text"; body?: string; })[]
+  props=["length: number","toString: () => string","toLocaleString: { (): string; (locales: string | string[], options?: (NumberFormatOptions & DateTimeFormatOptions) | undefined): string; }","pop: () => { kind?: \"image\"; url?: string; } | { kind?: \"text\"; body?: string; } | undefined","push: (...items: ({ kind?: \"image\"; url?: string; } | { kind?: \"text\"; body?: string; })[]) => number","concat: { (...items: ConcatArray<{ kind?: \"image\"; url?: string; } | { kind?: \"text\"; body?: string; }>[]): ({ kind?: \"image\"; url?: string; } | { kind?: \"text\"; body?: string; })[]; (...items: ({ kind?: \"image\"; url?: string; } | { kind?: \"text\"; body?: string; } | ConcatArray<{ kind?: \"image\"; url?: string; } | { kind?: \"text\"; body?: string; }>)[]): ({ kind?: \"image\"; url?: string; } | { kind?: \"text\"; body?: string; })[]; }"]
+  arrLike=true tuple=false readonlyArr=true
+  numberIndex={ kind?: "image"; url?: string; } | { kind?: "text"; body?: string; }
+#
+## (e) exact-equality judgements under repo options (run-cond-probe.ts)
+eopt=true strict=true
+Q_P1_plain = true
+Q_P1_undef = true
+Q_P2_plain = true
+Q_P2_undef = true
+Q_P2_scalar = true
+Q_P2_nullable = true
+Q_P2_litUnion = true
+Q_P2_nested_plain = true
+Q_P2_nested_undef = true
+Q_ArrH_plain = false
+Q_ArrH_undef = true
+Q_ArrAware_plain = true
+Q_ArrAware_undef = true
+Q_ArrReadonlyAware = true
+Q_Disc_plain = true
+Q_Disc_undef = true
+Q_NaiveNode = { readonly __brand?: typeof __vfslNodeBrand; readonly __value?: string; readonly __kind?: "leaf"; }
+Q_Eopt_plain_vs_undef = true
+DbgnP2 = { a?: string; }

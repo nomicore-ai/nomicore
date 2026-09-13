@@ -1,0 +1,13 @@
+actual.count=13
+actual=["VfslKind","PathSchema","UnknownPath","RootSchema","PathAt","VfslValueOf","PathValue","DeepOptional","PathKind","PathPatchValue","PathElementValue","VfslTypedAccess","VfslPathMap"]
+frozen.count=13
+actual-only=[]
+frozen-only=[]
+has_DeepOptional_actual=true
+has_DeepOptional_frozen=true
+alias<PathSchema> -> THROW(code=alias-protocol-export-collision)
+alias<PathAt> -> THROW(code=alias-protocol-export-collision)
+alias<DeepOptional> -> THROW(code=alias-protocol-export-collision)
+alias<VfslPathMap> -> THROW(code=alias-protocol-export-collision)
+guardSilent=[]
+exit=0

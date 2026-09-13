@@ -1,0 +1,24 @@
+packages/vfsl-protocol/test/vfsl-protocol-budget-access.test-d.ts(67,25): error TS2339: Property 'readBudgeted' does not exist on type 'VfslTypedAccess<LocalMap>'.
+packages/vfsl-protocol/test/vfsl-protocol-budget-access.test-d.ts(71,25): error TS2339: Property 'readBudgeted' does not exist on type 'VfslTypedAccess<LocalMap>'.
+packages/vfsl-protocol/test/vfsl-protocol-budget-access.test-d.ts(75,25): error TS2339: Property 'readBudgeted' does not exist on type 'VfslTypedAccess<LocalMap>'.
+packages/vfsl-protocol/test/vfsl-protocol-budget-access.test-d.ts(79,25): error TS2339: Property 'readBudgeted' does not exist on type 'VfslTypedAccess<LocalMap>'.
+packages/vfsl-protocol/test/vfsl-protocol-budget-access.test-d.ts(85,25): error TS2339: Property 'readBudgeted' does not exist on type 'VfslTypedAccess<LocalMap>'.
+packages/vfsl-protocol/test/vfsl-protocol-budget-access.test-d.ts(91,25): error TS2339: Property 'readBudgeted' does not exist on type 'VfslTypedAccess<LocalMap>'.
+packages/vfsl-protocol/test/vfsl-protocol-budget-access.test-d.ts(95,33): error TS2339: Property 'readBudgeted' does not exist on type 'VfslTypedAccess<LocalMap>'.
+packages/vfsl-protocol/test/vfsl-protocol-budget-access.test-d.ts(107,5): error TS2578: Unused '@ts-expect-error' directive.
+packages/vfsl-protocol/test/vfsl-protocol-budget-access.test-d.ts(129,29): error TS2339: Property 'readBudgeted' does not exist on type 'VfslTypedAccess<LocalMap>'.
+packages/vfsl-protocol/test/vfsl-protocol-budget-access.test-d.ts(132,5): error TS2578: Unused '@ts-expect-error' directive.
+packages/vfsl-protocol/test/vfsl-protocol-budget-access.test-d.ts(140,22): error TS2339: Property 'readBudgeted' does not exist on type 'VfslTypedAccess<LocalMap>'.
+packages/vfsl-protocol/test/vfsl-protocol-budget-access.test-d.ts(146,22): error TS2339: Property 'readBudgeted' does not exist on type 'VfslTypedAccess<LocalMap>'.
+packages/vfsl-protocol/test/vfsl-protocol-budget-access.test-d.ts(147,5): error TS2578: Unused '@ts-expect-error' directive.
+packages/vfsl-protocol/test/vfsl-protocol-budget-access.test-d.ts(155,24): error TS2339: Property 'readBudgeted' does not exist on type 'VfslTypedAccess<LocalMap>'.
+packages/vfsl-protocol/test/vfsl-protocol-budget-access.test-d.ts(164,22): error TS2339: Property 'readBudgeted' does not exist on type 'VfslTypedAccess<LocalMap>'.
+packages/vfsl-protocol/test/vfsl-protocol-budget-access.test-d.ts(212,22): error TS2339: Property 'readBudgeted' does not exist on type 'VfslTypedAccess<LocalMap>'.
+packages/vfsl-protocol/test/vfsl-protocol-budget-access.test-d.ts(216,7): error TS2578: Unused '@ts-expect-error' directive.
+packages/vfsl-protocol/test/vfsl-protocol-budget-access.test-d.ts(224,9): error TS2578: Unused '@ts-expect-error' directive.
+packages/vfsl-protocol/test/vfsl-protocol-deep-optional.test-d.ts(26,15): error TS2305: Module '"@nomicore/vfsl-protocol"' has no exported member 'DeepOptional'.
+packages/vfsl-protocol/test/vfsl-protocol-deep-optional.test-d.ts(57,5): error TS2578: Unused '@ts-expect-error' directive.
+packages/vfsl-protocol/test/vfsl-protocol-deep-optional.test-d.ts(64,5): error TS2578: Unused '@ts-expect-error' directive.
+packages/vfsl-protocol/test/vfsl-protocol-deep-optional.test-d.ts(141,5): error TS2578: Unused '@ts-expect-error' directive.
+packages/vfsl-protocol/test/vfsl-protocol-deep-optional.test-d.ts(154,7): error TS2578: Unused '@ts-expect-error' directive.
+packages/vfsl-protocol/test/vfsl-protocol-deep-optional.test-d.ts(166,9): error TS2578: Unused '@ts-expect-error' directive.
