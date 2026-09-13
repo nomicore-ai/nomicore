@@ -1,0 +1,62 @@
+
+ RUN  v3.2.7 /home/wangjian/nomicore-fix-issue-368
+
+stdout | packages/doc-runtime/test/sa7-368-dynamic-probe.test.ts > SA7-A fail-fast propagation > A1 no-half-window: n:3 full select incl. poisoned f3 -> sync failure union, path to item, message non-empty, repeat-stable
+[SA7-DATAFLOW] route=W1-R4 step=A1-repeat-stable value={"identical":true,"sample":{"code":"PATH_NOT_ALLOWED","ok":false,"path":["field","f3"],"message":"non-finite number（目标.bad）"}}
+
+stdout | packages/doc-runtime/test/sa7-368-dynamic-probe.test.ts > SA7-A fail-fast propagation > A2 prefix discipline: n:2 (window excludes poison) -> ok with exactly f1,f2; no substitution/backfill
+[SA7-DATAFLOW] route=W1-R4 step=A2-prefix-ok value={"n":2,"keys":["f1","f2"]}
+
+stdout | packages/doc-runtime/test/sa7-368-dynamic-probe.test.ts > SA7-A fail-fast propagation > A3 first-failure-wins in ordered base (not insertion order): two poisoned items -> earliest sorted item reported
+[SA7-DATAFLOW] route=W1-R4 step=A3-first-failure-wins value={"path":["field","g2"],"orderedBase":["g1","g2","g3","g4"]}
+
+stdout | packages/doc-runtime/test/sa7-368-dynamic-probe.test.ts > SA7-A fail-fast propagation > A4 zero doc side effects: update counter stays 0 across success/failure/absent/mismatch/invalid/hostile calls
+[SA7-DATAFLOW] route=W1-R2 step=A4-zero-updates value={"updates":0}
+
+stdout | packages/doc-runtime/test/sa7-368-dynamic-probe.test.ts > SA7-A fail-fast propagation > A5 hostile options: accessor getters never execute, no throw, WINDOW_OPTIONS_INVALID
+[SA7-DATAFLOW] route=W1-R1 step=A5-hostile-options value={"accessorRuns":0,"code":"WINDOW_OPTIONS_INVALID"}
+
+stdout | packages/doc-runtime/test/sa7-368-dynamic-probe.test.ts > SA7-A fail-fast propagation > A6 stage precedence: G0 (path shape) beats OPT (options) beats N1 (navigation absence)
+[SA7-DATAFLOW] route=W1-R1/R2 step=A6-precedence value={"g0":"PATH_NOT_ALLOWED","opt":"WINDOW_OPTIONS_INVALID","nav":"WINDOW_TARGET_ABSENT"}
+
+stdout | packages/doc-runtime/test/sa7-368-dynamic-probe.test.ts > SA7-A fail-fast propagation > A7 re-entry after failure: results stable, no old-path revival, doc still readable
+[SA7-DATAFLOW] route=W1-R4 step=A7-reentry-stable value={"identical":true}
+
+stdout | packages/doc-runtime/test/sa7-368-dynamic-probe.test.ts > SA7-B deterministic ordering (non-finite tail) > B1 field base: asc/desc full order via depth:0 + n:5 boundary; tail position/dir invariance
+[SA7-DATAFLOW] route=W1-R3 step=B1-field-order value={"asc":["n1","n2","s1","q1","q2","q3","q4","q5"],"desc":["n2","n1","s1","q1","q2","q3","q4","q5"]}
+
+stdout | packages/doc-runtime/test/sa7-368-dynamic-probe.test.ts > SA7-B deterministic ordering (non-finite tail) > B2 insertion-order independence + twin-doc determinism: 3 insertion permutations -> identical windows
+[SA7-DATAFLOW] route=W1-R3 step=B2-insertion-independence value={"identicalAcrossPerms":true}
+
+stdout | packages/doc-runtime/test/sa7-368-dynamic-probe.test.ts > SA7-B deterministic ordering (non-finite tail) > B3 repeat-call determinism: 5x identical JSON
+[SA7-DATAFLOW] route=W1-R3 step=B3-repeat-determinism value={"distinct":1}
+
+stdout | packages/doc-runtime/test/sa7-368-dynamic-probe.test.ts > SA7-B deterministic ordering (non-finite tail) > B4 array face: asc/desc first entries + tail-first fail-fast identity stable across dirs
+[SA7-DATAFLOW] route=W1-R3/R4 step=B4-array-tail value={"depth0FullWindow":"fail-fast at arr[1] (poison = leaf scalar itself)","failIdentity":[1]}
+
+stdout | packages/doc-runtime/test/sa7-368-dynamic-probe.test.ts > SA7-B deterministic ordering (non-finite tail) > B4b representable-incomparable twin doc: null placeholders (same group-2 classification) -> full ordered base ok:true
+[SA7-DATAFLOW] route=W1-R3 step=B4b-twin-ordered-base value={"asc":[2,0,5,1,3,4],"desc":[0,2,5,1,3,4]}
+
+stdout | packages/doc-runtime/test/sa7-368-dynamic-probe.test.ts > SA7-B deterministic ordering (non-finite tail) > B5 zero-materialization sentinel: poisoned non-selected items unobservable (ok:true), selected -> fail-fast
+[SA7-DATAFLOW] route=W1-R3/R4 step=B5-sentinel value={"n2":"ok:true (NaN unselected, zero read)","n3":["arr",1]}
+
+stdout | packages/doc-runtime/test/sa7-368-dynamic-probe.test.ts > SA7-C pins observation semantics > C1 legacy incremental probing reconstructs the same ordered base as depth:0 observation (asc & desc)
+[SA7-DATAFLOW] route=W1-R3/R4 step=C1-observation-equivalence value={"dir":"asc","folded":["n1","n2","s1","q1","q2","q3","q4","q5"],"legacyPrefix":["n1","n2","s1"],"legacyFailIdentity":"q1"}
+[SA7-DATAFLOW] route=W1-R3/R4 step=C1-observation-equivalence value={"dir":"desc","folded":["n2","n1","s1","q1","q2","q3","q4","q5"],"legacyPrefix":["n2","n1","s1"],"legacyFailIdentity":"q1"}
+
+stdout | packages/doc-runtime/test/sa7-368-dynamic-probe.test.ts > SA7-C pins observation semantics > C1b representable-incomparable twin doc: full legacy order == depth:0 order (fold is not an ordering artifact)
+[SA7-DATAFLOW] route=W1-R3 step=C1b-twin-crosscheck value={"ascLegacyEqualsFold":true,"descLegacyEqualsFold":true}
+
+stdout | packages/doc-runtime/test/sa7-368-dynamic-probe.test.ts > SA7-C pins observation semantics > C2 depth:0 folds values to empty shells while classification stays pre-fold (string group keeps s1 in place)
+[SA7-DATAFLOW] route=W1-R3 step=C2-pre-fold-classification value={"third":"s1","allShells":true}
+
+stdout | packages/doc-runtime/test/sa7-368-dynamic-probe.test.ts > SA7-C pins observation semantics > C3 P2b consistency: legacy successes + fail identity agree with null-twin ordered base in both dirs
+[SA7-DATAFLOW] route=W1-R3/R4 step=C3-array-observation value={"dir":"asc","prefix":[2,0,5],"failIdentity":1}
+[SA7-DATAFLOW] route=W1-R3/R4 step=C3-array-observation value={"dir":"desc","prefix":[0,2,5],"failIdentity":1}
+
+ ✓ packages/doc-runtime/test/sa7-368-dynamic-probe.test.ts (17 tests) 22ms
+
+ Test Files  1 passed (1)
+      Tests  17 passed (17)
+   Start at  20:41:11
+   Duration  481ms (transform 236ms, setup 0ms, collect 314ms, tests 22ms, environment 0ms, prepare 48ms)

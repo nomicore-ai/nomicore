@@ -21,23 +21,36 @@
 import { describe, expectTypeOf, it } from 'vitest';
 import type {
   ApplyValidatedMutationResult,
+  ArrayWindowEntry,
   BatchedMutation,
   DocRuntimeFatalPhase,
   ExtractIssue,
   ExtractResult,
+  FieldWindowTerm,
   GuardedMutation,
+  IndexWindowTerm,
+  KeyWindowTerm,
+  MapWindowEntry,
   MaterializeIssue,
   MaterializeResult,
   MutationEnvelope,
   MutationGuard,
   MutationIssue,
+  ReadArrayWindowOptions,
+  ReadArrayWindowResult,
   ReadLogicalValueAtPathBudgetResult,
   ReadLogicalValueAtPathOptions,
   ReadLogicalValueResult,
   ReadLogicalValueTruncationEntry,
+  ReadMapWindowOptions,
+  ReadMapWindowResult,
   ReplaceIssue,
   ReplaceResult,
   ValidatedMutation,
+  WindowDir,
+  WindowFailureCode,
+  WindowReadFailure,
+  WindowTerm,
 } from '../src/index.js';
 
 // 正例名目的类型占位声明（纯类型层；仅用于 expectTypeOf 投影，不生成运行时产物）
@@ -58,6 +71,20 @@ declare const readBudgetResult: ReadLogicalValueAtPathBudgetResult;
 // ADR 0026 批量信封名目：任一缺失 → import TS2305 → 红
 declare const batchedMutation: BatchedMutation;
 declare const mutationEnvelope: MutationEnvelope;
+// ADR 0028 缝 1 窗口原语名目（issue #368 W1）：任一缺失 → import TS2305 → 红
+declare const windowDir: WindowDir;
+declare const indexWindowTerm: IndexWindowTerm;
+declare const keyWindowTerm: KeyWindowTerm;
+declare const fieldWindowTerm: FieldWindowTerm;
+declare const windowTerm: WindowTerm;
+declare const arrayWindowOptions: ReadArrayWindowOptions;
+declare const mapWindowOptions: ReadMapWindowOptions;
+declare const arrayWindowEntry: ArrayWindowEntry;
+declare const mapWindowEntry: MapWindowEntry;
+declare const windowFailureCode: WindowFailureCode;
+declare const windowFailure: WindowReadFailure;
+declare const arrayWindowResult: ReadArrayWindowResult;
+declare const mapWindowResult: ReadMapWindowResult;
 
 describe('@nomicore/doc-runtime 公共入口 — mutation 类型名目恢复导出（issue #90 范围，类型层）', () => {
   it('恢复的名目可经公共入口导入：MutationIssue / ApplyValidatedMutationResult（任意缺失即 TS2305 红）', () => {
@@ -143,5 +170,46 @@ describe('@nomicore/doc-runtime 公共入口 — 条件写类型名目（ADR 002
     expectTypeOf(guarded.guard).toEqualTypeOf<MutationGuard | undefined>();
     expectTypeOf(unguarded).toMatchTypeOf<ValidatedMutation>();
     expectTypeOf(guarded).toMatchTypeOf<MutationEnvelope>();
+  });
+});
+
+// ── ADR 0028 缝 1 窗口原语类型名目（issue #368 W1；值面守卫见 public-surface-guard.test.ts P-W1/P-W2）──
+
+describe('@nomicore/doc-runtime 公共入口 — 窗口原语类型名目（ADR 0028 / issue #368，类型层）', () => {
+  it('B-4 单 WindowTerm 闭合联合三成员 + dir 枚举投影', () => {
+    expectTypeOf(indexWindowTerm.by).toEqualTypeOf<'index'>();
+    expectTypeOf(keyWindowTerm.by).toEqualTypeOf<'key'>();
+    expectTypeOf(fieldWindowTerm.field).toEqualTypeOf<string>();
+    expectTypeOf(windowDir).toEqualTypeOf<'asc' | 'desc'>();
+    expectTypeOf(windowTerm).toMatchTypeOf<IndexWindowTerm | KeyWindowTerm | FieldWindowTerm>();
+  });
+
+  it('B-3 options 面专属词表 + B-5 条目/失败结算联合投影', () => {
+    expectTypeOf(arrayWindowOptions.n).toEqualTypeOf<number>();
+    expectTypeOf(arrayWindowOptions.orderBy).toEqualTypeOf<IndexWindowTerm | undefined>();
+    expectTypeOf(mapWindowOptions.orderBy).toEqualTypeOf<KeyWindowTerm | FieldWindowTerm | undefined>();
+    expectTypeOf(arrayWindowEntry.index).toEqualTypeOf<number>();
+    expectTypeOf(arrayWindowEntry.value).toEqualTypeOf<unknown>();
+    expectTypeOf(mapWindowEntry.key).toEqualTypeOf<string>();
+    expectTypeOf(windowFailure.code).toEqualTypeOf<WindowFailureCode>();
+    expectTypeOf(windowFailure.path).toEqualTypeOf<readonly (string | number)[]>();
+    expectTypeOf(windowFailure.message).toEqualTypeOf<string>();
+    expectTypeOf(arrayWindowResult.ok).toEqualTypeOf<boolean>();
+    expectTypeOf(mapWindowResult.ok).toEqualTypeOf<boolean>();
+  });
+
+  it('编译期负例 fail-closed：语境外排序项被面专属 options 类型拒绝（v1 词表编译期编码）', () => {
+    // @ts-expect-error 数组面 orderBy 仅接受 IndexWindowTerm（field 属键面）
+    const arrayFieldTerm: ReadArrayWindowOptions = { n: 1, orderBy: { field: 'score' } };
+    // @ts-expect-error 数组面不接受 by:'key'（ADR 0028 决策 2 v1 词表）
+    const arrayKeyTerm: ReadArrayWindowOptions = { n: 1, orderBy: { by: 'key' } };
+    // @ts-expect-error 键面不接受 by:'index'（readArray 专属）
+    const mapIndexTerm: ReadMapWindowOptions = { n: 1, orderBy: { by: 'index' } };
+    // @ts-expect-error 多段 field（段数组）非法——v1 恰单段字符串
+    const mapMultiSegment: ReadMapWindowOptions = { n: 1, orderBy: { field: ['a', 'b'] } };
+    expectTypeOf(arrayFieldTerm).toEqualTypeOf<ReadArrayWindowOptions>();
+    expectTypeOf(arrayKeyTerm).toEqualTypeOf<ReadArrayWindowOptions>();
+    expectTypeOf(mapIndexTerm).toEqualTypeOf<ReadMapWindowOptions>();
+    expectTypeOf(mapMultiSegment).toEqualTypeOf<ReadMapWindowOptions>();
   });
 });
