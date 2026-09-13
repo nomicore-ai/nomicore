@@ -25,9 +25,11 @@ import type {
   DocRuntimeFatalPhase,
   ExtractIssue,
   ExtractResult,
+  GuardedMutation,
   MaterializeIssue,
   MaterializeResult,
   MutationEnvelope,
+  MutationGuard,
   MutationIssue,
   ReadLogicalValueResult,
   ReplaceIssue,
@@ -88,5 +90,42 @@ describe('@nomicore/doc-runtime 公共入口 — 批量信封类型名目（ADR 
     expectTypeOf(dualShape).toEqualTypeOf<BatchedMutation>();
     expectTypeOf(elementWithGuard).toEqualTypeOf<BatchedMutation>();
     expectTypeOf(notAnEnvelope).toEqualTypeOf<MutationEnvelope>();
+  });
+});
+
+// ── ADR 0025 条件写类型名目（issue #347 AC7；值面守卫见 public-surface-guard.test.ts P4）──
+
+describe('@nomicore/doc-runtime 公共入口 — 条件写类型名目（ADR 0025 / issue #347，类型层）', () => {
+  it('T1a MutationGuard 判别联合：equals / absent 两成员正例合法，path 投影为 readonly (string|number)[]', () => {
+    const equalsGuard: MutationGuard = { path: ['tasks', 't1', 'status'], equals: 'draft' };
+    const numericEqualsGuard: MutationGuard = { path: ['values', 0], equals: 1717 };
+    const absentGuard: MutationGuard = { path: ['tasks', 't1'], absent: true };
+    expectTypeOf(equalsGuard.path).toEqualTypeOf<readonly (string | number)[]>();
+    expectTypeOf(absentGuard.path).toEqualTypeOf<readonly (string | number)[]>();
+    expectTypeOf(equalsGuard.equals).toEqualTypeOf<unknown>();
+    expectTypeOf(numericEqualsGuard).toMatchTypeOf<MutationGuard>();
+  });
+
+  it('T1b 编译期负例 fail-closed：absent 非字面 true / equals+absent 同现 / 缺 path / 缺判别键', () => {
+    // @ts-expect-error absent 必须是字面 true（false 不满足成员二；成员一无 absent 位置）
+    const absentFalse: MutationGuard = { path: ['n'], absent: false };
+    // @ts-expect-error equals 与 absent 不得同时出现（两成员各自 excess property）
+    const bothPredicates: MutationGuard = { path: ['n'], equals: 1, absent: true };
+    // @ts-expect-error 缺 path（两成员均缺必需属性）
+    const missingPath: MutationGuard = { equals: 1 };
+    // @ts-expect-error 缺判别键（equals 与 absent 必须恰现其一）
+    const missingDiscriminator: MutationGuard = { path: ['n'] };
+    expectTypeOf(absentFalse).toEqualTypeOf<MutationGuard>();
+    expectTypeOf(bothPredicates).toEqualTypeOf<MutationGuard>();
+    expectTypeOf(missingPath).toEqualTypeOf<MutationGuard>();
+    expectTypeOf(missingDiscriminator).toEqualTypeOf<MutationGuard>();
+  });
+
+  it('T1c GuardedMutation 顶层可选 guard（缺席即现役无 guard 契约）', () => {
+    const guarded: GuardedMutation = { op: 'set', path: ['n'], value: 2, guard: { path: ['n'], equals: 1 } };
+    const unguarded: GuardedMutation = { op: 'delete', path: ['n'] };
+    expectTypeOf(guarded.guard).toEqualTypeOf<MutationGuard | undefined>();
+    expectTypeOf(unguarded).toMatchTypeOf<ValidatedMutation>();
+    expectTypeOf(guarded).toMatchTypeOf<MutationEnvelope>();
   });
 });
