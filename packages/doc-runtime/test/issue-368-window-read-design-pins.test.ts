@@ -211,31 +211,28 @@ function makeNonFiniteArrayDoc(): Y.Doc {
   });
 }
 
-describe('W1-P2b D4 × D3 数组面值键 non-finite 归尾', () => {
-  it('P2b asc 首位 = 下标 2（值 1）、desc 首位 = 下标 0（值 5）；尾组首项 = 下标 1（NaN）且不随 dir 变位', () => {
+describe('W1-P2b D4 × D3 数组面 non-finite 物化 fail-fast（位置序选窗，issue #376）', () => {
+  it('P2b asc 首位 = 下标 0（值 5）、desc 首位 = 下标 5（值 a）；入选即含 non-finite 处 fail-fast（身份 = 位置序端点）', () => {
     const doc = makeNonFiniteArrayDoc();
 
-    // 排序键 = 项值本身；有序基 = [1(2), 5(0), 'a'(5)] + 尾组 [NaN(1), -Inf(3), +Inf(4)]（下标 asc）。
-    // 非有限标量入选后物化必响（D8），故以可物化前缀 + 尾组首项 fail-fast 身份锚定同一有序基。
-    const asc1 = expectOk(arrayWindow()(doc, ['arr'], { n: 1 })); // ±Inf 归 number 组 → 首位变 3（红）
-    expect(asc1).toStrictEqual([{ index: 2, value: 1 }]);
-    const desc1 = expectOk(arrayWindow()(doc, ['arr'], { n: 1, orderBy: { by: 'index', dir: 'desc' } })); // → 首位变 4（红）
-    expect(desc1).toStrictEqual([{ index: 0, value: 5 }]);
+    // index 基 = 位置序（issue #376）：排序键 = 下标，元素值（含 non-finite）不参与选窗；
+    // 非有限标量入选后物化必响（D8）——fail-fast 身份锚定位置序端点，不静默跳项、不以未选项补位。
+    const asc1 = expectOk(arrayWindow()(doc, ['arr'], { n: 1 }));
+    expect(asc1).toStrictEqual([{ index: 0, value: 5 }]);
+    const desc1 = expectOk(arrayWindow()(doc, ['arr'], { n: 1, orderBy: { by: 'index', dir: 'desc' } }));
+    expect(desc1).toStrictEqual([{ index: 5, value: 'a' }]);
 
-    const asc3 = expectOk(arrayWindow()(doc, ['arr'], { n: 3 }));
-    expect(indicesOf(asc3)).toStrictEqual([2, 0, 5]); // number 组 → string 组（组间序恒定）
-    const desc3 = expectOk(arrayWindow()(doc, ['arr'], { n: 3, orderBy: { by: 'index', dir: 'desc' } }));
-    expect(indicesOf(desc3)).toStrictEqual([0, 2, 5]);
-
-    // 尾组首项恒为下标 1（NaN，下标 asc 锚）且两方向同位；fail-fast 不静默跳项、不以未选项补位。
-    for (const n of [4, 6]) {
+    // asc 窗口含下标 1（NaN）→ 在该处响；desc 窗口含下标 4（+Inf）→ 在该处响
+    for (const n of [2, 3, 4, 6]) {
       const ascN = expectErr(arrayWindow()(doc, ['arr'], { n }), 'PATH_NOT_ALLOWED');
       expect(ascN.path).toStrictEqual(['arr', 1]);
+    }
+    for (const n of [2, 3, 4, 6]) {
       const descN = expectErr(
         arrayWindow()(doc, ['arr'], { n, orderBy: { by: 'index', dir: 'desc' } }),
         'PATH_NOT_ALLOWED',
       );
-      expect(descN.path).toStrictEqual(['arr', 1]);
+      expect(descN.path).toStrictEqual(['arr', 4]);
     }
   });
 });

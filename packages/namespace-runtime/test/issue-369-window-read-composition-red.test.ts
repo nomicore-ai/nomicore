@@ -410,13 +410,15 @@ describe('E3/E4 零物化哨兵：未入选子项零物化；入选毒项 fail-f
     await runtime.close();
   });
 
-  it('E4：入选毒项（desc + n=3 命中 NaN 项）→ PATH_NOT_ALLOWED、无半窗（value 键不在场）', async () => {
+  it('E4：入选毒项（desc + n=3 命中尾部 NaN 项）→ PATH_NOT_ALLOWED、无半窗（value 键不在场）', async () => {
     const { runtime, doc } = await makeWindowRuntime({ poison: true });
+    // index 基 = 位置序（issue #376）：desc n=3 = 尾部下标 [1999,1998,1997]——全为 NaN，
+    // 首个物化项即响（值序读法下曾期望 ['workRecords', 2]——第三大值 NaN 项）。
     const options = { n: 3, orderBy: { by: 'index' as const, dir: 'desc' as const } };
     const result = runtime.readArray(['workRecords'], options);
     const failure = expectWindowFailure(result);
     expect(failure.code).toBe('PATH_NOT_ALLOWED');
-    expect(failure.path).toStrictEqual(['workRecords', 2]);
+    expect(failure.path).toStrictEqual(['workRecords', 1999]);
     expect('value' in (result as object)).toBe(false);
     expect(result).toStrictEqual(readArrayWindowAtPath(doc, ['workRecords'], options));
     await runtime.close();

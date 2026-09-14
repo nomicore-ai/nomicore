@@ -219,8 +219,8 @@ describe('组 A（AC1）：恒四键 own 键集、条目列表身份随行、空
     expect(Object.keys(result.value[0] as object).sort()).toEqual(['index', 'value']);
     expectReadDataOk(result, {
       value: [
-        { index: 0, value: 30 },
         { index: 2, value: 20 },
+        { index: 1, value: 10 },
       ],
       schema: `number\n\n${FACTS_ARRAY_INDEX_DESC}`,
       truncated: true,
@@ -278,13 +278,13 @@ describe('组 A（AC1）：恒四键 own 键集、条目列表身份随行、空
       {
         name: 'array index asc',
         call: () => lease.readArray(['workRecords'], { n: 2 }),
-        keys: [{ index: 1, value: 10 }, { index: 2, value: 20 }],
+        keys: [{ index: 0, value: 30 }, { index: 1, value: 10 }],
         basisToken: '基 index asc',
       },
       {
         name: 'array index desc',
         call: () => lease.readArray(['workRecords'], { n: 2, orderBy: { by: 'index', dir: 'desc' } }),
-        keys: [{ index: 0, value: 30 }, { index: 2, value: 20 }],
+        keys: [{ index: 2, value: 20 }, { index: 1, value: 10 }],
         basisToken: '基 index desc',
       },
       {
@@ -481,7 +481,7 @@ describe('组 T（AC3）：✂ 段呈现 kept/total + 基与方向；truncated �
     const { lease } = await leaseFixture();
     const result = lease.readArray(['workRecords'], { n: 1, orderBy: { by: 'index', dir: 'desc' } });
     if (!result.ok) throw new Error('契约前提失败');
-    expect(result.value).toStrictEqual([{ index: 0, value: 30 }]);
+    expect(result.value).toStrictEqual([{ index: 2, value: 20 }]);
     expect(result.truncated).toBe(true);
     expect(result.schema).toContain('kept 1/total 3');
   });
@@ -556,13 +556,25 @@ describe('组 T（AC3）：✂ 段呈现 kept/total + 基与方向；truncated �
     expect(hostileShape.value).toStrictEqual([{ key: 'plain', value: 1 }]);
     expect(hostileShape.truncated).toBe(false);
 
-    const sparse = lease.readArray(['probe', 'sparse'], { n: 1 });
-    if (!sparse.ok) throw new Error('契约前提失败：稀疏数组窗口读应成功');
+    // 位置序（issue #376）：sparse = ['z', ☐, ☐, 'y']（length 4，空洞下标 1/2）。
+    // asc n=1 = 头位 'z'（成功，kept 1/total 4 锚「空洞计入候选空间」的 length 口径）；
+    // asc n=2 选中空洞下标 1 → 物化响亮失败（不静默跳项）；desc n=1 = 尾位 'y'。
+    const sparse = lease.readArray(['probe', 'sparse'], { n: 1, orderBy: { by: 'index', dir: 'desc' } });
+    if (!sparse.ok) throw new Error('契约前提失败：稀疏数组 desc 窗口读应成功');
     expect(sparse.value).toStrictEqual([{ index: 3, value: 'y' }]);
     expect(sparse.truncated).toBe(true); // 空洞计入候选空间（length 口径 = 4）
     // raw 路径偏离 schema → 锚不可解析：schema:null × truncated:true（ADR-0027 已知限制 2
     // 的窗口对偶——窗口事实仅经 schema 文本承载）。
     expect(sparse.schema).toBeNull();
+    const sparseAsc1 = lease.readArray(['probe', 'sparse'], { n: 1 });
+    if (!sparseAsc1.ok) throw new Error('契约前提失败：asc 头位 = 下标 0（z），应成功');
+    expect(sparseAsc1.value).toStrictEqual([{ index: 0, value: 'z' }]);
+    expect(sparseAsc1.truncated).toBe(true);
+    const sparseAsc2 = lease.readArray(['probe', 'sparse'], { n: 2 });
+    if (sparseAsc2.ok) throw new Error('契约前提失败：asc n=2 选中空洞下标 1，应响亮失败（位置序不跳项）');
+    const sparseHole = expectWindowFailure(sparseAsc2);
+    expect(sparseHole.code).toBe('PATH_NOT_ALLOWED');
+    expect(sparseHole.path).toStrictEqual(['probe', 'sparse', 1]);
 
     const rootFace = lease.readMap([], { n: 2, orderBy: { by: 'key' } });
     if (!rootFace.ok) throw new Error('契约前提失败：ROOT 面窗口读应成功');
@@ -683,11 +695,13 @@ describe('组 E（AC4）：入选项物化 ≡ 同预算 readData(项路径) 逐
 
   it('E4 入选毒项：PATH_NOT_ALLOWED fail-fast、无半窗（与直调 W1 逐字段相同）', async () => {
     const { lease, doc } = await makeWindowLease({ poison: true });
+    // 位置序（issue #376）：desc n=3 = 尾部 [1999,1998,1997] 全 NaN，首物化项即响
+    //（值序读法下曾期望 ['workRecords', 2]——第三大值 NaN 项）。
     const options = { n: 3, orderBy: { by: 'index' as const, dir: 'desc' as const } };
     const result = lease.readArray(['workRecords'], options);
     const failure = expectWindowFailure(result);
     expect(failure.code).toBe('PATH_NOT_ALLOWED');
-    expect(failure.path).toStrictEqual(['workRecords', 2]);
+    expect(failure.path).toStrictEqual(['workRecords', 1999]);
     expect('value' in (result as object)).toBe(false);
     expect(result).toStrictEqual(readArrayWindowAtPath(doc, ['workRecords'], options));
   });

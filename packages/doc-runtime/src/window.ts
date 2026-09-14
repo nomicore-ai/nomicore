@@ -502,19 +502,21 @@ function describeCarrierWord(v: unknown): string {
 
 function enumerateArrayCandidates(target: Y.Array<unknown> | unknown[]): Candidate[] {
   const out: Candidate[] = [];
+  // index 基 = 位置序（ADR 0028 决策 2：「asc = 自 [0] 取」，desc 自尾部取；issue #376）：
+  // 排序键 = 下标本身（数值组、键唯一 → 无平局、组序纪律自动满足），**不是元素值**——
+  // 值序纪律（类型组序/平局锚/码点序，决策 5）属 key/field 值基（map 面），对位置基无适用
+  // 对象。按元素值排序会使容器元素（记录数组）全落不可比组 → 平局锚吞掉 dir（desc 与
+  // asc 逐位相同），标量数组 asc/desc 亦非「自 [0] 取 / 自尾部取」。元素值的读取纪律
+  // （Y.Array 原始读 / plain array descriptor 读）归入选后的姊妹物化（现行 fail-fast 不变）。
   if (target instanceof Y.Array) {
     const len = target.length;
     for (let i = 0; i < len; i++) {
-      // Y.Array 原始读（分类键 = 项值本身；attached 公共路径不可达 undefined，防御归尾组，
-      // 入选后由姊妹物化按现行纪律响亮处理）。
-      out.push({ id: i, sort: classifySortKey(target.get(i)) });
+      out.push({ id: i, sort: { group: 0, value: i } });
     }
     return out;
   }
   for (let i = 0; i < target.length; i++) {
-    // plain array：descriptor 纪律读；稀疏空洞/在界 undefined/accessor 下标不读值 → 不可比尾组。
-    const hit = readableArrayElement(target, i);
-    out.push({ id: i, sort: classifySortKey(hit.kind === 'ok' ? hit.value : undefined) });
+    out.push({ id: i, sort: { group: 0, value: i } });
   }
   return out;
 }
