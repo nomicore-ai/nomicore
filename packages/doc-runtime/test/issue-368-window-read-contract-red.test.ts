@@ -122,10 +122,18 @@ function freshDoc(build: (root: Y.Map<unknown>) => void): Y.Doc {
   return doc;
 }
 
-/** 排序矩阵条目（ADR 0028 决策 5）：number → string → 不可比组（恒居尾，dir 不改变组间序）。 */
+/** 窗口结果 → 下标列表（issue #376 位置序断言用）。 */
+function indicesOfWindow(result: unknown): number[] {
+  const entries = expectWindowOk(result) as Array<{ index: number }>;
+  return entries.map((e) => e.index);
+}
+
+/** 排序矩阵条目（ADR 0028 决策 5，map 面值基承载）：number → string → 不可比组。
+ *  array 面 index 基 = 位置序（issue #376）：排序键 = 下标本身，值序纪律不介入——
+ *  ORDER_*_INDICES 期望自位置序推导。 */
 const ORDER_VALUES: unknown[] = [5, 1, 30, 'b', 'A', true, null, { z: 1 }, [7]];
-const ORDER_ASC_INDICES = [1, 0, 2, 4, 3, 5, 6, 7, 8];
-const ORDER_DESC_INDICES = [2, 0, 1, 3, 4, 5, 6, 7, 8];
+const ORDER_ASC_INDICES = [0, 1, 2, 3, 4, 5, 6, 7, 8];
+const ORDER_DESC_INDICES = [8, 7, 6, 5, 4, 3, 2, 1, 0];
 
 function arrayEntries(indices: readonly number[], values: readonly unknown[]): Array<{ index: number; value: unknown }> {
   return indices.map((i) => ({ index: i, value: values[i] }));
@@ -273,50 +281,48 @@ function makeCarriersDoc(): Y.Doc {
 // W1 红灯契约（当前红 = 载体级窗口原语整体不存在；实现后全绿）
 // ═════════════════════════════════════════════════════════════════════════════════════
 
-describe('W1-A 选窗正确性矩阵：基 × dir × 类型组序 × 不可比尾组（ADR 0028 决策 5）', () => {
-  it('W1-A1 数组下标基缺省 asc：number 数值序 → string 码点序 → 不可比组（恒居尾），身份随行、呈现序 = 有序基之序', () => {
+describe('W1-A 选窗正确性矩阵：基 × dir × 位置序（array index 基，issue #376）× 值序纪律（map 值基承载）', () => {
+  it('W1-A1 数组下标基缺省 asc：位置序自 [0] 取（ADR 0028 决策 2），身份随行、呈现序 = 位置序', () => {
     const doc = makeOrderDoc('yjs');
     const r = arrayWindow()(doc, ['arr'], { n: 9 });
     expect(expectWindowOk(r)).toStrictEqual(arrayEntries(ORDER_ASC_INDICES, ORDER_VALUES));
   });
 
-  it('W1-A2 数组下标基 desc：组间序恒定（number → string → 不可比组），dir 只翻转组内序', () => {
+  it('W1-A2 数组下标基 desc：位置倒序自尾部取（组序纪律对位置基无适用对象——值序承载见 W1-B/C）', () => {
     const doc = makeOrderDoc('yjs');
     const r = arrayWindow()(doc, ['arr'], { n: 9, orderBy: { by: 'index', dir: 'desc' } });
     expect(expectWindowOk(r)).toStrictEqual(arrayEntries(ORDER_DESC_INDICES, ORDER_VALUES));
   });
 
-  it('W1-A3 窗口 = 有序序列前 n 前缀：asc/desc 两方向都先装可比项，不可比组不挤掉可比项', () => {
+  it('W1-A3 窗口 = 位置序前 n 前缀：asc = 头 n 条、desc = 尾 n 条（含不可比元素亦按位置就位）', () => {
     const doc = makeOrderDoc('yjs');
-    // 可比项 = 3 number + 2 string = 5；n=5 两方向都恰装满可比项、零不可比项入选
     const asc = arrayWindow()(doc, ['arr'], { n: 5 }) as WindowResult;
     const desc = arrayWindow()(doc, ['arr'], { n: 5, orderBy: { by: 'index', dir: 'desc' } }) as WindowResult;
-    expect((expectWindowOk(asc) as Array<{ index: number }>).map((e) => e.index)).toEqual([1, 0, 2, 4, 3]);
-    expect((expectWindowOk(desc) as Array<{ index: number }>).map((e) => e.index)).toEqual([2, 0, 1, 3, 4]);
-    // n=6：两方向的第 6 项都必须是不可比组首项（下标 5，true）——组间序恒定
+    expect((expectWindowOk(asc) as Array<{ index: number }>).map((e) => e.index)).toEqual([0, 1, 2, 3, 4]);
+    expect((expectWindowOk(desc) as Array<{ index: number }>).map((e) => e.index)).toEqual([8, 7, 6, 5, 4]);
+    // n=6：asc 头 6 / desc 尾 6
     const asc6 = arrayWindow()(doc, ['arr'], { n: 6 }) as WindowResult;
     const desc6 = arrayWindow()(doc, ['arr'], { n: 6, orderBy: { by: 'index', dir: 'desc' } }) as WindowResult;
-    expect((expectWindowOk(asc6) as Array<{ index: number }>).map((e) => e.index)).toEqual([1, 0, 2, 4, 3, 5]);
-    expect((expectWindowOk(desc6) as Array<{ index: number }>).map((e) => e.index)).toEqual([2, 0, 1, 3, 4, 5]);
+    expect((expectWindowOk(asc6) as Array<{ index: number }>).map((e) => e.index)).toEqual([0, 1, 2, 3, 4, 5]);
+    expect((expectWindowOk(desc6) as Array<{ index: number }>).map((e) => e.index)).toEqual([8, 7, 6, 5, 4, 3]);
   });
 
-  it('W1-A4 不可比组（缺失值型：null/布尔/容器）恒居尾且组内平局锚 = 下标 asc 恒定（不随 dir 翻转）', () => {
+  it('W1-A4 不可比元素（null/布尔/容器）按位置就位不重排：全量窗口两方向均为纯位置序', () => {
     const doc = makeOrderDoc('yjs');
     const asc = arrayWindow()(doc, ['arr'], { n: 9 }) as WindowResult;
     const desc = arrayWindow()(doc, ['arr'], { n: 9, orderBy: { by: 'index', dir: 'desc' } }) as WindowResult;
-    const tail = [5, 6, 7, 8]; // true / null / {z:1} / [7]
-    expect((expectWindowOk(asc) as Array<{ index: number }>).slice(5).map((e) => e.index)).toEqual(tail);
-    expect((expectWindowOk(desc) as Array<{ index: number }>).slice(5).map((e) => e.index)).toEqual(tail);
+    expect((expectWindowOk(asc) as Array<{ index: number }>).map((e) => e.index)).toEqual([0, 1, 2, 3, 4, 5, 6, 7, 8]);
+    expect((expectWindowOk(desc) as Array<{ index: number }>).map((e) => e.index)).toEqual([8, 7, 6, 5, 4, 3, 2, 1, 0]);
   });
 
-  it('W1-A5 平局锚（数组 = 下标 asc 恒定）：n=3 前缀在两方向上都取各自极值端且稳定可复现', () => {
+  it('W1-A5 头/尾端前缀稳定可复现：asc n=3 = 头三条、desc n=3 = 尾三条（下标唯一无平局）', () => {
     const doc = makeOrderDoc('yjs');
     const asc = (expectWindowOk(arrayWindow()(doc, ['arr'], { n: 3 })) as Array<{ index: number }>).map((e) => e.index);
     const desc = (
       expectWindowOk(arrayWindow()(doc, ['arr'], { n: 3, orderBy: { by: 'index', dir: 'desc' } })) as Array<{ index: number }>
     ).map((e) => e.index);
-    expect(asc).toEqual([1, 0, 2]);
-    expect(desc).toEqual([2, 0, 1]);
+    expect(asc).toEqual([0, 1, 2]);
+    expect(desc).toEqual([8, 7, 6]);
   });
 
   it('W1-A6 plain array 载体同构：同数据同窗口（载体面 Y.Array + plain array）', () => {
@@ -325,18 +331,18 @@ describe('W1-A 选窗正确性矩阵：基 × dir × 类型组序 × 不可比�
     expect(expectWindowOk(r)).toStrictEqual(arrayEntries(ORDER_ASC_INDICES, ORDER_VALUES));
   });
 
-  it('W1-A7 字符串码点序（ADR 明文「码点序」）：BMP 与 astral 边界按码点而非 UTF-16 码元', () => {
+  it('W1-A7 字符串数组同为位置序（值码点序纪律由 W1-B1/B2 键基承载）', () => {
     const values: unknown[] = ['\u{1F600}', '\uFFFD', 'z'];
     const doc = freshDoc((root) => {
       const arr = new Y.Array<unknown>();
       arr.insert(0, values);
       root.set('arr', arr);
     });
-    // 码点序：'z'(0x7A) < '\uFFFD'(0xFFFD) < '\u{1F600}'(0x1F600)
+    // 位置序：asc = [0,1,2]（原序）、desc = [2,1,0]（尾部起）——与元素码点大小无关
     const asc = arrayWindow()(doc, ['arr'], { n: 3 }) as WindowResult;
     const desc = arrayWindow()(doc, ['arr'], { n: 3, orderBy: { by: 'index', dir: 'desc' } }) as WindowResult;
-    expect((expectWindowOk(asc) as Array<{ index: number }>).map((e) => e.index)).toEqual([2, 1, 0]);
-    expect((expectWindowOk(desc) as Array<{ index: number }>).map((e) => e.index)).toEqual([0, 1, 2]);
+    expect((expectWindowOk(asc) as Array<{ index: number }>).map((e) => e.index)).toEqual([0, 1, 2]);
+    expect((expectWindowOk(desc) as Array<{ index: number }>).map((e) => e.index)).toEqual([2, 1, 0]);
   });
 
   it('W1-A8 n ≥ 子项数：全量窗口（min(n,total) 语义），n=99 与 n=total 同形', () => {
@@ -345,6 +351,45 @@ describe('W1-A 选窗正确性矩阵：基 × dir × 类型组序 × 不可比�
     const exact = arrayWindow()(doc, ['arr'], { n: 9 });
     expect(expectWindowOk(all)).toStrictEqual(arrayEntries(ORDER_ASC_INDICES, ORDER_VALUES));
     expect(expectWindowOk(all)).toStrictEqual(expectWindowOk(exact));
+  });
+
+  // ── issue #376：index 基 = 位置序（ADR 0028 决策 2「asc = 自 [0] 取」；desc 自尾部取）──
+  // 基线红：排序键误用元素值 → 容器元素全落不可比组 → 平局锚吞掉 dir；标量数组则为值序非位置序。
+
+  it('W1-A9 记录数组（容器元素）dir 生效：asc = 头 n 条、desc = 尾 n 条（issue #376 回归）', () => {
+    const values: unknown[] = [
+      { at: 'd1', note: 'oldest' },
+      { at: 'd2', note: 'mid' },
+      { at: 'd3', note: 'x' },
+      { at: 'd4', note: 'newest' },
+    ];
+    const doc = freshDoc((root) => {
+      const arr = new Y.Array<unknown>();
+      arr.insert(0, values);
+      root.set('arr', arr);
+    });
+    const asc = indicesOfWindow(arrayWindow()(doc, ['arr'], { n: 2 }));
+    const desc = indicesOfWindow(arrayWindow()(doc, ['arr'], { n: 2, orderBy: { by: 'index', dir: 'desc' } }));
+    expect(asc, 'asc = 自 [0] 取（头两条）').toEqual([0, 1]);
+    expect(desc, 'desc = 自尾部取（最新两条）——基线红：平局锚吞 dir 返回 [0,1]').toEqual([3, 2]);
+  });
+
+  it('W1-A10 标量数组同为位置序：值序不介入（[3,1,2] asc n=2 = 头两条、desc n=2 = 尾两条）', () => {
+    const doc = freshDoc((root) => {
+      const arr = new Y.Array<unknown>();
+      arr.insert(0, [3, 1, 2]);
+      root.set('arr', arr);
+    });
+    const asc = expectWindowOk(arrayWindow()(doc, ['arr'], { n: 2 })) as Array<{ index: number; value: unknown }>;
+    const desc = expectWindowOk(arrayWindow()(doc, ['arr'], { n: 2, orderBy: { by: 'index', dir: 'desc' } })) as Array<{ index: number; value: unknown }>;
+    expect(asc, 'asc 头两条（非值序最小两项——基线红）').toStrictEqual([
+      { index: 0, value: 3 },
+      { index: 1, value: 1 },
+    ]);
+    expect(desc, 'desc 尾两条').toStrictEqual([
+      { index: 2, value: 2 },
+      { index: 1, value: 1 },
+    ]);
   });
 
   it('W1-B1 键容器键基缺省 asc：键码点序，条目 = {key,value}', () => {
