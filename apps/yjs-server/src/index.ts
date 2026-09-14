@@ -57,6 +57,17 @@ export type {
   PersistenceConfig,
   ProvisionEntry,
 } from './config.js';
+// #393 P1：多 namespace Host 的诊断 manager 正路——泛化签名（config 无 `enabled`；
+// deps `{ onEvent?, now }`）后从公共入口导出；app 内部（app.ts）消费同一模块符号，
+// 全仓单份实现（单 ns 部署的正路 = 直接传 `createFileDiagnosticLog(...)` 产物）。
+export { createHostDiagnosticsManager } from './diagnostics.js';
+export type {
+  DiagnosticEmissionDropReason,
+  HostDiagnosticsManager,
+  HostDiagnosticsManagerConfig,
+  HostDiagnosticsManagerDeps,
+  HostDiagnosticsManagerEvent,
+} from './diagnostics.js';
 // #155（§5.7）：Host 工具面——离线 strict 诊断重放（ADR-0014-LOG 冻结报告形状）
 export { replayNamespaceDiagnosticLog } from './diagnostic-replay.js';
 export type {

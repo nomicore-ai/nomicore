@@ -28,11 +28,14 @@
  * seam 调用推迟到业务槽外的 macrotask drain——adapter 构造时机随之出槽；仍为每
  * namespace 每进程至多一次，D3/M3 成本注记）。
  */
-import { createFileDiagnosticLog, type FileDiagnosticLog } from '@nomicore/namespace-diagnostic-log';
-import type { NamespaceDiagnosticChangeEmitter } from '@nomicore/namespace-diagnostic-log';
+import {
+  createFileDiagnosticLog,
+  type DiagnosticLogHealthEvent,
+  type FileDiagnosticLog,
+  type FileRetentionConfig,
+  type NamespaceDiagnosticChangeEmitter,
+} from '@nomicore/namespace-diagnostic-log';
 import type { NamespaceRegistryDiagnosticLog } from '@nomicore/namespace-registry';
-import type { DiagnosticsConfig } from './config.js';
-import type { EventSink } from './lifecycle.js';
 
 /** 丢弃 reason 封闭词表（§4-D8：三值各有唯一产生方——unattributed = 共享无归属
  *  通道；stream-unavailable = runtimeEmitterFor 解析未命中丢弃桩（结构性不可达）；
@@ -47,6 +50,45 @@ export type DiagnosticEmissionDropReason =
   | 'stream-unavailable'
   | 'manager-closed'
   | 'namespace-deleted';
+
+/** #393 P1：泛化 manager 配置（无 `enabled` 标志——是否启用诊断是 Host 组合根的
+ *  决策，不是 manager 语义；app 侧 `DiagnosticsConfig.enabled` 保持 app 本地）。
+ *  `retention` 单源引用 NDCL 公共 `FileRetentionConfig`（不再经 app 本地类型）。 */
+export interface HostDiagnosticsManagerConfig {
+  /** 日志根目录（非空 string 由调用方/配置层保证）。 */
+  readonly rootDir: string
+  /** attempt 的 committed update 捕获（冻结格式策略；缺省 false 由 adapter 展开）。 */
+  readonly updateCapture?: boolean
+  /** 输入捕获策略（冻结格式策略；缺省 'digest' 由 adapter 展开）。 */
+  readonly inputPolicy?: 'none' | 'digest' | 'redacted' | 'full'
+  /** retention 配置（NDCL 公共类型单源；null / undefined → adapter 缺省）。 */
+  readonly retention?: Readonly<FileRetentionConfig> | null | undefined
+}
+
+/** manager 事件（既有 app NDJSON 事件形状的类型化公共面；词表/字段零变更）：
+ *  - `diagnostic-log` = adapter observer 健康事件 + namespaceId（字段白名单 = 包侧
+ *    health.ts 冻结面）；
+ *  - `diagnostic-log-emission-dropped` = 丢弃计数（reason 封闭词表；`namespaceId`
+ *    缺席 = 无归属是该 reason 的词义本体，绝不伪造归属）；
+ *  - `diagnostic-log-manager-failed` = 结构性不可达防御（adapter 构造 throw）。 */
+export type HostDiagnosticsManagerEvent =
+  | ({ readonly event: 'diagnostic-log'; readonly namespaceId: string } & DiagnosticLogHealthEvent)
+  | {
+      readonly event: 'diagnostic-log-emission-dropped'
+      readonly reason: DiagnosticEmissionDropReason
+      readonly namespaceId?: string
+    }
+  | { readonly event: 'diagnostic-log-manager-failed'; readonly namespaceId: string; readonly code: string }
+
+/** #393 P1：泛化 deps（摆脱 app 本地 `EventSink` 的 stdout 语义）。 */
+export interface HostDiagnosticsManagerDeps {
+  /** 事件回调（泛化 sink）：缺席 → 事件静默不上报（流写面照常）；throw → manager 吞没
+   *  （ADR-0011 隔离条款：观测面绝不影响业务结果——emit 面零 throw 是 manager 自身的
+   *  公共承诺，不依赖调用方良心）。 */
+  readonly onEvent?: (event: HostDiagnosticsManagerEvent) => void
+  /** 注入时钟（必需——ADR-0009 禁墙钟 fallback；adapter manifest/genesis/sweep 同源）。 */
+  readonly now: () => number
+}
 
 export interface HostDiagnosticsManager {
   /**
@@ -74,12 +116,14 @@ export interface HostDiagnosticsManager {
 }
 
 /**
- * 构造 Host 诊断管理器（调用方保证 `config.enabled === true`；组合根在 clock fiber
- * 就绪后、registry fiber 之前调用——`now` = 注入 Clock（禁墙钟，ADR 0009）。
+ * 构造 Host 诊断管理器（#393 P1 泛化签名：config 无 `enabled` 标志——调用方保证
+ * 已决定启用；deps `{ onEvent?, now }` 摆脱 app 本地 `EventSink` stdout 语义；
+ * `now` = 注入 Clock（禁墙钟，ADR 0009）保持必需）。公共导出经 `src/index.ts`；
+ * app 内部消费同一模块符号（全仓单份实现）。
  */
 export function createHostDiagnosticsManager(
-  config: Readonly<DiagnosticsConfig>,
-  deps: { sink: EventSink; now: () => number },
+  config: Readonly<HostDiagnosticsManagerConfig>,
+  deps: HostDiagnosticsManagerDeps,
 ): HostDiagnosticsManager {
   const adapters = new Map<string, FileDiagnosticLog>();
   // issue #228（AD-4）：已进入删除流程的 namespaceId 集合（retirement 面）。
@@ -89,8 +133,18 @@ export function createHostDiagnosticsManager(
   const retiredNamespaces = new Set<string>();
   let closed = false;
 
+  /** 事件通道收口（#393 P1）：单一 `notify` 入口——onEvent 缺席 = 事件静默不上报
+   *  （流写面照常）；onEvent throw = 吞没（观测面违约绝不沿 emit 栈上抛，ADR-0011）。 */
+  const notify = (event: HostDiagnosticsManagerEvent): void => {
+    try {
+      deps.onEvent?.(event);
+    } catch {
+      /* 吞没（ADR-0011 best-effort 隔离；此处无更外层通道） */
+    }
+  };
+
   const drop = (reason: DiagnosticEmissionDropReason, namespaceId?: string): void => {
-    deps.sink({
+    notify({
       event: 'diagnostic-log-emission-dropped',
       reason,
       ...(namespaceId !== undefined ? { namespaceId } : {}),
@@ -128,7 +182,7 @@ export function createHostDiagnosticsManager(
         // 入 NDJSON = 组合根既有生命周期事件同款先例（provisioned 等），非 metrics label。
         observer: {
           onEvent: (e) => {
-            deps.sink({ event: 'diagnostic-log', namespaceId, ...e });
+            notify({ event: 'diagnostic-log', namespaceId, ...e });
           },
         },
         clock: { now: deps.now },
@@ -137,7 +191,7 @@ export function createHostDiagnosticsManager(
       return log;
     } catch {
       // 结构性不可达防御（P3：adapter 工厂承诺不向调用方抛）——绝不向上传播
-      deps.sink({ event: 'diagnostic-log-manager-failed', namespaceId, code: 'ADAPTER_CONSTRUCTION_THREW' });
+      notify({ event: 'diagnostic-log-manager-failed', namespaceId, code: 'ADAPTER_CONSTRUCTION_THREW' });
       return undefined;
     }
   };

@@ -1,6 +1,6 @@
 ---
 name: nomicore
-description: Integrate Nomicore into an independent project. Use when authoring or validating VFSL schemas, generating TypeScript namespace projections, implementing typed namespace reads/writes, composing Cordis Instance/Clock/Timer/Persistence/Registry and role-specific replication plugins, or configuring standalone Hub/Peer deployment and replica recovery.
+description: Integrate Nomicore into an independent project. Use when authoring or validating VFSL schemas, generating TypeScript namespace projections, implementing typed namespace reads/writes, composing Cordis Instance/Clock/Timer/Persistence/Registry (including namespace diagnostic change log / observability wiring) and role-specific replication plugins, or configuring standalone Hub/Peer deployment and replica recovery.
 ---
 
 # Nomicore integration
@@ -13,7 +13,7 @@ Load only the branch needed:
 
 - **Schema** — creating or changing `schema.vfsl`, choosing carriers, validating schema/example ROOT data, or replacing the SCHEMA of an existing namespace: read [schema.md](schema.md).
 - **Typed access** — generating `generated.ts`, wiring TypeScript, implementing namespace read/write code, consuming and interpreting `readData()` results (value + projection text + `truncated`; shape-budget reads with `depth` / `maxChildrenPerNode`, the `‡` depth-fold marker, the `✂ 截断事实：` truncation-facts section, and re-read completion), or selecting a meaningful slice of a wide container with window reads `readArray` / `readMap` (`n` + sort term, entry identity back-stitching, the `✂` window-facts line, loud failure codes): read [typed-access.md](typed-access.md).
-- **Cordis host** — configuring Instance identity, Clock, Timer, Persistence, Registry, namespace creation/opening, role-specific replication plugins, or shutdown: read [cordis-host.md](cordis-host.md).
+- **Cordis host** — configuring Instance identity, Clock, Timer, Persistence, Registry, namespace creation/opening, namespace diagnostic change log (diagnostic log / observability) wiring for single- or multi-namespace hosts, role-specific replication plugins, or shutdown: read [cordis-host.md](cordis-host.md).
 - **Replication** — choosing standalone versus embedded Hub/Peer hosting, or configuring authorization, targets, TLS, readiness, lifecycle, epoch bump, reset, or recovery: read [replication.md](replication.md).
 - **App data-access skill** — after integration, creating the host project's thin local skill for day-to-day data access (inlined version-anchored API essentials — fetch schema / read / write forms; namespace inventory, write discipline, version facts, GitHub reference for mechanism depth, failure quick-reference) without duplicating schema 口径: read [docs/integration/app-data-access-skill.md](../../../docs/integration/app-data-access-skill.md).
 

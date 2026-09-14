@@ -121,6 +121,13 @@ export interface FileDiagnosticLog {
   readonly streamId: string
   readonly rootDir: string
   readonly namespaceId: string
+  /** #393 自绑定：identity 匹配本 namespace 的数据键控解析（#155 生产泵路径成员）。
+   *  `ns === 本 log 的 namespaceId` → 本流 emitter；其它 ns → `undefined`（泵内静默
+   *  丢弃——杜绝跨 namespace 写错流）。一切模式（ready/disabled/failed）同一实现
+   *  （形状完备，J6）：disabled/failed 下返回的 emitter 即构造期照常构造的 silent
+   *  emitter，emit 经管线后 sink 按 mode 静默——观察面与「泵内丢弃」等价。
+   *  纯闭包字符串比较：零 IO、零 throw、零状态（#155「归因键是数据不是时间」）。 */
+  runtimeEmitterFor(namespaceId: string): NamespaceDiagnosticChangeEmitter | undefined
   /** #154：执行一次 retention sweep（卫生遍历 → 年龄遍历 → 字节遍历）。纯同步、绝不
    *  throw；一切 fs 失败计数进报告（INV-5）。now 可注入（缺省 = config.clock.now()）。
    *  #227 R2（INV-227-12 语义分工）：`options.now` 是**策略时刻**——候选/年龄/字节口径
@@ -1531,6 +1538,11 @@ export function createFileLog(config: FileDiagnosticLogConfig, options: FileLogO
     streamId,
     rootDir: config.rootDir,
     namespaceId,
+    // #393 P0 自绑定：identity 匹配本 namespace 的数据键控解析（#155 生产泵路径）。
+    // registry 侧探测逻辑零改动——成员在场即路由入 #226 泵路径。其它 ns → undefined
+    // → 泵 drain 内静默丢弃（单 ns 日志的诚实语义，无跨 ns 写入）。纯闭包、零 IO、零 throw。
+    runtimeEmitterFor: (ns: string): NamespaceDiagnosticChangeEmitter | undefined =>
+      ns === namespaceId ? emitter : undefined,
     // #154 显式 sweep（INV-5：绝不 throw；disabled/failed → 空报告零动作；now 可注入）
     sweepRetention: (options?: { now?: number }): RetentionSweepReport => {
       if (mode !== 'ready') return emptySweepReport()
