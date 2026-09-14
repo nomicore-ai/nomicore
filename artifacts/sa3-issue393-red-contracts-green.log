@@ -1,0 +1,19 @@
+$ NODE_OPTIONS=--conditions=nomicore-source npx vitest run --typecheck <4 SA6 contract files>
+Testing types with tsc and vue-tsc is an experimental feature.
+Breaking changes might not follow SemVer, please pin Vitest's version when using it.
+
+ RUN  v3.2.7 /home/wangjian/nomicore-fix-issue-393
+
+ ✓ apps/yjs-server/test/issue-393-manager-export-and-skill-docs-red.test.ts (6 tests) 867ms
+   ✓ #393 P1 — @nomicore/yjs-server 导出泛化 Host 诊断 manager > P1-R1 (RED): 公共入口导出 createHostDiagnosticsManager（app 内部同一实现）  832ms
+ ✓ packages/namespace-registry/test/issue-393-ndcl-self-binding-red.test.ts (9 tests) 147ms
+ ✓  TS  packages/namespace-diagnostic-log/test/issue-393-file-log-runtime-emitter-for-surface.test-d.ts (2 tests)
+ ✓ packages/namespace-diagnostic-log/test/issue-393-file-log-runtime-emitter-for-red.test.ts (5 tests) 47ms
+
+ Test Files  4 passed (4)
+      Tests  22 passed (22)
+Type Errors  no errors
+   Start at  22:21:40
+   Duration  2.21s (transform 958ms, setup 0ms, collect 698ms, tests 1.06s, environment 0ms, prepare 134ms, typecheck 1.99s)
+
+RED_CONTRACTS_EXIT:0

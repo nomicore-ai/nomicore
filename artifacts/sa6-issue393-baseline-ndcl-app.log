@@ -1,0 +1,94 @@
+Testing types with tsc and vue-tsc is an experimental feature.
+Breaking changes might not follow SemVer, please pin Vitest's version when using it.
+
+ RUN  v3.2.7 /home/wangjian/nomicore-fix-issue-393
+
+ ✓ packages/namespace-diagnostic-log/test/file-adapter-reopen-roll-repair.test.ts (52 tests) 500ms
+ ✓ packages/namespace-diagnostic-log/test/file-adapter-strict-reader.test.ts (70 tests) 466ms
+stdout | apps/yjs-server/test/diagnostic-replay-host-lifecycle-sa7.test.ts > SA7 动态重点 1 — C1 并发 create 交错（数据键控归因，跨 namespace 误归因不可达） > Promise.all([create A(挂 gate), create B(createDoc 注入 OperationalError)])：B 以 NS_B 归属落自己的流（attempt transaction/NAMESPACE_CREATE_FAILED/rejected、目录存在）；全程零 unattributed 丢弃；A 流干净（genesis+#17、无 B marker、replay complete/issues=[]）
+[SA7-DV] C1 并发交错：A 流 2 条记录（genesis+#17）；B 流 1 条（NS_B 归属 attempt）；sink 事件 [{"event":"diagnostic-log","namespaceId":"ns-00000000000000000000000000000001","type":"retention-swept","deletedGroups":0,"reclaimedBytes":0,"orphanBinsDeleted":0,"deletingMarkersCompleted":0,"leaseBlockedGroups":0,"failedSteps":0}]
+
+stdout | apps/yjs-server/test/diagnostic-replay-host-lifecycle-sa7.test.ts > SA7 动态重点 3 — issues 镜像双份运行时复核（保守方向：只多不少，不影响三态） > 中段两行垃圾：invalid-json 恰 3 份（镜像 2 + 停止点 1）、partial、lastAppliedSequence 停在停止点前、snapshot 仍在
+[SA7-DV] §六(a) 镜像双份实测：issues=[{"code":"invalid-json"},{"code":"invalid-json"},{"code":"invalid-json"}] status=partial
+
+stdout | apps/yjs-server/test/diagnostic-replay-host-lifecycle-sa7.test.ts > SA7 动态重点 4 — fatal-committed effect:unknown 完整性不可证（#227 AC3：update-unknown + break、不推进） > 健康链中段含 fatal-unknown 记录：partial、issues=[update-unknown]、lastAppliedSequence 停在 fatal-unknown 之前、快照复现前缀态
+[SA7-DV] #227 重点 4 改写后语义实测：status=partial issues=[{"code":"update-unknown"}] lastSeq=2
+
+ ✓  TS  packages/namespace-diagnostic-log/test/identity.test-d.ts (9 tests)
+stdout | apps/yjs-server/test/diagnostic-replay-host-lifecycle-sa7.test.ts > SA7 动态重点 5 — D8 健康事件面 + D1 无泛滥（enabled 态进程级 NDJSON 摘录） > 启用态全生命周期：provision→write→SIGTERM exit 0；停机恰一次 diagnostics-closed；健康运行零 emission-dropped；数据通道记录落地
+[SA7-DV] D8 enabled 态全生命周期 diagnostic* NDJSON 事件流：[{"event":"diagnostic-log","namespaceId":"ns-1f6546eb4aaf2de40e58255711dfaad9","type":"retention-swept","deletedGroups":0,"reclaimedBytes":0,"orphanBinsDeleted":0,"deletingMarkersCompleted":0,"leaseBlockedGroups":0,"failedSteps":0},{"event":"diagnostics-closed"}]
+
+ ✓ apps/yjs-server/test/diagnostic-replay-host-lifecycle-sa7.test.ts (6 tests) 7021ms
+   ✓ SA7 动态重点 5 — D8 健康事件面 + D1 无泛滥（enabled 态进程级 NDJSON 摘录） > 启用态全生命周期：provision→write→SIGTERM exit 0；停机恰一次 diagnostics-closed；健康运行零 emission-dropped；数据通道记录落地  6868ms
+ ✓ packages/namespace-diagnostic-log/test/strict-reader-lease.test.ts (18 tests) 189ms
+ ✓ packages/namespace-diagnostic-log/test/file-adapter-retention.test.ts (17 tests) 170ms
+ ✓ packages/namespace-diagnostic-log/test/file-adapter-r2-supplemental.test.ts (22 tests) 106ms
+ ✓ packages/namespace-diagnostic-log/test/file-adapter-r2-policy-continuity.test.ts (13 tests) 93ms
+ ✓ packages/namespace-diagnostic-log/test/file-adapter-retention-lease-gate.test.ts (8 tests) 73ms
+ ✓ packages/namespace-diagnostic-log/test/file-adapter-sa7-dynamic.test.ts (10 tests) 125ms
+ ✓ packages/namespace-diagnostic-log/test/file-adapter-mismatch-interference.test.ts (11 tests) 81ms
+ ✓ apps/yjs-server/test/host-trusted-replication-diagnostics.test.ts (1 test) 8286ms
+   ✓ issue #228 — T-H8 trusted+diag：hub 与 peer 双侧 diagnostics，peer 可信 apply 落 committed 记录，strict replay complete 且与数据一致（AC2 trusted replication host 级锚） > hub 写 → peer trusted 复制收敛：peer 本地诊断流含 committed attempt 记录、strict 读全绿（sequence 连续）；hub 流对 peer 远端写同样落 committed 记录；双侧日志与数据一致  8285ms
+ ✓ apps/yjs-server/test/host-diagnostic-restart-resume.test.ts (1 test) 15182ms
+   ✓ issue #228 — T-H6 重启续写：正常重启（无删除）→ current.json 续写同一 stream、记录 sequence 连续（AC2 restart 正向 host 级锚） > boot1（provision + 写）干净停机 → boot2（同根、直引恢复）再写：streamId 不变、恰一流、sequence 1..N 跨 boot 连续、数据恢复一致、strict 全绿  15181ms
+ ✓ packages/namespace-diagnostic-log/test/input-capture.test.ts (26 tests) 145ms
+ ✓ packages/namespace-diagnostic-log/test/record-vocabulary.test.ts (29 tests) 90ms
+ ✓ packages/namespace-diagnostic-log/test/file-adapter-namespace-deletion.test.ts (10 tests) 83ms
+ ✓ packages/namespace-diagnostic-log/test/file-adapter-read-session.test.ts (9 tests) 114ms
+ ✓ packages/namespace-diagnostic-log/test/issues-projection.test.ts (23 tests) 123ms
+ ✓ packages/namespace-diagnostic-log/test/file-adapter-layout.test.ts (17 tests) 70ms
+ ✓ packages/namespace-diagnostic-log/test/file-adapter-genesis-results.test.ts (9 tests) 109ms
+ ✓ packages/namespace-diagnostic-log/test/file-adapter-inline-sidecar.test.ts (9 tests) 108ms
+ ✓ packages/namespace-diagnostic-log/test/file-adapter-sa7-repair-io.test.ts (4 tests) 83ms
+ ✓ packages/namespace-diagnostic-log/test/vfsl-gate.test.ts (16 tests) 65ms
+ ✓ packages/namespace-diagnostic-log/test/strict-reader-materialize-unknown.test.ts (4 tests) 74ms
+ ✓ packages/namespace-diagnostic-log/test/file-adapter-retention-history.test.ts (7 tests) 69ms
+ ✓ packages/namespace-diagnostic-log/test/file-adapter-retention-deletion-windows.test.ts (5 tests) 71ms
+ ✓ packages/namespace-diagnostic-log/test/write-path-number-domain-closure.test.ts (12 tests) 47ms
+ ✓ packages/namespace-diagnostic-log/test/schema-freeze.test.ts (13 tests) 89ms
+ ✓ packages/namespace-diagnostic-log/test/update-carrier.test.ts (10 tests) 73ms
+ ✓ packages/namespace-diagnostic-log/test/emitter-isolation.test.ts (8 tests) 66ms
+ ✓ apps/yjs-server/test/host-diagnostics-retirement-sa7-228.test.ts (2 tests) 133ms
+ ✓ packages/namespace-diagnostic-log/test/identity.test.ts (10 tests) 39ms
+ ✓ packages/namespace-diagnostic-log/test/line-budget.test.ts (6 tests) 44ms
+ ✓ packages/namespace-diagnostic-log/test/memory-adapter.test.ts (9 tests) 74ms
+ ✓ packages/namespace-diagnostic-log/test/observer-isolation.test.ts (5 tests) 29ms
+⎯⎯⎯⎯⎯⎯ Unhandled Errors ⎯⎯⎯⎯⎯⎯
+
+Vitest caught 4 unhandled errors during the test run.
+This might cause false positive tests. Resolve unhandled errors to make sure your tests are not affected.
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Property 'session' does not exist on type 'OpenReplicationSessionResult'.
+  Property 'session' does not exist on type 'Readonly<{ ok false; code OpenReplicationSessionIssueCode; message string; }>'.
+ ❯ packages/namespace-registry/test/zz-ndcl-empty-segments-repro.test.ts:236:34
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Property 'session' does not exist on type 'OpenReplicationSessionResult'.
+  Property 'session' does not exist on type 'Readonly<{ ok false; code OpenReplicationSessionIssueCode; message string; }>'.
+ ❯ packages/namespace-registry/test/zz-ndcl-empty-segments-repro.test.ts:244:18
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Property 'session' does not exist on type 'OpenReplicationSessionResult'.
+  Property 'session' does not exist on type 'Readonly<{ ok false; code OpenReplicationSessionIssueCode; message string; }>'.
+ ❯ packages/namespace-registry/test/zz-ndcl-empty-segments-repro.test.ts:300:34
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Property 'session' does not exist on type 'OpenReplicationSessionResult'.
+  Property 'session' does not exist on type 'Readonly<{ ok false; code OpenReplicationSessionIssueCode; message string; }>'.
+ ❯ packages/namespace-registry/test/zz-ndcl-empty-segments-repro.test.ts:308:18
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯
+
+
+ Test Files  35 passed (35)
+      Tests  481 passed (481)
+Type Errors  no errors
+     Errors  4 errors
+   Start at  21:18:00
+   Duration  42.29s (transform 1.31s, setup 0ms, collect 3.54s, tests 34.09s, environment 4ms, prepare 1.52s, typecheck 8.66s)
+
+EXIT:1

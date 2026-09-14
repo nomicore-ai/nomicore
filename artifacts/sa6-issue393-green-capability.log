@@ -1,0 +1,23 @@
+Testing types with tsc and vue-tsc is an experimental feature.
+Breaking changes might not follow SemVer, please pin Vitest's version when using it.
+
+ RUN  v3.2.7 /home/wangjian/nomicore-fix-issue-393
+
+ ✓ packages/namespace-registry/test/zz-probe-393-simulated-p0.test.ts (4 tests) 101ms
+
+ Test Files  1 passed (1)
+      Tests  4 passed (4)
+Type Errors  no errors
+   Start at  21:20:29
+   Duration  912ms (transform 482ms, setup 0ms, collect 663ms, tests 101ms, environment 0ms, prepare 43ms)
+
+
+=== probe (temporary, deleted): raw-log legacy path unattributed landing, run 2026-09-14 ===
+probe-unattributed-legacy: {"rejected":{"ok":false,"code":"REGISTRY_NOT_ACCEPTING"},"runtimeEmitterFor":"undefined","codes":["namespace-create/-","namespace-create/REGISTRY_NOT_ACCEPTING"]}
+=> landing half of R4 is green TODAY via legacy shared emitter; R4 red = pump-path discriminant (runtimeEmitterFor) only.
+
+=== per-case names of the simulated-P0 green-capability probe (2026-09-14) ===
+✓ R0/R1: identity match + root-mutation lands
+✓ R2: replication apply lands
+✓ R3: other-ns create does not append (count before === after)
+✓ R4: unattributed public-entry rejection lands exactly once

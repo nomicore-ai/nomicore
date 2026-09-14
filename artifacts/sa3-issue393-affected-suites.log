@@ -1,0 +1,13 @@
+# Summary extract: targeted affected-package suite run (issue #393, SA3 iteration 0)
+# Command (run 2026-09-14, completed exit 0):
+#   NODE_OPTIONS=--conditions=nomicore-source npx vitest run --typecheck \
+#     packages/namespace-diagnostic-log/test packages/namespace-registry/test apps/yjs-server/test
+# Runner output was tail-capped (80 lines) in the session; the observed summary lines follow verbatim:
+----
+ Test Files  115 passed (115)
+      Tests  1163 passed (1163)
+Type Errors  no errors
+   Duration  468.76s (transform 1.61s, setup 10.67s, collect 445.10s, tests 445.10s, environment 13ms, prepare 4.30s, typecheck 1.84s)
+AFFECTED_SUITES_EXIT:0
+----
+# The same 115 files are covered verbatim by artifacts/sa3-issue393-full-suite.log

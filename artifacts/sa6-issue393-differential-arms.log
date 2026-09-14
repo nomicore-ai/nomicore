@@ -1,0 +1,9 @@
+ARM-A direct log.emitter.emit → ["root-mutation"]
+ARM-B natural composition → ["namespace-create"] runtimeEmitterFor: undefined
+ARM-C explicit binding → ["namespace-create","root-mutation"]
+ARM-G2 apply result → {"ok":true}
+ARM-G2 ops → ["namespace-create","root-mutation","replication-enable","replication-apply"]
+ARM-D0 raw log two-ns create → before: 1 after: 2 (second ns: ns-00000000000000000000000000000002)
+ARM-E unattributed → {"ok":false,"code":"REGISTRY_NOT_ACCEPTING","message":"REGISTRY_NOT_ACCEPTING: Registry 当前不接纳 namespace 操作"} ["namespace-create(REGISTRY_NOT_ACCEPTING)","namespace-create"]
+ Test Files  1 passed (1)
+      Tests  1 passed (1)

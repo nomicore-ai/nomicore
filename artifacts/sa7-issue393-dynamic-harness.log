@@ -1,0 +1,74 @@
+Testing types with tsc and vue-tsc is an experimental feature.
+Breaking changes might not follow SemVer, please pin Vitest's version when using it.
+
+ RUN  v3.2.7 /home/wangjian/nomicore-fix-issue-393
+
+stdout | packages/namespace-registry/test/zz-sa7-issue393-dataflow.test.ts > SA7-DATAFLOW #393 — changed routes (natural composition) > R① root-mutation：identity 解析 → O(1) 入队 → macrotask drain → 落盘 → strict reader 回读
+[SA7-DATAFLOW] route=R1 step=construction {"streamId":"log-ff78252a9178a99d511f6f19d6f32126","hasRuntimeEmitterFor":true}
+[SA7-DATAFLOW] route=R1 step=resolver {"own":"identity-emitter","other":"undefined"}
+
+stdout | packages/namespace-registry/test/zz-sa7-issue393-dataflow.test.ts > SA7-DATAFLOW #393 — changed routes (natural composition) > R① root-mutation：identity 解析 → O(1) 入队 → macrotask drain → 落盘 → strict reader 回读
+[SA7-DATAFLOW] route=R1 step=pre-drain {"rootMutationRecords":0}
+
+stdout | packages/namespace-registry/test/zz-sa7-issue393-dataflow.test.ts > SA7-DATAFLOW #393 — changed routes (natural composition) > R① root-mutation：identity 解析 → O(1) 入队 → macrotask drain → 落盘 → strict reader 回读
+[SA7-DATAFLOW] route=R1 step=post-drain {"all":[{"operation":"namespace-create","kind":"committed"},{"operation":"root-mutation","kind":"committed"}],"rootMutationRecords":1}
+
+stdout | packages/namespace-registry/test/zz-sa7-issue393-dataflow.test.ts > SA7-DATAFLOW #393 — changed routes (natural composition) > R① replication-apply：同一装配下 apply committed 落盘（含 pre/post drain 跳点）
+[SA7-DATAFLOW] route=R2 step=pre-drain {"replicationApplyRecords":0}
+
+stdout | packages/namespace-registry/test/zz-sa7-issue393-dataflow.test.ts > SA7-DATAFLOW #393 — changed routes (natural composition) > R① replication-apply：同一装配下 apply committed 落盘（含 pre/post drain 跳点）
+[SA7-DATAFLOW] route=R2 step=post-drain {"all":[{"operation":"namespace-create","kind":"committed"},{"operation":"replication-enable","kind":"committed"},{"operation":"replication-apply","kind":"committed"}],"replicationApplyRecords":1}
+
+stdout | packages/namespace-registry/test/zz-sa7-issue393-dataflow.test.ts > SA7-DATAFLOW #393 — changed routes (natural composition) > R② 无归属公共入口拒绝：同步共享通道恰落 1 条（drain 前已在盘 = 同步跳点；drain 后无重复）
+[SA7-DATAFLOW] route=R2-unattributed step=pre-drain {"landed":1,"kinds":["rejected"]}
+
+stdout | packages/namespace-registry/test/zz-sa7-issue393-dataflow.test.ts > SA7-DATAFLOW #393 — changed routes (natural composition) > R② 无归属公共入口拒绝：同步共享通道恰落 1 条（drain 前已在盘 = 同步跳点；drain 后无重复）
+[SA7-DATAFLOW] route=R2-unattributed step=post-drain {"landed":1}
+
+stdout | packages/namespace-registry/test/zz-sa7-issue393-dataflow.test.ts > SA7-DATAFLOW #393 — changed routes (natural composition) > R③ 其它 ns 的 create 与 runtime emission 均不落本流（泵内丢弃，无跨 ns 写入）
+[SA7-DATAFLOW] route=R3 step=baseline {"all":[{"operation":"namespace-create","kind":"committed"},{"operation":"root-mutation","kind":"committed"}],"count":2}
+
+stdout | packages/namespace-registry/test/zz-sa7-issue393-dataflow.test.ts > SA7-DATAFLOW #393 — changed routes (natural composition) > R③ 其它 ns 的 create 与 runtime emission 均不落本流（泵内丢弃，无跨 ns 写入）
+[SA7-DATAFLOW] route=R3 step=after-second-ns {"all":[{"operation":"namespace-create","kind":"committed"},{"operation":"root-mutation","kind":"committed"}],"count":2}
+
+stdout | packages/namespace-registry/test/zz-sa7-issue393-dataflow.test.ts > SA7-DATAFLOW #393 — preserved routes, state machine, error & cleanup > P-legacy：裸 {emitter} 字面量仍走 legacy——恰 1 条 create、0 条 runtime（#150 零漂移）
+[SA7-DATAFLOW] route=P-legacy step=records {"all":[{"operation":"namespace-create","kind":"committed"}]}
+
+stdout | packages/namespace-registry/test/zz-sa7-issue393-dataflow.test.ts > SA7-DATAFLOW #393 — preserved routes, state machine, error & cleanup > P-eager：manifest/current.json/segments 构造期 eager 建立、初始零 segment（日志外观存活面）
+[SA7-DATAFLOW] route=P-eager step=construction-time-layout {"manifestOk":true,"currentOk":true,"segmentFiles":0}
+
+stdout | packages/namespace-registry/test/zz-sa7-issue393-dataflow.test.ts > SA7-DATAFLOW #393 — preserved routes, state machine, error & cleanup > SM-noop：diagnosticLog 缺席 → no-op 装配，业务零影响
+[SA7-DATAFLOW] route=SM-noop step=business {"write":{"ok":true}}
+
+stdout | packages/namespace-registry/test/zz-sa7-issue393-dataflow.test.ts > SA7-DATAFLOW #393 — preserved routes, state machine, error & cleanup > CLEANUP-late-drain：mutate 后立即 shutdown，迟到泵任务仍落盘（流存活；不复活旧路径）
+[SA7-DATAFLOW] route=CLEANUP step=late-drain-lands {"rootMutationRecords":1,"kinds":["committed"]}
+
+stdout | packages/namespace-registry/test/zz-sa7-issue393-dataflow.test.ts > SA7-DATAFLOW #393 — preserved routes, state machine, error & cleanup > ERR-hostile：emitter 同步 throw 全被吞没——业务结果与泵排空均不受影响
+[SA7-DATAFLOW] route=ERR-hostile step=business {"write":{"ok":true}}
+
+ ✓ packages/namespace-registry/test/zz-sa7-issue393-dataflow.test.ts (9 tests) 141ms
+stdout | apps/yjs-server/test/zz-sa7-issue393-manager.test.ts > SA7-DATAFLOW #393 P1 — manager lifecycle > M1 multi-ns：数据键控落各 ns 自己的流；共享通道 unattributed 丢弃+上报
+[SA7-DATAFLOW] route=M1 step=streams {"nsA":["root-mutation"],"nsB":["root-mutation"]}
+[SA7-DATAFLOW] route=M1 step=unattributed-drop {"count":1}
+
+stdout | apps/yjs-server/test/zz-sa7-issue393-manager.test.ts > SA7-DATAFLOW #393 P1 — manager lifecycle > M2 close：迟到解析降级 manager-closed 桩；重复 close 幂等；共享通道同报 manager-closed
+[SA7-DATAFLOW] route=M2 step=late-events {"reasons":[{"reason":"manager-closed","ns":"ns-000000000000000000000000000000a1"},{"reason":"manager-closed"}]}
+
+stdout | apps/yjs-server/test/zz-sa7-issue393-manager.test.ts > SA7-DATAFLOW #393 P1 — manager lifecycle > M3 retire：retireNamespace 后迟到解析 namespace-deleted；再 initStream 复活（重建语义）
+[SA7-DATAFLOW] route=M3 step=retired-events {"count":1,"withNs":["ns-000000000000000000000000000000b1"]}
+[SA7-DATAFLOW] route=M3 step=after-revive {"nsB":["root-mutation"]}
+
+stdout | apps/yjs-server/test/zz-sa7-issue393-manager.test.ts > SA7-DATAFLOW #393 P1 — manager lifecycle > M4 onEvent throw：吞没不影响流写面（emit 面零 throw）
+[SA7-DATAFLOW] route=M4 step=after-hostile-onEvent {"nsA":["root-mutation"]}
+
+stdout | apps/yjs-server/test/zz-sa7-issue393-manager.test.ts > SA7-DATAFLOW #393 P1 — manager lifecycle > M5 onEvent 缺席：事件静默，流写面照常
+[SA7-DATAFLOW] route=M5 step=no-onEvent {"nsA":["root-mutation"]}
+
+ ✓ apps/yjs-server/test/zz-sa7-issue393-manager.test.ts (5 tests) 424ms
+   ✓ SA7-DATAFLOW #393 P1 — manager lifecycle > M1 multi-ns：数据键控落各 ns 自己的流；共享通道 unattributed 丢弃+上报  400ms
+
+ Test Files  2 passed (2)
+      Tests  14 passed (14)
+Type Errors  no errors
+   Start at  23:00:07
+   Duration  1.57s (transform 701ms, setup 0ms, collect 717ms, tests 565ms, environment 0ms, prepare 89ms)
