@@ -169,8 +169,8 @@ function makeHost(rootDir: string): {
 } {
   const events: SinkEvent[] = [];
   const host = createHostDiagnosticsManager(
-    { enabled: true, rootDir, updateCapture: true, inputPolicy: 'digest' },
-    { sink: (e) => void events.push(e), now: () => NOW_MS },
+    { rootDir, updateCapture: true, inputPolicy: 'digest' },
+    { onEvent: (e) => void events.push(e), now: () => NOW_MS },
   );
   return { host, events };
 }

@@ -1,0 +1,25 @@
+Testing types with tsc and vue-tsc is an experimental feature.
+Breaking changes might not follow SemVer, please pin Vitest's version when using it.
+
+ RUN  v3.2.7 /home/wangjian/nomicore-fix-issue-393
+
+ ✓  TS  packages/namespace-diagnostic-log/test/issue-393-file-log-runtime-emitter-for-surface.test-d.ts (2 tests)
+ ✓ packages/namespace-registry/test/registry-issue-226-red.test.ts (13 tests) 1227ms
+   ✓ #226 日志 I/O 与业务关键路径隔离（SA1 复现红灯） > T12 慢同步 append 不得阻塞 create 之后的下一个业务写槽（B3：write-sequencer 窗口隔离——经 Registry 生产装配全链路）  305ms
+ ✓ apps/yjs-server/test/issue-393-manager-export-and-skill-docs-red.test.ts (6 tests) 385ms
+   ✓ #393 P1 — @nomicore/yjs-server 导出泛化 Host 诊断 manager > P1-R1 (RED): 公共入口导出 createHostDiagnosticsManager（app 内部同一实现）  354ms
+ ✓ packages/namespace-registry/test/issue-393-ndcl-self-binding-red.test.ts (9 tests) 127ms
+stdout | packages/namespace-registry/test/registry-create-diagnostic-sa7-dynamic.test.ts > SA7 动态重点 2 — File adapter first-slice 同步落盘与同 key FIFO > first-slice 同步证据：initStream 返回前 stream/manifest/genesis 已可严格读回；每 namespace 至多一次（duplicate 不再付 stream 成本）
+[SA7-DV] first-slice initStream（同步 mkdir+manifest('wx')+genesis append+current.json rename）耗时 18.40ms；含日志 create 总耗时 26.34ms
+
+ ✓ packages/namespace-registry/test/registry-create-diagnostic-sa7-dynamic.test.ts (10 tests) 119ms
+ ✓ packages/namespace-registry/test/registry-create-diagnostic-red.test.ts (16 tests) 115ms
+ ✓ packages/namespace-diagnostic-log/test/issue-393-file-log-runtime-emitter-for-red.test.ts (5 tests) 49ms
+ ✓ packages/namespace-registry/test/registry-create-diagnostic-code-source.test.ts (6 tests) 45ms
+ ✓ packages/namespace-registry/test/registry-issue-249-pump-red.test.ts (10 tests) 7ms
+
+ Test Files  9 passed (9)
+      Tests  77 passed (77)
+Type Errors  no errors
+   Start at  23:00:46
+   Duration  4.71s (transform 938ms, setup 0ms, collect 1.59s, tests 2.07s, environment 1ms, prepare 339ms, typecheck 1.81s)

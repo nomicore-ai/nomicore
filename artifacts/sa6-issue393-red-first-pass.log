@@ -1,0 +1,106 @@
+Testing types with tsc and vue-tsc is an experimental feature.
+Breaking changes might not follow SemVer, please pin Vitest's version when using it.
+
+ RUN  v3.2.7 /home/wangjian/nomicore-fix-issue-393
+
+ ❯ packages/namespace-registry/test/issue-393-ndcl-self-binding-red.test.ts (9 tests | 5 failed) 138ms
+   × #393 P0 — FileDiagnosticLog 自绑定 runtimeEmitterFor（identity 匹配） > R0 (RED): runtimeEmitterFor 在场、identity 匹配本 ns、对其它 ns 解析 undefined 23ms
+     → P0：FileDiagnosticLog 必须自带 runtimeEmitterFor（identity 匹配本 namespace 的数据键控解析成员）: expected 'undefined' to be 'function' // Object.is equality
+   × #393 P0 — FileDiagnosticLog 自绑定 runtimeEmitterFor（identity 匹配） > R1 (RED): raw log + open + mutate → 本 ns 流出现 root-mutation 记录 38ms
+     → runtime 级 emission 必须经 registry 泵路径落到本 ns 流；实际记录：[{"operation":"namespace-create","resultKind":"committed"}]: expected 0 to be greater than or equal to 1
+   × #393 P0 — FileDiagnosticLog 自绑定 runtimeEmitterFor（identity 匹配） > R2 (RED): replication apply（runtime 级 emission，共用同一装配）同样落盘 19ms
+     → replication-apply 是同一 runtime 诊断装配的 emission，必须落本 ns 流；实际：[{"operation":"namespace-create","resultKind":"committed"}]: expected 0 to be greater than or equal to 1
+   × #393 P0 — FileDiagnosticLog 自绑定 runtimeEmitterFor（identity 匹配） > R3 (RED): 其它 namespace 的 emission 不落本流（解析 undefined → 泵内丢弃，无跨 ns 写入） 23ms
+     → 其它 ns 的 create 记录不得追加进本流（before=1, after=2）: expected 2 to be 1 // Object.is equality
+   × #393 P0 — FileDiagnosticLog 自绑定 runtimeEmitterFor（identity 匹配） > R4 (RED-anchor + 定案守护): 无归属公共入口拒绝落本流（单 ns 自绑定 = 接受落盘） 2ms
+     → P0：FileDiagnosticLog 必须自带 runtimeEmitterFor（identity 匹配本 namespace 的数据键控解析成员）: expected 'undefined' to be 'function' // Object.is equality
+   ✓ #393 守护锚 — 正控 / legacy 零漂移 / 装配面可用性 > G1 (GREEN): 直发 emitter.emit(root-mutation) 落盘（排除适配器静默失败/缓冲假设） 6ms
+   ✓ #393 守护锚 — 正控 / legacy 零漂移 / 装配面可用性 > G2 (GREEN): #150 legacy 字面量 {emitter} 零漂移——create 尝试落盘、runtime 记录缺席 10ms
+   ✓ #393 守护锚 — 正控 / legacy 零漂移 / 装配面可用性 > G3 (GREEN): 不新增 initStream 成员（泵路径缺席 → no-op；stream 构造期已 eager 建立） 1ms
+   ✓ #393 守护锚 — 正控 / legacy 零漂移 / 装配面可用性 > G4 (GREEN): 显式 {emitter, runtimeEmitterFor} binding 经泵路径落盘（装配面本身可用） 15ms
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 5 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  packages/namespace-registry/test/issue-393-ndcl-self-binding-red.test.ts > #393 P0 — FileDiagnosticLog 自绑定 runtimeEmitterFor（identity 匹配） > R0 (RED): runtimeEmitterFor 在场、identity 匹配本 ns、对其它 ns 解析 undefined
+AssertionError: P0：FileDiagnosticLog 必须自带 runtimeEmitterFor（identity 匹配本 namespace 的数据键控解析成员）: expected 'undefined' to be 'function' // Object.is equality
+
+Expected: "function"
+Received: "undefined"
+
+ ❯ requireRuntimeEmitterFor packages/namespace-registry/test/issue-393-ndcl-self-binding-red.test.ts:159:5
+    157|     typeof member,
+    158|     'P0：FileDiagnosticLog 必须自带 runtimeEmitterFor（identity 匹配本 namespac…
+    159|   ).toBe('function');
+       |     ^
+    160|   if (typeof member !== 'function') throw new Error('unreachable after…
+    161|   return member as (namespaceId: string) => unknown;
+ ❯ packages/namespace-registry/test/issue-393-ndcl-self-binding-red.test.ts:182:22
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/5]⎯
+
+ FAIL  packages/namespace-registry/test/issue-393-ndcl-self-binding-red.test.ts > #393 P0 — FileDiagnosticLog 自绑定 runtimeEmitterFor（identity 匹配） > R1 (RED): raw log + open + mutate → 本 ns 流出现 root-mutation 记录
+AssertionError: runtime 级 emission 必须经 registry 泵路径落到本 ns 流；实际记录：[{"operation":"namespace-create","resultKind":"committed"}]: expected 0 to be greater than or equal to 1
+ ❯ packages/namespace-registry/test/issue-393-ndcl-self-binding-red.test.ts:202:7
+    200|       runtimeRecords.length,
+    201|       `runtime 级 emission 必须经 registry 泵路径落到本 ns 流；实际记录：${JSON.stringi…
+    202|     ).toBeGreaterThanOrEqual(1);
+       |       ^
+    203|     expect(runtimeRecords.some((record) => record.resultKind === 'comm…
+    204|
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/5]⎯
+
+ FAIL  packages/namespace-registry/test/issue-393-ndcl-self-binding-red.test.ts > #393 P0 — FileDiagnosticLog 自绑定 runtimeEmitterFor（identity 匹配） > R2 (RED): replication apply（runtime 级 emission，共用同一装配）同样落盘
+AssertionError: replication-apply 是同一 runtime 诊断装配的 emission，必须落本 ns 流；实际：[{"operation":"namespace-create","resultKind":"committed"}]: expected 0 to be greater than or equal to 1
+ ❯ packages/namespace-registry/test/issue-393-ndcl-self-binding-red.test.ts:241:7
+    239|       applyRecords.length,
+    240|       `replication-apply 是同一 runtime 诊断装配的 emission，必须落本 ns 流；实际：${JSO…
+    241|     ).toBeGreaterThanOrEqual(1);
+       |       ^
+    242|     expect(applyRecords.some((record) => record.resultKind === 'commit…
+    243|
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[3/5]⎯
+
+ FAIL  packages/namespace-registry/test/issue-393-ndcl-self-binding-red.test.ts > #393 P0 — FileDiagnosticLog 自绑定 runtimeEmitterFor（identity 匹配） > R3 (RED): 其它 namespace 的 emission 不落本流（解析 undefined → 泵内丢弃，无跨 ns 写入）
+AssertionError: 其它 ns 的 create 记录不得追加进本流（before=1, after=2）: expected 2 to be 1 // Object.is equality
+
+- Expected
++ Received
+
+- 1
++ 2
+
+ ❯ packages/namespace-registry/test/issue-393-ndcl-self-binding-red.test.ts:264:81
+    262|     const after = readAttempts(rootDir, NS_FIRST, log.streamId).length;
+    263|
+    264|     expect(after, `其它 ns 的 create 记录不得追加进本流（before=${before}, after=${…
+       |                                                                                 ^
+    265|
+    266|     await first.release();
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[4/5]⎯
+
+ FAIL  packages/namespace-registry/test/issue-393-ndcl-self-binding-red.test.ts > #393 P0 — FileDiagnosticLog 自绑定 runtimeEmitterFor（identity 匹配） > R4 (RED-anchor + 定案守护): 无归属公共入口拒绝落本流（单 ns 自绑定 = 接受落盘）
+AssertionError: P0：FileDiagnosticLog 必须自带 runtimeEmitterFor（identity 匹配本 namespace 的数据键控解析成员）: expected 'undefined' to be 'function' // Object.is equality
+
+Expected: "function"
+Received: "undefined"
+
+ ❯ requireRuntimeEmitterFor packages/namespace-registry/test/issue-393-ndcl-self-binding-red.test.ts:159:5
+    157|     typeof member,
+    158|     'P0：FileDiagnosticLog 必须自带 runtimeEmitterFor（identity 匹配本 namespac…
+    159|   ).toBe('function');
+       |     ^
+    160|   if (typeof member !== 'function') throw new Error('unreachable after…
+    161|   return member as (namespaceId: string) => unknown;
+ ❯ packages/namespace-registry/test/issue-393-ndcl-self-binding-red.test.ts:285:5
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[5/5]⎯
+
+
+ Test Files  1 failed (1)
+      Tests  5 failed | 4 passed (9)
+Type Errors  no errors
+   Start at  21:18:37
+   Duration  1.11s (transform 585ms, setup 0ms, collect 802ms, tests 138ms, environment 0ms, prepare 53ms)

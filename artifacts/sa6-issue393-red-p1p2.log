@@ -1,0 +1,125 @@
+Testing types with tsc and vue-tsc is an experimental feature.
+Breaking changes might not follow SemVer, please pin Vitest's version when using it.
+
+ RUN  v3.2.7 /home/wangjian/nomicore-fix-issue-393
+
+ ❯ apps/yjs-server/test/issue-393-manager-export-and-skill-docs-red.test.ts (6 tests | 6 failed) 604ms
+   × #393 P1 — @nomicore/yjs-server 导出泛化 Host 诊断 manager > P1-R1 (RED): 公共入口导出 createHostDiagnosticsManager（app 内部同一实现） 599ms
+     → expected 'undefined' to be 'function' // Object.is equality
+   × #393 P1 — @nomicore/yjs-server 导出泛化 Host 诊断 manager > P1-R2 (RED): 泛化签名可用——多 ns 数据键控落盘 + 无归属通道丢弃并上报 onEvent 1ms
+     → P1：createHostDiagnosticsManager 必须从 apps/yjs-server 公共入口导出（全仓单份实现）: expected 'undefined' to be 'function' // Object.is equality
+   × #393 P1 — @nomicore/yjs-server 导出泛化 Host 诊断 manager > P1-R3 (RED): close() 后运行时解析降级为 manager-closed 丢弃桩并经 onEvent 上报 1ms
+     → P1：createHostDiagnosticsManager 必须从 apps/yjs-server 公共入口导出（全仓单份实现）: expected 'undefined' to be 'function' // Object.is equality
+   × #393 P1 — @nomicore/yjs-server 导出泛化 Host 诊断 manager > P1-G1 (GREEN 守护锚): retireNamespace 后迟到解析保持 namespace-deleted 丢弃语义 1ms
+     → P1：createHostDiagnosticsManager 必须从 apps/yjs-server 公共入口导出（全仓单份实现）: expected 'undefined' to be 'function' // Object.is equality
+   × #393 P2 — skill 诊断日志配置节与路由（文档交付物契约） > P2-R1 (RED): cordis-host.md 存在诊断日志配置节，含单 ns / 多 ns / 裸 emitter 陷阱 / Hub-Peer 四面 1ms
+     → cordis-host.md 必须新增诊断日志配置节（标题含「诊断日志」）: expected undefined to be defined
+   × #393 P2 — skill 诊断日志配置节与路由（文档交付物契约） > P2-R2 (RED): SKILL.md 路由表把诊断日志/observability 类请求导流到 cordis-host.md 1ms
+     → 诊断日志/observability 类请求必须路由到 cordis-host.md：["- **Cordis host** — configuring Instance identity, Clock, Timer, Persistence, Registry, namespace creation/opening, role-specific replication plugins, or shutdown: read [cordis-host.md](cordis-host.md)."]: expected false to be true // Object.is equality
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 6 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  apps/yjs-server/test/issue-393-manager-export-and-skill-docs-red.test.ts > #393 P1 — @nomicore/yjs-server 导出泛化 Host 诊断 manager > P1-R1 (RED): 公共入口导出 createHostDiagnosticsManager（app 内部同一实现）
+AssertionError: expected 'undefined' to be 'function' // Object.is equality
+
+Expected: "function"
+Received: "undefined"
+
+ ❯ apps/yjs-server/test/issue-393-manager-export-and-skill-docs-red.test.ts:122:53
+    120|   it('P1-R1 (RED): 公共入口导出 createHostDiagnosticsManager（app 内部同一实现）', a…
+    121|     const mod = await publicEntry();
+    122|     expect(typeof mod.createHostDiagnosticsManager).toBe('function');
+       |                                                     ^
+    123|   });
+    124|
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/6]⎯
+
+ FAIL  apps/yjs-server/test/issue-393-manager-export-and-skill-docs-red.test.ts > #393 P1 — @nomicore/yjs-server 导出泛化 Host 诊断 manager > P1-R2 (RED): 泛化签名可用——多 ns 数据键控落盘 + 无归属通道丢弃并上报 onEvent
+AssertionError: P1：createHostDiagnosticsManager 必须从 apps/yjs-server 公共入口导出（全仓单份实现）: expected 'undefined' to be 'function' // Object.is equality
+
+Expected: "function"
+Received: "undefined"
+
+ ❯ requireFactory apps/yjs-server/test/issue-393-manager-export-and-skill-docs-red.test.ts:94:5
+     92|     typeof factory,
+     93|     'P1：createHostDiagnosticsManager 必须从 apps/yjs-server 公共入口导出（全仓单份实现…
+     94|   ).toBe('function');
+       |     ^
+     95|   if (typeof factory !== 'function') throw new Error('unreachable afte…
+     96|   return factory as (config: { rootDir: string }, deps: GeneralizedDep…
+ ❯ apps/yjs-server/test/issue-393-manager-export-and-skill-docs-red.test.ts:129:21
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/6]⎯
+
+ FAIL  apps/yjs-server/test/issue-393-manager-export-and-skill-docs-red.test.ts > #393 P1 — @nomicore/yjs-server 导出泛化 Host 诊断 manager > P1-R3 (RED): close() 后运行时解析降级为 manager-closed 丢弃桩并经 onEvent 上报
+AssertionError: P1：createHostDiagnosticsManager 必须从 apps/yjs-server 公共入口导出（全仓单份实现）: expected 'undefined' to be 'function' // Object.is equality
+
+Expected: "function"
+Received: "undefined"
+
+ ❯ requireFactory apps/yjs-server/test/issue-393-manager-export-and-skill-docs-red.test.ts:94:5
+     92|     typeof factory,
+     93|     'P1：createHostDiagnosticsManager 必须从 apps/yjs-server 公共入口导出（全仓单份实现…
+     94|   ).toBe('function');
+       |     ^
+     95|   if (typeof factory !== 'function') throw new Error('unreachable afte…
+     96|   return factory as (config: { rootDir: string }, deps: GeneralizedDep…
+ ❯ apps/yjs-server/test/issue-393-manager-export-and-skill-docs-red.test.ts:158:21
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[3/6]⎯
+
+ FAIL  apps/yjs-server/test/issue-393-manager-export-and-skill-docs-red.test.ts > #393 P1 — @nomicore/yjs-server 导出泛化 Host 诊断 manager > P1-G1 (GREEN 守护锚): retireNamespace 后迟到解析保持 namespace-deleted 丢弃语义
+AssertionError: P1：createHostDiagnosticsManager 必须从 apps/yjs-server 公共入口导出（全仓单份实现）: expected 'undefined' to be 'function' // Object.is equality
+
+Expected: "function"
+Received: "undefined"
+
+ ❯ requireFactory apps/yjs-server/test/issue-393-manager-export-and-skill-docs-red.test.ts:94:5
+     92|     typeof factory,
+     93|     'P1：createHostDiagnosticsManager 必须从 apps/yjs-server 公共入口导出（全仓单份实现…
+     94|   ).toBe('function');
+       |     ^
+     95|   if (typeof factory !== 'function') throw new Error('unreachable afte…
+     96|   return factory as (config: { rootDir: string }, deps: GeneralizedDep…
+ ❯ apps/yjs-server/test/issue-393-manager-export-and-skill-docs-red.test.ts:176:21
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[4/6]⎯
+
+ FAIL  apps/yjs-server/test/issue-393-manager-export-and-skill-docs-red.test.ts > #393 P2 — skill 诊断日志配置节与路由（文档交付物契约） > P2-R1 (RED): cordis-host.md 存在诊断日志配置节，含单 ns / 多 ns / 裸 emitter 陷阱 / Hub-Peer 四面
+AssertionError: cordis-host.md 必须新增诊断日志配置节（标题含「诊断日志」）: expected undefined to be defined
+ ❯ apps/yjs-server/test/issue-393-manager-export-and-skill-docs-red.test.ts:217:62
+    215|     const doc = readFileSync(join(SKILL_DIR, 'cordis-host.md'), 'utf8'…
+    216|     const section = sectionOf(doc, /诊断日志|diagnostic/i);
+    217|     expect(section, 'cordis-host.md 必须新增诊断日志配置节（标题含「诊断日志」）').toBeDefin…
+       |                                                              ^
+    218|     const text = section!;
+    219|     expect(text, '单 ns 正路必须点名 createFileDiagnosticLog 产物直传').toMatch(/…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[5/6]⎯
+
+ FAIL  apps/yjs-server/test/issue-393-manager-export-and-skill-docs-red.test.ts > #393 P2 — skill 诊断日志配置节与路由（文档交付物契约） > P2-R2 (RED): SKILL.md 路由表把诊断日志/observability 类请求导流到 cordis-host.md
+AssertionError: 诊断日志/observability 类请求必须路由到 cordis-host.md：["- **Cordis host** — configuring Instance identity, Clock, Timer, Persistence, Registry, namespace creation/opening, role-specific replication plugins, or shutdown: read [cordis-host.md](cordis-host.md)."]: expected false to be true // Object.is equality
+
+- Expected
++ Received
+
+- true
++ false
+
+ ❯ apps/yjs-server/test/issue-393-manager-export-and-skill-docs-red.test.ts:239:7
+    237|       routeLines.some((line) => /诊断日志|diagnostic|observability/i.test(…
+    238|       `诊断日志/observability 类请求必须路由到 cordis-host.md：${JSON.stringify(rou…
+    239|     ).toBe(true);
+       |       ^
+    240|   });
+    241| });
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[6/6]⎯
+
+
+ Test Files  1 failed (1)
+      Tests  6 failed (6)
+Type Errors  no errors
+   Start at  21:19:42
+   Duration  1.05s (transform 647ms, setup 0ms, collect 299ms, tests 604ms, environment 0ms, prepare 44ms)

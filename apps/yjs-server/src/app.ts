@@ -278,7 +278,9 @@ class AppHandle {
     this.diagnostics =
       this.config.diagnostics?.enabled === true
         ? createHostDiagnosticsManager(this.config.diagnostics, {
-            sink: this.sink,
+            // #393 P1：泛化 deps（`onEvent` 取代 app 本地 EventSink 语义；`EventSink`
+            // 接受 `Readonly<Record<string, unknown>>`，对窄事件参数型安全）。
+            onEvent: this.sink,
             now: () => requireClock(this.ctx).now(),
           })
         : undefined;

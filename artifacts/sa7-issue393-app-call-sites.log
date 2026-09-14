@@ -1,0 +1,26 @@
+Testing types with tsc and vue-tsc is an experimental feature.
+Breaking changes might not follow SemVer, please pin Vitest's version when using it.
+
+ RUN  v3.2.7 /home/wangjian/nomicore-fix-issue-393
+
+stdout | apps/yjs-server/test/diagnostic-replay-host-lifecycle-sa7.test.ts > SA7 动态重点 1 — C1 并发 create 交错（数据键控归因，跨 namespace 误归因不可达） > Promise.all([create A(挂 gate), create B(createDoc 注入 OperationalError)])：B 以 NS_B 归属落自己的流（attempt transaction/NAMESPACE_CREATE_FAILED/rejected、目录存在）；全程零 unattributed 丢弃；A 流干净（genesis+#17、无 B marker、replay complete/issues=[]）
+[SA7-DV] C1 并发交错：A 流 2 条记录（genesis+#17）；B 流 1 条（NS_B 归属 attempt）；sink 事件 [{"event":"diagnostic-log","namespaceId":"ns-00000000000000000000000000000001","type":"retention-swept","deletedGroups":0,"reclaimedBytes":0,"orphanBinsDeleted":0,"deletingMarkersCompleted":0,"leaseBlockedGroups":0,"failedSteps":0}]
+
+stdout | apps/yjs-server/test/diagnostic-replay-host-lifecycle-sa7.test.ts > SA7 动态重点 3 — issues 镜像双份运行时复核（保守方向：只多不少，不影响三态） > 中段两行垃圾：invalid-json 恰 3 份（镜像 2 + 停止点 1）、partial、lastAppliedSequence 停在停止点前、snapshot 仍在
+[SA7-DV] §六(a) 镜像双份实测：issues=[{"code":"invalid-json"},{"code":"invalid-json"},{"code":"invalid-json"}] status=partial
+
+stdout | apps/yjs-server/test/diagnostic-replay-host-lifecycle-sa7.test.ts > SA7 动态重点 4 — fatal-committed effect:unknown 完整性不可证（#227 AC3：update-unknown + break、不推进） > 健康链中段含 fatal-unknown 记录：partial、issues=[update-unknown]、lastAppliedSequence 停在 fatal-unknown 之前、快照复现前缀态
+[SA7-DV] #227 重点 4 改写后语义实测：status=partial issues=[{"code":"update-unknown"}] lastSeq=2
+
+stdout | apps/yjs-server/test/diagnostic-replay-host-lifecycle-sa7.test.ts > SA7 动态重点 5 — D8 健康事件面 + D1 无泛滥（enabled 态进程级 NDJSON 摘录） > 启用态全生命周期：provision→write→SIGTERM exit 0；停机恰一次 diagnostics-closed；健康运行零 emission-dropped；数据通道记录落地
+[SA7-DV] D8 enabled 态全生命周期 diagnostic* NDJSON 事件流：[{"event":"diagnostic-log","namespaceId":"ns-7e9c6aadb4319219ff19a99a626fab32","type":"retention-swept","deletedGroups":0,"reclaimedBytes":0,"orphanBinsDeleted":0,"deletingMarkersCompleted":0,"leaseBlockedGroups":0,"failedSteps":0},{"event":"diagnostics-closed"}]
+
+ ✓ apps/yjs-server/test/diagnostic-replay-host-lifecycle-sa7.test.ts (6 tests) 6091ms
+   ✓ SA7 动态重点 5 — D8 健康事件面 + D1 无泛滥（enabled 态进程级 NDJSON 摘录） > 启用态全生命周期：provision→write→SIGTERM exit 0；停机恰一次 diagnostics-closed；健康运行零 emission-dropped；数据通道记录落地  5995ms
+ ✓ apps/yjs-server/test/host-diagnostics-retirement-sa7-228.test.ts (2 tests) 131ms
+
+ Test Files  2 passed (2)
+      Tests  8 passed (8)
+Type Errors  no errors
+   Start at  23:00:22
+   Duration  7.51s (transform 683ms, setup 0ms, collect 1.01s, tests 6.22s, environment 0ms, prepare 91ms)

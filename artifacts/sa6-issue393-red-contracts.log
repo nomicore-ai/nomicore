@@ -1,0 +1,279 @@
+Testing types with tsc and vue-tsc is an experimental feature.
+Breaking changes might not follow SemVer, please pin Vitest's version when using it.
+
+ RUN  v3.2.7 /home/wangjian/nomicore-fix-issue-393
+
+ ❯ apps/yjs-server/test/issue-393-manager-export-and-skill-docs-red.test.ts (6 tests | 6 failed) 621ms
+   × #393 P1 — @nomicore/yjs-server 导出泛化 Host 诊断 manager > P1-R1 (RED): 公共入口导出 createHostDiagnosticsManager（app 内部同一实现） 616ms
+     → expected 'undefined' to be 'function' // Object.is equality
+   × #393 P1 — @nomicore/yjs-server 导出泛化 Host 诊断 manager > P1-R2 (RED): 泛化签名可用——多 ns 数据键控落盘 + 无归属通道丢弃并上报 onEvent 1ms
+     → P1：createHostDiagnosticsManager 必须从 apps/yjs-server 公共入口导出（全仓单份实现）: expected 'undefined' to be 'function' // Object.is equality
+   × #393 P1 — @nomicore/yjs-server 导出泛化 Host 诊断 manager > P1-R3 (RED): close() 后运行时解析降级为 manager-closed 丢弃桩并经 onEvent 上报 1ms
+     → P1：createHostDiagnosticsManager 必须从 apps/yjs-server 公共入口导出（全仓单份实现）: expected 'undefined' to be 'function' // Object.is equality
+   × #393 P1 — @nomicore/yjs-server 导出泛化 Host 诊断 manager > P1-R4 (RED→GREEN 守护): retireNamespace 后迟到解析保持 namespace-deleted 丢弃语义 1ms
+     → P1：createHostDiagnosticsManager 必须从 apps/yjs-server 公共入口导出（全仓单份实现）: expected 'undefined' to be 'function' // Object.is equality
+   × #393 P2 — skill 诊断日志配置节与路由（文档交付物契约） > P2-R1 (RED): cordis-host.md 存在诊断日志配置节，含单 ns / 多 ns / 裸 emitter 陷阱 / Hub-Peer 四面 1ms
+     → cordis-host.md 必须新增诊断日志配置节（标题含「诊断日志」）: expected undefined to be defined
+   × #393 P2 — skill 诊断日志配置节与路由（文档交付物契约） > P2-R2 (RED): SKILL.md 路由表把诊断日志/observability 类请求导流到 cordis-host.md 1ms
+     → 诊断日志/observability 类请求必须路由到 cordis-host.md：["- **Cordis host** — configuring Instance identity, Clock, Timer, Persistence, Registry, namespace creation/opening, role-specific replication plugins, or shutdown: read [cordis-host.md](cordis-host.md)."]: expected false to be true // Object.is equality
+ ❯ packages/namespace-registry/test/issue-393-ndcl-self-binding-red.test.ts (9 tests | 5 failed) 107ms
+   × #393 P0 — FileDiagnosticLog 自绑定 runtimeEmitterFor（identity 匹配） > R0 (RED): runtimeEmitterFor 在场、identity 匹配本 ns、对其它 ns 解析 undefined 20ms
+     → P0：FileDiagnosticLog 必须自带 runtimeEmitterFor（identity 匹配本 namespace 的数据键控解析成员）: expected 'undefined' to be 'function' // Object.is equality
+   × #393 P0 — FileDiagnosticLog 自绑定 runtimeEmitterFor（identity 匹配） > R1 (RED): raw log + open + mutate → 本 ns 流出现 root-mutation 记录 31ms
+     → runtime 级 emission 必须经 registry 泵路径落到本 ns 流；实际记录：[{"operation":"namespace-create","resultKind":"committed"}]: expected 0 to be greater than or equal to 1
+   × #393 P0 — FileDiagnosticLog 自绑定 runtimeEmitterFor（identity 匹配） > R2 (RED): replication apply（runtime 级 emission，共用同一装配）同样落盘 14ms
+     → replication-apply 是同一 runtime 诊断装配的 emission，必须落本 ns 流；实际：[{"operation":"namespace-create","resultKind":"committed"}]: expected 0 to be greater than or equal to 1
+   × #393 P0 — FileDiagnosticLog 自绑定 runtimeEmitterFor（identity 匹配） > R3 (RED): 其它 namespace 的 emission 不落本流（解析 undefined → 泵内丢弃，无跨 ns 写入） 16ms
+     → 其它 ns 的 create 记录不得追加进本流（before=1, after=2）: expected 2 to be 1 // Object.is equality
+   × #393 P0 — FileDiagnosticLog 自绑定 runtimeEmitterFor（identity 匹配） > R4 (RED-anchor + 定案守护): 无归属公共入口拒绝落本流（单 ns 自绑定 = 接受落盘） 1ms
+     → P0：FileDiagnosticLog 必须自带 runtimeEmitterFor（identity 匹配本 namespace 的数据键控解析成员）: expected 'undefined' to be 'function' // Object.is equality
+   ✓ #393 守护锚 — 正控 / legacy 零漂移 / 装配面可用性 > G1 (GREEN): 直发 emitter.emit(root-mutation) 落盘（排除适配器静默失败/缓冲假设） 4ms
+   ✓ #393 守护锚 — 正控 / legacy 零漂移 / 装配面可用性 > G2 (GREEN): #150 legacy 字面量 {emitter} 零漂移——create 尝试落盘、runtime 记录缺席 7ms
+   ✓ #393 守护锚 — 正控 / legacy 零漂移 / 装配面可用性 > G3 (GREEN): 不新增 initStream 成员（泵路径缺席 → no-op；stream 构造期已 eager 建立） 1ms
+   ✓ #393 守护锚 — 正控 / legacy 零漂移 / 装配面可用性 > G4 (GREEN): 显式 {emitter, runtimeEmitterFor} binding 经泵路径落盘（装配面本身可用） 12ms
+ ❯ packages/namespace-diagnostic-log/test/issue-393-file-log-runtime-emitter-for-red.test.ts (5 tests | 3 failed) 45ms
+   × #393 P0（适配器边界）— FileDiagnosticLog.runtimeEmitterFor 自绑定 > R1 (RED): 成员在场 + identity 匹配本 ns + 其它 ns 解析 undefined 22ms
+     → P0：FileDiagnosticLog 必须自带 runtimeEmitterFor（identity 匹配本 namespace）: expected 'undefined' to be 'function' // Object.is equality
+   × #393 P0（适配器边界）— FileDiagnosticLog.runtimeEmitterFor 自绑定 > R2 (RED): 解析所得 emitter 是该流的真实写面——emit 落盘 2ms
+     → P0：FileDiagnosticLog 必须自带 runtimeEmitterFor（identity 匹配本 namespace）: expected 'undefined' to be 'function' // Object.is equality
+   × #393 P0（适配器边界）— FileDiagnosticLog.runtimeEmitterFor 自绑定 > R3 (RED): resume 路径自绑定不变——续写同一 stream 的 log 同样 identity 匹配 13ms
+     → P0：FileDiagnosticLog 必须自带 runtimeEmitterFor（identity 匹配本 namespace）: expected 'undefined' to be 'function' // Object.is equality
+   ✓ #393 P0（适配器边界）— FileDiagnosticLog.runtimeEmitterFor 自绑定 > G1 (GREEN): 不新增 initStream 成员（P0 明文纪律） 1ms
+   ✓ #393 P0（适配器边界）— FileDiagnosticLog.runtimeEmitterFor 自绑定 > G2 (GREEN): emitter 成员语义零漂移——直发仍落盘（identity 返回值即此实例） 7ms
+
+⎯⎯⎯⎯⎯⎯ Failed Tests 14 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  apps/yjs-server/test/issue-393-manager-export-and-skill-docs-red.test.ts > #393 P1 — @nomicore/yjs-server 导出泛化 Host 诊断 manager > P1-R1 (RED): 公共入口导出 createHostDiagnosticsManager（app 内部同一实现）
+AssertionError: expected 'undefined' to be 'function' // Object.is equality
+
+Expected: "function"
+Received: "undefined"
+
+ ❯ apps/yjs-server/test/issue-393-manager-export-and-skill-docs-red.test.ts:138:53
+    136|   it('P1-R1 (RED): 公共入口导出 createHostDiagnosticsManager（app 内部同一实现）', a…
+    137|     const mod = await publicEntry();
+    138|     expect(typeof mod.createHostDiagnosticsManager).toBe('function');
+       |                                                     ^
+    139|   });
+    140|
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/14]⎯
+
+ FAIL  apps/yjs-server/test/issue-393-manager-export-and-skill-docs-red.test.ts > #393 P1 — @nomicore/yjs-server 导出泛化 Host 诊断 manager > P1-R2 (RED): 泛化签名可用——多 ns 数据键控落盘 + 无归属通道丢弃并上报 onEvent
+AssertionError: P1：createHostDiagnosticsManager 必须从 apps/yjs-server 公共入口导出（全仓单份实现）: expected 'undefined' to be 'function' // Object.is equality
+
+Expected: "function"
+Received: "undefined"
+
+ ❯ requireFactory apps/yjs-server/test/issue-393-manager-export-and-skill-docs-red.test.ts:94:5
+     92|     typeof factory,
+     93|     'P1：createHostDiagnosticsManager 必须从 apps/yjs-server 公共入口导出（全仓单份实现…
+     94|   ).toBe('function');
+       |     ^
+     95|   if (typeof factory !== 'function') throw new Error('unreachable afte…
+     96|   return factory as (config: { rootDir: string }, deps: GeneralizedDep…
+ ❯ apps/yjs-server/test/issue-393-manager-export-and-skill-docs-red.test.ts:145:21
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/14]⎯
+
+ FAIL  apps/yjs-server/test/issue-393-manager-export-and-skill-docs-red.test.ts > #393 P1 — @nomicore/yjs-server 导出泛化 Host 诊断 manager > P1-R3 (RED): close() 后运行时解析降级为 manager-closed 丢弃桩并经 onEvent 上报
+AssertionError: P1：createHostDiagnosticsManager 必须从 apps/yjs-server 公共入口导出（全仓单份实现）: expected 'undefined' to be 'function' // Object.is equality
+
+Expected: "function"
+Received: "undefined"
+
+ ❯ requireFactory apps/yjs-server/test/issue-393-manager-export-and-skill-docs-red.test.ts:94:5
+     92|     typeof factory,
+     93|     'P1：createHostDiagnosticsManager 必须从 apps/yjs-server 公共入口导出（全仓单份实现…
+     94|   ).toBe('function');
+       |     ^
+     95|   if (typeof factory !== 'function') throw new Error('unreachable afte…
+     96|   return factory as (config: { rootDir: string }, deps: GeneralizedDep…
+ ❯ apps/yjs-server/test/issue-393-manager-export-and-skill-docs-red.test.ts:179:21
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[3/14]⎯
+
+ FAIL  apps/yjs-server/test/issue-393-manager-export-and-skill-docs-red.test.ts > #393 P1 — @nomicore/yjs-server 导出泛化 Host 诊断 manager > P1-R4 (RED→GREEN 守护): retireNamespace 后迟到解析保持 namespace-deleted 丢弃语义
+AssertionError: P1：createHostDiagnosticsManager 必须从 apps/yjs-server 公共入口导出（全仓单份实现）: expected 'undefined' to be 'function' // Object.is equality
+
+Expected: "function"
+Received: "undefined"
+
+ ❯ requireFactory apps/yjs-server/test/issue-393-manager-export-and-skill-docs-red.test.ts:94:5
+     92|     typeof factory,
+     93|     'P1：createHostDiagnosticsManager 必须从 apps/yjs-server 公共入口导出（全仓单份实现…
+     94|   ).toBe('function');
+       |     ^
+     95|   if (typeof factory !== 'function') throw new Error('unreachable afte…
+     96|   return factory as (config: { rootDir: string }, deps: GeneralizedDep…
+ ❯ apps/yjs-server/test/issue-393-manager-export-and-skill-docs-red.test.ts:199:21
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[4/14]⎯
+
+ FAIL  apps/yjs-server/test/issue-393-manager-export-and-skill-docs-red.test.ts > #393 P2 — skill 诊断日志配置节与路由（文档交付物契约） > P2-R1 (RED): cordis-host.md 存在诊断日志配置节，含单 ns / 多 ns / 裸 emitter 陷阱 / Hub-Peer 四面
+AssertionError: cordis-host.md 必须新增诊断日志配置节（标题含「诊断日志」）: expected undefined to be defined
+ ❯ apps/yjs-server/test/issue-393-manager-export-and-skill-docs-red.test.ts:242:62
+    240|     const doc = readFileSync(join(SKILL_DIR, 'cordis-host.md'), 'utf8'…
+    241|     const section = sectionOf(doc, /诊断日志|diagnostic/i);
+    242|     expect(section, 'cordis-host.md 必须新增诊断日志配置节（标题含「诊断日志」）').toBeDefin…
+       |                                                              ^
+    243|     const text = section!;
+    244|     expect(text, '单 ns 正路必须点名 createFileDiagnosticLog 产物直传').toMatch(/…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[5/14]⎯
+
+ FAIL  apps/yjs-server/test/issue-393-manager-export-and-skill-docs-red.test.ts > #393 P2 — skill 诊断日志配置节与路由（文档交付物契约） > P2-R2 (RED): SKILL.md 路由表把诊断日志/observability 类请求导流到 cordis-host.md
+AssertionError: 诊断日志/observability 类请求必须路由到 cordis-host.md：["- **Cordis host** — configuring Instance identity, Clock, Timer, Persistence, Registry, namespace creation/opening, role-specific replication plugins, or shutdown: read [cordis-host.md](cordis-host.md)."]: expected false to be true // Object.is equality
+
+- Expected
++ Received
+
+- true
++ false
+
+ ❯ apps/yjs-server/test/issue-393-manager-export-and-skill-docs-red.test.ts:264:7
+    262|       routeLines.some((line) => /诊断日志|diagnostic|observability/i.test(…
+    263|       `诊断日志/observability 类请求必须路由到 cordis-host.md：${JSON.stringify(rou…
+    264|     ).toBe(true);
+       |       ^
+    265|   });
+    266| });
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[6/14]⎯
+
+ FAIL  packages/namespace-diagnostic-log/test/issue-393-file-log-runtime-emitter-for-red.test.ts > #393 P0（适配器边界）— FileDiagnosticLog.runtimeEmitterFor 自绑定 > R1 (RED): 成员在场 + identity 匹配本 ns + 其它 ns 解析 undefined
+AssertionError: P0：FileDiagnosticLog 必须自带 runtimeEmitterFor（identity 匹配本 namespace）: expected 'undefined' to be 'function' // Object.is equality
+
+Expected: "function"
+Received: "undefined"
+
+ ❯ requireRuntimeEmitterFor packages/namespace-diagnostic-log/test/issue-393-file-log-runtime-emitter-for-red.test.ts:54:5
+     52|     typeof member,
+     53|     'P0：FileDiagnosticLog 必须自带 runtimeEmitterFor（identity 匹配本 namespac…
+     54|   ).toBe('function');
+       |     ^
+     55|   if (typeof member !== 'function') throw new Error('unreachable after…
+     56|   return member as (namespaceId: string) => unknown;
+ ❯ packages/namespace-diagnostic-log/test/issue-393-file-log-runtime-emitter-for-red.test.ts:86:22
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[7/14]⎯
+
+ FAIL  packages/namespace-diagnostic-log/test/issue-393-file-log-runtime-emitter-for-red.test.ts > #393 P0（适配器边界）— FileDiagnosticLog.runtimeEmitterFor 自绑定 > R2 (RED): 解析所得 emitter 是该流的真实写面——emit 落盘
+AssertionError: P0：FileDiagnosticLog 必须自带 runtimeEmitterFor（identity 匹配本 namespace）: expected 'undefined' to be 'function' // Object.is equality
+
+Expected: "function"
+Received: "undefined"
+
+ ❯ requireRuntimeEmitterFor packages/namespace-diagnostic-log/test/issue-393-file-log-runtime-emitter-for-red.test.ts:54:5
+     52|     typeof member,
+     53|     'P0：FileDiagnosticLog 必须自带 runtimeEmitterFor（identity 匹配本 namespac…
+     54|   ).toBe('function');
+       |     ^
+     55|   if (typeof member !== 'function') throw new Error('unreachable after…
+     56|   return member as (namespaceId: string) => unknown;
+ ❯ packages/namespace-diagnostic-log/test/issue-393-file-log-runtime-emitter-for-red.test.ts:94:22
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[8/14]⎯
+
+ FAIL  packages/namespace-diagnostic-log/test/issue-393-file-log-runtime-emitter-for-red.test.ts > #393 P0（适配器边界）— FileDiagnosticLog.runtimeEmitterFor 自绑定 > R3 (RED): resume 路径自绑定不变——续写同一 stream 的 log 同样 identity 匹配
+AssertionError: P0：FileDiagnosticLog 必须自带 runtimeEmitterFor（identity 匹配本 namespace）: expected 'undefined' to be 'function' // Object.is equality
+
+Expected: "function"
+Received: "undefined"
+
+ ❯ requireRuntimeEmitterFor packages/namespace-diagnostic-log/test/issue-393-file-log-runtime-emitter-for-red.test.ts:54:5
+     52|     typeof member,
+     53|     'P0：FileDiagnosticLog 必须自带 runtimeEmitterFor（identity 匹配本 namespac…
+     54|   ).toBe('function');
+       |     ^
+     55|   if (typeof member !== 'function') throw new Error('unreachable after…
+     56|   return member as (namespaceId: string) => unknown;
+ ❯ packages/namespace-diagnostic-log/test/issue-393-file-log-runtime-emitter-for-red.test.ts:113:22
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[9/14]⎯
+
+ FAIL  packages/namespace-registry/test/issue-393-ndcl-self-binding-red.test.ts > #393 P0 — FileDiagnosticLog 自绑定 runtimeEmitterFor（identity 匹配） > R0 (RED): runtimeEmitterFor 在场、identity 匹配本 ns、对其它 ns 解析 undefined
+AssertionError: P0：FileDiagnosticLog 必须自带 runtimeEmitterFor（identity 匹配本 namespace 的数据键控解析成员）: expected 'undefined' to be 'function' // Object.is equality
+
+Expected: "function"
+Received: "undefined"
+
+ ❯ requireRuntimeEmitterFor packages/namespace-registry/test/issue-393-ndcl-self-binding-red.test.ts:159:5
+    157|     typeof member,
+    158|     'P0：FileDiagnosticLog 必须自带 runtimeEmitterFor（identity 匹配本 namespac…
+    159|   ).toBe('function');
+       |     ^
+    160|   if (typeof member !== 'function') throw new Error('unreachable after…
+    161|   return member as (namespaceId: string) => unknown;
+ ❯ packages/namespace-registry/test/issue-393-ndcl-self-binding-red.test.ts:182:22
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[10/14]⎯
+
+ FAIL  packages/namespace-registry/test/issue-393-ndcl-self-binding-red.test.ts > #393 P0 — FileDiagnosticLog 自绑定 runtimeEmitterFor（identity 匹配） > R1 (RED): raw log + open + mutate → 本 ns 流出现 root-mutation 记录
+AssertionError: runtime 级 emission 必须经 registry 泵路径落到本 ns 流；实际记录：[{"operation":"namespace-create","resultKind":"committed"}]: expected 0 to be greater than or equal to 1
+ ❯ packages/namespace-registry/test/issue-393-ndcl-self-binding-red.test.ts:202:7
+    200|       runtimeRecords.length,
+    201|       `runtime 级 emission 必须经 registry 泵路径落到本 ns 流；实际记录：${JSON.stringi…
+    202|     ).toBeGreaterThanOrEqual(1);
+       |       ^
+    203|     expect(runtimeRecords.some((record) => record.resultKind === 'comm…
+    204|
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[11/14]⎯
+
+ FAIL  packages/namespace-registry/test/issue-393-ndcl-self-binding-red.test.ts > #393 P0 — FileDiagnosticLog 自绑定 runtimeEmitterFor（identity 匹配） > R2 (RED): replication apply（runtime 级 emission，共用同一装配）同样落盘
+AssertionError: replication-apply 是同一 runtime 诊断装配的 emission，必须落本 ns 流；实际：[{"operation":"namespace-create","resultKind":"committed"}]: expected 0 to be greater than or equal to 1
+ ❯ packages/namespace-registry/test/issue-393-ndcl-self-binding-red.test.ts:241:7
+    239|       applyRecords.length,
+    240|       `replication-apply 是同一 runtime 诊断装配的 emission，必须落本 ns 流；实际：${JSO…
+    241|     ).toBeGreaterThanOrEqual(1);
+       |       ^
+    242|     expect(applyRecords.some((record) => record.resultKind === 'commit…
+    243|
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[12/14]⎯
+
+ FAIL  packages/namespace-registry/test/issue-393-ndcl-self-binding-red.test.ts > #393 P0 — FileDiagnosticLog 自绑定 runtimeEmitterFor（identity 匹配） > R3 (RED): 其它 namespace 的 emission 不落本流（解析 undefined → 泵内丢弃，无跨 ns 写入）
+AssertionError: 其它 ns 的 create 记录不得追加进本流（before=1, after=2）: expected 2 to be 1 // Object.is equality
+
+- Expected
++ Received
+
+- 1
++ 2
+
+ ❯ packages/namespace-registry/test/issue-393-ndcl-self-binding-red.test.ts:264:81
+    262|     const after = readAttempts(rootDir, NS_FIRST, log.streamId).length;
+    263|
+    264|     expect(after, `其它 ns 的 create 记录不得追加进本流（before=${before}, after=${…
+       |                                                                                 ^
+    265|
+    266|     await first.release();
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[13/14]⎯
+
+ FAIL  packages/namespace-registry/test/issue-393-ndcl-self-binding-red.test.ts > #393 P0 — FileDiagnosticLog 自绑定 runtimeEmitterFor（identity 匹配） > R4 (RED-anchor + 定案守护): 无归属公共入口拒绝落本流（单 ns 自绑定 = 接受落盘）
+AssertionError: P0：FileDiagnosticLog 必须自带 runtimeEmitterFor（identity 匹配本 namespace 的数据键控解析成员）: expected 'undefined' to be 'function' // Object.is equality
+
+Expected: "function"
+Received: "undefined"
+
+ ❯ requireRuntimeEmitterFor packages/namespace-registry/test/issue-393-ndcl-self-binding-red.test.ts:159:5
+    157|     typeof member,
+    158|     'P0：FileDiagnosticLog 必须自带 runtimeEmitterFor（identity 匹配本 namespac…
+    159|   ).toBe('function');
+       |     ^
+    160|   if (typeof member !== 'function') throw new Error('unreachable after…
+    161|   return member as (namespaceId: string) => unknown;
+ ❯ packages/namespace-registry/test/issue-393-ndcl-self-binding-red.test.ts:285:5
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[14/14]⎯
+
+
+ Test Files  3 failed (3)
+      Tests  14 failed | 6 passed (20)
+Type Errors  no errors
+   Start at  21:34:12
+   Duration  1.70s (transform 696ms, setup 0ms, collect 532ms, tests 773ms, environment 0ms, prepare 127ms)
+
+EXIT:1

@@ -1,0 +1,34 @@
+# SA3 re-run verification (issue #393, retry dispatch sa-e57ec977) — 2026-09-14T14:34:41Z
+
+$ NODE_OPTIONS=--conditions=nomicore-source npx vitest run --typecheck <4 SA6 contract files>
+ RUN  v3.2.7 /home/wangjian/nomicore-fix-issue-393
+
+ ✓ packages/namespace-registry/test/issue-393-ndcl-self-binding-red.test.ts (9 tests) 186ms
+ ✓ apps/yjs-server/test/issue-393-manager-export-and-skill-docs-red.test.ts (6 tests) 531ms
+   ✓ #393 P1 — @nomicore/yjs-server 导出泛化 Host 诊断 manager > P1-R1 (RED): 公共入口导出 createHostDiagnosticsManager（app 内部同一实现）  475ms
+ ✓  TS  packages/namespace-diagnostic-log/test/issue-393-file-log-runtime-emitter-for-surface.test-d.ts (2 tests)
+ ✓ packages/namespace-diagnostic-log/test/issue-393-file-log-runtime-emitter-for-red.test.ts (5 tests) 62ms
+
+ Test Files  4 passed (4)
+      Tests  22 passed (22)
+Type Errors  no errors
+   Start at  22:34:41
+   Duration  2.37s (transform 982ms, setup 0ms, collect 1.09s, tests 779ms, environment 0ms, prepare 145ms, typecheck 2.05s)
+
+RED_CONTRACTS_EXIT:0
+
+$ NODE_OPTIONS=--conditions=nomicore-source npx tsc -p packages/namespace-diagnostic-log/tsconfig.json
+NDCL_TSC_EXIT:0
+
+$ NODE_OPTIONS=--conditions=nomicore-source npx tsc -p apps/yjs-server/tsconfig.json
+APP_TSC_EXIT:0
+
+$ NODE_OPTIONS=--conditions=nomicore-source npx tsc -p packages/namespace-registry/tsconfig.json
+REGISTRY_TSC_EXIT:0
+
+$ NODE_OPTIONS=--conditions=nomicore-source pnpm typecheck
+
+> nomicore@0.1.0 typecheck /home/wangjian/nomicore-fix-issue-393
+> tsc -p packages/vfsl/tsconfig.json && tsc -p packages/vfsl-protocol/tsconfig.json && tsc -p packages/vfsl-codegen/tsconfig.json && tsc -p packages/persistence/tsconfig.json && tsc -p packages/dsh-persistence/tsconfig.json && tsc -p packages/doc-runtime/tsconfig.json && tsc -p packages/namespace-runtime/tsconfig.json && tsc -p packages/clock/tsconfig.json && tsc -p packages/instance/tsconfig.json && tsc -p packages/namespace-registry/tsconfig.json && tsc -p packages/namespace-diagnostic-log/tsconfig.json && tsc -p packages/replication-protocol/tsconfig.json && tsc -p packages/ws-replication/tsconfig.json && tsc -p apps/yjs-server/tsconfig.json
+
+ROOT_TYPECHECK_EXIT:0

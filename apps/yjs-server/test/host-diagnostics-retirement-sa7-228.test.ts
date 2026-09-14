@@ -73,8 +73,8 @@ describe('issue #228 — SA7 动态验证：诊断 retirement 封堵 diag-pump �
     const rootDir = freshRoot('sa7-228-retire-');
     const events: SinkEvent[] = [];
     const manager = createHostDiagnosticsManager(
-      { enabled: true, rootDir, updateCapture: true, inputPolicy: 'digest' },
-      { sink: (e) => void events.push(e), now: () => NOW_MS },
+      { rootDir, updateCapture: true, inputPolicy: 'digest' },
+      { onEvent: (e) => void events.push(e), now: () => NOW_MS },
     );
 
     // 前置：正常建流（genesis 物化、locator 落盘）
@@ -133,8 +133,8 @@ describe('issue #228 — SA7 动态验证：诊断 retirement 封堵 diag-pump �
     const rootDir = freshRoot('sa7-228-retire-close-');
     const events: SinkEvent[] = [];
     const manager = createHostDiagnosticsManager(
-      { enabled: true, rootDir, updateCapture: true, inputPolicy: 'digest' },
-      { sink: (e) => void events.push(e), now: () => NOW_MS },
+      { rootDir, updateCapture: true, inputPolicy: 'digest' },
+      { onEvent: (e) => void events.push(e), now: () => NOW_MS },
     );
     manager.retireNamespace(NS);
     manager.close();
