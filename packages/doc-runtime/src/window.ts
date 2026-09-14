@@ -21,8 +21,10 @@
  * - M 逐入选项物化：`entry.value := readLogicalValueAtPath(doc, [...path, 身份], 同预算)`
  *   （决策 4 组合式 depth；两轴均缺席 → 两参 legacy 调用）——任一项失败即整窗失败
  *   （D8 透传 `PATH_NOT_ALLOWED`：fail-fast、无半窗、无静默跳项、无补位）；
- * - A 装配：成功 `{ok:true, value:[{index|key, value}…]}` 恰两键（D9/B-5）；
- *   顶层 try/catch（E100 镜像）→ `PATH_NOT_ALLOWED`，绝不二次抛。
+ * - A 装配：成功 `{ok:true, value:[{index|key, value}…], total}` 恰三键
+ *   （ADR 0029 §5/§8：`total` = 候选标识计数，由 C/E 段同一次枚举顺带产出——零额外遍历、
+ *   零额外物化；本票无 `where` ⟹ `total` 恒为数值）；顶层 try/catch（E100 镜像）→
+ *   `PATH_NOT_ALLOWED`，绝不二次抛。
  *
  * 复制纪律（设计 D2 / SA2-F4）：`read.ts` **零 diff**（冻结面）；本模块按需复制其模块私有
  * 助手（下方每个复制件头注释带 `copied from read.ts@36a73bb (<原名>)` 出处标记），
@@ -94,10 +96,17 @@ export interface WindowReadFailure {
   message: string;
 }
 
-/** 数组面结算联合：成功恰两键 `{ok,value}`（D9）。 */
-export type ReadArrayWindowResult = { ok: true; value: ArrayWindowEntry[] } | WindowReadFailure;
-/** 键面结算联合：成功恰两键 `{ok,value}`（D9）。 */
-export type ReadMapWindowResult = { ok: true; value: MapWindowEntry[] } | WindowReadFailure;
+/**
+ * 数组面结算联合：成功恰三键 `{ok,value,total}`（ADR 0029 §5；`total` = 候选标识计数，
+ * 与 `value` 同一次枚举产出）。失败成员形状不变（B-5 恰四键）。
+ */
+export type ReadArrayWindowResult =
+  | { ok: true; value: ArrayWindowEntry[]; total: number }
+  | WindowReadFailure;
+/** 键面结算联合：成功恰三键 `{ok,value,total}`（同上：键面 `total` = 非 undefined 值键数）。 */
+export type ReadMapWindowResult =
+  | { ok: true; value: MapWindowEntry[]; total: number }
+  | WindowReadFailure;
 
 // ── 公共入口（B-1/B-2/B-3；仅经 src/index.ts 对外）────────────────────────────────────
 
@@ -113,7 +122,7 @@ export function readArrayWindowAtPath(
 ): ReadArrayWindowResult {
   const core = windowCore(doc, path, options, 'array');
   if (!core.ok) return core;
-  return { ok: true, value: core.value as ArrayWindowEntry[] };
+  return { ok: true, value: core.value as ArrayWindowEntry[], total: core.total };
 }
 
 /**
@@ -127,7 +136,7 @@ export function readMapWindowAtPath(
 ): ReadMapWindowResult {
   const core = windowCore(doc, path, options, 'map');
   if (!core.ok) return core;
-  return { ok: true, value: core.value as MapWindowEntry[] };
+  return { ok: true, value: core.value as MapWindowEntry[], total: core.total };
 }
 
 // ── 内部类型 ─────────────────────────────────────────────────────────────────────────
@@ -135,8 +144,8 @@ export function readMapWindowAtPath(
 type Path = readonly (string | number)[];
 type WindowFace = 'array' | 'map';
 
-/** 内核结算：成功条目列表（面专属字段由公共入口包装）+ 失败联合。 */
-type WindowCoreResult = { ok: true; value: unknown[] } | WindowReadFailure;
+/** 内核结算：成功条目列表 + 候选标识计数（面专属字段由公共入口包装）+ 失败联合。 */
+type WindowCoreResult = { ok: true; value: unknown[]; total: number } | WindowReadFailure;
 
 /** 归一化排序项：`index` 基（数组面值键）/ `key` 基 / `field` 基（单段字面键）。 */
 type NormalizedTerm =
@@ -205,7 +214,7 @@ function windowCore(doc: Y.Doc, path: unknown, options: unknown, face: WindowFac
       if (face === 'array') entries.push({ index: candidate.id as number, value: materialized.value });
       else entries.push({ key: candidate.id as string, value: materialized.value });
     }
-    return { ok: true, value: entries };
+    return { ok: true, value: entries, total: candidates.length };
   } catch (err) {
     // 崩溃边界 E100 镜像（safeDetail 收编敌意抛出物；绝不二次抛）。
     return windowFailure('PATH_NOT_ALLOWED', path, `DOCRT-E100: 内部错误（意外异常）: ${safeDetail(err)}`);

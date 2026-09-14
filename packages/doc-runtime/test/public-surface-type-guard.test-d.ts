@@ -205,6 +205,22 @@ describe('@nomicore/doc-runtime 公共入口 — 窗口原语类型名目（ADR 
     expectTypeOf(mapWindowResult.ok).toEqualTypeOf<boolean>();
   });
 
+  it('B-2 成功结算恰三键 {ok,value,total}（ADR 0029 §5/§8）；失败成员键集零变化（B-5 恰四键）', () => {
+    // 键集锁（HEAD 两键 → 红；三键化后绿）：多一键 / 少一键即在此编译期失败。
+    expectTypeOf<keyof Extract<ReadArrayWindowResult, { ok: true }>>()
+      .toEqualTypeOf<'ok' | 'value' | 'total'>();
+    expectTypeOf<keyof Extract<ReadMapWindowResult, { ok: true }>>()
+      .toEqualTypeOf<'ok' | 'value' | 'total'>();
+    // total 成员类型：本票无 where ⟹ 恒数值（P2 where 票按 ADR 0029 §5 加宽为 number | undefined）
+    expectTypeOf<Extract<ReadArrayWindowResult, { ok: true }>['total']>().toEqualTypeOf<number>();
+    expectTypeOf<Extract<ReadMapWindowResult, { ok: true }>['total']>().toEqualTypeOf<number>();
+    // 失败面零变化（增键不回渗失败成员）
+    expectTypeOf<keyof Extract<ReadArrayWindowResult, { ok: false }>>()
+      .toEqualTypeOf<'ok' | 'code' | 'path' | 'message'>();
+    expectTypeOf<keyof Extract<ReadMapWindowResult, { ok: false }>>()
+      .toEqualTypeOf<'ok' | 'code' | 'path' | 'message'>();
+  });
+
   it('编译期负例 fail-closed：语境外排序项被面专属 options 类型拒绝（v1 词表编译期编码）', () => {
     // @ts-expect-error 数组面 orderBy 仅接受 IndexWindowTerm（field 属键面）
     const arrayFieldTerm: ReadArrayWindowOptions = { n: 1, orderBy: { field: 'score' } };
