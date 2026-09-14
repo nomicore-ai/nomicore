@@ -1,0 +1,242 @@
+
+ RUN  v3.2.7 /home/wangjian/nomicore-fix-issue-381/.worktrees/sa3-red-head
+
+ ❯ packages/doc-runtime/test/issue-381-window-total-red.test.ts (14 tests | 9 failed) 26ms
+   × W1 三键结算（issue #381 / ADR 0029 §5）：T1 own 键集 + T2 total 数值性 > T1/T2 四载体（Y.Array / plain array / Y.Map / plain object）成功结算恰三键且 total 恒为 ≥0 整数 11ms
+     → Y.Array: 成功 own 键集（ADR 0029 §5 字面序）: expected [ 'ok', 'value' ] to strictly equal [ 'ok', 'value', 'total' ]
+   × W1 total 语义（B-3）：T3 独立预言机逐位对账 + T5 边界矩阵 > T3 四载体 total ≡ 原生/Yjs 直数预言机（稀疏空洞、undefined 值键、accessor/non-enumerable 全覆盖） 1ms
+     → Y.Array: 成功 own 键集（ADR 0029 §5 字面序）: expected [ 'ok', 'value' ] to strictly equal [ 'ok', 'value', 'total' ]
+   × W1 total 语义（B-3）：T3 独立预言机逐位对账 + T5 边界矩阵 > T5 边界矩阵预言机逐位对账（含 ROOT 面 9 键；断言值非巧合） 2ms
+     → Y.Array 全量: 成功 own 键集（ADR 0029 §5 字面序）: expected [ 'ok', 'value' ] to strictly equal [ 'ok', 'value', 'total' ]
+   × W1 total 与 value 关系（B-4）：T4 `value.length === min(n, total)` > T4a n ≥ total：窗口取满候选空间（value.length === total） 1ms
+     → n≥total: 成功 own 键集（ADR 0029 §5 字面序）: expected [ 'ok', 'value' ] to strictly equal [ 'ok', 'value', 'total' ]
+   × W1 total 与 value 关系（B-4）：T4 `value.length === min(n, total)` > T4b n < total：窗口只取前 n 项（value.length === n < total） 1ms
+     → n<total: 成功 own 键集（ADR 0029 §5 字面序）: expected [ 'ok', 'value' ] to strictly equal [ 'ok', 'value', 'total' ]
+   × W1 total 与 value 关系（B-4）：T4 `value.length === min(n, total)` > T4c 空载体：n 任意 ⟹ value=[] ∧ total=0（min 恒 0） 1ms
+     → 空 Y.Map: 成功 own 键集（ADR 0029 §5 字面序）: expected [ 'ok', 'value' ] to strictly equal [ 'ok', 'value', 'total' ]
+   × W1 total 不变性：T6 排序基/方向 + T7 预算轴 > T6 数组面 index 基 asc/desc、键面 key 基 asc/desc、键面 field 基 asc/desc ⟹ total 恒定 1ms
+     → array index asc: 成功 own 键集（ADR 0029 §5 字面序）: expected [ 'ok', 'value' ] to strictly equal [ 'ok', 'value', 'total' ]
+   × W1 total 不变性：T6 排序基/方向 + T7 预算轴 > T7 depth / maxChildrenPerNode 在场或缺席 ⟹ total 恒定（预算只影响物化） 1ms
+     → array budget {"n":9}: 成功 own 键集（ADR 0029 §5 字面序）: expected [ 'ok', 'value' ] to strictly equal [ 'ok', 'value', 'total' ]
+   × W1 total 成本纪律（ADR 0028 §8）：T8 N=2000 毒值 + n=2 > T8 total=2000 且只物化 2 项（「为拿 total 全量物化」的实现必红） 3ms
+     → N=2000 毒值: 成功 own 键集（ADR 0029 §5 字面序）: expected [ 'ok', 'value' ] to strictly equal [ 'ok', 'value', 'total' ]
+   ✓ W1 失败面（B-5）：T9 三码 + PATH_NOT_ALLOWED 透传；四键形状无 value/total > T9a WINDOW_TARGET_ABSENT：缺键 / 数组越界 1ms
+   ✓ W1 失败面（B-5）：T9 三码 + PATH_NOT_ALLOWED 透传；四键形状无 value/total > T9b WINDOW_CARRIER_MISMATCH：载体与面符不符（两向） 1ms
+   ✓ W1 失败面（B-5）：T9 三码 + PATH_NOT_ALLOWED 透传；四键形状无 value/total > T9c WINDOW_OPTIONS_INVALID：n=0 / 未知键 / 语境外排序项（零 doc 触碰） 1ms
+   ✓ W1 失败面（B-5）：T9 三码 + PATH_NOT_ALLOWED 透传；四键形状无 value/total > T9d 入选项物化失败透传 PATH_NOT_ALLOWED（path 精确到项；无半窗） 1ms
+   ✓ W1 失败面（B-5）：T9 三码 + PATH_NOT_ALLOWED 透传；四键形状无 value/total > T9e 失败成员不含 total（增键不回渗失败面） 0ms
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 9 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  packages/doc-runtime/test/issue-381-window-total-red.test.ts > W1 三键结算（issue #381 / ADR 0029 §5）：T1 own 键集 + T2 total 数值性 > T1/T2 四载体（Y.Array / plain array / Y.Map / plain object）成功结算恰三键且 total 恒为 ≥0 整数
+AssertionError: Y.Array: 成功 own 键集（ADR 0029 §5 字面序）: expected [ 'ok', 'value' ] to strictly equal [ 'ok', 'value', 'total' ]
+
+- Expected
++ Received
+
+  [
+    "ok",
+    "value",
+-   "total",
+  ]
+
+ ❯ expectTriple packages/doc-runtime/test/issue-381-window-total-red.test.ts:167:77
+    165| function expectTriple(actual: unknown, label: string): number {
+    166|   const ok = expectOk(actual as { ok: boolean }, label);
+    167|   expect(Object.keys(ok as object), `${label}: 成功 own 键集（ADR 0029 §5 字…
+       |                                                                             ^
+    168|   const total = (ok as { total: number }).total;
+    169|   expect(typeof total, `${label}: typeof total`).toBe('number');
+ ❯ packages/doc-runtime/test/issue-381-window-total-red.test.ts:180:17
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/9]⎯
+
+ FAIL  packages/doc-runtime/test/issue-381-window-total-red.test.ts > W1 total 语义（B-3）：T3 独立预言机逐位对账 + T5 边界矩阵 > T3 四载体 total ≡ 原生/Yjs 直数预言机（稀疏空洞、undefined 值键、accessor/non-enumerable 全覆盖）
+AssertionError: Y.Array: 成功 own 键集（ADR 0029 §5 字面序）: expected [ 'ok', 'value' ] to strictly equal [ 'ok', 'value', 'total' ]
+
+- Expected
++ Received
+
+  [
+    "ok",
+    "value",
+-   "total",
+  ]
+
+ ❯ expectTriple packages/doc-runtime/test/issue-381-window-total-red.test.ts:167:77
+    165| function expectTriple(actual: unknown, label: string): number {
+    166|   const ok = expectOk(actual as { ok: boolean }, label);
+    167|   expect(Object.keys(ok as object), `${label}: 成功 own 键集（ADR 0029 §5 字…
+       |                                                                             ^
+    168|   const total = (ok as { total: number }).total;
+    169|   expect(typeof total, `${label}: typeof total`).toBe('number');
+ ❯ packages/doc-runtime/test/issue-381-window-total-red.test.ts:211:21
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/9]⎯
+
+ FAIL  packages/doc-runtime/test/issue-381-window-total-red.test.ts > W1 total 语义（B-3）：T3 独立预言机逐位对账 + T5 边界矩阵 > T5 边界矩阵预言机逐位对账（含 ROOT 面 9 键；断言值非巧合）
+AssertionError: Y.Array 全量: 成功 own 键集（ADR 0029 §5 字面序）: expected [ 'ok', 'value' ] to strictly equal [ 'ok', 'value', 'total' ]
+
+- Expected
++ Received
+
+  [
+    "ok",
+    "value",
+-   "total",
+  ]
+
+ ❯ expectTriple packages/doc-runtime/test/issue-381-window-total-red.test.ts:167:77
+    165| function expectTriple(actual: unknown, label: string): number {
+    166|   const ok = expectOk(actual as { ok: boolean }, label);
+    167|   expect(Object.keys(ok as object), `${label}: 成功 own 键集（ADR 0029 §5 字…
+       |                                                                             ^
+    168|   const total = (ok as { total: number }).total;
+    169|   expect(typeof total, `${label}: typeof total`).toBe('number');
+ ❯ packages/doc-runtime/test/issue-381-window-total-red.test.ts:253:21
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[3/9]⎯
+
+ FAIL  packages/doc-runtime/test/issue-381-window-total-red.test.ts > W1 total 与 value 关系（B-4）：T4 `value.length === min(n, total)` > T4a n ≥ total：窗口取满候选空间（value.length === total）
+AssertionError: n≥total: 成功 own 键集（ADR 0029 §5 字面序）: expected [ 'ok', 'value' ] to strictly equal [ 'ok', 'value', 'total' ]
+
+- Expected
++ Received
+
+  [
+    "ok",
+    "value",
+-   "total",
+  ]
+
+ ❯ expectTriple packages/doc-runtime/test/issue-381-window-total-red.test.ts:167:77
+    165| function expectTriple(actual: unknown, label: string): number {
+    166|   const ok = expectOk(actual as { ok: boolean }, label);
+    167|   expect(Object.keys(ok as object), `${label}: 成功 own 键集（ADR 0029 §5 字…
+       |                                                                             ^
+    168|   const total = (ok as { total: number }).total;
+    169|   expect(typeof total, `${label}: typeof total`).toBe('number');
+ ❯ packages/doc-runtime/test/issue-381-window-total-red.test.ts:266:19
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[4/9]⎯
+
+ FAIL  packages/doc-runtime/test/issue-381-window-total-red.test.ts > W1 total 与 value 关系（B-4）：T4 `value.length === min(n, total)` > T4b n < total：窗口只取前 n 项（value.length === n < total）
+AssertionError: n<total: 成功 own 键集（ADR 0029 §5 字面序）: expected [ 'ok', 'value' ] to strictly equal [ 'ok', 'value', 'total' ]
+
+- Expected
++ Received
+
+  [
+    "ok",
+    "value",
+-   "total",
+  ]
+
+ ❯ expectTriple packages/doc-runtime/test/issue-381-window-total-red.test.ts:167:77
+    165| function expectTriple(actual: unknown, label: string): number {
+    166|   const ok = expectOk(actual as { ok: boolean }, label);
+    167|   expect(Object.keys(ok as object), `${label}: 成功 own 键集（ADR 0029 §5 字…
+       |                                                                             ^
+    168|   const total = (ok as { total: number }).total;
+    169|   expect(typeof total, `${label}: typeof total`).toBe('number');
+ ❯ packages/doc-runtime/test/issue-381-window-total-red.test.ts:275:19
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[5/9]⎯
+
+ FAIL  packages/doc-runtime/test/issue-381-window-total-red.test.ts > W1 total 与 value 关系（B-4）：T4 `value.length === min(n, total)` > T4c 空载体：n 任意 ⟹ value=[] ∧ total=0（min 恒 0）
+AssertionError: 空 Y.Map: 成功 own 键集（ADR 0029 §5 字面序）: expected [ 'ok', 'value' ] to strictly equal [ 'ok', 'value', 'total' ]
+
+- Expected
++ Received
+
+  [
+    "ok",
+    "value",
+-   "total",
+  ]
+
+ ❯ expectTriple packages/doc-runtime/test/issue-381-window-total-red.test.ts:167:77
+    165| function expectTriple(actual: unknown, label: string): number {
+    166|   const ok = expectOk(actual as { ok: boolean }, label);
+    167|   expect(Object.keys(ok as object), `${label}: 成功 own 键集（ADR 0029 §5 字…
+       |                                                                             ^
+    168|   const total = (ok as { total: number }).total;
+    169|   expect(typeof total, `${label}: typeof total`).toBe('number');
+ ❯ packages/doc-runtime/test/issue-381-window-total-red.test.ts:284:12
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[6/9]⎯
+
+ FAIL  packages/doc-runtime/test/issue-381-window-total-red.test.ts > W1 total 不变性：T6 排序基/方向 + T7 预算轴 > T6 数组面 index 基 asc/desc、键面 key 基 asc/desc、键面 field 基 asc/desc ⟹ total 恒定
+AssertionError: array index asc: 成功 own 键集（ADR 0029 §5 字面序）: expected [ 'ok', 'value' ] to strictly equal [ 'ok', 'value', 'total' ]
+
+- Expected
++ Received
+
+  [
+    "ok",
+    "value",
+-   "total",
+  ]
+
+ ❯ expectTriple packages/doc-runtime/test/issue-381-window-total-red.test.ts:167:77
+    165| function expectTriple(actual: unknown, label: string): number {
+    166|   const ok = expectOk(actual as { ok: boolean }, label);
+    167|   expect(Object.keys(ok as object), `${label}: 成功 own 键集（ADR 0029 §5 字…
+       |                                                                             ^
+    168|   const total = (ok as { total: number }).total;
+    169|   expect(typeof total, `${label}: typeof total`).toBe('number');
+ ❯ packages/doc-runtime/test/issue-381-window-total-red.test.ts:297:21
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[7/9]⎯
+
+ FAIL  packages/doc-runtime/test/issue-381-window-total-red.test.ts > W1 total 不变性：T6 排序基/方向 + T7 预算轴 > T7 depth / maxChildrenPerNode 在场或缺席 ⟹ total 恒定（预算只影响物化）
+AssertionError: array budget {"n":9}: 成功 own 键集（ADR 0029 §5 字面序）: expected [ 'ok', 'value' ] to strictly equal [ 'ok', 'value', 'total' ]
+
+- Expected
++ Received
+
+  [
+    "ok",
+    "value",
+-   "total",
+  ]
+
+ ❯ expectTriple packages/doc-runtime/test/issue-381-window-total-red.test.ts:167:77
+    165| function expectTriple(actual: unknown, label: string): number {
+    166|   const ok = expectOk(actual as { ok: boolean }, label);
+    167|   expect(Object.keys(ok as object), `${label}: 成功 own 键集（ADR 0029 §5 字…
+       |                                                                             ^
+    168|   const total = (ok as { total: number }).total;
+    169|   expect(typeof total, `${label}: typeof total`).toBe('number');
+ ❯ packages/doc-runtime/test/issue-381-window-total-red.test.ts:330:21
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[8/9]⎯
+
+ FAIL  packages/doc-runtime/test/issue-381-window-total-red.test.ts > W1 total 成本纪律（ADR 0028 §8）：T8 N=2000 毒值 + n=2 > T8 total=2000 且只物化 2 项（「为拿 total 全量物化」的实现必红）
+AssertionError: N=2000 毒值: 成功 own 键集（ADR 0029 §5 字面序）: expected [ 'ok', 'value' ] to strictly equal [ 'ok', 'value', 'total' ]
+
+- Expected
++ Received
+
+  [
+    "ok",
+    "value",
+-   "total",
+  ]
+
+ ❯ expectTriple packages/doc-runtime/test/issue-381-window-total-red.test.ts:167:77
+    165| function expectTriple(actual: unknown, label: string): number {
+    166|   const ok = expectOk(actual as { ok: boolean }, label);
+    167|   expect(Object.keys(ok as object), `${label}: 成功 own 键集（ADR 0029 §5 字…
+       |                                                                             ^
+    168|   const total = (ok as { total: number }).total;
+    169|   expect(typeof total, `${label}: typeof total`).toBe('number');
+ ❯ packages/doc-runtime/test/issue-381-window-total-red.test.ts:353:19
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[9/9]⎯
+
+
+ Test Files  1 failed (1)
+      Tests  9 failed | 5 passed (14)
+   Start at  19:57:24
+   Duration  512ms (transform 247ms, setup 0ms, collect 329ms, tests 26ms, environment 0ms, prepare 52ms)
