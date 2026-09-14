@@ -42,3 +42,22 @@ export { replaceSchemaAndRoot } from './schema-replace.js';
 export type { SchemaReplaceInput, SchemaRootPlan } from './schema-replace.js';
 export { createInitialDocument } from './create-initial-document.js';
 export type { CreateInitialDocumentInput, CreateInitialDocumentResult } from './create-initial-document.js';
+// ADR 0028 缝 1（issue #368 W1）：载体级窗口原语（readLogicalValueAtPath 姊妹、schema 无关）
+// ——确定性选窗 / 统一条目列表 / 零物化 / 组合式 depth / 三窗口失败码 + 投影域透传成员。
+// 纯加法：未触碰 readData 与 ADR-0024 options、ValueSchema、wire；W2/W3 不在本票范围。
+export { readArrayWindowAtPath, readMapWindowAtPath } from './window.js';
+export type {
+  ArrayWindowEntry,
+  FieldWindowTerm,
+  IndexWindowTerm,
+  KeyWindowTerm,
+  MapWindowEntry,
+  ReadArrayWindowOptions,
+  ReadArrayWindowResult,
+  ReadMapWindowOptions,
+  ReadMapWindowResult,
+  WindowDir,
+  WindowFailureCode,
+  WindowReadFailure,
+  WindowTerm,
+} from './window.js';

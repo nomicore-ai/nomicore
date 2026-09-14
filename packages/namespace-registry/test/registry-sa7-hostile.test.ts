@@ -19,7 +19,12 @@
 import { describe, expect, it } from 'vitest';
 import * as Y from 'yjs';
 import type { DocHandle, DocPersistence, User } from '@nomicore/persistence';
-import type { NamespaceRuntime, NamespaceRuntimeStatus } from '@nomicore/namespace-runtime';
+import type {
+  NamespaceRuntime,
+  NamespaceRuntimeReadArrayResult,
+  NamespaceRuntimeReadMapResult,
+  NamespaceRuntimeStatus,
+} from '@nomicore/namespace-runtime';
 import type { NamespaceLease } from '@nomicore/namespace-registry';
 import type { RegistryTimeoutScheduler } from '@nomicore/namespace-registry';
 import { createNamespaceRegistryForTesting, createRegistryTestScheduler } from '@nomicore/namespace-registry/testing';
@@ -167,6 +172,17 @@ class ObservableRuntime implements NamespaceRuntime {
     // typed stub（D7）：无 activeTools → schema:null 是诚实语义（缺键即 TS2322 类型锁——
     // 锁由共享构造 readDataOk 的精确返回类型 ReadDataOkShape 保留）
     return readDataOk(this.marker, null);
+  }
+
+  /** issue #369（ADR 0028 W2）：14 键面新增成员——本替身不消费窗口读，恒返回路径拒绝
+   *  （形状 = W1 失败成员；键集义务纯加法，既有断言零改动）。 */
+  readArray(): NamespaceRuntimeReadArrayResult {
+    return { ok: false, code: 'PATH_NOT_ALLOWED', path: [], message: 'stub: 窗口读未接线' };
+  }
+
+  /** 同上（键面窗口读）。 */
+  readMap(): NamespaceRuntimeReadMapResult {
+    return { ok: false, code: 'PATH_NOT_ALLOWED', path: [], message: 'stub: 窗口读未接线' };
   }
 
   getSchema(): null {

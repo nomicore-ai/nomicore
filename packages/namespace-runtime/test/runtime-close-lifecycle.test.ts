@@ -168,7 +168,9 @@ describe('close 生命周期（AC6/AC7）', () => {
       'mutateData',
       'namespaceId',
       'owner',
+      'readArray',
       'readData',
+      'readMap',
       'replaceSchema',
     ]);
     // AC8 负向：v1 无公共事件订阅键

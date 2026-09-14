@@ -32,8 +32,12 @@ import type {
   NamespaceLeaseEnableReplicationResult,
   NamespaceLeaseMetadata,
   NamespaceLeaseMutateDataResult,
+  NamespaceLeaseReadArrayOptions,
+  NamespaceLeaseReadArrayResult,
   NamespaceLeaseReadDataBudgetResult,
   NamespaceLeaseReadDataResult,
+  NamespaceLeaseReadMapOptions,
+  NamespaceLeaseReadMapResult,
   NamespaceLeaseReleasedIssue,
   NamespaceLeaseReplaceSchemaInput,
   NamespaceLeaseReplaceSchemaResult,
@@ -55,6 +59,8 @@ import {
 import type { NamespaceRuntime } from '@nomicore/namespace-runtime';
 import type { NamespaceRuntimeReadDataBudgetResult } from '@nomicore/namespace-runtime';
 import type { NamespaceRuntimeReadDataOptions } from '@nomicore/namespace-runtime';
+import type { NamespaceRuntimeReadArrayResult } from '@nomicore/namespace-runtime';
+import type { NamespaceRuntimeReadMapResult } from '@nomicore/namespace-runtime';
 import type { NamespaceRuntimeStatus } from '@nomicore/namespace-runtime';
 import { dispatchObserver, type RegistryObserver } from './observer.js';
 
@@ -300,6 +306,14 @@ export function createLeaseController(
     owner,
     namespaceId,
     readData: leaseReadData,
+    readArray(path, options) {
+      if (released) return RELEASED_ISSUE; // released 短路先于一切透传（冻结 issue 原样）
+      return entry.runtime.readArray(path, options); // active 期原样透传：raw 引用直传
+    },
+    readMap(path, options) {
+      if (released) return RELEASED_ISSUE;
+      return entry.runtime.readMap(path, options);
+    },
     getSchema() {
       if (released) throw new NamespaceLeaseReleasedError();
       return entry.runtime.getSchema();
@@ -421,6 +435,20 @@ type _readBudgetAlias = AssertTrue<
 type _readOverloadOrder = AssertTrue<
   Equal<ReturnType<NamespaceLease['readData']>, NamespaceLeaseReadDataResult>
 >;
+// issue #369（ADR 0028 W2）：窗口读别名跟随（lease 结果 ≡ runtime 结果 | released issue；
+// 单签名无重载——Options 为 runtime 单源别名）。
+type _readArrayAlias = AssertTrue<
+  Equal<NamespaceLeaseReadArrayResult, NamespaceRuntimeReadArrayResult | NamespaceLeaseReleasedIssue>
+>;
+type _readMapAlias = AssertTrue<
+  Equal<NamespaceLeaseReadMapResult, NamespaceRuntimeReadMapResult | NamespaceLeaseReleasedIssue>
+>;
+type _readArrayOptionsAlias = AssertTrue<
+  Equal<NamespaceLeaseReadArrayOptions, Parameters<NamespaceRuntime['readArray']>[1]>
+>;
+type _readMapOptionsAlias = AssertTrue<
+  Equal<NamespaceLeaseReadMapOptions, Parameters<NamespaceRuntime['readMap']>[1]>
+>;
 type _schemaEnvelopeAlias = AssertTrue<
   Equal<NamespaceLeaseSchema, ReturnType<NamespaceRuntime['getSchema']>>
 >;
@@ -470,6 +498,10 @@ export type LeaseTypeAssertions = {
   readonly read: _readAlias;
   readonly readBudgetAlias: _readBudgetAlias;
   readonly readOverloadOrder: _readOverloadOrder;
+  readonly readArrayAlias: _readArrayAlias;
+  readonly readMapAlias: _readMapAlias;
+  readonly readArrayOptionsAlias: _readArrayOptionsAlias;
+  readonly readMapOptionsAlias: _readMapOptionsAlias;
   readonly schemaEnvelope: _schemaEnvelopeAlias;
   readonly metadata: _metadataAlias;
   readonly activeSchema: _activeSchemaAlias;
