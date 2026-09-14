@@ -42,6 +42,9 @@ import type {
   NamespaceLeaseReplaceSchemaInput,
   NamespaceLeaseReplaceSchemaResult,
   NamespaceLeaseSchema,
+  NamespaceLeaseWatchMapChange,
+  NamespaceLeaseWatchMapHandle,
+  NamespaceLeaseWatchMapNotification,
   NamespaceRuntimeStatusProjection,
   ReplicationSession,
   ReplicationSessionApplyResult,
@@ -61,6 +64,11 @@ import type { NamespaceRuntimeReadDataBudgetResult } from '@nomicore/namespace-r
 import type { NamespaceRuntimeReadDataOptions } from '@nomicore/namespace-runtime';
 import type { NamespaceRuntimeReadArrayResult } from '@nomicore/namespace-runtime';
 import type { NamespaceRuntimeReadMapResult } from '@nomicore/namespace-runtime';
+import type {
+  NamespaceRuntimeWatchMapChange,
+  NamespaceRuntimeWatchMapHandle,
+  NamespaceRuntimeWatchMapNotification,
+} from '@nomicore/namespace-runtime';
 import type { NamespaceRuntimeStatus } from '@nomicore/namespace-runtime';
 import { dispatchObserver, type RegistryObserver } from './observer.js';
 
@@ -211,12 +219,29 @@ export function createLeaseController(
   let released = false;
   let releasePromise: Promise<void> | undefined;
   let activeSession: ReplicationSession | undefined; // 每 Lease 一活跃 session 计数（O-9：Lease 层——Runtime 多 Lease 共享不可计数）
+  // 【issue #387 / ADR 0030 T1（设计 §7-D6/§8-F）】每 Lease 的活跃订阅句柄登记——
+  // 订阅是 lease 的调用方 capability，清理责任随 capability（runtime 不识 lease，
+  // 分层正确性）；释放同步段遍历退订（隔离 try/catch）+ 清登记。
+  const activeWatches = new Set<() => void>();
   let controller: NamespaceLease;
 
   const doRelease = (): Promise<void> => {
     if (releasePromise === undefined) {
       released = true;
       entry.leases.delete(controller);
+      // 【issue #387】lease 释放自动清理全部订阅（AC8/L2：零悬空回调）——首调同步段、
+      // 位于 entry.leases.delete 之后、onReleased 之前（设计 §8-F）；逐句柄隔离
+      //（guaranteed cleanup 路径：单个退订抛错不阻断其余退订与 onReleased）。
+      if (activeWatches.size > 0) {
+        for (const unsubscribe of activeWatches) {
+          try {
+            unsubscribe();
+          } catch {
+            /* 退订隔离——不影响释放语义与其余订阅清理 */
+          }
+        }
+        activeWatches.clear();
+      }
       releasePromise = Promise.resolve();
       dispatchObserver(observer, {
         type: 'lease-released',
@@ -313,6 +338,28 @@ export function createLeaseController(
     readMap(path, options) {
       if (released) return RELEASED_ISSUE;
       return entry.runtime.readMap(path, options);
+    },
+    /**
+     * 【issue #387 / ADR 0030 T1（设计 §8-F）】lease 第 16 键：released 通道 → 透传 →
+     * 登记（双幂等包装句柄）。lease 层零建立判定（全在 runtime hub）、零参数解释
+     * ——active 期 raw 引用直传；失败 throw 原样上抛（B-3 同步 throw 面）。
+     */
+    watchMap(path, listener): NamespaceLeaseWatchMapHandle {
+      // released 通道：getter 域先例（lease.ts 三投影 getter 同款——释放在场即拒，
+      // 零透传、零登记）
+      if (released) throw new NamespaceLeaseReleasedError();
+      const handle = entry.runtime.watchMap(path, listener);
+      // 双幂等包装（设计 §8-F）：本层标志 + hub 层标志；退订同时摘登记（释放清理
+      // 遍历与主动退订互不重复）。
+      let unsubscribed = false;
+      const unsubscribe = (): void => {
+        if (unsubscribed) return; // 幂等：重复退订零 throw、零副作用
+        unsubscribed = true;
+        activeWatches.delete(unsubscribe);
+        handle.unsubscribe();
+      };
+      activeWatches.add(unsubscribe);
+      return Object.freeze({ unsubscribe });
     },
     getSchema() {
       if (released) throw new NamespaceLeaseReleasedError();
@@ -449,6 +496,23 @@ type _readArrayOptionsAlias = AssertTrue<
 type _readMapOptionsAlias = AssertTrue<
   Equal<NamespaceLeaseReadMapOptions, Parameters<NamespaceRuntime['readMap']>[1]>
 >;
+// issue #387（ADR 0030 T1）：watchMap 别名跟随（三别名 = runtime 单源同名单源别名；
+// 失败走同步 throw ⇒ ReturnType 恰 handle；T1 无 options ⇒ 无 Options 别名）。
+type _watchMapNotificationAlias = AssertTrue<
+  Equal<NamespaceLeaseWatchMapNotification, NamespaceRuntimeWatchMapNotification>
+>;
+type _watchMapChangeAlias = AssertTrue<
+  Equal<NamespaceLeaseWatchMapChange, NamespaceRuntimeWatchMapChange>
+>;
+type _watchMapHandleAlias = AssertTrue<
+  Equal<NamespaceLeaseWatchMapHandle, NamespaceRuntimeWatchMapHandle>
+>;
+type _watchMapMemberAlias = AssertTrue<
+  Equal<Parameters<NamespaceLease['watchMap']>, Parameters<NamespaceRuntime['watchMap']>>
+>;
+type _watchMapResultAlias = AssertTrue<
+  Equal<ReturnType<NamespaceLease['watchMap']>, NamespaceRuntimeWatchMapHandle>
+>;
 type _schemaEnvelopeAlias = AssertTrue<
   Equal<NamespaceLeaseSchema, ReturnType<NamespaceRuntime['getSchema']>>
 >;
@@ -502,6 +566,11 @@ export type LeaseTypeAssertions = {
   readonly readMapAlias: _readMapAlias;
   readonly readArrayOptionsAlias: _readArrayOptionsAlias;
   readonly readMapOptionsAlias: _readMapOptionsAlias;
+  readonly watchMapNotificationAlias: _watchMapNotificationAlias;
+  readonly watchMapChangeAlias: _watchMapChangeAlias;
+  readonly watchMapHandleAlias: _watchMapHandleAlias;
+  readonly watchMapMemberAlias: _watchMapMemberAlias;
+  readonly watchMapResultAlias: _watchMapResultAlias;
   readonly schemaEnvelope: _schemaEnvelopeAlias;
   readonly metadata: _metadataAlias;
   readonly activeSchema: _activeSchemaAlias;

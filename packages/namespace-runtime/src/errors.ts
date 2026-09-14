@@ -52,12 +52,14 @@ export const RUNTIME_READ_DISABLED_CODE = 'RUNTIME_READ_DISABLED' as const;
 /** closing/closed 期数据投影 getter 停接纳错误（#93 rev2，SA8 裁决 B）：同步 loud
  *  throw 稳定码 RUNTIME_READ_DISABLED——getter 返回类型非结果联合（ADR-0008 L30-32
  *  冻结），生命周期拒绝复用 read 域停接纳码族（L117 已注册）+ getter 域 message
- *  文案（L119「区分域靠 message 文案，不另设新码」的码族纪律）。类不导出。 */
+ *  文案（L119「区分域靠 message 文案，不另设新码」的码族纪律）。类不导出。
+ *  【issue #387（ADR 0030 T1）】getter 词汇 append-only 加 `'watchMap'`（建立面
+ *  lifecycle 门复用同一停接纳通道；停接纳期零订阅建立、零 observer 变更）。 */
 export class RuntimeReadDisabledError extends Error {
   readonly code = RUNTIME_READ_DISABLED_CODE; // 'RUNTIME_READ_DISABLED'（errors.ts 既有常量）
 
   constructor(
-    getter: 'getSchema' | 'getMetadata' | 'getActiveSchema',
+    getter: 'getSchema' | 'getMetadata' | 'getActiveSchema' | 'watchMap',
     lifecycle: 'closing' | 'closed',
   ) {
     super(
@@ -233,6 +235,38 @@ export class ReplicationSessionClosedError extends Error {
   constructor() {
     super(REPLICATION_SESSION_CLOSED_MESSAGE);
     this.name = 'ReplicationSessionClosedError';
+  }
+}
+
+// ── 变更订阅域（issue #387 / ADR 0030 T1：WATCH_MAP_* 稳定码族 append-only 注册；
+//    既有码零改动——写域 SCHEMA_UNAVAILABLE 不触碰，见设计 §7-D7）────────────────────
+
+/** watchMap 载体不匹配稳定码（ADR 0030 §3 逐字冻结：path 偏离 schema / 数组载体 /
+ *  非键容器 / path 形状敌意四路同码，message 区分原因）。 */
+export const WATCH_MAP_CARRIER_MISMATCH_CODE = 'WATCH_MAP_CARRIER_MISMATCH' as const;
+
+/** watchMap 无 active schema 稳定码（ADR 0030 §3 第一条；设计 §7-B4 冻结）：
+ *  覆盖 legacy / preparing / unavailable / fatal 期 `getActiveSchema() === null`
+ *  的全部无 active schema 态——watchMap 整体不可用（含无谓词形态）。 */
+export const WATCH_MAP_SCHEMA_UNAVAILABLE_CODE = 'WATCH_MAP_SCHEMA_UNAVAILABLE' as const;
+
+export type WatchMapErrorCode =
+  | typeof WATCH_MAP_CARRIER_MISMATCH_CODE
+  | typeof WATCH_MAP_SCHEMA_UNAVAILABLE_CODE;
+
+/**
+ * watchMap 建立失败错误（issue #387 设计 §7-B3 冻结：同步 throw；类不进 index，
+ * code+message 字符串消费——沿 RuntimeReadDisabledError / ReplicationSessionClosedError
+ * 先例）。失败路径零订阅登记、零 observer 变更（全部校验前置于登记）；message 恒含
+ * 稳定码前缀、非空、互相可区分、零 path/身份回显。
+ */
+export class WatchMapError extends Error {
+  readonly code: WatchMapErrorCode;
+
+  constructor(code: WatchMapErrorCode, message: string) {
+    super(`${code}: ${message}`);
+    this.name = 'WatchMapError';
+    this.code = code;
   }
 }
 

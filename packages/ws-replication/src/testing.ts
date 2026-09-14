@@ -47,6 +47,7 @@ function decorateLease(
     readData: lease.readData.bind(lease),
     readArray: lease.readArray.bind(lease),
     readMap: lease.readMap.bind(lease),
+    watchMap: lease.watchMap.bind(lease),
     getSchema: lease.getSchema.bind(lease),
     getMetadata: lease.getMetadata.bind(lease),
     getActiveSchema: lease.getActiveSchema.bind(lease),

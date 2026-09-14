@@ -118,6 +118,11 @@ function makeRecordingRuntime(): {
     },
     readArray: () => ({ ok: false, code: 'PATH_NOT_ALLOWED', path: [], message: 'stub: 窗口读未接线' }),
     readMap: () => ({ ok: false, code: 'PATH_NOT_ALLOWED', path: [], message: 'stub: 窗口读未接线' }),
+    // issue #387（ADR 0030 T1）：15 键面新增成员——本替身不消费订阅，恒响亮拒绝
+    //（建立失败面 = 同步 throw；键集义务纯加法，既有断言零改动）。
+    watchMap: () => {
+      throw new Error('stub: watch 订阅未接线');
+    },
     getSchema: () => null,
     getMetadata: () => ({ marker: 'meta' }),
     getActiveSchema: () => null,

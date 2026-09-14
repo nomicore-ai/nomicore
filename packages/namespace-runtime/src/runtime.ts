@@ -95,6 +95,11 @@ import { createSessionFanout, registerReplicationHost } from './replication-sess
 import type { RuntimeReplicationHost } from './replication-session.js';
 import type { SequencerSlotSample } from './sequencer.js';
 import { buildDiagnosticEnv, createSlotDiag, emitAttempt, emitSlot } from './diagnostic.js';
+import { createWatchHub } from './watch-map.js';
+import type {
+  NamespaceRuntimeWatchMapHandle,
+  NamespaceRuntimeWatchMapNotification,
+} from './watch-map.js';
 
 
 /** 复制观测注入（issue #238 §4/§7；缺省 dormant）。 */
@@ -277,6 +282,34 @@ export interface NamespaceRuntime {
     path: readonly (string | number)[],
     options: NamespaceRuntimeReadMapOptions,
   ) => NamespaceRuntimeReadMapResult;
+  /**
+   * 第十五键（issue #387 / ADR 0030 T1）：`path` 终点键容器的变更订阅（无谓词形态）。
+   *
+   * - **建立判定全部由 active schema 完成**（ADR §3，零 live 载体探测）：valueSchema
+   *   （ref 追尽后）`'object'` → 键容器（Y.Map 载体 / plain object 容器 / 封闭对象
+   *   map，对齐 readMap 载体面）；`'array'` 载体、标量/终态形态、path 偏离 schema 或
+   *   形状敌意 → `WATCH_MAP_CARRIER_MISMATCH`（同步 throw，message 区分原因，见
+   *   `WatchMapError`）；**无 active schema 整体拒绝**
+   *   `WATCH_MAP_SCHEMA_UNAVAILABLE`（legacy/preparing/unavailable/fatal 期）；
+   * - **数据缺席合法**：schema 已声明但未物化 / 已删除的容器照常建立成功（订阅是机制
+   *   不是数据快照——读对缺席报错、订阅宽容等待）；建立成功返回恰 `{ unsubscribe }`
+   *   句柄（幂等退订、零 throw、退订后零通知）；
+   * - **通知**：`data` 通知恰三键 `{kind:'data', origin, changes}`——`changes` 为
+   *   `{path, key}` 定位符列表（`[...path, key]` 直接拼下一轮读路径），**不含值**；
+   *   一事务一通知（`observeDeep` 每事务恰一次回调）、同事务同 key 合并、FIFO；
+   *   `origin` = 事务来源两态分类（本地受控写 `'local'`；复制 apply
+   *   `'replication'`——**无过滤**，ADR §5 宁多勿漏）；
+   * - **分发**：事务提交后在写序列器槽之外异步投递（单飞微任务泵）；订阅回调 throw
+   *   静默隔离（不影响写结果、sequencer 行为与其他订阅）；有界队列溢出 →
+   *   `invalidate-all`（订阅存活）；
+   * - **生命周期**：lease 释放自动清理该 lease 全部订阅；
+   *   lifecycle≠ready（closing/closed）期同步 throw `RuntimeReadDisabledError`（复用
+   *   读域停接纳码族）。
+   */
+  readonly watchMap: (
+    path: readonly (string | number)[],
+    listener: (notification: NamespaceRuntimeWatchMapNotification) => void,
+  ) => NamespaceRuntimeWatchMapHandle;
   /** SCHEMA 四标准键投影（D4；载体缺席 → null，载体异型 → loud throw NSRT-SCHEMA-E2；
    *  非 primitive 值 → loud throw）。
    *  lifecycle≠ready（closing/closed）期同步 throw RuntimeReadDisabledError（code
@@ -537,6 +570,10 @@ export function createNamespaceRuntimeWithSeam(input: NamespaceRuntimeSeamInput)
   //  （INV-N14 纪律延续：同批捕获局部量、零新增注入点）；fanout 挂接无条件执行
   //  （无 session 时空集合快路径）；每 Runtime 恰一次 doc.on('update') 监听——INV-S2）
   const fanout = createSessionFanout(doc);
+  // 【issue #387 / ADR 0030 T1】watch 订阅中枢（设计 §8-G：V3c'''' 位、fanout 之后）——
+  //   构造期挂接 ROOT observeDeep（每 Runtime 恰一次；零订阅时空集合快路径）；
+  //   origin 无过滤分类在产（D8），复制 apply 经 ROOT 子树结构性直达，无槽可接线。
+  const watchHub = createWatchHub(doc, state);
   const replicationWriteEnv: ReplicationWriteEnv = {
     doc,
     handle,
@@ -590,6 +627,10 @@ export function createNamespaceRuntimeWithSeam(input: NamespaceRuntimeSeamInput)
   // 同款 session 终止语义；terminateAll 幂等，保证两条入口汇合时零重复副作用。
   const closeAfterFence = (): Promise<void> => {
     fanout.terminateAll('runtime-close');
+    // 【issue #387】watch 中枢同步收口（与 fanout.terminateAll 并置）：摘 observer、
+    //   清全部订阅（静默——ADR §4 终结三因不含 runtime close；lease force-release 已
+    //   先行清理，此处为防御性收口）。
+    watchHub.shutdown();
     return lazyCloseBarrier();
   };
 
@@ -707,6 +748,9 @@ export function createNamespaceRuntimeWithSeam(input: NamespaceRuntimeSeamInput)
     readData,
     readArray,
     readMap,
+    // 【issue #387 / ADR 0030 T1】第十五键：lease 面透传对偶（readData/readMap 同款）；
+    //   建立判定/lifecycle 门/登记全在 hub 内（同步 throw 面原样上抛——B-3）。
+    watchMap: (path, listener) => watchHub.watchMap(path, listener),
     getSchema: () => {
       // D2（#93 rev2，SA8 裁决 B）：数据投影 getter 停接纳——key 仅 lifecycle（裁决 H：
       // 绝不 keyed on fatal/schemaState）；拒绝先于触碰 live Y.Doc（INV 同 read() 分支）
