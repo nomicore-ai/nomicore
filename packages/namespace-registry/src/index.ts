@@ -18,6 +18,10 @@
  * #369 增量（ADR 0028 W2，纯加法）：lease 公共面 +readArray/readMap（13 → 15 键）；
  * type-only 追加四个窗口读别名（options 为 runtime/doc-runtime 单源别名；结果含
  * released issue）；值导出面不变。
+ *
+ * #387 增量（ADR 0030 T1，纯加法）：lease 公共面 +watchMap（15 → 16 键；键容器变更
+ * 订阅，建立失败同步 throw、lease 释放自动清理）；type-only 追加三个 watch 别名
+ * （runtime 同名单源别名跟随）；值导出面不变。
  */
 export {
   createNamespaceRegistry,
@@ -56,6 +60,9 @@ export type {
   NamespaceLeaseReleasedIssue,
   NamespaceLeaseReplicationStatus,
   NamespaceLeaseStatus,
+  NamespaceLeaseWatchMapChange,
+  NamespaceLeaseWatchMapHandle,
+  NamespaceLeaseWatchMapNotification,
   NamespaceOwner,
   NamespaceRegistry,
   NamespaceRegistryDiagnosticLog,

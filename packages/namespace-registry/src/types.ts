@@ -44,6 +44,9 @@ import type {
   NamespaceRuntimeReadArrayResult,
   NamespaceRuntimeReadMapOptions,
   NamespaceRuntimeReadMapResult,
+  NamespaceRuntimeWatchMapChange,
+  NamespaceRuntimeWatchMapHandle,
+  NamespaceRuntimeWatchMapNotification,
   ReplaceSchemaInput,
   ReplaceSchemaResult,
 } from '@nomicore/namespace-runtime';
@@ -484,6 +487,20 @@ export type NamespaceLeaseReadMapResult =
   | NamespaceRuntimeReadMapResult
   | NamespaceLeaseReleasedIssue;
 
+// —— issue #387（ADR 0030 T1）watchMap 变更订阅 public alias ——
+// 命名公式沿窗口读先例 `Namespace{Runtime,Lease}ReadMap*`（设计 §7-B5 冻结）：
+// 三别名 = runtime 单源**同名单源别名**（零第二形状；失败走同步 throw ⇒ 不设 `*Result`，
+// 无 options 参数 ⇒ 不设 `*Options`——T2 #388 随 `{where}` 加法引入）。
+
+/** lease.watchMap 通知（runtime 单源别名跟随；data 恰三键 / invalidate-all / watch-end）。 */
+export type NamespaceLeaseWatchMapNotification = NamespaceRuntimeWatchMapNotification;
+
+/** lease.watchMap 定位符（runtime 单源别名跟随；恰 `{path, key}`，不含值）。 */
+export type NamespaceLeaseWatchMapChange = NamespaceRuntimeWatchMapChange;
+
+/** lease.watchMap 句柄（runtime 单源别名跟随；恰 `{unsubscribe}`，幂等）。 */
+export type NamespaceLeaseWatchMapHandle = NamespaceRuntimeWatchMapHandle;
+
 /** lease.getSchema 结果（runtime 同签名：载体缺席 → null）。 */
 export type NamespaceLeaseSchema = SchemaEnvelope | null;
 
@@ -720,6 +737,19 @@ export interface NamespaceLease {
     path: readonly (string | number)[],
     options: NamespaceLeaseReadMapOptions,
   ): NamespaceLeaseReadMapResult;
+  /** 第十六键（issue #387 / ADR 0030 T1）：`path` 终点键容器的变更订阅（无谓词形态）；
+   *  active 期**原样透传** runtime（lease 层零判定、零解释——分层职责：runtime 簿记/
+   *  判定/分发，ADR §7）；建立成功返回恰 `{unsubscribe}` 幂等句柄，lease 侧登记句柄并在
+   *  释放同步段自动退订全部订阅（AC8）。
+   *  建立失败全部**同步 throw**（B-3 冻结）：released lease → `NamespaceLeaseReleasedError`
+   *  （getter 域通道）；runtime 侧 → `WATCH_MAP_SCHEMA_UNAVAILABLE`（无 active schema
+   *  整体拒绝）/ `WATCH_MAP_CARRIER_MISMATCH`（偏离 schema、数组载体、非键容器、形状
+   *  敌意——message 区分原因）/ `RuntimeReadDisabledError`（lifecycle≠ready）；失败路径
+   *  零订阅登记。失败面不是结果联合（`ReturnType` 恰 handle——B-1 冻结）。 */
+  watchMap(
+    path: readonly (string | number)[],
+    listener: (notification: NamespaceLeaseWatchMapNotification) => void,
+  ): NamespaceLeaseWatchMapHandle;
   getSchema(): NamespaceLeaseSchema;
   getMetadata(): NamespaceLeaseMetadata;
   getActiveSchema(): NamespaceLeaseActiveSchema;

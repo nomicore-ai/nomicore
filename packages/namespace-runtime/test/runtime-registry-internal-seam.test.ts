@@ -272,7 +272,7 @@ describe('AC4：factory 产出的 Runtime 保持 P0 队首/读取/写序列器/f
       expect(st.rootWrite.enabled).toBe(true);
       expect(st.schemaWrite.enabled).toBe(true);
 
-      // ④ 十二键公共面（对象字面量 + freeze，无 class 原型、无脚本注入键）
+      // ④ 十五键公共面（对象字面量 + freeze，无 class 原型、无脚本注入键）
       expect(Object.keys(runtime).sort()).toEqual([
         'bumpReplicationEpoch',
         'close',
@@ -288,6 +288,8 @@ describe('AC4：factory 产出的 Runtime 保持 P0 队首/读取/写序列器/f
         'readData',
         'readMap',
         'replaceSchema',
+        // issue #387（ADR 0030 T1）：15 键面新增成员（键容器变更订阅——纯加法）
+        'watchMap',
       ]);
       expect(runtime.owner).toEqual({ userId: 'u-alice' });
       expect(runtime.namespaceId).toBe('ns-1');

@@ -124,7 +124,7 @@ const expectedIdentity = (replicationId: string, replicationEpoch: number) =>
   ({ replicationId, replicationEpoch });
 
 describe('T0：公共面不漂移——fence 以 non-enumerable 键挂载、index 值导出不变', () => {
-  it('Object.keys(runtime) 恰十二键（fence 键不可枚举）；beginResetFence 为 function；index 值导出仍恰一键', async () => {
+  it('Object.keys(runtime) 恰十五键（fence 键不可枚举）；beginResetFence 为 function；index 值导出仍恰一键', async () => {
     const fx = await makeReadyRuntime();
     expect(Object.keys(fx.runtime).sort()).toEqual([
       'bumpReplicationEpoch',
@@ -141,6 +141,8 @@ describe('T0：公共面不漂移——fence 以 non-enumerable 键挂载、inde
       'readData',
       'readMap',
       'replaceSchema',
+      // issue #387（ADR 0030 T1）：15 键面新增成员（键容器变更订阅——纯加法）
+      'watchMap',
     ]);
     const desc = Object.getOwnPropertyDescriptor(fx.runtime, 'beginResetFence');
     expect(desc).toBeDefined();
