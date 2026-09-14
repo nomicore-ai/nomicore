@@ -41,6 +41,7 @@ import type * as Y from 'yjs';
 import type { DocHandle, ReplicationIdentityRef } from '@nomicore/persistence';
 import { readArrayWindowAtPath, readLogicalValueAtPath, readMapWindowAtPath } from '@nomicore/doc-runtime';
 import type {
+  MutationEnvelope,
   ReadLogicalValueAtPathBudgetResult,
   ReadLogicalValueAtPathOptions,
   ReadLogicalValueResult,
@@ -300,8 +301,13 @@ export interface NamespaceRuntime {
    *  不同步 throw、不同步结算——任何拒绝（gate/校验/快照）都经返回的 Promise 结算；
    *  internal fatal 经 Promise rejection（RuntimeWriteFatalError）。
    *  #92 接纳门（D5.1）：lifecycle≠ready 时同步不入队、经返回 Promise 即时 settle
-   *  领域化联合（RUNTIME_WRITE_DISABLED）——零输入访问、零 doc 副作用。 */
-  readonly mutateData: (mutation: unknown) => Promise<MutateDataResult>;
+   *  领域化联合（RUNTIME_WRITE_DISABLED）——零输入访问、零 doc 副作用。
+   *  参数面类型化（ADR 0008 信封 + ADR 0025/0026 双形态 MutationEnvelope）：
+   *  字面量调用获得判别联合补全与 excess property fail-closed（拼错 guard 键 /
+   *  未知 op / 双形态同现编译期即红）；动态构造信封（JSON 反序列化、跨层传递）经
+   *  `as MutationEnvelope` 显式断言退出静态检查——信封是纯数据、运行时校验
+   *  （doc-runtime 信封解析）仍是不合格信封的唯一事实源，静态收紧零运行时语义变化。 */
+  readonly mutateData: (mutation: MutationEnvelope) => Promise<MutateDataResult>;
   /** 唯一公共 SCHEMA 写入口（D1，issue #91）：与 mutateData 共享同一严格 FIFO write
    *  sequencer（同步接纳定序）；不依赖当前 schema 可编译（P0 unavailable 照常入槽，
    *  成功后恢复 ROOT write）；不同步 throw/结算——一切拒绝经返回的 Promise 结算；
@@ -725,7 +731,7 @@ export function createNamespaceRuntimeWithSeam(input: NamespaceRuntimeSeamInput)
       return state.activeInfo ?? null; // D8（preparing/unavailable/fatal 期 null 照常）
     },
     getStatus: () => buildStatus(handle, state), // D9 → D6（handle 仅用于 ready 期 writableNow 瞬时观察）
-    mutateData: (mutation: unknown): Promise<MutateDataResult> => {
+    mutateData: (mutation: MutationEnvelope): Promise<MutateDataResult> => {
       // D5.1 接纳门：lifecycle≠ready 时同步零入队拒绝（INV-C3）——经返回 Promise
       // 即时 settle 领域化联合（不 throw、不读 mutation——Proxy 零触发、零 doc 副作用）
       if (state.lifecycle !== 'ready') {

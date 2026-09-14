@@ -19,6 +19,7 @@ import { describe, expect, it } from 'vitest';
 import * as Y from 'yjs';
 import { evaluate, parseVfsl } from '@nomicore/vfsl';
 import type { DerivedSchema } from '@nomicore/vfsl';
+import type { MutationEnvelope } from '../src/index.js';
 import { applyValidatedMutation, materializeRoot, DocRuntimeFatalError } from '../src/index.js';
 
 // ── fixture（与 issue-350-batch-shared-boundary.test.ts 同款 schema/基态）──────────
@@ -73,7 +74,7 @@ function notesArray(fx: Fx, key: string): Y.Array<string> {
 }
 
 function run(fx: Fx, mutation: unknown): unknown {
-  return applyValidatedMutation(fx.derived, fx.doc, mutation);
+  return applyValidatedMutation(fx.derived, fx.doc, mutation as MutationEnvelope);
 }
 
 /** 在批量提交事务的 cleanup 窗口内一次性篡改（one-shot——G8 纪律）。 */

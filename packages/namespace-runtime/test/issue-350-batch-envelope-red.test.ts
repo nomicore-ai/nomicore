@@ -26,6 +26,7 @@
  * 纪律：全部断言观察运行时行为（结果联合、readData 值、Y.Doc 字节、update/事务事件、
  * 诊断 record 内容、输入访问 Proxy 计数）；无 skip/only/todo/env override；无源码字符串断言。
  */
+import type { BatchedMutation, GuardedMutation, MutationEnvelope, ValidatedMutation } from '@nomicore/doc-runtime';
 import { describe, expect, it } from 'vitest';
 import * as Y from 'yjs';
 import type { DocHandle, User } from '@nomicore/persistence';
@@ -167,7 +168,7 @@ function issuePathsOf(result: unknown): Array<Array<string | number>> {
   });
 }
 
-const LEGAL_OPS = [
+const LEGAL_OPS: readonly ValidatedMutation[] = [
   { op: 'set', path: ['tasks', 't1', 'status'], value: 'reviewing' },
   { op: 'set', path: ['tasks', 't1', 'reviewer'], value: 'u9' },
   { op: 'array-insert', path: ['values'], index: 1, values: [9] },
@@ -270,7 +271,7 @@ describe('issue #350 批量信封（ADR 0026）— namespace-runtime 端到端 /
       { ops: [{ op: 'set', path: ['n'], value: 3, guard: { kind: 'exists', path: ['n'] } }] }, // 元素携带 guard
     ];
     for (const mutation of shapeErrors) {
-      const result = await runtime.mutateData(mutation);
+      const result = await runtime.mutateData(mutation as MutationEnvelope);
       expect(result.ok, `形状错误必须拒绝；实际 ${JSON.stringify(result)}`).toBe(false);
     }
     expect(bytesOf(doc), '形状错误零写入').toEqual(afterLegal);
@@ -301,7 +302,7 @@ describe('issue #350 批量信封（ADR 0026）— namespace-runtime 端到端 /
     const batch: { ops: Array<{ op: string; path: Array<string | number>; value: unknown }> } = {
       ops: [{ op: 'set', path: ['n'], value: 2 }],
     };
-    const pending = runtime.mutateData(batch);
+    const pending = runtime.mutateData(batch as MutationEnvelope);
     batch.ops[0]!.value = 99; // 调用方在排队期间改动输入引用（合法：快照时点 = 槽开始）
     release();
     await expect.poll(() => runtime.getStatus().schema.state, { interval: 10, timeout: 5_000 }).toBe('ready');
@@ -341,7 +342,7 @@ describe('issue #350 负控 — 写槽边界与快照纪律对批量同样成立
         return Reflect.has(target, key);
       },
     });
-    const result = await runtime.mutateData(batch);
+    const result = await runtime.mutateData(batch as MutationEnvelope);
 
     expect(result.ok).toBe(false);
     expect(JSON.stringify(result)).toContain('RUNTIME_WRITE_DISABLED');
@@ -376,7 +377,7 @@ describe('issue #350 负控 — 写槽边界与快照纪律对批量同样成立
         return 42;
       },
     });
-    const accessor = await runtime.mutateData({ ops: [element] });
+    const accessor = await runtime.mutateData({ ops: [element] } as MutationEnvelope);
     expect(accessor.ok).toBe(false);
     expect(JSON.stringify(accessor)).toContain('MUTATION_INPUT_NOT_PLAIN_DATA');
     expect(fired, '快照器拒绝先于任何输入值读取').toBe(0);

@@ -32,6 +32,7 @@
 import { describe, expect, it } from 'vitest';
 import * as Y from 'yjs';
 import type { DerivedSchema } from '@nomicore/vfsl';
+import type { MutationEnvelope } from '../src/index.js';
 import { evaluate, parseVfsl } from '@nomicore/vfsl';
 import { applyValidatedMutation } from '../src/mutation.js'; // 内部 seam（公共入口已收缩，owner 修改要求 1 / rev1 AC R1）
 import {
@@ -146,7 +147,7 @@ describe('SA7 重点 2② — 伪造 branded 经 mutation 信封/value 读取面
       },
     });
     const before = stateBytes(doc);
-    const res = applyValidatedMutation(DERIVED_TWO, doc, hostile);
+    const res = applyValidatedMutation(DERIVED_TWO, doc, hostile as MutationEnvelope);
     expect(res.ok).toBe(false); // 领域联合，非 throw
     if (!res.ok) {
       expect(res.issues.length).toBe(1);

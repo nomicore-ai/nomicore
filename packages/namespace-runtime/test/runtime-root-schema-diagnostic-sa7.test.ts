@@ -16,6 +16,7 @@
  *
  * 全部为运行时行为断言（真实 memory persistence + 真实诊断管线装配），零源码文本断言。
  */
+import type { MutationEnvelope } from '@nomicore/doc-runtime';
 import { describe, expect, it } from 'vitest';
 import { spawnSync } from 'node:child_process';
 import * as Y from 'yjs';
@@ -196,7 +197,7 @@ describe('#149 SA7 DV-1 慢 emit 槽间延迟（amendment C 动态面）', () =>
 
     // 连续两写（同步背靠背入队——FIFO 场景）
     const p1 = runtime.mutateData({ op: 'set', path: ['n'], value: 42 });
-    const p2 = runtime.mutateData(m2);
+    const p2 = runtime.mutateData(m2 as MutationEnvelope);
     const [r1, r2] = await Promise.all([p1, p2]);
 
     // 业务面：两写均成功、FIFO 顺序（终值 = 第二笔）

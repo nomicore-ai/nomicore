@@ -29,6 +29,9 @@ importers:
       '@nomicore/clock':
         specifier: workspace:*
         version: link:../../packages/clock
+      '@nomicore/doc-runtime':
+        specifier: workspace:*
+        version: link:../../packages/doc-runtime
       '@nomicore/instance':
         specifier: workspace:*
         version: link:../../packages/instance

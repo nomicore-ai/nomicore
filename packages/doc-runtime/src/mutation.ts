@@ -79,8 +79,12 @@ export type MutationGuard =
   | { path: readonly (string | number)[]; equals: unknown; absent?: never }
   | { path: readonly (string | number)[]; absent: true; equals?: never };
 
-/** ADR 0025 单操作信封：四操作 + 可选顶层 guard（键缺席即现役无 guard 契约，逐字节不变）。 */
-export type GuardedMutation = ValidatedMutation & { guard?: MutationGuard };
+/** ADR 0025 单操作信封：四操作 + 可选顶层 guard（键缺席即现役无 guard 契约，逐字节不变）。
+ *  `ops?: never` 为 ADR 0026 双形态互斥的静态 fail-closed 收紧（exclusive-union 惯用法，
+ *  同 MutationGuard `?: never` 先例）：TS 联合 excess 检查不拒绝「键存在于联合任一成员」
+ *  的字面量，双形态同现对象（{op,...,ops}）否则静态通过——运行时仍拒（唯一事实源），
+ *  此处仅让常见双形态错误编译期可见。 */
+export type GuardedMutation = ValidatedMutation & { guard?: MutationGuard; ops?: never };
 
 export type ApplyValidatedMutationResult =
   | { ok: true }
@@ -88,8 +92,9 @@ export type ApplyValidatedMutationResult =
 
 /** ADR 0026 批量信封（形态二）+ ADR 0025 顶层可选 guard。运行时约束（`ops` 非空、≤16、
  *  元素为完整单操作信封、**元素不得携带 `guard`**（0026 L29）、批内路径互不嵌套）由运行时
- *  信封校验承载；类型面只定型元素可静态约束，基数/嵌套约束不承载。guard 只允许出现在顶层。 */
-export type BatchedMutation = { ops: readonly ValidatedMutation[]; guard?: MutationGuard };
+ *  信封校验承载；类型面只定型元素可静态约束，基数/嵌套约束不承载。guard 只允许出现在顶层。
+ *  `op?: never` 同 GuardedMutation 的双形态互斥静态收紧（exclusive-union 惯用法）。 */
+export type BatchedMutation = { ops: readonly ValidatedMutation[]; guard?: MutationGuard; op?: never };
 
 /** ADR 0026 + ADR 0025 双形态信封联合：单操作对象（含可选顶层 guard）或批量信封（含可选
  *  顶层 guard）；两形态互斥（同现为形状错误）。 */
@@ -126,11 +131,15 @@ export type LiveStep = { live: unknown; node: StructureNode };
  *  set([]) → legacy full-ROOT pipeline；普通非空路径 mutation → issue #237 局部管线
  *  （mutation-local.ts），成功写入保持单 guarded transaction + 最小 edit + 边界级
  *  提交后验证（无无条件完整 ROOT 重提重验）。ADR 0026 批量信封 `{ops:[...]}` 走
- *  逐操作 prepare → 单事务按序提交 → 逐操作边界验证（组合期望边界）。 */
+ *  逐操作 prepare → 单事务按序提交 → 逐操作边界验证（组合期望边界）。
+ *  参数面类型化（MutationEnvelope，ADR 0025/0026 双形态）：字面量调用获得判别联合
+ *  补全与 excess property fail-closed；动态构造信封（JSON 反序列化等）经
+ *  `as MutationEnvelope` 显式断言退出静态检查——运行时信封校验（prepareMutation
+ *  解析）仍是不合格信封的唯一事实源，静态收紧零运行时语义变化。 */
 export function applyValidatedMutation(
   derived: DerivedSchema,
   doc: Y.Doc,
-  mutation: ValidatedMutation | unknown,
+  mutation: MutationEnvelope,
 ): ApplyValidatedMutationResult {
   assertOutermostTransactionContext(doc, 'applyValidatedMutation');
   const ready = prepareMutation(derived, doc, mutation);

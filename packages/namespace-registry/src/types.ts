@@ -48,6 +48,7 @@ import type {
   ReplaceSchemaResult,
 } from '@nomicore/namespace-runtime';
 import type { ReplicationIdentityRef, YjsDoc } from '@nomicore/persistence';
+import type { MutationEnvelope } from '@nomicore/doc-runtime';
 import type { SchemaEnvelope } from '@nomicore/vfsl';
 import type { RegistryObserver } from './observer.js';
 
@@ -723,7 +724,11 @@ export interface NamespaceLease {
   getMetadata(): NamespaceLeaseMetadata;
   getActiveSchema(): NamespaceLeaseActiveSchema;
   getStatus(): NamespaceLeaseStatus;
-  mutateData(mutation: unknown): Promise<NamespaceLeaseMutateDataResult>;
+  /** 唯一公共 ROOT 写入口（参数面与 runtime 写入口同步类型化：
+   *  ADR 0025/0026 双形态信封 MutationEnvelope——字面量获得判别联合补全与
+   *  excess property fail-closed；动态构造信封经 `as MutationEnvelope` 显式断言，
+   *  运行时信封校验仍是不合格形状的唯一事实源）。 */
+  mutateData(mutation: MutationEnvelope): Promise<NamespaceLeaseMutateDataResult>;
   replaceSchema(input: NamespaceLeaseReplaceSchemaInput): Promise<NamespaceLeaseReplaceSchemaResult>;
   /** Hub 显式复制管理操作（issue #132/ADR 0010 冻结名）：原子安装随机 128-bit 复制谱系
    *  + epoch 1（经 runtime 同一 write sequencer——单槽单事务原子、dirty 恰一次）。

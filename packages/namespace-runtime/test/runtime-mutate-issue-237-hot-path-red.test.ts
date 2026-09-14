@@ -28,6 +28,7 @@
  * 每 ~30s 一批五笔叶子 mutation——本文件把该批五笔压缩为紧邻顺序调用（写路径本身
  * 无墙钟依赖，fake clock 不改变任何断言语义），断言确定性计数，不做 flaky 计时。
  */
+import type { GuardedMutation } from '@nomicore/doc-runtime';
 import { describe, expect, it } from 'vitest';
 import * as Y from 'yjs';
 import type { DerivedSchema } from '@nomicore/vfsl';
@@ -132,7 +133,7 @@ function targetValueOf(doc: Y.Doc): unknown {
   return (doc.getMap('ROOT').get('target') as Y.Map<unknown>).get('value');
 }
 
-const SET_TARGET = (value: number) => ({ op: 'set', path: ['target', 'value'], value });
+const SET_TARGET = (value: number): GuardedMutation => ({ op: 'set', path: ['target', 'value'], value });
 
 // ═══════════════════════ B-1【绿锁定】公共 interface + 槽序 + 单事务语义 ═══════════════════════
 

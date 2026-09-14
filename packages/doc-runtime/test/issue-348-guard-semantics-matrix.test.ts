@@ -52,7 +52,7 @@ import { evaluate, parseVfsl } from '@nomicore/vfsl';
 import type { DerivedSchema } from '@nomicore/vfsl';
 import * as docRuntime from '../src/index.js';
 import { applyValidatedMutation, materializeRoot } from '../src/index.js';
-import type { ApplyValidatedMutationResult, MutationIssue } from '../src/index.js';
+import type { ApplyValidatedMutationResult, MutationEnvelope, MutationIssue } from '../src/index.js';
 
 // ── 公共面导出（N-E）：运行时稳定码必须与公共入口导出值同源（#347 P2 同款）──────────────
 const ns = docRuntime as Record<string, unknown>;
@@ -112,7 +112,7 @@ function fixture(snapshot: Record<string, unknown> = baseSnapshot()): Fx {
 
 /** 单一 Y.Doc 写入口；第三参公共类型为 `ValidatedMutation | unknown`，guard 信封原样传入。 */
 function run(fx: Fx, mutation: unknown): ApplyValidatedMutationResult {
-  return applyValidatedMutation(fx.derived, fx.doc, mutation);
+  return applyValidatedMutation(fx.derived, fx.doc, mutation as MutationEnvelope);
 }
 
 /** AC1–AC4/AC6 共同承载 op：guard 评估先于 schema 校验，承载写取合法 `set n=2`。 */

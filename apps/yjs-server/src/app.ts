@@ -32,6 +32,7 @@ import {
   type NamespaceRegistry,
   type ResetReplicaResult,
 } from '@nomicore/namespace-registry';
+import type { GuardedMutation } from '@nomicore/doc-runtime';
 import { deleteNamespaceDiagnosticLog } from '@nomicore/namespace-diagnostic-log';
 import {
   createHubReplicationPlugin,
@@ -650,7 +651,7 @@ class AppHandle {
       if (!(await this.waitNamespaceLive(lease, namespaceId, Math.max(0, deadline - Date.now())))) {
         return { ok: false, code: 'verify-write-timeout' };
       }
-      const mutation = { op: 'set', path: set, value };
+      const mutation: GuardedMutation = { op: 'set', path: set, value };
       const result = await lease.mutateData(mutation);
       if (!result.ok) return { ok: false, code: 'write-failed' };
       return { ok: true };
