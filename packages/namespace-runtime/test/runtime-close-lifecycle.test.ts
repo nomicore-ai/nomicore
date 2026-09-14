@@ -152,7 +152,7 @@ async function waitReady(runtime: NamespaceRuntime): Promise<void> {
 }
 
 describe('close 生命周期（AC6/AC7）', () => {
-  it('AC6/AC8：公共面第十二键 close 为 function；键集恰十二键；无事件订阅键', async () => {
+  it('AC6/AC8：公共面第十二键 close 为 function；键集恰十五键；无事件订阅键', async () => {
     const { runtime } = readyRuntime({ notifyDirty: async () => {} });
     await waitReady(runtime);
     // 当前基线红：无 close 键
@@ -173,6 +173,10 @@ describe('close 生命周期（AC6/AC7）', () => {
       'readData',
       'readMap',
       'replaceSchema',
+      // issue #387（ADR 0030 T1）：15 键面新增成员（键容器变更订阅——纯加法；
+      //  下述负向事件订阅词审计保持原样——watchMap 不在受审计词表内，v1
+      //  「无公共事件订阅键」的语义边界由 ADR 0008 窄读 + ADR 0030 后法授权裁决）
+      'watchMap',
     ]);
     // AC8 负向：v1 无公共事件订阅键
     const anyRT = runtime as unknown as Record<string, unknown>;
