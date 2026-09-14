@@ -1,0 +1,146 @@
+
+ RUN  v3.2.7 /home/wangjian/nomicore-fix-issue-390
+
+ ❯ packages/namespace-registry/test/issue-390-watch-invalidation-red.test.ts (14 tests | 8 failed) 40060ms
+   × A 组（AC1/AC2/AC5/AC6）：有界队列溢出 → 显式降级 invalidate-all 且订阅存活 > A1/A2 AC1/AC2/AC5：注入 capacity=1 + 同同步段两次未 await 写 → 恰一条两键 invalidate-all、订阅存活自愈 5005ms
+     → Test timed out in 5000ms.
+If this is a long-running test, pass a timeout value as the last argument or configure it globally with "testTimeout".
+   × A 组（AC1/AC2/AC5/AC6）：有界队列溢出 → 显式降级 invalidate-all 且订阅存活 > A7 AC6：溢出降级不阻塞写路径——写均 ok:true、后续写照常完成、kind 闭集 5001ms
+     → Test timed out in 5000ms.
+If this is a long-running test, pass a timeout value as the last argument or configure it globally with "testTimeout".
+   ✓ A 组（AC1/AC2/AC5/AC6）：有界队列溢出 → 显式降级 invalidate-all 且订阅存活 > NC1 反伪绿：同一触发模式但不注入容量 → 两条 data、零失效信号（断言对注入敏感） 13ms
+   × B 组（AC3）：结构性失效——父删除/祖先删除/整替 → invalidate-all 且订阅存活 > A3 AC3：订阅容器被删（父路径删除）→ 恰一条两键 invalidate-all、订阅存活 5001ms
+     → Test timed out in 5000ms.
+If this is a long-running test, pass a timeout value as the last argument or configure it globally with "testTimeout".
+   × B 组（AC3）：结构性失效——父删除/祖先删除/整替 → invalidate-all 且订阅存活 > A3b AC3：同事务批量（删容器 + 无关写）→ 事务级原子：恰一条 invalidate-all、零无关通知 5001ms
+     → Test timed out in 5000ms.
+If this is a long-running test, pass a timeout value as the last argument or configure it globally with "testTimeout".
+   × B 组（AC3）：结构性失效——父删除/祖先删除/整替 → invalidate-all 且订阅存活 > A4 AC3：两级嵌套：外层祖先删除 → 恰一条 invalidate-all、订阅横跨重建 5001ms
+     → Test timed out in 5000ms.
+If this is a long-running test, pass a timeout value as the last argument or configure it globally with "testTimeout".
+   × B 组（AC3）：结构性失效——父删除/祖先删除/整替 → invalidate-all 且订阅存活 > A5 AC3：容器整替（旧子树消失）→ 恰一条 invalidate-all 5001ms
+     → Test timed out in 5000ms.
+If this is a long-running test, pass a timeout value as the last argument or configure it globally with "testTimeout".
+   ✓ B 组（AC3）：结构性失效——父删除/祖先删除/整替 → invalidate-all 且订阅存活 > NC2 反伪绿：条目级删除仍为 data（不噪声化——真变过滤零漂移） 13ms
+   × C 组（AC4）：数据在场性从不终结订阅——删除 → 重建 → 条目 data > A6 AC4：删除 → invalidate-all → 重建 → 条目写到达 data、零重新订阅 5000ms
+     → Test timed out in 5000ms.
+If this is a long-running test, pass a timeout value as the last argument or configure it globally with "testTimeout".
+   ✓ D 组（AC1/A8/A9/NC3–NC6）：公共契约零污染与三 kind 形状冻结 > A8 AC1：容量是构造参数 + 实现默认而非公共契约——lease 面恒 16 键、零容量字段泄漏 1ms
+   × D 组（AC1/A8/A9/NC3–NC6）：公共契约零污染与三 kind 形状冻结 > A9/NC6：三 kind 形状冻结——invalidate-all 恰两键、data 恰三键、零 watch-end/version/rev 5001ms
+     → Test timed out in 5000ms.
+If this is a long-running test, pass a timeout value as the last argument or configure it globally with "testTimeout".
+   ✓ D 组（AC1/A8/A9/NC3–NC6）：公共契约零污染与三 kind 形状冻结 > NC3：无关路径写零通知（带同订阅后续写屏障） 7ms
+   ✓ D 组（AC1/A8/A9/NC3–NC6）：公共契约零污染与三 kind 形状冻结 > NC4：必填字段整删被写面拒绝、零事务零通知（带屏障） 7ms
+   ✓ D 组（AC1/A8/A9/NC3–NC6）：公共契约零污染与三 kind 形状冻结 > NC5：非法批量被写面拒绝、零通知（带屏障） 6ms
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 8 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  packages/namespace-registry/test/issue-390-watch-invalidation-red.test.ts > A 组（AC1/AC2/AC5/AC6）：有界队列溢出 → 显式降级 invalidate-all 且订阅存活 > A1/A2 AC1/AC2/AC5：注入 capacity=1 + 同同步段两次未 await 写 → 恰一条两键 invalidate-all、订阅存活自愈
+Error: Test timed out in 5000ms.
+If this is a long-running test, pass a timeout value as the last argument or configure it globally with "testTimeout".
+ ❯ packages/namespace-registry/test/issue-390-watch-invalidation-red.test.ts:98:3
+     96|
+     97| describe('A 组（AC1/AC2/AC5/AC6）：有界队列溢出 → 显式降级 invalidate-all 且订阅存活', ()…
+     98|   it('A1/A2 AC1/AC2/AC5：注入 capacity=1 + 同同步段两次未 await 写 → 恰一条两键 invali…
+       |   ^
+     99|     const fixture = await openWatchLease({ watchQueueCapacity: WATCH_Q…
+    100|     const sink = new NotificationSink();
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/8]⎯
+
+ FAIL  packages/namespace-registry/test/issue-390-watch-invalidation-red.test.ts > A 组（AC1/AC2/AC5/AC6）：有界队列溢出 → 显式降级 invalidate-all 且订阅存活 > A7 AC6：溢出降级不阻塞写路径——写均 ok:true、后续写照常完成、kind 闭集
+Error: Test timed out in 5000ms.
+If this is a long-running test, pass a timeout value as the last argument or configure it globally with "testTimeout".
+ ❯ packages/namespace-registry/test/issue-390-watch-invalidation-red.test.ts:141:3
+    139|   });
+    140|
+    141|   it('A7 AC6：溢出降级不阻塞写路径——写均 ok:true、后续写照常完成、kind 闭集', async () => {
+       |   ^
+    142|     const fixture = await openWatchLease({ watchQueueCapacity: WATCH_Q…
+    143|     const sink = new NotificationSink();
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/8]⎯
+
+ FAIL  packages/namespace-registry/test/issue-390-watch-invalidation-red.test.ts > B 组（AC3）：结构性失效——父删除/祖先删除/整替 → invalidate-all 且订阅存活 > A3 AC3：订阅容器被删（父路径删除）→ 恰一条两键 invalidate-all、订阅存活
+Error: Test timed out in 5000ms.
+If this is a long-running test, pass a timeout value as the last argument or configure it globally with "testTimeout".
+ ❯ packages/namespace-registry/test/issue-390-watch-invalidation-red.test.ts:207:3
+    205|
+    206| describe('B 组（AC3）：结构性失效——父删除/祖先删除/整替 → invalidate-all 且订阅存活', () => {
+    207|   it('A3 AC3：订阅容器被删（父路径删除）→ 恰一条两键 invalidate-all、订阅存活', async () => {
+       |   ^
+    208|     const fixture = await openWatchLease();
+    209|     const sink = new NotificationSink();
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[3/8]⎯
+
+ FAIL  packages/namespace-registry/test/issue-390-watch-invalidation-red.test.ts > B 组（AC3）：结构性失效——父删除/祖先删除/整替 → invalidate-all 且订阅存活 > A3b AC3：同事务批量（删容器 + 无关写）→ 事务级原子：恰一条 invalidate-all、零无关通知
+Error: Test timed out in 5000ms.
+If this is a long-running test, pass a timeout value as the last argument or configure it globally with "testTimeout".
+ ❯ packages/namespace-registry/test/issue-390-watch-invalidation-red.test.ts:249:3
+    247|   });
+    248|
+    249|   it('A3b AC3：同事务批量（删容器 + 无关写）→ 事务级原子：恰一条 invalidate-all、零无关通知', async…
+       |   ^
+    250|     const fixture = await openWatchLease();
+    251|     const sink = new NotificationSink();
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[4/8]⎯
+
+ FAIL  packages/namespace-registry/test/issue-390-watch-invalidation-red.test.ts > B 组（AC3）：结构性失效——父删除/祖先删除/整替 → invalidate-all 且订阅存活 > A4 AC3：两级嵌套：外层祖先删除 → 恰一条 invalidate-all、订阅横跨重建
+Error: Test timed out in 5000ms.
+If this is a long-running test, pass a timeout value as the last argument or configure it globally with "testTimeout".
+ ❯ packages/namespace-registry/test/issue-390-watch-invalidation-red.test.ts:297:3
+    295|   });
+    296|
+    297|   it('A4 AC3：两级嵌套：外层祖先删除 → 恰一条 invalidate-all、订阅横跨重建', async () => {
+       |   ^
+    298|     const fixture = await openWatchLease();
+    299|     const sink = new NotificationSink();
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[5/8]⎯
+
+ FAIL  packages/namespace-registry/test/issue-390-watch-invalidation-red.test.ts > B 组（AC3）：结构性失效——父删除/祖先删除/整替 → invalidate-all 且订阅存活 > A5 AC3：容器整替（旧子树消失）→ 恰一条 invalidate-all
+Error: Test timed out in 5000ms.
+If this is a long-running test, pass a timeout value as the last argument or configure it globally with "testTimeout".
+ ❯ packages/namespace-registry/test/issue-390-watch-invalidation-red.test.ts:337:3
+    335|   });
+    336|
+    337|   it('A5 AC3：容器整替（旧子树消失）→ 恰一条 invalidate-all', async () => {
+       |   ^
+    338|     const fixture = await openWatchLease();
+    339|     const sink = new NotificationSink();
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[6/8]⎯
+
+ FAIL  packages/namespace-registry/test/issue-390-watch-invalidation-red.test.ts > C 组（AC4）：数据在场性从不终结订阅——删除 → 重建 → 条目 data > A6 AC4：删除 → invalidate-all → 重建 → 条目写到达 data、零重新订阅
+Error: Test timed out in 5000ms.
+If this is a long-running test, pass a timeout value as the last argument or configure it globally with "testTimeout".
+ ❯ packages/namespace-registry/test/issue-390-watch-invalidation-red.test.ts:406:3
+    404|
+    405| describe('C 组（AC4）：数据在场性从不终结订阅——删除 → 重建 → 条目 data', () => {
+    406|   it('A6 AC4：删除 → invalidate-all → 重建 → 条目写到达 data、零重新订阅', async () =>…
+       |   ^
+    407|     const fixture = await openWatchLease();
+    408|     const sink = new NotificationSink();
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[7/8]⎯
+
+ FAIL  packages/namespace-registry/test/issue-390-watch-invalidation-red.test.ts > D 组（AC1/A8/A9/NC3–NC6）：公共契约零污染与三 kind 形状冻结 > A9/NC6：三 kind 形状冻结——invalidate-all 恰两键、data 恰三键、零 watch-end/version/rev
+Error: Test timed out in 5000ms.
+If this is a long-running test, pass a timeout value as the last argument or configure it globally with "testTimeout".
+ ❯ packages/namespace-registry/test/issue-390-watch-invalidation-red.test.ts:468:3
+    466|   });
+    467|
+    468|   it('A9/NC6：三 kind 形状冻结——invalidate-all 恰两键、data 恰三键、零 watch-end/vers…
+       |   ^
+    469|     const fixture = await openWatchLease({ watchQueueCapacity: WATCH_Q…
+    470|     const sink = new NotificationSink();
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[8/8]⎯
+
+
+ Test Files  1 failed (1)
+      Tests  8 failed | 6 passed (14)
+   Start at  06:58:12
+   Duration  40.75s (transform 399ms, setup 0ms, collect 545ms, tests 40.06s, environment 0ms, prepare 47ms)

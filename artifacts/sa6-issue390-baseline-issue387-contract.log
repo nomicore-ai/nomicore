@@ -1,0 +1,9 @@
+
+ RUN  v3.2.7 /home/wangjian/nomicore-fix-issue-390
+
+ ✓ packages/namespace-registry/test/issue-387-watch-map-tracer-red.test.ts (21 tests) 150ms
+
+ Test Files  1 passed (1)
+      Tests  21 passed (21)
+   Start at  06:25:37
+   Duration  844ms (transform 399ms, setup 0ms, collect 546ms, tests 150ms, environment 0ms, prepare 47ms)

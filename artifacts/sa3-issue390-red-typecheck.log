@@ -1,0 +1,2 @@
+packages/namespace-registry/test/issue-390-watch-invalidation-surface.test-d.ts(25,61): error TS2339: Property 'watchQueueCapacity' does not exist on type 'NamespaceRegistryTestingOverrides'.
+packages/namespace-registry/test/issue-390-watch-invalidation-surface.test-d.ts(84,7): error TS2353: Object literal may only specify known properties, and 'watchQueueCapacity' does not exist in type 'NamespaceRegistryTestingOverrides'.
