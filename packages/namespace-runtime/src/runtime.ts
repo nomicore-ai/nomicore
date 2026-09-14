@@ -126,6 +126,9 @@ export interface NamespaceRuntimeSeamInput {
   /** Epoch-millisecond source used for diagnostic observedAt. */
   readonly clock?: () => number;
   readonly replicationObservability?: NamespaceReplicationObservability;
+  /** 【issue #390 / ADR 0030 T4】watch 通知队列容量（testing 注入经 Registry 第三参
+   *  到达；缺省 undefined → `createWatchHub` 缺省参数 = 实现常量）。数值不进公共契约。 */
+  readonly watchQueueCapacity?: number;
 }
 
 /** closing/closed 期 read 拒绝分支（#92）：ADR-0008 读取能力节「预期路径、载体和
@@ -565,7 +568,9 @@ export function createNamespaceRuntimeWithSeam(input: NamespaceRuntimeSeamInput)
   //   replicationHost 各捕获同一局部量（INV-N14 捕获局部量纪律）；构造期挂接 ROOT
   //   observeDeep（每 Runtime 恰一次；零订阅时空集合快路径）；origin 无过滤分类在产
   //   （D8），复制 apply 经 ROOT 子树结构性直达，无槽可接线。
-  const watchHub = createWatchHub(doc, state);
+  //   【T4 #390】第三参 = 装配缝捕获的通知队列容量（undefined → 缺省参数 = 实现常量；
+  //   测试经 Registry testing overrides 加法字段真达此处——AC1/AC5）。
+  const watchHub = createWatchHub(doc, state, captured.watchQueueCapacity);
 
   // V3c'' schemaWriteEnv 一次成型（D10 零新增注入点：同一批捕获局部量——compile 与
   //   writeEnv 共源的既有 seam 字段同时服务 P0 与 SCHEMA 写槽）
@@ -953,6 +958,9 @@ export interface RuntimeForRegistryDiagnostic {
   readonly emitter?: NamespaceDiagnosticChangeEmitter;
   readonly clock?: () => number;
   readonly replicationObservability?: NamespaceReplicationObservability;
+  /** 【issue #390 / ADR 0030 T4】watch 通知队列容量（testing 控件经 Registry 装配缝
+   *  到达；公共契约零泄漏——主入口构造选项不含本字段）。 */
+  readonly watchQueueCapacity?: number;
 }
 
 /**
@@ -976,6 +984,9 @@ export function createNamespaceRuntime(
           ...(diagnostic.clock !== undefined ? { clock: diagnostic.clock } : {}),
           ...(diagnostic.replicationObservability !== undefined
             ? { replicationObservability: diagnostic.replicationObservability }
+            : {}),
+          ...(diagnostic.watchQueueCapacity !== undefined
+            ? { watchQueueCapacity: diagnostic.watchQueueCapacity }
             : {}),
         }
       : {}),
@@ -1102,6 +1113,7 @@ function captureSeamInput(input: unknown): {
   diagnosticEmitter: NamespaceDiagnosticChangeEmitter | undefined;
   clock: (() => number) | undefined;
   replicationObservability: NamespaceReplicationObservability | undefined;
+  watchQueueCapacity: number | undefined;
 } {
   if (typeof input !== 'object' || input === null) {
     throw new TypeError('seam 输入必须是对象（{ handle, p0Gate?, compile?, notifyDirty? }）');
@@ -1197,6 +1209,25 @@ function captureSeamInput(input: unknown): {
       ...(slotMetrics !== undefined ? { slotMetrics: slotMetrics as (sample: SequencerSlotSample) => void } : {}),
     };
   }
+  // 【issue #390 / ADR 0030 T4】watch 队列容量形状门（沿本文件逐字段形状门纪律；
+  // Registry 单点已挡垃圾值，此处为直连 seam 调用方的防御面）：提供则必须是
+  // 1..2147483647 的有限整数——否则构造期同步 throw（INV-N4：前置于 enqueue、零副作用），
+  // 绝不静默按「恒溢出」降级运行（fail loud，非 fallback）。
+  let watchQueueCapacity: number | undefined;
+  if (rec.watchQueueCapacity !== undefined) {
+    const value = rec.watchQueueCapacity;
+    if (
+      typeof value !== 'number'
+      || !Number.isInteger(value)
+      || value < 1
+      || value > 2_147_483_647
+    ) {
+      throw new TypeError(
+        'input.watchQueueCapacity 若提供必须是 1..2147483647 的有限整数（watch 通知队列容量）',
+      );
+    }
+    watchQueueCapacity = value;
+  }
   return {
     handle: handle as DocHandle,
     userId: userId as string,
@@ -1208,5 +1239,6 @@ function captureSeamInput(input: unknown): {
     diagnosticEmitter,
     clock,
     replicationObservability,
+    watchQueueCapacity,
   };
 }

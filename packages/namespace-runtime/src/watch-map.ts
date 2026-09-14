@@ -1,7 +1,8 @@
 /**
  * @nomicore/namespace-runtime —— watchMap 键容器变更订阅（issue #387 / ADR 0030
- * 「变更订阅」T1 tracer bullet + issue #388 T2 谓词订阅 + issue #389 T3 终止编排的
- * runtime 侧唯一实现载体；设计 §8-B/C/D/E/G 与 T2 设计 §8.2/§8.3、ADR 0030 §4）。
+ * 「变更订阅」T1 tracer bullet + issue #388 T2 谓词订阅 + issue #389 T3 终止编排 +
+ * issue #390 T4 溢出降级与父路径删除的 runtime 侧唯一实现载体；设计 §8-B/C/D/E/G
+ * 与 T2 设计 §8.2/§8.3、ADR 0030 §4）。
  *
  * 职责（ADR 0030 §7 分层）：订阅簿记 + 建立判定 + 事务级信号推导 + 真变判定 +
  * **谓词判定（T2）** + 槽外异步分发与有界队列 + 关停。registry lease 面只做透传与
@@ -34,12 +35,13 @@
  *   （AC7 逐字；漏通知不可接受、多通知可接受）。逐 key 求值包 try/catch：单 key
  *   异常 → 该 key 保守，不影响同事务其他 key。
  * - **E 分发**：每订阅 FIFO 有界队列（容量 = 构造单参数位，默认 16 实现常量；
- *   数值不进公共契约——ADR §6；T4 #390 的 testing 工厂注入为纯加法）+ 单飞微任务泵
+ *   数值不进公共契约——ADR §6；T4 #390 的 testing 工厂注入经第三参到达）+ 单飞微任务泵
  *   （每项投递前让步 20 次微任务，镜像 `FANOUT_DELIVERY_DEFERRAL_MICROTASKS`）——
  *   listener 调用全部移出事务栈与写序列器槽（AC6）；逐 listener 逐投递 try/catch
- *   静默隔离（AC7）。溢出：清空在队 data 通知 → 入队单条 `invalidate-all`
- *   （origin = 触发本次降级的事务 origin；ADR §6 语义，T1 实现之、T4 #390 补注入与
- *   验收）。
+ *   静默隔离（AC7）。降级单点 `enqueueInvalidateAll`（清空在队未投递通知 → 入队单条
+ *   `invalidate-all`，origin = 触发本次降级的事务 origin；ADR §6 语义）由两触发源共用：
+ *   **队列溢出**（T1 实现，T4 #390 验收）与**结构性失效**（严格祖先删除/整替，T4 #390
+ *   新编排——事件在场而 T1 落「无命中」，消费方永久持有已消失条目的视图）。
  * - **零 throw 硬红线**：handler 整体 try/catch 吞没——observer 内 throw 会经
  *   `transactGuarded` 收编 DOCRT-E203 写 fatal（永久禁写），直接违反 AC7。
  *
@@ -50,8 +52,7 @@
  *   resolve（reset 关闭 admission 消费；schema 安装段 fire-and-forget）。终止后的
  *   `unsubscribe()` 幂等 no-op（**不清队**——滞留 data 必达，B-T3-6）。
  *
- * 边界（T3 非目标）：队列溢出注入与父路径删除/容器整替编排（T4 #390——C-3 不产出
- * 条目定位符）、文档面（T5 #391）。词表演进（`notEquals` / `and` / key 级过滤 /
+ * 边界（T4 非目标）：文档面（T5 #391）。词表演进（`notEquals` / `and` / key 级过滤 /
  * 数组载体 `watchArray` / 含值通知）不在 T2 封闭词表内（ADR §2 封闭小集）。
  * `changes` 定位符不带值（信号不含值——通知为深冻结纯数据，零 payload / 零载体
  * 引用 / 零投影文本）。
@@ -153,7 +154,7 @@ export interface NamespaceRuntimeWatchHub {
 // ─────────────────────────────── 实现常量（数值不进公共契约） ───────────────────────────────
 
 /** 每订阅投递队列容量上限（ADR §6「数值不进公共契约——语义进契约，数值是构造参数 +
- *  实现默认」；单参数位使 T4 #390 的 testing 工厂注入为纯加法）。 */
+ *  实现默认」；单参数位使 T4 #390 的 testing 工厂注入为纯加法，注入经本第三参到达）。 */
 const WATCH_QUEUE_CAPACITY_DEFAULT = 16;
 
 /** 每次投递前的微任务让步数（镜像 `replication-session.ts`
@@ -610,6 +611,42 @@ function isNestedEntryChanged(event: Y.YEvent<Y.Map<unknown>>): boolean {
   return false;
 }
 
+/**
+ * C-3 结构性失效检测（T4 #390 / ADR 0030 L50「父路径删除」）：订阅容器路径的**严格
+ * 祖先**事件触及本链下一键且为 delete / 整替（update 真变）→ 该订阅本事务的信号 =
+ * invalidate-all（旧子树条目全部消失——漏不可接受，ADR §5）。
+ *
+ * - 严格祖先：`eventPath.length < depth`；`>= depth` 的事件照旧走 C-1/C-2（条目级语义
+ *   零漂移——NC2）；ROOT 订阅（depth 0）无严格祖先，结构不可达；
+ * - 链上键：`isPathPrefix(eventPath, containerPath)`（= 事件路径是容器路径的前缀，与
+ *   `collectChanges` 的方向相反、互不干扰）；事件不在本链上 → 无关（NC3）；
+ * - `add` 旁路：容器创建（缺席→在场）不编排失效信号（T1 N4 边界「创建事件 kind 不
+ *   钉」；宁多勿漏在此取最小噪声档，创建事务行为与 T1 逐字节一致）；
+ * - 真变复用：delete 恒真变；update 复用 `isRealChange`（两侧均 plain 且深比较相等 →
+ *   过滤，不噪声化；任一侧 live Y 载体 → 不可判 → 保守失效）——零第二套判定；
+ * - 链途径序列载体段（`nextSeg` 非 string）：祖先级序列事件无键级 oldValue、下标锚定
+ *   身份不稳定 → 保守失效（宁多勿漏）。
+ */
+function detectStructuralInvalidation(
+  events: ReadonlyArray<Y.YEvent<Y.Map<unknown>>>,
+  containerPath: readonly (string | number)[],
+): boolean {
+  const depth = containerPath.length;
+  if (depth === 0) return false; // ROOT 订阅无严格祖先
+  for (const event of events) {
+    const eventPath: ReadonlyArray<string | number> = event.path;
+    if (eventPath.length >= depth) continue; // 条目级/嵌套事件 → C-1/C-2 分支
+    if (!isPathPrefix(eventPath, containerPath)) continue; // 事件不在本订阅链上 → 无关
+    const nextSeg: string | number | undefined = containerPath[eventPath.length];
+    if (typeof nextSeg !== 'string') return true; // 链途径序列载体段 → 保守失效
+    const info = event.changes.keys.get(nextSeg);
+    if (info === undefined) continue; // 祖先事件未触碰本链下一键 → 无关
+    if (info.action === 'add') continue; // 容器创建：kind 不钉（T1 N4 边界）
+    if (isRealChange(event.target, nextSeg, info)) return true;
+  }
+  return false;
+}
+
 /** 单事务 → 单订阅的定位符列表（首见序去重）；无命中 → 空列表（不发通知）。
  *  谓词层（T2）在 T1 真变判定之后合取：C-1 逐 key 精确/保守判定（逐 key try/catch
  *  → 该 key 保守，同事务其他 key 不受影响）；C-2 嵌套事件按 AC7 逐字**保守通知**
@@ -648,8 +685,10 @@ function collectChanges(
       // 谓词在场 = 保守通知（AC7 逐字：嵌套部分更新旧态不可判；真变前提已成立）。
       byKey.set(entryKey, makeChange(containerPath, entryKey));
     }
-    // C-3 容器级事件（父路径 + 本条键 = 容器创建/删除/整替）→ T1 不产出条目定位符
-    //（父路径删除编排属 T4 #390）——落入「无命中」分支。
+    // C-3 容器级事件（父路径 + 本条键 = 容器创建/删除/整替）：删除/整替的编排在
+    // handler 内 `detectStructuralInvalidation` 前置短路（T4 #390），本函数对
+    // 「事件路径短于容器路径」恒不命中——即 T1 的「无命中」分支语义（此处不产出
+    // 条目定位符）。
   }
   return [...byKey.values()];
 }
@@ -732,7 +771,8 @@ function captureRootMap(doc: Y.Doc): Y.Map<unknown> | undefined {
 
 /**
  * 创建订阅中枢：构造期挂接 ROOT `observeDeep`（每 Runtime 恰一次）；
- * `queueCapacity` 为唯一构造参数位（缺省 16 实现常量——T4 #390 注入纯加法）。
+ * `queueCapacity` 为唯一构造参数位（缺省 16 实现常量——T4 #390 经 runtime 装配缝
+ * 传入 testing 注入值；undefined 触发本缺省参数，生产行为逐字节不变）。
  */
 export function createWatchHub(
   doc: Y.Doc,
@@ -754,6 +794,12 @@ export function createWatchHub(
       const origin = classifyOrigin(transaction.origin);
       for (const subscription of subscriptions) {
         if (subscription.unsubscribed) continue;
+        // 【T4 #390 / D3】结构性失效（严格祖先删除/整替）→ 本事务该订阅 = 单条
+        // invalidate-all（短路条目聚合——事务级原子，B-7；订阅存活不变）。
+        if (detectStructuralInvalidation(events, subscription.containerPath)) {
+          enqueueInvalidateAll(subscription, origin);
+          continue;
+        }
         const changes = collectChanges(events, subscription.containerPath, subscription.predicate);
         if (changes.length === 0) continue;
         enqueueData(subscription, origin, changes);
@@ -766,7 +812,26 @@ export function createWatchHub(
   // 订阅建立于第 ③b 门响亮拒绝（见 captureRootMap 注）。
   if (root !== undefined) root.observeDeep(onRootTransaction);
 
-  /** 入队（溢出 → 清队 + 单条 invalidate-all；订阅存活——ADR §6 语义）。 */
+  /**
+   * 降级入队单点（T4 #390 / D4）：清空**在队未投递**通知 → 入队单条恰两键
+   * `{kind:'invalidate-all', origin}` → 槽外泵调度。溢出降级与结构性失效共用本单点
+   * （恰一条待投递；连续降级自然折叠 = 语义幂等——消费方全量重拉一次即自愈）。
+   *
+   * B-7：已投递序不被降级信号越过；在队未投递 data 允许被清（invalidate-all 语义上
+   * 包摄一切条目定位符）。全同步有界操作（零 await/零 throw 面）——分发仍在写序列器
+   * 槽之外（AC6）。
+   */
+  function enqueueInvalidateAll(
+    subscription: WatchSubscription,
+    origin: 'local' | 'replication',
+  ): void {
+    if (subscription.unsubscribed) return;
+    subscription.queue.length = 0; // 清空在队未投递通知
+    subscription.queue.push(Object.freeze({ kind: 'invalidate-all', origin }));
+    schedulePump(subscription);
+  }
+
+  /** 入队（溢出 → 降级单点；订阅存活——ADR §6 语义）。 */
   function enqueueData(
     subscription: WatchSubscription,
     origin: 'local' | 'replication',
@@ -774,13 +839,12 @@ export function createWatchHub(
   ): void {
     if (subscription.unsubscribed) return;
     if (subscription.queue.length >= queueCapacity) {
-      subscription.queue.length = 0; // 清空在队 data 通知
-      subscription.queue.push(Object.freeze({ kind: 'invalidate-all', origin }));
-    } else {
-      subscription.queue.push(
-        Object.freeze({ kind: 'data', origin, changes: Object.freeze([...changes]) }),
-      );
+      enqueueInvalidateAll(subscription, origin); // 溢出降级（T1 语义，单点化）
+      return;
     }
+    subscription.queue.push(
+      Object.freeze({ kind: 'data', origin, changes: Object.freeze([...changes]) }),
+    );
     schedulePump(subscription);
   }
 
