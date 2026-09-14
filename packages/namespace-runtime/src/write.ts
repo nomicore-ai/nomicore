@@ -22,7 +22,7 @@ import type * as Y from 'yjs';
 import type { DocHandle, DocHandleStatus } from '@nomicore/persistence';
 import type { DiagnosticIssue } from '@nomicore/namespace-diagnostic-log';
 import { applyValidatedMutation, DocRuntimeFatalError } from '@nomicore/doc-runtime';
-import type { ApplyValidatedMutationResult } from '@nomicore/doc-runtime';
+import type { ApplyValidatedMutationResult, MutationEnvelope } from '@nomicore/doc-runtime';
 import {
   FATAL_SCHEMA_WRITE_INTERNAL_CODE,
   FATAL_SCHEMA_WRITE_INTERNAL_MESSAGE,
@@ -91,7 +91,7 @@ export type WriteSlot = 'root' | 'schema' | 'replication' | 'replication-apply';
  * diag（issue #149）：可选 per-attempt 诊断收集器——未装配 emitter 时 undefined
  * （槽体全部 diag 写入 no-op，行为等价）；装配时每个结局点恰一行诊断写入（设计 §8.1）。
  */
-export async function runRootWriteSlot(env: WriteEnv, input: unknown, diag?: SlotDiag): Promise<MutateDataResult> {
+export async function runRootWriteSlot(env: WriteEnv, input: MutationEnvelope, diag?: SlotDiag): Promise<MutateDataResult> {
   // ── S1 fatal gate（零输入访问）───────────────────────────────────────
   if (env.state.fatal !== undefined) {
     const r = disabled('fatal 已置位（internal fatal 已永久禁用本 Runtime 的全部写能力，读取仍保留）');
@@ -311,7 +311,7 @@ export function errDetailOf(err: unknown): string {
 
 // ── D3 受控 snapshotter ────────────────────────────────────────────────────
 
-export type SnapshotResult = { kind: 'ok'; value: unknown } | { kind: 'issue'; issue: DataMutationIssue };
+export type SnapshotResult<T = unknown> = { kind: 'ok'; value: T } | { kind: 'issue'; issue: DataMutationIssue };
 
 /**
  * 槽起点输入快照（D3）。整体 try/catch：敌意 getter/Proxy trap 在快照读取面抛错
@@ -319,9 +319,10 @@ export type SnapshotResult = { kind: 'ok'; value: unknown } | { kind: 'issue'; i
  * fatal（防「一次敌意 value → Runtime 永久禁用写能力」DoS；SA6 冻结注释明文「输入缺陷属
  * 普通领域失败」）。导出供 SCHEMA 写槽复用（issue #91：S3 同款管线，R2 四查次序原样）。
  */
-export function snapshotMutation(input: unknown): SnapshotResult {
+export function snapshotMutation<T>(input: T): SnapshotResult<T> {
   try {
-    return { kind: 'ok', value: copyFrozen(input, new Set<object>()) };
+    // 泛型保型：copyFrozen 递归冻结不改静态形状（断言仅管道保型，非业务声明）
+    return { kind: 'ok', value: copyFrozen(input, new Set<object>()) as T };
   } catch (err) {
     return {
       kind: 'issue',

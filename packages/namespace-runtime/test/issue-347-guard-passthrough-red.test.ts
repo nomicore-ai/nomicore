@@ -20,6 +20,8 @@
  * 纪律：全部断言观察运行时行为（结果联合、readData 值、Y.Doc 字节、update 事件、notifier
  * 计数、诊断 record 内容）；无 skip/only/todo/env override；无源码字符串断言。
  */
+import type { MutationEnvelope } from '@nomicore/doc-runtime';
+import type { GuardedMutation, ValidatedMutation } from '@nomicore/doc-runtime';
 import { describe, expect, it } from 'vitest';
 import * as Y from 'yjs';
 import type { DocHandle, User } from '@nomicore/persistence';
@@ -141,7 +143,7 @@ async function waitAttempts(log: BoundedMemoryDiagnosticLog, expected: number): 
   return log.records().filter((record): record is AttemptRecord => record.recordKind === 'attempt');
 }
 
-const LEGAL_OPS = [
+const LEGAL_OPS: readonly ValidatedMutation[] = [
   { op: 'set', path: ['tasks', 't1', 'status'], value: 'reviewing' },
   { op: 'set', path: ['tasks', 't1', 'reviewer'], value: 'u9' },
   { op: 'array-insert', path: ['values'], index: 1, values: [9] },
@@ -318,7 +320,7 @@ describe('issue #347 E 组 — mutateData 携带 guard 的端到端透传（AC6/
 
     const result = await ctx.runtime.mutateData({
       ops: [{ op: 'set', path: ['n'], value: 5252, guard: { path: ['n'], equals: 1 } }],
-    });
+    } as MutationEnvelope);
 
     const failure = failureOf(result);
     expect(failure.issues[0]?.code, 'E7：批内元素 guard = 形状错误（无码、不可重试）').toBeUndefined();

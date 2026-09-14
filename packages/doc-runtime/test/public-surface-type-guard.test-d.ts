@@ -19,6 +19,9 @@
  * - 本文件两个正例 import 均报 TS2305 → 红。
  */
 import { describe, expectTypeOf, it } from 'vitest';
+import type * as Y from 'yjs';
+import type { DerivedSchema } from '@nomicore/vfsl';
+import { applyValidatedMutation } from '../src/index.js';
 import type {
   ApplyValidatedMutationResult,
   ArrayWindowEntry,
@@ -85,6 +88,10 @@ declare const windowFailureCode: WindowFailureCode;
 declare const windowFailure: WindowReadFailure;
 declare const arrayWindowResult: ReadArrayWindowResult;
 declare const mapWindowResult: ReadMapWindowResult;
+// applyValidatedMutation 参数面锚（纯类型层；调用全部包在箭头函数内，不产生运行时执行）
+declare const derived: DerivedSchema;
+declare const doc: Y.Doc;
+declare const dynamicEnvelope: unknown;
 
 describe('@nomicore/doc-runtime 公共入口 — mutation 类型名目恢复导出（issue #90 范围，类型层）', () => {
   it('恢复的名目可经公共入口导入：MutationIssue / ApplyValidatedMutationResult（任意缺失即 TS2305 红）', () => {
@@ -211,5 +218,48 @@ describe('@nomicore/doc-runtime 公共入口 — 窗口原语类型名目（ADR 
     expectTypeOf(arrayKeyTerm).toEqualTypeOf<ReadArrayWindowOptions>();
     expectTypeOf(mapIndexTerm).toEqualTypeOf<ReadMapWindowOptions>();
     expectTypeOf(mapMultiSegment).toEqualTypeOf<ReadMapWindowOptions>();
+  });
+});
+
+// ── applyValidatedMutation 参数面类型化信封（使用方体验：字面量获得判别联合检查）──────
+// 契约来源：ADR 0025 L21–27（顶层 guard）、ADR 0026 L25–33（批量 {ops} 双形态互斥、
+// 元素不得携带 guard）；公共类型 MutationEnvelope（GuardedMutation | BatchedMutation）。
+// 红绿翻转：当前基线第三参 `ValidatedMutation | unknown` 规约为 unknown——字面量错形状
+// 不报错 → @ts-expect-error 未使用（TS2578）→ 红；参数收窄为 MutationEnvelope 后
+// 负例真实报错 → 指令生效 → 绿。动态构造信封经 `as MutationEnvelope` 显式断言。
+
+describe('@nomicore/doc-runtime 公共入口 — applyValidatedMutation 类型化信封（类型层）', () => {
+  it('正例：双形态信封字面量 / 显式断言动态信封均可直接调用（回归锚）', () => {
+    const applySet = () => applyValidatedMutation(derived, doc, { op: 'set', path: ['n'], value: 1 });
+    const applyGuarded = () =>
+      applyValidatedMutation(derived, doc, {
+        op: 'set', path: ['n'], value: 2,
+        guard: { path: ['n'], equals: 1 },
+      });
+    const applyBatched = () =>
+      applyValidatedMutation(derived, doc, {
+        ops: [{ op: 'delete', path: ['m'] }],
+        guard: { path: ['n'], absent: true },
+      });
+    const applyDynamic = () => applyValidatedMutation(derived, doc, dynamicEnvelope as MutationEnvelope);
+    expectTypeOf(applySet).returns.toEqualTypeOf<ApplyValidatedMutationResult>();
+    expectTypeOf(applyGuarded).returns.toEqualTypeOf<ApplyValidatedMutationResult>();
+    expectTypeOf(applyBatched).returns.toEqualTypeOf<ApplyValidatedMutationResult>();
+    expectTypeOf(applyDynamic).returns.toEqualTypeOf<ApplyValidatedMutationResult>();
+  });
+
+  it('负例 fail-closed：拼错 guard 键 / 双形态同现 / 未知 op（TS2353/TS2322 → 指令生效绿）', () => {
+    const applyTypo = () =>
+      // @ts-expect-error 拼错 guard 键：联合成员均无 gaurd 属性（TS2353）
+      applyValidatedMutation(derived, doc, { op: 'set', path: ['n'], value: 1, gaurd: { path: ['n'], equals: 1 } });
+    const applyDual = () =>
+      // @ts-expect-error 双形态同现：单操作字段组 + ops 互斥（TS2353）
+      applyValidatedMutation(derived, doc, { op: 'set', path: ['n'], value: 1, ops: [{ op: 'set', path: ['m'], value: 2 }] });
+    const applyUnknownOp = () =>
+      // @ts-expect-error 未知 op 判别值：不属四操作任一分支（TS2322）
+      applyValidatedMutation(derived, doc, { op: 'nope', path: ['n'], value: 1 });
+    expectTypeOf(applyTypo).toBeFunction();
+    expectTypeOf(applyDual).toBeFunction();
+    expectTypeOf(applyUnknownOp).toBeFunction();
   });
 });

@@ -66,6 +66,7 @@
  * 在首个 replaceSchema 调用/类型断言处红（TypeError: runtime.replaceSchema is not a
  * function / expected 'undefined' to be 'function'）。
  */
+import type { GuardedMutation } from '@nomicore/doc-runtime';
 import { describe, expect, it, beforeAll } from 'vitest';
 import * as Y from 'yjs';
 import type { DocHandle, User } from '@nomicore/persistence';
@@ -107,7 +108,7 @@ const ENV3: Readonly<SchemaEnvelope> = { lang: 'vfsl', version: 1, id: 'ns-3', t
 /** 完整 logical ROOT（v2 形状）。 */
 const ROOT_WITH_B = { n: 2, a: 'y', b: true };
 const ROOT0 = { n: 1, a: 'x' };
-const SET_N = (value: unknown) => ({ op: 'set', path: ['n'], value });
+const SET_N = (value: unknown): GuardedMutation => ({ op: 'set', path: ['n'], value });
 
 function deferred(): { promise: Promise<void>; resolve: () => void } {
   let resolve!: () => void;

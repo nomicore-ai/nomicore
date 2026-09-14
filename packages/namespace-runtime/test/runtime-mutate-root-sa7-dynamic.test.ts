@@ -21,6 +21,8 @@
  * 断言纪律：全部经公共接缝（mutateData/read/getStatus/update 事件计数/state 字节/
  * notifier 调用计数/Proxy 输入访问计数）观测，不读实现内部。
  */
+import type { MutationEnvelope } from '@nomicore/doc-runtime';
+import type { GuardedMutation } from '@nomicore/doc-runtime';
 import { describe, expect, it } from 'vitest';
 import * as Y from 'yjs';
 import type { DocHandle, User } from '@nomicore/persistence';
@@ -34,7 +36,7 @@ const OWNER: User = { userId: 'u-alice' };
 const TEXT_VALID = 'type ROOT = { n: number; a: string; };';
 const ENVELOPE = { lang: 'vfsl', version: 1, id: 'ns-1', text: TEXT_VALID } as const;
 const ROOT0 = { n: 1, a: 'x' };
-const SET_N = (value: unknown) => ({ op: 'set', path: ['n'], value });
+const SET_N = (value: unknown): GuardedMutation => ({ op: 'set', path: ['n'], value });
 
 function sleep(ms: number): Promise<void> {
   return new Promise((r) => setTimeout(r, ms));
@@ -169,7 +171,7 @@ describe('SA7 动态验证 — SA4 重点 1：notifier 挂住双窗口', () => {
     const updates = countUpdates(doc);
     const pA = runtime.mutateData(SET_N(9));
     const { probe, accesses } = makeAccessProbe(11);
-    const pB = runtime.mutateData(probe); // 同 tick FIFO 排队第二笔
+    const pB = runtime.mutateData(probe as MutationEnvelope); // 同 tick FIFO 排队第二笔
     await sleep(200); // 给足微任务/事件循环余量——若实现静默跳过/降级，此处即暴露
 
     // 事务已 live commit（S5 完成）：恰 1 次更新事件 + notifier 恰一次被调用
@@ -213,7 +215,7 @@ describe('SA7 动态验证 — SA4 重点 1：notifier 挂住双窗口', () => {
     const updates = countUpdates(doc);
     const pA = runtime.mutateData(SET_N(9));
     const { probe, accesses } = makeAccessProbe(11);
-    const pB = runtime.mutateData(probe); // 已接纳未执行的后续写
+    const pB = runtime.mutateData(probe as MutationEnvelope); // 已接纳未执行的后续写
     await sleep(200);
 
     // fatal 摘要先于（永不送达的）rejection 可观测——markWriteFatal 同步先行兑现
@@ -293,7 +295,7 @@ describe('SA7 动态验证 — SA4 重点 2（O1）：getStatus adapter 持续�
     // 队列不被毒死：后续写取得槽、经 S1 fatal gate 结算（非挂住）——与 DV-1b 的
     // 队列停滞（notifier 挂住阻断槽释放）形成对照
     const { probe, accesses } = makeAccessProbe(77);
-    const second = await settleOf(runtime.mutateData(probe));
+    const second = await settleOf(runtime.mutateData(probe as MutationEnvelope));
     expect(second.kind).toBe('resolved');
     if (second.kind !== 'resolved') return;
     expect(second.value).toMatchObject({ ok: false });

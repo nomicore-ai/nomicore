@@ -34,6 +34,7 @@
  * - P0 internal fault：seam 注入 compile 抛错（P0 队首 internal fault → status.fatal 摘要
  *   = FATAL_P0_INTERNAL_MESSAGE；fatal 后写槽 S1 gate → RUNTIME_WRITE_DISABLED 措辞观察面）。
  */
+import type { GuardedMutation } from '@nomicore/doc-runtime';
 import { describe, expect, it } from 'vitest';
 import * as Y from 'yjs';
 import type { DocHandle, User } from '@nomicore/persistence';
@@ -47,7 +48,7 @@ const OWNER: User = { userId: 'u-alice' };
 const TEXT_VALID = 'type ROOT = { n: number; a: string; };';
 const ENVELOPE = { lang: 'vfsl', version: 1, id: 'ns-1', text: TEXT_VALID } as const;
 const ROOT0 = { n: 1, a: 'x' };
-const SET_N = (value: unknown) => ({ op: 'set', path: ['n'], value });
+const SET_N = (value: unknown): GuardedMutation => ({ op: 'set', path: ['n'], value });
 
 // —— 构造的泄漏 sentinel（原始异常文本的三类敏感内容：ROOT 数据 / SCHEMA 文本 / mutation 输入）——
 

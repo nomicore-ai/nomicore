@@ -29,6 +29,7 @@
  * createMemoryPersistence 不参与——close 的 release 语义在此以 seam 控制面观测）；
  * P0/编译/notifier 走真实实现或注入受控接缝，零网络、零端口。
  */
+import type { GuardedMutation } from '@nomicore/doc-runtime';
 import { describe, expect, it } from 'vitest';
 import * as Y from 'yjs';
 import { RuntimeWriteFatalError } from '../src/index.js';
@@ -41,7 +42,7 @@ const OWNER: User = { userId: 'u-alice' };
 const TEXT_VALID = 'type ROOT = { n: number; a: string; };';
 const ENVELOPE = { lang: 'vfsl', version: 1, id: 'ns-1', text: TEXT_VALID } as const;
 const ROOT0 = { n: 1, a: 'x' };
-const SET_N = (value: unknown) => ({ op: 'set', path: ['n'], value });
+const SET_N = (value: unknown): GuardedMutation => ({ op: 'set', path: ['n'], value });
 
 // —— fixture ——
 

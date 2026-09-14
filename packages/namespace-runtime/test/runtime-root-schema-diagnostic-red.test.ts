@@ -30,6 +30,7 @@
  * - 日志侧故障（emitter throw、队列满）不改业务返回值、sequencer 顺序、dirty
  *   notification 与 Runtime capability。
  */
+import type { MutationEnvelope } from '@nomicore/doc-runtime';
 import { describe, expect, it } from 'vitest';
 import * as Y from 'yjs';
 import type { DocHandle, User } from '@nomicore/persistence';
@@ -257,7 +258,7 @@ describe('#149 ROOT mutation 诊断记录（红灯契约）', () => {
       },
     });
 
-    const res = await runtime.mutateData(hostile);
+    const res = await runtime.mutateData(hostile as MutationEnvelope);
     expect(res.ok).toBe(false);
     expect(JSON.stringify(res)).toContain('MUTATION_INPUT_NOT_PLAIN_DATA');
     expect(fired).toBe(0); // 快照器拒绝先于任何值读取
@@ -289,7 +290,7 @@ describe('#149 ROOT mutation 诊断记录（红灯契约）', () => {
         notifyDirty: () => writer.saveDoc(handle),
         ...(log === undefined ? {} : { diagnosticEmitter: log.emitter, clock: () => NOW_MS }),
       });
-      const res = await runtime.mutateData(mutation);
+      const res = await runtime.mutateData(mutation as MutationEnvelope);
       expect(res).toEqual({ ok: true });
       const attempts = log === undefined ? 0 : await waitAttempts(log, 1).then((r) => r.length);
       await handle.release();

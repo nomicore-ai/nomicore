@@ -21,7 +21,7 @@ import * as Y from 'yjs';
 import { evaluate, parseVfsl } from '@nomicore/vfsl';
 import type { DerivedSchema } from '@nomicore/vfsl';
 import { applyValidatedMutation, materializeRoot } from '../src/index.js';
-import type { ApplyValidatedMutationResult, MutationIssue } from '../src/index.js';
+import type { ApplyValidatedMutationResult, MutationEnvelope, MutationIssue } from '../src/index.js';
 
 // ── fixture ──────────────────────────────────────────────────────────────────
 
@@ -75,7 +75,7 @@ function fixture(snapshot: Record<string, unknown> = baseSnapshot()): Fx {
 }
 
 function run(fx: Fx, mutation: unknown): ApplyValidatedMutationResult {
-  return applyValidatedMutation(fx.derived, fx.doc, mutation);
+  return applyValidatedMutation(fx.derived, fx.doc, mutation as MutationEnvelope);
 }
 
 function bytes(doc: Y.Doc): number[] {

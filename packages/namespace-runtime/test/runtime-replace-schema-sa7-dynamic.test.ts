@@ -33,6 +33,7 @@
  * getActiveSchema/getStatus/update 事件计数/state 字节/notifier 计数）观测，
  * 不读实现内部、零源码字符串断言。
  */
+import type { GuardedMutation } from '@nomicore/doc-runtime';
 import { describe, expect, it } from 'vitest';
 import * as Y from 'yjs';
 import type { DocHandle, User } from '@nomicore/persistence';
@@ -75,7 +76,7 @@ const TEXT_ARR = 'type ROOT = { n: number; a: string[]; };';
 const ENV_ARR: Readonly<SchemaEnvelope> = { lang: 'vfsl', version: 1, id: 'ns-arr', text: TEXT_ARR };
 
 const ROOT0 = { n: 1, a: 'x' };
-const SET_N = (value: unknown) => ({ op: 'set', path: ['n'], value });
+const SET_N = (value: unknown): GuardedMutation => ({ op: 'set', path: ['n'], value });
 
 /** SCHEMA 写槽 fatal 摘要稳定码（errors.ts append-only 新码——status.fatal 来源判别）。 */
 const FATAL_SCHEMA_CODE = 'NSRT-FATAL-SCHEMA-WRITE-INTERNAL';

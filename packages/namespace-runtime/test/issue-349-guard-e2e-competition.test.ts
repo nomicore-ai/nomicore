@@ -28,6 +28,7 @@
  * notifier 计数、诊断 record 内容、seam 槽样本）；无 skip/only/todo/env override；
  * 无源码字符串断言；无 sleep 阈值断言。
  */
+import type { BatchedMutation, GuardedMutation, MutationEnvelope, ValidatedMutation } from '@nomicore/doc-runtime';
 import { describe, expect, it } from 'vitest';
 import * as Y from 'yjs';
 import type { DocHandle, User } from '@nomicore/persistence';
@@ -248,20 +249,20 @@ function isReleased(handle: DocHandle): boolean {
   return (handle as unknown as { isReleased: boolean }).isReleased;
 }
 
-const SINGLE_GUARDED = (value: string, equals: string) => ({
+const SINGLE_GUARDED = (value: string, equals: string): GuardedMutation => ({
   op: 'set',
   path: [...GUARD_PATH],
   value,
   guard: { path: [...GUARD_PATH], equals },
 });
 
-const LEGAL_OPS = [
+const LEGAL_OPS: readonly ValidatedMutation[] = [
   { op: 'set', path: ['tasks', 't1', 'status'], value: 'reviewing' },
   { op: 'set', path: ['tasks', 't1', 'reviewer'], value: 'u9' },
   { op: 'array-insert', path: ['values'], index: 1, values: [9] },
 ];
 
-const BATCH_GUARDED = (value: string) => ({
+const BATCH_GUARDED = (value: string): BatchedMutation => ({
   ops: [
     { op: 'set', path: ['tasks', 't1', 'status'], value },
     { op: 'set', path: ['n'], value: 7 },
@@ -528,7 +529,7 @@ describe('issue #349 L 组 — lifecycle 接纳门次序（guard 不改变门次
     const updates = collectUpdates(ctx.doc);
 
     const cp = ctx.runtime.close();
-    const result = await ctx.runtime.mutateData(proxy); // 门若在输入读取之后 → Proxy trap 抛/计数 > 0
+    const result = await ctx.runtime.mutateData(proxy as MutationEnvelope); // 门若在输入读取之后 → Proxy trap 抛/计数 > 0
 
     const failure = failureOf(result);
     expect(failure.issues).toHaveLength(1);
@@ -751,7 +752,7 @@ describe('issue #349 NC 组 — 负控锚', () => {
 
     const result = await ctx.runtime.mutateData({
       ops: [{ op: 'set', path: ['n'], value: 5252, guard: { path: ['n'], equals: 1 } }],
-    });
+    } as MutationEnvelope);
 
     const failure = failureOf(result);
     expect(failure.issues[0]?.code, 'NC3：批内元素 guard = 形状错误（无码、不可重试）').toBeUndefined();

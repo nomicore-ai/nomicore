@@ -34,7 +34,7 @@ import { evaluate, parseVfsl } from '@nomicore/vfsl';
 import type { DerivedSchema } from '@nomicore/vfsl';
 import * as docRuntime from '../src/index.js';
 import { applyValidatedMutation, materializeRoot } from '../src/index.js';
-import type { ApplyValidatedMutationResult, MutationIssue } from '../src/index.js';
+import type { ApplyValidatedMutationResult, MutationEnvelope, MutationIssue } from '../src/index.js';
 
 // ── 公共面导出（AC7 / P1–P2）：HEAD 为 undefined（红），实现后 === 字面量稳定码 ──────────
 const ns = docRuntime as Record<string, unknown>;
@@ -89,7 +89,7 @@ function fixture(snapshot: Record<string, unknown> = baseSnapshot()): Fx {
 
 /** 单一 Y.Doc 写入口；第三参公共类型为 `ValidatedMutation | unknown`，guard 信封原样传入。 */
 function run(fx: Fx, mutation: unknown): ApplyValidatedMutationResult {
-  return applyValidatedMutation(fx.derived, fx.doc, mutation);
+  return applyValidatedMutation(fx.derived, fx.doc, mutation as MutationEnvelope);
 }
 
 function bytes(doc: Y.Doc): number[] {

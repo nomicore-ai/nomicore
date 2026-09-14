@@ -56,6 +56,7 @@
  * 红灯现状（构造性红灯）：runtime.mutateData 尚未实现（当前公共面只有七键只读面）——
  * 全部用例在首个 mutateData 调用处红（TypeError: runtime.mutateData is not a function）。
  */
+import type { GuardedMutation } from '@nomicore/doc-runtime';
 import { describe, expect, it, beforeAll } from 'vitest';
 import * as Y from 'yjs';
 import type { DocHandle, User } from '@nomicore/persistence';
@@ -89,7 +90,7 @@ const OWNER: User = { userId: 'u-alice' };
 const TEXT_VALID = 'type ROOT = { n: number; a: string; };';
 const ENVELOPE = { lang: 'vfsl', version: 1, id: 'ns-1', text: TEXT_VALID } as const;
 const ROOT0 = { n: 1, a: 'x' };
-const SET_N = (value: unknown) => ({ op: 'set', path: ['n'], value });
+const SET_N = (value: unknown): GuardedMutation => ({ op: 'set', path: ['n'], value });
 
 function deferred(): { promise: Promise<void>; resolve: () => void } {
   let resolve!: () => void;
