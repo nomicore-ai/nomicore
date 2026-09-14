@@ -1,0 +1,33 @@
+# SA3 聚焦验证 — issue #381（窗口家族 8 文件，含 .test-d 类型检查）
+# worktree: /home/wangjian/nomicore-fix-issue-381  HEAD: 8a4fa404076afdae9d974c1ad15bd985e24d58ac
+# 时间: 2026-09-14T11:58:12Z
+$ NODE_OPTIONS=--conditions=nomicore-source npx vitest run <契约/pins/新增 T 组/守卫/composition/lease + 两 .test-d> --typecheck
+Testing types with tsc and vue-tsc is an experimental feature.
+Breaking changes might not follow SemVer, please pin Vitest's version when using it.
+
+ RUN  v3.2.7 /home/wangjian/nomicore-fix-issue-381
+
+ ✓ packages/doc-runtime/test/issue-368-window-read-design-pins.test.ts (11 tests) 19ms
+ ✓ packages/namespace-registry/test/issue-369-window-read-lease-contract-red.test.ts (33 tests) 158ms
+ ✓ packages/namespace-runtime/test/issue-369-window-read-composition-red.test.ts (17 tests) 73ms
+ ✓ packages/doc-runtime/test/issue-368-window-read-contract-red.test.ts (47 tests) 61ms
+ ✓ packages/doc-runtime/test/issue-381-window-total-red.test.ts (14 tests) 29ms
+ ✓ packages/doc-runtime/test/public-surface-guard.test.ts (6 tests) 4ms
+ ✓  TS  packages/doc-runtime/test/public-surface-type-guard.test-d.ts (14 tests)
+ ✓  TS  packages/namespace-registry/test/issue-369-window-read-lease-surface.test-d.ts (2 tests)
+
+ Test Files  8 passed (8)
+      Tests  144 passed (144)
+Type Errors  no errors
+   Start at  19:58:12
+   Duration  7.87s (transform 604ms, setup 0ms, collect 1.36s, tests 343ms, environment 1ms, prepare 327ms, typecheck 7.80s)
+
+[vitest exit=0]
+
+# ── 受影响 package typecheck ──
+$ npx tsc -p packages/doc-runtime/tsconfig.json
+[exit=0]
+$ npx tsc -p packages/namespace-runtime/tsconfig.json
+[exit=0]
+$ npx tsc -p packages/namespace-registry/tsconfig.json
+[exit=0]

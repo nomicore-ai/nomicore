@@ -1,0 +1,96 @@
+# SA3 敏感度/反伪绿变异实验 — issue #381（SA6 §12.8；每次变异后 git checkout 还原）
+# 时间: 2026-09-14T11:58:48Z
+
+## 变异 A：W1 total := value.length（少算截断——E3 曾证 HEAD 族不敏感）
+217:    return { ok: true, value: entries, total: entries.length };
+   × W1 三键结算（issue #381 / ADR 0029 §5）：T1 own 键集 + T2 total 数值性 > T1/T2 四载体（Y.Array / plain array / Y.Map / plain object）成功结算恰三键且 total 恒为 ≥0 整数 17ms
+   × W1 total 语义（B-3）：T3 独立预言机逐位对账 + T5 边界矩阵 > T3 四载体 total ≡ 原生/Yjs 直数预言机（稀疏空洞、undefined 值键、accessor/non-enumerable 全覆盖） 2ms
+   × W1 total 语义（B-3）：T3 独立预言机逐位对账 + T5 边界矩阵 > T5 边界矩阵预言机逐位对账（含 ROOT 面 9 键；断言值非巧合） 4ms
+   ✓ W1 total 与 value 关系（B-4）：T4 `value.length === min(n, total)` > T4a n ≥ total：窗口取满候选空间（value.length === total） 1ms
+   × W1 total 与 value 关系（B-4）：T4 `value.length === min(n, total)` > T4b n < total：窗口只取前 n 项（value.length === n < total） 1ms
+   ✓ W1 total 与 value 关系（B-4）：T4 `value.length === min(n, total)` > T4c 空载体：n 任意 ⟹ value=[] ∧ total=0（min 恒 0） 1ms
+   ✓ W1 total 不变性：T6 排序基/方向 + T7 预算轴 > T6 数组面 index 基 asc/desc、键面 key 基 asc/desc、键面 field 基 asc/desc ⟹ total 恒定 1ms
+   ✓ W1 total 不变性：T6 排序基/方向 + T7 预算轴 > T7 depth / maxChildrenPerNode 在场或缺席 ⟹ total 恒定（预算只影响物化） 3ms
+   × W1 total 成本纪律（ADR 0028 §8）：T8 N=2000 毒值 + n=2 > T8 total=2000 且只物化 2 项（「为拿 total 全量物化」的实现必红） 3ms
+   ✓ W1 失败面（B-5）：T9 三码 + PATH_NOT_ALLOWED 透传；四键形状无 value/total > T9a WINDOW_TARGET_ABSENT：缺键 / 数组越界 1ms
+   ✓ W1 失败面（B-5）：T9 三码 + PATH_NOT_ALLOWED 透传；四键形状无 value/total > T9b WINDOW_CARRIER_MISMATCH：载体与面符不符（两向） 1ms
+   ✓ W1 失败面（B-5）：T9 三码 + PATH_NOT_ALLOWED 透传；四键形状无 value/total > T9c WINDOW_OPTIONS_INVALID：n=0 / 未知键 / 语境外排序项（零 doc 触碰） 1ms
+   ✓ W1 失败面（B-5）：T9 三码 + PATH_NOT_ALLOWED 透传；四键形状无 value/total > T9d 入选项物化失败透传 PATH_NOT_ALLOWED（path 精确到项；无半窗） 1ms
+   ✓ W1 失败面（B-5）：T9 三码 + PATH_NOT_ALLOWED 透传；四键形状无 value/total > T9e 失败成员不含 total（增键不回渗失败面） 1ms
+AssertionError: expected 2 to be 3 // Object.is equality
+AssertionError: Y.Array: total ≡ 独立预言机: expected 1 to be 3 // Object.is equality
+AssertionError: 稀疏 plain array（n=1 避开空洞物化）: total ≡ 预言机常量: expected 1 to be 4 // Object.is equality
+AssertionError: expected 2 to be 9 // Object.is equality
+AssertionError: T8: total = 候选标识计数（含尾部毒值）: expected 2 to be 2000 // Object.is equality
+ Test Files  1 failed (1)
+      Tests  5 failed | 9 passed (14)
+
+## 变异 B：W1 total := candidates.length + 1（错值）
+217:    return { ok: true, value: entries, total: candidates.length + 1 };
+   × W1 三键结算（issue #381 / ADR 0029 §5）：T1 own 键集 + T2 total 数值性 > T1/T2 四载体（Y.Array / plain array / Y.Map / plain object）成功结算恰三键且 total 恒为 ≥0 整数 13ms
+   × W1 total 语义（B-3）：T3 独立预言机逐位对账 + T5 边界矩阵 > T3 四载体 total ≡ 原生/Yjs 直数预言机（稀疏空洞、undefined 值键、accessor/non-enumerable 全覆盖） 2ms
+   × W1 total 语义（B-3）：T3 独立预言机逐位对账 + T5 边界矩阵 > T5 边界矩阵预言机逐位对账（含 ROOT 面 9 键；断言值非巧合） 3ms
+   × W1 total 与 value 关系（B-4）：T4 `value.length === min(n, total)` > T4a n ≥ total：窗口取满候选空间（value.length === total） 1ms
+   × W1 total 与 value 关系（B-4）：T4 `value.length === min(n, total)` > T4b n < total：窗口只取前 n 项（value.length === n < total） 2ms
+   × W1 total 与 value 关系（B-4）：T4 `value.length === min(n, total)` > T4c 空载体：n 任意 ⟹ value=[] ∧ total=0（min 恒 0） 1ms
+   × W1 total 不变性：T6 排序基/方向 + T7 预算轴 > T6 数组面 index 基 asc/desc、键面 key 基 asc/desc、键面 field 基 asc/desc ⟹ total 恒定 1ms
+   × W1 total 不变性：T6 排序基/方向 + T7 预算轴 > T7 depth / maxChildrenPerNode 在场或缺席 ⟹ total 恒定（预算只影响物化） 1ms
+   × W1 total 成本纪律（ADR 0028 §8）：T8 N=2000 毒值 + n=2 > T8 total=2000 且只物化 2 项（「为拿 total 全量物化」的实现必红） 7ms
+   ✓ W1 失败面（B-5）：T9 三码 + PATH_NOT_ALLOWED 透传；四键形状无 value/total > T9a WINDOW_TARGET_ABSENT：缺键 / 数组越界 1ms
+   ✓ W1 失败面（B-5）：T9 三码 + PATH_NOT_ALLOWED 透传；四键形状无 value/total > T9b WINDOW_CARRIER_MISMATCH：载体与面符不符（两向） 1ms
+   ✓ W1 失败面（B-5）：T9 三码 + PATH_NOT_ALLOWED 透传；四键形状无 value/total > T9c WINDOW_OPTIONS_INVALID：n=0 / 未知键 / 语境外排序项（零 doc 触碰） 1ms
+   ✓ W1 失败面（B-5）：T9 三码 + PATH_NOT_ALLOWED 透传；四键形状无 value/total > T9d 入选项物化失败透传 PATH_NOT_ALLOWED（path 精确到项；无半窗） 1ms
+   ✓ W1 失败面（B-5）：T9 三码 + PATH_NOT_ALLOWED 透传；四键形状无 value/total > T9e 失败成员不含 total（增键不回渗失败面） 1ms
+AssertionError: expected 4 to be 3 // Object.is equality
+AssertionError: Y.Array: total ≡ 独立预言机: expected 4 to be 3 // Object.is equality
+AssertionError: Y.Array 全量: total ≡ 预言机常量: expected 4 to be 3 // Object.is equality
+AssertionError: expected 4 to be 3 // Object.is equality
+AssertionError: expected 10 to be 9 // Object.is equality
+AssertionError: expected 1 to be +0 // Object.is equality
+AssertionError: array index asc: total 不随排序/方向变化: expected 4 to be 3 // Object.is equality
+AssertionError: array budget {"n":9}: total 恒定: expected 4 to be 3 // Object.is equality
+AssertionError: T8: total = 候选标识计数（含尾部毒值）: expected 2001 to be 2000 // Object.is equality
+ Test Files  1 failed (1)
+      Tests  9 failed | 5 passed (14)
+
+## 还原核对
+ packages/doc-runtime/src/window.ts | 31 ++++++++++++++++++++-----------
+ 1 file changed, 20 insertions(+), 11 deletions(-)
+# 还原后聚焦 T 组复绿：
+ Test Files  1 passed (1)
+      Tests  14 passed (14)
+
+## 变异 C：组合层 total := kept（E2 同款；应击穿 lease/composition 回归面）
+177:  const truncated = kept < kept;
+   × 组 A（AC1）：恒四键 own 键集、条目列表身份随行、空容器元素口径、基×方向矩阵 > A1 数组面：恰四键、条目 own 键恰 [index,value]、desc 窗口条目列表 + Byte 级 schema 14ms
+   × 组 A（AC1）：恒四键 own 键集、条目列表身份随行、空容器元素口径、基×方向矩阵 > A2 键面：恰四键、条目 own 键恰 [key,value]、field 基 desc 条目列表 + oracle 正文 + Byte 级事实行 4ms
+   ✓ 组 A（AC1）：恒四键 own 键集、条目列表身份随行、空容器元素口径、基×方向矩阵 > A3 空容器四类：value:[] + 元素口径 schema + 无 ✂ + truncated:false 3ms
+   × 组 A（AC1）：恒四键 own 键集、条目列表身份随行、空容器元素口径、基×方向矩阵 > A4 基×方向矩阵：index asc/desc、key asc/desc、field asc/desc 的序列与事实行 token 一致 3ms
+   ✓ 组 A（AC1）：恒四键 own 键集、条目列表身份随行、空容器元素口径、基×方向矩阵 > A5 身份回环：条目身份拼 [...path, 身份] 深读 ≡ 同预算 readData(项路径).value 2ms
+   ✓ 组 A（AC1）：恒四键 own 键集、条目列表身份随行、空容器元素口径、基×方向矩阵 > A6 包装不进口径：schema ≡ 元素口径正文（不含 index/key 包装键） 2ms
+   × 组 T（AC3）：✂ 段呈现 kept/total + 基与方向；truncated 与之一致 > T1 kept<total：数组 / 键面 / 字段基三类事实行与 truncated 一致 2ms
+   × 组 T（AC3）：✂ 段呈现 kept/total + 基与方向；truncated 与之一致 > T4 n=1 / desc：窗口长度恰 1、事实行 kept 1/total N 2ms
+   × 组 T（AC3）：✂ 段呈现 kept/total + 基与方向；truncated 与之一致 > T5 敌意 field 名（呈现安全）：行注入载荷折叠为单行、✂ 块恒头行 + 恰一行事实行、值通道按 raw 名选窗 3ms
+   × 组 T（AC3）：✂ 段呈现 kept/total + 基与方向；truncated 与之一致 > T6 敌意 field 名 \r / \r\n 变体：折叠三分支行为一致（基槽呈折后名） 3ms
+   × 组 T（AC3）：✂ 段呈现 kept/total + 基与方向；truncated 与之一致 > T7 边界：显式 undefined 值键出条目空间（Y.Map 与 plain object）、accessor/non-enumerable 出空间、稀疏 plain 数组、readMap([]) 2ms
+   × 组 T（AC3）：✂ 段呈现 kept/total + 基与方向；truncated 与之一致 > T8 敌意 path（F-369-1 主型）：S6 二次迭代协议读被投毒 → 零外抛、事实行取自单次快照（= 读取路径）、值通道不受影响 2ms
+   × 组 T（AC3）：✂ 段呈现 kept/total + 基与方向；truncated 与之一致 > T9 敌意 path（诚实 null 型）：快照迭代协议读不可验证 → 零外抛、schema:null、值通道与 truncated 保持 2ms
+   × 组 E（AC4）：入选项物化 ≡ 同预算 readData(项路径) 逐字节；零物化哨兵 > E3 N=2000 毒值 + n=2：ok:true、kept 2/total 2000（全量物化实现必红） 3ms
+   × S3 canonical 接缝：正常零差异；敌意视图稳定性失败响亮收编 > 正常 options：canonical 不改变语义（值通道与直调 W1 逐字段相同、schem 非 null、零 get trap） 11ms
+   × S4 total 计数：与 W1 条目空间逐位一致（独立预言机对账） > 边界矩阵：Y.Array / 空数组 / Y.Map 显式 undefined 值键 / plain object accessor 与非枚举键 / 稀疏 plain 数组 / 空载体 / ROOT 面 3ms
+   × S4 total 计数：与 W1 条目空间逐位一致（独立预言机对账） > ROOT 面密钥与 ✂ 事实行：空路径取渲染器约定字面 `[]`（B-8 槽①） 3ms
+   × S5 schema 锚链：正文 + `‡` 页脚 ≡ 同预算 readData(锚) 双侧剥离对账 > 无 active schema：info 通道照常四键、schema:null（锚失败不构成读失败） 1ms
+   × E3/E4 零物化哨兵：未入选子项零物化；入选毒项 fail-fast 无半窗 > E3：N=2000 毒值 + n=2 → ok:true、kept 2/total 2000（任何全量物化实现必红） 5ms
+⎯⎯⎯⎯⎯⎯ Failed Tests 16 ⎯⎯⎯⎯⎯⎯⎯
+ FAIL  packages/namespace-registry/test/issue-369-window-read-lease-contract-red.test.ts > 组 A（AC1）：恒四键 own 键集、条目列表身份随行、空容器元素口径、基×方向矩阵 > A1 数组面：恰四键、条目 own 键恰 [index,value]、desc 窗口条目列表 + Byte 级 schema
+ FAIL  packages/namespace-registry/test/issue-369-window-read-lease-contract-red.test.ts > 组 A（AC1）：恒四键 own 键集、条目列表身份随行、空容器元素口径、基×方向矩阵 > A2 键面：恰四键、条目 own 键恰 [key,value]、field 基 desc 条目列表 + oracle 正文 + Byte 级事实行
+ FAIL  packages/namespace-registry/test/issue-369-window-read-lease-contract-red.test.ts > 组 A（AC1）：恒四键 own 键集、条目列表身份随行、空容器元素口径、基×方向矩阵 > A4 基×方向矩阵：index asc/desc、key asc/desc、field asc/desc 的序列与事实行 token 一致
+    566|     // raw 路径偏离 schema → 锚不可解析：schema:null × truncated:true（ADR-0027 已…
+ Test Files  2 failed (2)
+
+# 还原核对（window-read.ts 应与已实现态一致 = 变更集内 diff，非空即还原成功）
+ packages/namespace-runtime/src/window-read.ts | 395 +++-----------------------
+ 1 file changed, 40 insertions(+), 355 deletions(-)
+# 还原后聚焦回归面复绿：
+ Test Files  2 passed (2)
+      Tests  50 passed (50)

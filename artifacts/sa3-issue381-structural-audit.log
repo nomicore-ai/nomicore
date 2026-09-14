@@ -1,0 +1,89 @@
+# SA3 结构审计原始输出 — issue #381（X1–X5；SA6 §12.6 / 设计 §7 D6-P5）
+# worktree: /home/wangjian/nomicore-fix-issue-381  HEAD: 8a4fa404076afdae9d974c1ad15bd985e24d58ac  branch: mabf/issue-381
+# 时间: 2026-09-14T11:57:50Z
+
+## X1 — S4 计数函数名全量消失（作用域 packages/namespace-runtime/src/*.ts）
+$ grep -n "countWindowCandidatesAtPath\|countMapEntries\|countingDefectFailure" packages/namespace-runtime/src/*.ts
+[exit=1 → 0 命中（无输出即期望）]
+
+## X2 — 出处标记清账（作用域 packages/namespace-runtime/src/window-read.ts）
+$ grep -n "copied from window.ts@ab6e390\|copied from carrier.ts@ab6e390" packages/namespace-runtime/src/window-read.ts
+[exit=1 → 0 命中 ≤1、copied from carrier.ts 归零]
+$ grep -n "copied from" packages/namespace-runtime/src/window-read.ts
+392: *  copied from read-schema-projection.ts@ab6e390 (foldSegment) —— 行注入防御纪律镜像
+
+## X3a — SA2 O-1 钉定作用域原始输出（packages/namespace-runtime/src/*.ts 全量）
+$ grep -nE "navigate|navClassify|absentNav|notAllowedNav|classifyArrayTarget|classifyMapTarget|describeCarrierWord|carrierOf|probeRoot|readableOwnDataValue|readableArrayElement|isNonNegInt|segMsg|yjsWord|isPlainRecord" packages/namespace-runtime/src/*.ts
+packages/namespace-runtime/src/plain-data.ts:10: * - 判据：`isPlainRecord`（仅 projection 消费——write.ts 的对象分支用更严的单级原型
+packages/namespace-runtime/src/plain-data.ts:32: *  【R2——SA2 R1 #3】'non-enumerable' 携带 value：数组元素面（readableArrayElement）
+packages/namespace-runtime/src/plain-data.ts:33: *  现行语义是「照常读值」（不检查 enumerable），需要值；对象键面（readableOwnDataValue）
+packages/namespace-runtime/src/plain-data.ts:56:export function isPlainRecord(v: object): boolean {
+packages/namespace-runtime/src/projection.ts:49:import { describePlainValue, isPlainRecord, ownDataFact, putPlainKey, yjsFamilyWord } from './plain-data.js';
+packages/namespace-runtime/src/projection.ts:231:      const hit = readableArrayElement(v, i);
+packages/namespace-runtime/src/projection.ts:240:  if (!isPlainRecord(v)) {
+packages/namespace-runtime/src/projection.ts:245:    const hit = readableOwnDataValue(v as Record<string, unknown>, k);
+packages/namespace-runtime/src/projection.ts:269:function readableOwnDataValue(
+packages/namespace-runtime/src/projection.ts:289:function readableArrayElement(
+[exit=0]
+
+## X3b — 镜像承载文件作用域（packages/namespace-runtime/src/window-read.ts；X3 的判负对象）
+$ grep -nE "<同 15 名目>" packages/namespace-runtime/src/window-read.ts
+[exit=1 → 0 命中：组合层零镜像]
+$ grep -n "foldSegment" packages/namespace-runtime/src/window-read.ts   # 设计唯一例外（出处 read-schema-projection.ts，非 W1 面）
+23: *   field 名经 `foldSegment` 折叠后再入基槽——纯呈现规则，canonical 归一化项与 S2 值
+346: *   string|number）逐段 `foldSegment` `.` 连接；空路径取渲染器 ✂ 行约定字面 `[]`。
+350: * - 槽② `basis` = 字面 `index` / `key`，或 `field:` + `foldSegment(field 名)`——field
+368:  const basis = term.basis === 'field' ? `field:${foldSegment(term.field)}` : term.basis;
+388:  return segments.map(foldSegment).join('.');
+392: *  copied from read-schema-projection.ts@ab6e390 (foldSegment) —— 行注入防御纪律镜像
+394:function foldSegment(segment: string | number): string {
+
+## X4 — 体量收缩与块删除（无「保留但注释掉」）
+$ wc -l packages/namespace-runtime/src/window-read.ts   # 现状
+427 packages/namespace-runtime/src/window-read.ts
+$ git show HEAD:packages/namespace-runtime/src/window-read.ts | wc -l   # HEAD 基线
+742
+$ git diff --stat -- packages/namespace-runtime/src/window-read.ts
+ packages/namespace-runtime/src/window-read.ts | 395 +++-----------------------
+ 1 file changed, 40 insertions(+), 355 deletions(-)
+$ grep -n "safePathCopy" packages/namespace-runtime/src/window-read.ts   # 唯一保留件（本地防御件，注文重述）
+401:  return { code, ok: false, path: safePathCopy(path), message };
+420:function safePathCopy(path: unknown): Array<string | number> {
+
+## X5 — 头注/JSDoc/B-5 措辞清账（W1 冻结纪律 / 镜像纪律 / S4 计数 不再作为现行契约描述）
+$ grep -n "冻结" packages/namespace-runtime/src/window-read.ts   # 宽口径原始输出（含声明式反用与 B-8 语法名）
+37: * （非 W1 冻结面，保留）。
+338: * B-8 冻结文法（块恒「头行 + 恰一行事实行」）：
+393: *  （B-8 ②；与渲染器 `foldText` 同款三分支正则；出处非 W1 冻结面）。 */
+419: *  新鲜安全副本，与 W1 冻结面无关——**非镜像纪律存续**，随 ADR 0029 §8 出处标记清账归零。 */
+[注解（逐行判定，不伪报 0 命中）：L37/L393/L419 = `非/与…无关` 声明式反用（明确否认存续冻结或镜像纪律）；
+ L338 = ✂ 事实块**文法冻结**（ADR 0027/0028 保留面，非 W1 冻结面），三处均非「W1 冻结纪律」存续陈述。]
+$ grep -n "RA-3\|SA2 N-4\|冻结解除时可评估\|S4 \|countWindow\|镜像纪律" packages/namespace-runtime/src/window-read.ts
+419: *  新鲜安全副本，与 W1 冻结面无关——**非镜像纪律存续**，随 ADR 0029 §8 出处标记清账归零。 */
+[注解：唯一命中 = 保留件的**否认**句（`非镜像纪律存续`）；原「复制纪律（设计 §7.4 RA-3 / SA2 N-4）」段整体删除。]
+$ grep -n "复制纪律" packages/namespace-runtime/src/window-read.ts
+[exit=1 → 0 命中：头注复制纪律段已删]
+$ grep -n "S4 O(N)\|S4 计数\|W1 成功后交" packages/namespace-runtime/src/runtime.ts
+[exit=1 → 0 命中：JSDoc 的「S4 O(N) 计数」措辞已删（现行 = W1 成功成员含 total 交组合层）]
+$ grep -n "S4" packages/namespace-runtime/src/runtime.ts   # 宽口径对照：仅余既有序列器 S4.5 标签（非窗口面，零改动）
+522:  //   为系统时钟读数，诚实记录安装时间）；S4.5 单点读取、读数校验在槽内。
+$ grep -n "windowResult.value, windowResult.total" packages/namespace-runtime/src/runtime.ts
+691:    return composeArrayWindowRead(state, doc, path, options, windowResult.value, windowResult.total);
+703:    return composeMapWindowRead(state, doc, path, options, windowResult.value, windowResult.total);
+$ grep -n "B-5" packages/doc-runtime/test/issue-368-window-read-contract-red.test.ts
+29: * - B-5 结算 = 判别联合：成功 `{ok:true, value:<条目列表>, total}`（本 helper 允许额外字段、
+30: *   **不锁键集**——B-5 曾在 #368 期不锁键集；成功面恰三键锁现由 pins P7 + 公共入口类型锁
+$ grep -n "恰两键" packages/doc-runtime/src/window.ts packages/namespace-runtime/src/window-read.ts
+[exit=1 → 0 命中：现行契约描述无两键措辞]
+
+## 附注（诚实记录 X3a 的非镜像命中；不得伪报 0 命中）
+- X3a 全目录命中共 10 行，全部位于 projection.ts / plain-data.ts。
+- 两文件为包内**既有非 W1 子系统**（projection 渲染 / plain 数据处理），非 #369 镜像件：
+  $ git log --oneline -1 -S "function readableOwnDataValue" -- packages/namespace-runtime/src/projection.ts
+5db6f83 Phase 3：NamespaceRuntime 读写能力与单序列器 (#85)
+  $ git log --oneline -1 -S "function isPlainRecord" -- packages/namespace-runtime/src/plain-data.ts
+5db6f83 Phase 3：NamespaceRuntime 读写能力与单序列器 (#85)
+- 两文件在本变更集中零 diff（DENY/无关面纪律）：
+  $ git status --short -- packages/namespace-runtime/src/projection.ts packages/namespace-runtime/src/plain-data.ts
+[无输出 = 零 diff]
+- 结论：X3 的判负对象（window-read.ts 的 W1 出处标记镜像复制件）已全量删除（X3b = 0 命中）；X3a 的命中是同名但**独立实现**的既有包内助手，不属镜像面，未触碰（设计 DENY「不扩大范围 / 不修改无关面」）。
