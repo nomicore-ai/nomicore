@@ -323,12 +323,12 @@ describe('W1-P6 D7 detached 目标/项', () => {
 });
 
 describe('W1-P7 D9/B-5 own 键集自诺', () => {
-  it('P7 成功恰两键 {ok,value}；失败恰四键 {code,ok,path,message}（含 P1 失败结算）', () => {
+  it('P7 成功恰三键 {ok,value,total}（ADR 0029 §5/§8 迁移）；失败恰四键 {code,ok,path,message}（含 P1 失败结算）', () => {
     const doc = freshDoc((root) => {
       root.set('arr', [1]);
     });
     const ok = arrayWindow()(doc, ['arr'], { n: 1 }) as WindowResult;
-    expect(Object.keys(ok)).toStrictEqual(['ok', 'value']);
+    expect(Object.keys(ok)).toStrictEqual(['ok', 'value', 'total']);
 
     const absent = mapWindow()(doc, ['missing'], { n: 1 }) as WindowResult;
     expect(Object.keys(absent)).toStrictEqual(['code', 'ok', 'path', 'message']);

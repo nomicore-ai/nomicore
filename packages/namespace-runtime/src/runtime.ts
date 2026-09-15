@@ -769,8 +769,12 @@ export function createNamespaceRuntimeWithSeam(input: NamespaceRuntimeSeamInput)
    * S1 lifecycle gate 先行（closing/closed → RUNTIME_READ_DISABLED，零 options 读取、
    * 零 doc 触碰——镜像 readData B-1）；S2 W1 载体原语**直通**（raw 引用；失败成员原样
    * 返回，绝不吸收、无半窗——options 合法性由 W1 单权威裁定，非法 options 零 doc 触碰）；
-   * W1 成功后交 `window-read.ts` 组合（S3 canonical 接缝 → S4 O(N) 计数 → S5 锚链投影
-   * 正文 → S6 四键结算 + ✂ 窗口事实块）。全方法同步、零 sequencer、零状态写入。
+   * W1 成功后把成功成员（`value` 条目列表 + `total` 候选/匹配计数双形态）交
+   * `window-read.ts` 组合（S3 canonical 接缝五键镜像 → S5 锚链投影正文 → S6 四键结算；
+   * `truncated` 双语义见 ADR 0029 §5：无 `where` = `kept < total` + ✂ 窗口事实块，
+   * 有 `where` = 装满判定 `kept === n` 且 ✂ 永不装配）；`total` 消费自 W1 单源
+   * （ADR 0029 §8 下沉），组合层零重算、零谓词求值。全方法同步、零 sequencer、
+   * 零状态写入。
    */
   function readArray(
     path: readonly (string | number)[],
@@ -780,7 +784,7 @@ export function createNamespaceRuntimeWithSeam(input: NamespaceRuntimeSeamInput)
     if (lifecycle !== 'ready') return readDisabled(lifecycle, path);
     const windowResult = readArrayWindowAtPath(doc, path, options);
     if (!windowResult.ok) return windowResult; // S2：三码 + PATH_NOT_ALLOWED 原样透传
-    return composeArrayWindowRead(state, doc, path, options, windowResult.value);
+    return composeArrayWindowRead(state, doc, path, options, windowResult.value, windowResult.total);
   }
 
   /** 键面容窗口读组合体（同 readArray 骨架；面符换 map、锚链两级见 window-read.ts）。 */
@@ -792,7 +796,7 @@ export function createNamespaceRuntimeWithSeam(input: NamespaceRuntimeSeamInput)
     if (lifecycle !== 'ready') return readDisabled(lifecycle, path);
     const windowResult = readMapWindowAtPath(doc, path, options);
     if (!windowResult.ok) return windowResult;
-    return composeMapWindowRead(state, doc, path, options, windowResult.value);
+    return composeMapWindowRead(state, doc, path, options, windowResult.value, windowResult.total);
   }
 
   const runtime: NamespaceRuntime = {

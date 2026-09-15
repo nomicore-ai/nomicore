@@ -1,0 +1,16 @@
+Testing types with tsc and vue-tsc is an experimental feature.
+Breaking changes might not follow SemVer, please pin Vitest's version when using it.
+
+ RUN  v3.2.7 /home/wangjian/nomicore-fix-issue-382
+
+stdout | packages/namespace-registry/test/__sa3_382_d8_probe.test.ts > D8 变异探针（实现期审计；临时文件，审计后删除） > 敌意视图漂移 Proxy 经 lease 调用：静默已过滤成功面（变异态）或 WINDOW_OPTIONS_INVALID（分支在场）
+D8_PROBE drift[ok:true truncated=false keys=["t3"]] plain[ok:false code=WINDOW_OPTIONS_INVALID] stackDiscriminated=true ownKeysCalls=2
+D8_PROBE_STATE=MUTATED_SILENT_PASS
+
+ ✓ packages/namespace-registry/test/__sa3_382_d8_probe.test.ts (1 test) 25ms
+
+ Test Files  1 passed (1)
+      Tests  1 passed (1)
+Type Errors  no errors
+   Start at  09:32:53
+   Duration  678ms (transform 371ms, setup 0ms, collect 512ms, tests 25ms, environment 0ms, prepare 45ms)

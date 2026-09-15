@@ -1,0 +1,8 @@
+=== affected package typechecks (issue #382) ===
+2026-09-15T01:34:13Z
+--- tsc -p packages/doc-runtime/tsconfig.json --noEmit ---
+exit=0
+--- tsc -p packages/namespace-runtime/tsconfig.json --noEmit ---
+exit=0
+--- tsc -p packages/namespace-registry/tsconfig.json --noEmit ---
+exit=0

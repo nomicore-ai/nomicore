@@ -26,8 +26,12 @@
  * - B-3 调用形状 = `(doc, path, options?)`；options = `{ n, orderBy?, depth?, maxChildrenPerNode? }`，
  *   `n` 必填 ≥1 整数（ADR 0028 决策 1 词表的载体层同形）；
  * - B-4 `orderBy` = 单个 WindowTerm（ADR 0028 决策 2）：`{by:'index'|'key',dir?}` / `{field,dir?}`；
- * - B-5 结算 = 判别联合：成功 `{ok:true, value:<条目列表>}`（允许承载额外字段，不锁键集）；
- *   失败 `{ok:false, code:'WINDOW_*' 三码之一}`（只锁 ok/code）。
+ * - B-5 结算 = 判别联合：成功 `{ok:true, value:<条目列表>, total}`（本 helper 允许额外字段、
+ *   **不锁键集**——B-5 曾在 #368 期不锁键集；成功面恰三键锁现由 pins P7 + 公共入口类型锁
+ *   `public-surface-type-guard.test-d.ts` 承载，ADR 0029 §5/§8）；
+ *   **#382（ADR 0029 缝 1）起 `total` 值域加宽为 `number | undefined`**（无 where = 标识
+ *   计数；有 where = `undefined`，`total` 键恒在）——本文件全部调用无 where，期望逐字节不变；
+ *   失败 `{ok:false, code:'WINDOW_*' 三码之一}`（只锁 ok/code；失败面恰四键由 P7 承载）。
  * 若 SA1 冻结不同名字/调用形状：只改本文件 §绑定 常量与适配器，语义断言逐条不变。
  *
  * 红灯现状（HEAD 36a73bb，能力缺口）：`src/index.ts` 公共面零 `window|Window` 命中，

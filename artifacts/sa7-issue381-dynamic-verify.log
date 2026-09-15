@@ -1,0 +1,345 @@
+# SA7 dynamic-verification evidence — issue #381 (final-verification)
+- Date: 2026-09-14T12:38:56Z | worktree: /home/wangjian/nomicore-fix-issue-381 | branch mabf/issue-381 | HEAD 8a4fa40 + SA3 uncommitted changes
+- toolchain: node v24.13.0 / pnpm 10.28.2 / vitest 3.2.7 / yjs 13.6.32 (NODE_OPTIONS=--conditions=nomicore-source)
+
+## V1 — probe runs (temporary probe file issue-381-sa7-livechain-probe.test.ts, deleted after evidence collection)
+$ SA7_DUMP=/tmp/sa7-381-impl-dump.json npx vitest run packages/namespace-registry/test/issue-381-sa7-livechain-probe.test.ts --typecheck.enabled=false   # implementation worktree
+  Test Files 1 passed (1) | Tests 4 passed (4)
+$ SA7_DUMP=/tmp/sa7-381-head-dump.json  npx vitest run <same> --typecheck.enabled=false   # .worktrees/sa7-head-8a4fa40 @ 8a4fa40 (pnpm install --offline --frozen-lockfile, own node_modules)
+  Test Files 1 passed (1) | Tests 4 passed (4)
+
+## V2 — determinism (impl probe re-run)
+$ cmp /tmp/sa7-381-impl-dump.json /tmp/sa7-381-impl-dump-run2.json  → byte-identical across runs
+
+## V3 — HEAD↔impl byte-level A/B comparison over all 108 samples
+samples head: 108 | impl: 108 | identical: 106 | diff: 2 | missing: 0
+DIFF IDS: ["S1c:W1-array-direct","S1c:W1-map-direct"]
+  S1c:W1-array-direct
+    HEAD: {"keys":["ok","value"],"value":[{"index":2,"value":20},{"index":1,"value":10}]}
+    IMPL: {"keys":["ok","value","total"],"value":[{"index":2,"value":20},{"index":1,"value":10}],"total":3}
+  S1c:W1-map-direct
+    HEAD: {"keys":["ok","value"],"value":[{"key":"t2","value":{"title":"beta","priority":9}},{"key":"t3","value":{"title":"gamma","priority":5}}]}
+    IMPL: {"keys":["ok","value","total"],"value":[{"key":"t2","value":{"title":"beta","priority":9}},{"key":"t3","value":{"title":"gamma","priority":5}}],"total":3}
+sample groups: {"S1":34,"S1b":2,"S1c":4,"S2-post":33,"S2-pre":33,"S2":2}
+
+## V4 — key lease-face samples (implementation dump; byte-identical at HEAD per V3)
+==== S1:A-asc-n2
+{
+ "keys": [
+  "ok",
+  "value",
+  "schema",
+  "truncated"
+ ],
+ "value": [
+  {
+   "index": 0,
+   "value": 30
+  },
+  {
+   "index": 1,
+   "value": 10
+  }
+ ],
+ "schema": "number\n\n✂ 截断事实：\n- workRecords · 窗口 · 基 index asc · kept 2/total 3\n",
+ "truncated": true
+}
+==== S1:A-desc-n2-depth1
+{
+ "keys": [
+  "ok",
+  "value",
+  "schema",
+  "truncated"
+ ],
+ "value": [
+  {
+   "index": 2,
+   "value": 20
+  },
+  {
+   "index": 1,
+   "value": 10
+  }
+ ],
+ "schema": "number\n\n✂ 截断事实：\n- workRecords · 窗口 · 基 index desc · kept 2/total 3\n",
+ "truncated": true
+}
+==== S1:M-field-desc-depth1
+{
+ "keys": [
+  "ok",
+  "value",
+  "schema",
+  "truncated"
+ ],
+ "value": [
+  {
+   "key": "t2",
+   "value": {
+    "title": "beta",
+    "priority": 9
+   }
+  },
+  {
+   "key": "t3",
+   "value": {
+    "title": "gamma",
+    "priority": 5
+   }
+  }
+ ],
+ "schema": "Task\n\ntype Task = {\n  title: string // 任务标题\n  priority: number // 优先级（数值越大越优先）\n}\n\n✂ 截断事实：\n- tasks · 窗口 · 基 field:priority desc · kept 2/total 3\n",
+ "truncated": true
+}
+==== S1:M-root-n4
+{
+ "keys": [
+  "ok",
+  "value",
+  "schema",
+  "truncated"
+ ],
+ "value": [
+  {
+   "key": "assets",
+   "value": {
+    "a1": {
+     "name": "one"
+    },
+    "b2": {
+     "name": "two"
+    }
+   }
+  },
+  {
+   "key": "emptyAssets",
+   "value": {}
+  },
+  {
+   "key": "emptyTags",
+   "value": []
+  },
+  {
+   "key": "emptyTasks",
+   "value": []
+  }
+ ],
+ "schema": "{\n  workRecords: number[] // 工作记录（append 日志）\n  tasks: Record<string, Task> // 任务表（Record 键空间）\n  assets: Record<string, Asset> // 资源索引（Record + keyPattern） · keyPattern: \"^[A-Za-z0-9_\\\\-]{1,64}$\"\n  emptyAssets: Record<string, Asset> // 空 Record\n  meta: { // 封闭对象 map\n    content: string // 备注内容\n    extra: number // 附加计数\n  }\n  taskList: Task[] // 任务数组\n  emptyTasks: Task[] // 空任务数组\n  emptyTags: string[] // 空标量数组\n}\n\ntype Task = {\n  title: string // 任务标题\n  priority: number // 优先级（数值越大越优先）\n}\n\ntype Asset = {\n  name: string // 资源名\n}\n\n✂ 截断事实：\n- [] · 窗口 · 基 key asc · kept 4/total 9\n",
+ "truncated": true
+}
+==== S1:M-meta-fallback
+{
+ "keys": [
+  "ok",
+  "value",
+  "schema",
+  "truncated"
+ ],
+ "value": [
+  {
+   "key": "content",
+   "value": "hi"
+  },
+  {
+   "key": "extra",
+   "value": 7
+  }
+ ],
+ "schema": "{\n  content: string // 备注内容\n  extra: number // 附加计数\n}\n",
+ "truncated": false
+}
+==== S1:empty-map
+{
+ "keys": [
+  "ok",
+  "value",
+  "schema",
+  "truncated"
+ ],
+ "value": [],
+ "schema": "Asset\n\ntype Asset = {\n  name: string // 资源名\n}\n",
+ "truncated": false
+}
+==== S1:raw-ym
+{
+ "keys": [
+  "ok",
+  "value",
+  "schema",
+  "truncated"
+ ],
+ "value": [
+  {
+   "key": "k1",
+   "value": 1
+  },
+  {
+   "key": "k3",
+   "value": "x"
+  }
+ ],
+ "schema": null,
+ "truncated": false
+}
+==== S1b:E3-kept2-total2000
+{
+ "keys": [
+  "ok",
+  "value",
+  "schema",
+  "truncated"
+ ],
+ "value": [
+  {
+   "index": 0,
+   "value": 30
+  },
+  {
+   "index": 1,
+   "value": 10
+  }
+ ],
+ "schema": "number\n\n✂ 截断事实：\n- workRecords · 窗口 · 基 index asc · kept 2/total 2000\n",
+ "truncated": true
+}
+==== S1b:E4-poison-failfast
+{
+ "keys": [
+  "code",
+  "ok",
+  "path",
+  "message"
+ ],
+ "code": "PATH_NOT_ALLOWED",
+ "path": [
+  "workRecords",
+  1999
+ ],
+ "message": "non-finite number（目标）"
+}
+==== S1:F-target-absent
+{
+ "keys": [
+  "code",
+  "ok",
+  "path",
+  "message"
+ ],
+ "code": "WINDOW_TARGET_ABSENT",
+ "path": [
+  "missing"
+ ],
+ "message": "目标缺席（中间/终点键不在或数组越界；窗口读不做缺席吸收）"
+}
+==== S1:F-carrier-mismatch-array-on-map
+{
+ "keys": [
+  "code",
+  "ok",
+  "path",
+  "message"
+ ],
+ "code": "WINDOW_CARRIER_MISMATCH",
+ "path": [
+  "tasks"
+ ],
+ "message": "数组面收 Y.Array / plain array（实际 YMap）"
+}
+==== S1:F-options-n0
+{
+ "keys": [
+  "code",
+  "ok",
+  "path",
+  "message"
+ ],
+ "code": "WINDOW_OPTIONS_INVALID",
+ "path": [
+  "workRecords"
+ ],
+ "message": "window options.n 必须是 ≥1 的有限整数（n:0 非法，计数请走正常读）"
+}
+==== S1:F-options-unknown-key
+{
+ "keys": [
+  "code",
+  "ok",
+  "path",
+  "message"
+ ],
+ "code": "WINDOW_OPTIONS_INVALID",
+ "path": [
+  "tasks"
+ ],
+ "message": "window options 含未知键（封闭形状）：where"
+}
+==== S1:F-sparse-hole-failfast
+{
+ "keys": [
+  "code",
+  "ok",
+  "path",
+  "message"
+ ],
+ "code": "PATH_NOT_ALLOWED",
+ "path": [
+  "probe",
+  "sparse",
+  1
+ ],
+ "message": "数组位置 undefined 不可投影（稀疏空洞）"
+}
+==== S1:released-readArray
+{
+ "keys": [
+  "ok",
+  "code",
+  "message"
+ ],
+ "ok": false
+}
+==== S1c:runtime-readArray-direct
+{
+ "keys": [
+  "ok",
+  "value",
+  "schema",
+  "truncated"
+ ],
+ "value": [
+  {
+   "index": 2,
+   "value": 20
+  },
+  {
+   "index": 1,
+   "value": 10
+  }
+ ],
+ "schema": "number\n\n✂ 截断事实：\n- workRecords · 窗口 · 基 index desc · kept 2/total 3\n",
+ "truncated": true
+}
+==== S2:snapshot-files
+{
+ "files": [
+  "ns-369.snapshot"
+ ]
+}
+==== S2:divergent-signature (identical HEAD↔impl per V3 — baseline persistence semantics)
+["M-root-full","raw-hostile","F-sparse-hole-failfast"]
+
+## V5 — focused window family 8 files (probe removed; --typecheck)
+$ npx vitest run <8 window files> --typecheck
+  Test Files 8 passed (8) | Tests 144 passed (144) | Type Errors: no errors | Errors 0
+
+## V6 — HEAD baseline preserved-face run (.worktrees/sa7-head-8a4fa40)
+$ npx vitest run composition-red + lease-contract-red --typecheck.enabled=false
+  Test Files 2 passed (2) | Tests 50 passed (50)
+
+## V7 — temporary diagnostics cleanup
+- probe file deleted from implementation worktree (kept copy only in /tmp, outside worktree)
+- HEAD worktree: git worktree remove --force .worktrees/sa7-head-8a4fa40 + git worktree prune → .worktrees/ empty, no sa7 entries in git worktree list
+- grep 'sa7-livechain-probe' packages/ wiki/ → 0 hits
+- grep 'SA7-DATAFLOW' in git-modified/new files of this task → 0 hits (80 historical hits are other tasks' frozen SA7 reports)
+- git status --short = exactly SA3 implementation state (6 modified + new T-group test + SA3 artifacts + wiki inputs); no stash, no marker files

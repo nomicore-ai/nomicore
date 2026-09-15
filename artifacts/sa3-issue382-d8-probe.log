@@ -1,0 +1,21 @@
+=== SA3 #382 D8 变异探针（A6′/SA2 R-2）前后双态证据 ===
+2026-09-15T01:33:51Z
+
+--- ① 变异态：临时删除入口分支 + total 软化为 ?? 0（window-read.ts 临时改动，已还原） ---
+mutation: 'if (input.total === undefined) return seamWhereNotImplemented(input.path);' 删除；'const total = input.total;' → 'const total = input.total ?? 0;'
+D8_PROBE drift[ok:true truncated=false keys=["t3"]] plain[ok:false code=WINDOW_OPTIONS_INVALID] stackDiscriminated=true ownKeysCalls=2
+D8_PROBE_STATE=MUTATED_SILENT_PASS
+观测：drift[ok:true truncated=false keys=["t3"]] = 静默已过滤四键成功面（t3 = priority=5 匹配集，非未过滤 t1,t2）；
+      plain[ok:false WINDOW_OPTIONS_INVALID] = 无视图漂移时 S3 白名单仍拒（隔离出 D8 独占封堵的漂移通道）；
+      stackDiscriminated=true ownKeysCalls=2 = S3 确以干净四键视图通过（漂移生效）。
+
+--- ② 原样恢复分支后：同一调用必须响亮 ---
+D8_PROBE drift[ok:false code=WINDOW_OPTIONS_INVALID] plain[ok:false code=WINDOW_OPTIONS_INVALID] stackDiscriminated=false ownKeysCalls=1
+D8_PROBE_STATE=LIVE_FAIL_CLOSED
+观测：drift[ok:false WINDOW_OPTIONS_INVALID]；ownKeysCalls=1 = 入口分支先于 S3（零 W1 重派发、零 S3 重读）。
+
+--- ③ 变异态的编译期第二道可见性 ---
+packages/namespace-runtime/src/window-read.ts(193,28): error TS18048: 'total' is possibly 'undefined'.
+packages/namespace-runtime/src/window-read.ts(195,82): error TS2345: Argument of type 'number | undefined' is not assignable to parameter of type 'number'.
+PURE_DELETE_TSC_EXIT=2
+（纯删除变体 → TS18048 + TS2345，exit 2；'\?\? 0' 软化变体可编译 → 行为级探针为唯一击穿手段，A6′ 据此要求双态证据。）

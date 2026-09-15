@@ -45,6 +45,10 @@ export type { CreateInitialDocumentInput, CreateInitialDocumentResult } from './
 // ADR 0028 缝 1（issue #368 W1）：载体级窗口原语（readLogicalValueAtPath 姊妹、schema 无关）
 // ——确定性选窗 / 统一条目列表 / 零物化 / 组合式 depth / 三窗口失败码 + 投影域透传成员。
 // 纯加法：未触碰 readData 与 ADR-0024 options、ValueSchema、wire；W2/W3 不在本票范围。
+// ADR 0029 缝 1（issue #382 P2）加法：两面窗口 options 增可选 `where`（合取谓词过滤，
+// 管线序 where → orderBy → n）+ `WhereTerm` **type-only** 导出（运行时键空间零新增；
+// P-W1/P-W2 值导出审计保持恰两枚值导出）；成功结算 `total` 值域加宽为 `number | undefined`
+// （`total` own 键恒在）。未触碰 readData options / lease 四键 / ✂ 装配（缝 2）。
 export { readArrayWindowAtPath, readMapWindowAtPath } from './window.js';
 export type {
   ArrayWindowEntry,
@@ -56,6 +60,7 @@ export type {
   ReadArrayWindowResult,
   ReadMapWindowOptions,
   ReadMapWindowResult,
+  WhereTerm,
   WindowDir,
   WindowFailureCode,
   WindowReadFailure,
