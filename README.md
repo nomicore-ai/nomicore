@@ -10,13 +10,15 @@ English | [中文](README_zh.md)
 
 ## Why Nomicore
 
-### Data alone is not enough
+### Why traditional databases fall short in the Agent era
 
-Traditional databases are designed to return data, but data by itself is often ambiguous. A query can retrieve values, yet it usually cannot retrieve the specification that defines their structure—the schema—or the business semantics that explain what those values mean and how they should be interpreted.
+Traditional databases were primarily designed for applications written by humans. An application can encode data structures, business rules, and error handling in advance, but an Agent works on dynamic tasks and must understand data and its boundaries while reading, changing, sharing, and monitoring it. Traditional databases leave important gaps at every step:
 
-This becomes especially dangerous as schemas and semantics evolve. Relational databases, for example, are poorly suited to keeping multiple data shapes side by side. Even when this is forced into one database, consumers can easily apply the wrong structure. If multiple versions of the same metric or business definition coexist, the risk of silently misreading otherwise valid data is even greater.
-
-The same limitation makes data-layer collaboration difficult for Agents. When one Agent sends data to another, the data's schema and interpretation rules do not naturally travel with it. The receiving Agent must rely on external documentation, shared assumptions, or prior coordination—and may confidently interpret the data incorrectly.
+1. **The data arrives without a complete explanation.** A database query usually gives an Agent the data but not its schema. Even if the schema is obtained separately, it rarely includes the business semantics of each field. The Agent may know that a value is numeric without knowing its unit, scope, calculation method, or applicable version, forcing it to guess or search elsewhere for documentation.
+2. **Writes lack enforceable constraints.** When constraints live only in application code or human convention, an Agent modifying the database cannot reliably determine whether its write is valid. A misspelled field, wrong type, or violated business rule may enter the database without a clear warning and then propagate further.
+3. **There is no inexpensive undo for a bad change.** Traditional databases either lack rollback at the level of an individual semantic change or require transactions, backups, or whole-database restoration. Rollbacks are coarse, operationally complex, and costly, so one mistaken edit can affect large amounts of unrelated data.
+4. **Data cannot be shared safely on its own.** When one Agent sends a query result to another, it typically sends only the values—not the schema and business semantics. The recipient interprets the data using its own assumptions. As the number of participants and versions grows, the result quickly becomes inconsistent and confusing.
+5. **Agents cannot naturally sense data changes.** When data changes, an Agent is usually not notified. To avoid acting on stale information, it must read the data again before every use. Repeatedly loading large datasets into the prompt is slow and consumes substantial context.
 
 ### Data that explains itself
 
