@@ -1,0 +1,115 @@
+S1-before-replace: {
+  "notifications": [
+    {
+      "kind": "data",
+      "origin": "local",
+      "changes": [
+        {
+          "path": [
+            "tasks"
+          ],
+          "key": "t3"
+        }
+      ]
+    }
+  ],
+  "schemaText": "type Task = YMap<{\n  /** 任务标题 */\n  title: YLeaf<string>;\n  /** 优先级（数值越大越优先） */\n  priority: YLeaf<number>;\n}>;\ntype ROOT = YMap<{\n  /** 任务表（Record 键空间，Y.Map 载体） */\n  tasks: Record<string, Task>;\n  /** 封闭对象 map */\n  meta: YMap<{\n    /** 备注内容 */\n    content: YLeaf<string>;\n    /** 附加计数 */\n    extra: YLeaf<number>;\n  }>;\n}>;"
+}
+S2-replaceSchema-result: {
+  "ok": true
+}
+S3-after-replace-notifications: [
+  {
+    "kind": "data",
+    "origin": "local",
+    "changes": [
+      {
+        "path": [
+          "tasks"
+        ],
+        "key": "t3"
+      }
+    ]
+  }
+]
+S4-watch-end-count: 0
+S5-active-schema-after: {
+  "text": "type Task = YMap<{\n  /** 任务标题 */\n  title: YLeaf<string>;\n  /** 优先级（数值越大越优先） */\n  priority: YLeaf<number>;\n  /** 追加备注（V2 新增，可选） */\n  note?: YLeaf<string>;\n}>;\ntype ROOT = YMap<{\n  /** 任务表（Record 键空间，Y.Map 载体） */\n  tasks: Record<string, Task>;\n  /** 封闭对象 map */\n  meta: YMap<{\n    /** 备注内容 */\n    content: YLeaf<string>;\n    /** 附加计数 */\n    extra: YLeaf<number>;\n  }>;\n}>;",
+  "semanticFingerprint": "sha256:v1:1cbe51995ae4c3c660342e7697918084ad1c47947f7ed0dad8a1a527c4d0b8f1"
+}
+S6-post-change-write: {
+  "ok": true
+}
+S7-final-notifications: [
+  {
+    "kind": "data",
+    "origin": "local",
+    "changes": [
+      {
+        "path": [
+          "tasks"
+        ],
+        "key": "t3"
+      }
+    ]
+  },
+  {
+    "kind": "data",
+    "origin": "local",
+    "changes": [
+      {
+        "path": [
+          "tasks"
+        ],
+        "key": "t4"
+      }
+    ]
+  }
+]
+S8-final-kinds: [
+  "data",
+  "data"
+]
+S9-lease-status: {
+  "lease": "active",
+  "runtime": {
+    "lifecycle": "ready",
+    "read": {
+      "enabled": true
+    },
+    "rootWrite": {
+      "enabled": true
+    },
+    "schemaWrite": {
+      "enabled": true
+    },
+    "schema": {
+      "state": "ready"
+    },
+    "fatal": null,
+    "close": null,
+    "replication": {
+      "state": "disabled"
+    }
+  }
+}
+S10-second-subscription-write: {
+  "ok": true
+}
+S11-second-subscription-notifications: [
+  {
+    "kind": "data",
+    "origin": "local",
+    "changes": [
+      {
+        "path": [
+          "tasks"
+        ],
+        "key": "t5"
+      }
+    ]
+  }
+]
+S12-old-subscription-still-alive: {
+  "count": 3
+}

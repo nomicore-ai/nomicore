@@ -1,0 +1,12 @@
+
+ RUN  v3.2.7 /home/wangjian/nomicore-fix-issue-389
+
+ ✓ packages/namespace-registry/test/issue-387-watch-map-tracer-red.test.ts (21 tests) 175ms
+ ✓ packages/namespace-registry/test/issue-369-window-read-lease-contract-red.test.ts (33 tests) 99ms
+ ✓ packages/namespace-runtime/test/runtime-replication-session-round2.test.ts (25 tests) 111ms
+ ✓ packages/namespace-runtime/test/runtime-phase5-reset-fence-r2.test.ts (7 tests) 23ms
+
+ Test Files  4 passed (4)
+      Tests  86 passed (86)
+   Start at  07:16:49
+   Duration  2.32s (transform 630ms, setup 0ms, collect 1.21s, tests 407ms, environment 1ms, prepare 226ms)

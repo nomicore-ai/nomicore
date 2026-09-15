@@ -1,0 +1,24 @@
+
+ RUN  v3.2.7 /home/wangjian/nomicore-fix-issue-389
+
+ DEPRECATED  'basic' reporter is deprecated and will be removed in Vitest v3.
+Remove 'basic' from 'reporters' option. To match 'basic' reporter 100%, use configuration:
+{
+  "test": {
+    "reporters": [
+      [
+        "default",
+        {
+          "summary": false
+        }
+      ]
+    ]
+  }
+}
+ ✓ packages/namespace-registry/test/issue-389-change-subscription-termination-red.test.ts (17 tests) 203ms
+
+
+ Test Files  1 passed (1)
+      Tests  17 passed (17)
+   Start at  07:29:43
+   Duration  893ms (transform 400ms, setup 0ms, collect 549ms, tests 203ms, environment 0ms, prepare 46ms)

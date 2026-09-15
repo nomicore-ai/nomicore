@@ -1,0 +1,108 @@
+
+ RUN  v3.2.7 /home/wangjian/nomicore-fix-issue-389
+
+ DEPRECATED  'basic' reporter is deprecated and will be removed in Vitest v3.
+Remove 'basic' from 'reporters' option. To match 'basic' reporter 100%, use configuration:
+{
+  "test": {
+    "reporters": [
+      [
+        "default",
+        {
+          "summary": false
+        }
+      ]
+    ]
+  }
+}
+ ❯ packages/namespace-registry/test/issue-389-change-subscription-termination-red.test.ts (17 tests | 2 failed | 14 skipped) 67ms
+   ↓ 组 C1/C2（AC1 + NC3）：复制 apply 与本地写同流——origin 两态、零过滤、零 watch-end > C1/C2：本地写 origin=local、复制 apply origin=replication、同流 FIFO、零 watch-end
+   ↓ 组 C3（AC2-A）：Hub 本地 replaceSchema → watch-end schema-changed > C3：替换 schema ok（oracle 绿）→ 滞留 data 先达、流末条 watch-end schema-changed
+   ↓ 组 C4（AC2-B）：Peer re-arm 路径 → watch-end schema-changed（ADR 0018） > C4：re-arm applied（指纹双侧一致 oracle 绿）→ peer 流末条 watch-end schema-changed
+   ↓ 组 C4（AC2-B）：Peer re-arm 路径 → watch-end schema-changed（ADR 0018） > C4b（B-T3-2 冻结：失败也发）：re-arm failed（fatal INVALID）仍发 watch-end schema-changed
+   ↓ 组 C5/C7/C10（AC3 + AC4 + AC6）：doc 替换 → watch-end doc-replaced > C5：reset ok（归档 1 次）→ 结算即已含已投递末条 watch-end doc-replaced（免 poll）
+   ↓ 组 C5/C7/C10（AC3 + AC4 + AC6）：doc 替换 → watch-end doc-replaced > C10（AC6）：doc-replaced 后重建——released 通道 + 重新 open 后新订阅可用且无终止信号
+   ✓ 组 C6/C8（AC4 + AC5）：watch-end 流末条——此后静默、滞留 data 必达 > C6：终止后「写 + 双预算屏障」零新增通知（含 invalidate-all 不后置） 28ms
+   × 组 C6/C8（AC4 + AC5）：watch-end 流末条——此后静默、滞留 data 必达 > C8（B-T3-6 必达）：多笔快连事务后立即 replaceSchema——data 全部先于 watch-end、末条恒终止项 11ms
+     → C8(i)：watch-end 为流末条（绕过队列的实现先到终止项即红）: expected { kind: 'data', origin: 'local', …(1) } to strictly equal { kind: 'watch-end', …(1) }
+   × 组 C6/C8（AC4 + AC5）：watch-end 流末条——此后静默、滞留 data 必达 > CAP（容量豁免不变量）：>16 笔快连事务溢出降级后 watch-end 仍恒入队且为末条 27ms
+     → CAP：终止项不因容量上限被丢弃（容量豁免）——恒为流末条: expected { kind: 'data', origin: 'local', …(1) } to strictly equal { kind: 'watch-end', …(1) }
+   ↓ 组 C9（AC6）：schema-changed 后重建订阅 > C9：lease 仍 active——重新 watchMap 按新 schema 建立并投递；旧句柄静默/幂等
+   ↓ 组 C11（AC7）：零新接缝——键集与通知闭集 > C11：lease 恰 16 键、runtime 恰 15 键、通知 kind ⊆ 三 kind 闭集、读面冻结
+   ↓ 负控 NC3–NC6：数据面与写面纪律零回归 > NC5：数据缺席 / 容器删除**不终结**订阅（终止只与 lease 和 schema 耦合）
+   ↓ 负控 NC3–NC6：数据面与写面纪律零回归 > NC6：无效写（schema 拒绝）零事务零通知（通知面与写结果一致）
+   ↓ 负控 NC3–NC6：数据面与写面纪律零回归 > NC3 补充：复制启用后本地写仍 origin=local、远端 apply 恒 replication（无过滤面）
+   ↓ 装置自检：hub/peer/reset 三装置前提为绿（红灯不得误归因于 fixture） > hub 复制装置：enableReplication + session + 身份投影一致
+   ↓ 装置自检：hub/peer/reset 三装置前提为绿（红灯不得误归因于 fixture） > peer 装置：importReplica 排他创建 + peer session 就绪
+   ↓ 装置自检：hub/peer/reset 三装置前提为绿（红灯不得误归因于 fixture） > reset 装置：种子复制身份在 live 投影与 persisted 双源一致
+
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 2 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  packages/namespace-registry/test/issue-389-change-subscription-termination-red.test.ts > 组 C6/C8（AC4 + AC5）：watch-end 流末条——此后静默、滞留 data 必达 > C8（B-T3-6 必达）：多笔快连事务后立即 replaceSchema——data 全部先于 watch-end、末条恒终止项
+AssertionError: C8(i)：watch-end 为流末条（绕过队列的实现先到终止项即红）: expected { kind: 'data', origin: 'local', …(1) } to strictly equal { kind: 'watch-end', …(1) }
+
+- Expected
++ Received
+
+  {
+-   "kind": "watch-end",
+-   "reason": "schema-changed",
++   "changes": [
++     {
++       "key": "t3",
++       "path": [
++         "tasks",
++       ],
++     },
++   ],
++   "kind": "data",
++   "origin": "local",
+  }
+
+ ❯ packages/namespace-registry/test/issue-389-change-subscription-termination-red.test.ts:356:65
+    354|
+    355|     await sink.waitForWatchEnd('schema-changed');
+    356|     expect(sink.last(), 'C8(i)：watch-end 为流末条（绕过队列的实现先到终止项即红）').toStri…
+       |                                                                 ^
+    357|       kind: 'watch-end',
+    358|       reason: 'schema-changed',
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/2]⎯
+
+ FAIL  packages/namespace-registry/test/issue-389-change-subscription-termination-red.test.ts > 组 C6/C8（AC4 + AC5）：watch-end 流末条——此后静默、滞留 data 必达 > CAP（容量豁免不变量）：>16 笔快连事务溢出降级后 watch-end 仍恒入队且为末条
+AssertionError: CAP：终止项不因容量上限被丢弃（容量豁免）——恒为流末条: expected { kind: 'data', origin: 'local', …(1) } to strictly equal { kind: 'watch-end', …(1) }
+
+- Expected
++ Received
+
+  {
+-   "kind": "watch-end",
+-   "reason": "schema-changed",
++   "changes": [
++     {
++       "key": "k60",
++       "path": [
++         "tasks",
++       ],
++     },
++   ],
++   "kind": "data",
++   "origin": "local",
+  }
+
+ ❯ packages/namespace-registry/test/issue-389-change-subscription-termination-red.test.ts:398:58
+    396|       'CAP：溢出语义不变（data 入队路径降级——T4 #390 前置锚）',
+    397|     ).toBeGreaterThanOrEqual(1);
+    398|     expect(sink.last(), 'CAP：终止项不因容量上限被丢弃（容量豁免）——恒为流末条').toStrictEqual…
+       |                                                          ^
+    399|       kind: 'watch-end',
+    400|       reason: 'schema-changed',
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/2]⎯
+
+
+ Test Files  1 failed (1)
+      Tests  2 failed | 1 passed | 14 skipped (17)
+   Start at  07:29:53
+   Duration  742ms (transform 394ms, setup 0ms, collect 534ms, tests 67ms, environment 0ms, prepare 43ms)

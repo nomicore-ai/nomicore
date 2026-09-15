@@ -1,0 +1,84 @@
+T1-schema-state: {
+  "lease": "active",
+  "runtime": {
+    "lifecycle": "ready",
+    "read": {
+      "enabled": true
+    },
+    "rootWrite": {
+      "enabled": true
+    },
+    "schemaWrite": {
+      "enabled": true
+    },
+    "schema": {
+      "state": "ready"
+    },
+    "fatal": null,
+    "close": null,
+    "replication": {
+      "state": "disabled"
+    }
+  }
+}
+T2-enableReplication: {
+  "ok": true
+}
+T2-replication-facts: {
+  "replicationId": "00000000000000000000000000000001",
+  "replicationEpoch": 1
+}
+T3-openReplicationSession: {
+  "ok": true
+}
+T4-watchMap-established: {
+  "leaseKeys": 16
+}
+T5-local-write-notifications: [
+  {
+    "kind": "data",
+    "origin": "local",
+    "changes": [
+      {
+        "path": [
+          "tasks"
+        ],
+        "key": "t3"
+      }
+    ]
+  }
+]
+T6-applyRemoteUpdate: {
+  "ok": true
+}
+T7-all-notifications: [
+  {
+    "kind": "data",
+    "origin": "local",
+    "changes": [
+      {
+        "path": [
+          "tasks"
+        ],
+        "key": "t3"
+      }
+    ]
+  },
+  {
+    "kind": "data",
+    "origin": "replication",
+    "changes": [
+      {
+        "path": [
+          "tasks"
+        ],
+        "key": "t4"
+      }
+    ]
+  }
+]
+T8-origin-sequence: [
+  "local",
+  "replication"
+]
+T9-watch-end-count: 0
