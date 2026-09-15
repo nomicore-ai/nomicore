@@ -18,7 +18,8 @@ Traditional databases were primarily designed for applications written by humans
 2. **Writes lack enforceable constraints.** When constraints live only in application code or human convention, an Agent modifying the database cannot reliably determine whether its write is valid. A misspelled field, wrong type, or violated business rule may enter the database without a clear warning and then propagate further.
 3. **There is no inexpensive undo for a bad change.** Traditional databases either lack rollback at the level of an individual semantic change or require transactions, backups, or whole-database restoration. Rollbacks are coarse, operationally complex, and costly, so one mistaken edit can affect large amounts of unrelated data.
 4. **Data cannot be shared safely on its own.** When one Agent sends a query result to another, it typically sends only the values—not the schema and business semantics. The recipient interprets the data using its own assumptions. As the number of participants and versions grows, the result quickly becomes inconsistent and confusing.
-5. **Agents cannot naturally sense data changes.** When data changes, an Agent is usually not notified. To avoid acting on stale information, it must read the data again before every use. Repeatedly loading large datasets into the prompt is slow and consumes substantial context.
+5. **Schema evolution slows iteration.** Once a schema changes, all historical data usually has to be migrated so old and new records can continue to work with the same application logic. The larger and older the dataset, the greater the cost and risk, making schema evolution cautious and slow.
+6. **Agents cannot naturally sense data changes.** When data changes, an Agent is usually not notified. To avoid acting on stale information, it must read the data again before every use. Repeatedly loading large datasets into the prompt is slow and consumes substantial context.
 
 ### Data that explains itself
 
