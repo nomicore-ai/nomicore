@@ -394,6 +394,10 @@ await reopened.lease.release()
 ```ts
 // readArray：序列容器（Y.Array / plain array）按下标基选窗；readMap：键容器
 // （Y.Map / plain object）按键基或单段值属性基选窗。n 必填 ≥1（n:0 非法）。
+// 可选 where：等值谓词项数组（每项恰 { field, equals }，equals 为标量闭集
+// string|number(finite)|boolean|null；合取；管线序 where → orderBy → n）。
+// 空数组 / 超 16 项 / in·范围·OR·NOT·多段 field / 非标量 equals 等词表外形态
+// 响亮拒绝 WINDOW_OPTIONS_INVALID（ADR 0029 §2）。
 const recent = lease.readArray(['workRecords'], {
   n: 2,
   orderBy: { by: 'index', dir: 'desc' }, // asc 缺省；readArray 仅收 by:'index'
@@ -406,17 +410,20 @@ const recent = lease.readArray(['workRecords'], {
 //           depth 截断标记落元素子树内；路径键控、与数据无关（空容器照常返回元素口径）。
 //           键面 Record 形锚定动态键槽；封闭对象形（YMap<{…}>）回退容器路径口径——
 //           该口径 depth 自容器起算，传 depth ≥ 1 得完整字段口径。
-//   truncated = kept < total；total=0 时 false 且无 ✂ 段。
+//   truncated 双语义（ADR 0029 §5）：无 where = kept < total（total=0 时 false 且无 ✂ 段）；
+//           有 where = 装满判定——匹配总数恒不承诺、✂ 段永不装配，
+//           kept === n → true（可能还有匹配未入窗）/ kept < n → false（扫完了，确定没有更多）。
 if (!recent.ok) throw new Error(`${recent.code}: ${recent.message}`)
 console.log(recent.value, recent.schema)
-// ✂ 窗口事实段样张（kept < total 时存在于 schema 文本末块）：
+// ✂ 窗口事实段样张（**where 缺席**形态；kept < total 时存在于 schema 文本末块）：
 // ✂ 截断事实：
 // - workRecords · 窗口 · 基 index desc · kept 2/total 3
 
 // 失败面响亮（与 readData 的缺席吸收方向相反，互不污染）：
 //   WINDOW_TARGET_ABSENT   目标缺席（缺键 / 数组越界）
 //   WINDOW_CARRIER_MISMATCH 在场但载体不符（换另一个 API）
-//   WINDOW_OPTIONS_INVALID 规则非法（n:0 / readArray 传 field / readMap 传 by:'index' 等）
+//   WINDOW_OPTIONS_INVALID 规则非法（n:0 / readArray 传 field / readMap 传 by:'index' /
+//                          where 形状非法等）
 //   入选项物化失败仍原样透传 PATH_NOT_ALLOWED（fail-fast、无半窗）。
 // 入选项组合式等价：每个入选项 ≡ 对该项路径的同预算读；未入选子项零物化。
 ```

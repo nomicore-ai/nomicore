@@ -4,31 +4,40 @@
  * 职责：把 doc-runtime 载体级窗口原语（W1：确定性选窗 + 只物化入选项 + 候选标识计数）与
  * ADR-0027 投影文本渲染器组合成 lease 口径的成功恒四键面
  * `{ ok, value, schema, truncated }`——`value` = W1 条目列表原样直通、`schema` = 元素
- * 口径投影文本（锚链 + B-8 ✂ 窗口事实块）、`truncated === kept < total`（`total` 消费自
- * W1 成功结算单源）。
+ * 口径投影文本（锚链 + B-8 ✂ 窗口事实块）、`truncated` 双语义（ADR 0029 §5）：
+ * 无 `where` = `kept < total`（`total` 消费自 W1 成功结算单源）；有 `where` = 装满判定
+ * `kept === n`（`n` = S3 canonical 预算；匹配总数恒不承诺、✂ 段永不装配）。
  *
- * 组合顺序（入口 fail-closed → S3/S5/S6；S1 lifecycle gate 与 S2 W1 直通在 runtime.ts 公共方法层）：
- * - 入口 fail-closed（A2′/D8）：`total === undefined` ⟺ W1 已应用 `where`（ADR 0029 §5 B-8
- *   单源不变量）→ 响亮 `WINDOW_OPTIONS_INVALID`（缝 2 前 lease 组合面不接收 `where`；
- *   该判据键于 W1 结算结果而非 options 重读，对敌意视图漂移免疫）；
- * - S3 `canonicalWindowBudget`：以 descriptor 纪律重读 options 四键空间
- *   （`{n, orderBy, depth, maxChildrenPerNode}`，零 `[[Get]]`）产新鲜预算对象与归一化
- *   排序项；视图不稳定（键集漂移 / accessor 显形 / 轴值非法 / trap 抛出）→ 重派发 W1
+ * 组合顺序（S3/S5/S6；S1 lifecycle gate 与 S2 W1 直通在 runtime.ts 公共方法层）：
+ * - S3 `canonicalWindowBudget`：以 descriptor 纪律重读 options 五键空间
+ *   （`{n, orderBy, depth, maxChildrenPerNode, where}`，零 `[[Get]]`）产新鲜预算对象、
+ *   归一化排序项与 canonical `n`；`where` 只做**判据镜像**（数组形态 / length descriptor /
+ *   非空 / ≤16 / 逐下标 descriptor 无空洞 / 零 accessor / plain 原型链 / 恰 `field`·`equals`
+ *   两键 / field 字符串 / equals 标量闭集 finite number），既不产出归一化值也不参与过滤
+ *   语义（合法性单权威在 W1；S3 是接缝净化镜像而非第三套校验权威）；视图不稳定
+ *   （键集漂移 / accessor 显形 / 轴值非法 / where 判据违例 / trap 抛出）→ 重派发 W1
  *   一次：失败则原样返回其失败成员；竟又接受 → 接缝终态 `WINDOW_OPTIONS_INVALID`
  *   （镜像 readData `canonicalReadOptions` 的 A-2b/A-2c 两出口）；
  * - S5 锚链（B-6）：数组面单锚 `[...path, 0]`（无回退）；键面 `[...path, '<key>']` →
  *   不可解析时回退 `[...path]` 容器口径（封闭对象形）；两锚皆不可解析（含无 active
  *   schema / 路径偏离 / 敌意 path）→ `schema: null`（非读失败）。锚与 S6 pathText 共用
  *   同一 `normalizeReadPath` 快照——raw path 在组合层**恰被消费一次**；
- * - S6 结算：`kept = entries.length`、`total` = W1 结算直通（本模块零重算）、
- *   `truncated = kept < total`；`truncated ∧ schema ≠ null` 时追加 B-8 ✂ 窗口事实块
- *   （块恒「头行 + 恰一行事实行」、四插值槽确定性渲染、pathText 取自 S5 已验证快照、
+ * - S6 结算：`kept = entries.length`；`where` 在场判据**键于 W1 结算单源**
+ *   `total === undefined`（B-4/B-8 单源不变量；绝不重读 options 判定）——无 `where`：
+ *   `truncated = kept < total`，`truncated ∧ schema ≠ null` 时追加 B-8 ✂ 窗口事实块
+ *   （既有快照逐字节不变）；有 `where`：`truncated = kept === canonical.n`（装满判定：
+ *   `kept === n` → true 可能还有匹配未入窗；`kept < n` → false 匹配集已扫完），✂ 段
+ *   **永不装配**——由分支结构保证（`appendWindowFacts` 只出现在 `total !== undefined`
+ *   分支内），非布尔开关；两分支 schema 同源（元素口径锚链正文，where 不影响）。
+ *   块恒「头行 + 恰一行事实行」、四插值槽确定性渲染、pathText 取自 S5 已验证快照、
  *   field 名经 `foldSegment` 折叠后再入基槽——纯呈现规则，canonical 归一化项与 S2 值
- *   通道保持 raw），块间 `\n\n`、结尾恰一个 `\n`（与渲染器拼装规则逐字同款）。
+ *   通道保持 raw；块间 `\n\n`、结尾恰一个 `\n`（与渲染器拼装规则逐字同款）。
  *
  * 单源纪律（ADR 0029 §8；ADR 0028 §13 R2 执行）：候选标识计数权威在 W1（枚举/过滤/计数
- * 同源）——本模块**零计数函数、零导航/载体分类镜像**；`total` 只从 W1 成功结算直通消费，
- * 且 W1 成功已蕴含 options 权威校验通过（非法 options 零 doc 触碰）。
+ * 同源）——本模块**零计数函数、零导航/载体分类镜像、零谓词求值镜像**（`where` 镜像只做
+ * 形状判据，不做匹配求值）；无 `where` 时 `total` 只从 W1 成功结算直通消费，有 `where`
+ * 时满载判定只消费 S3 canonical `n`（`total` 恒不参与），且 W1 成功已蕴含 options 权威
+ * 校验通过（非法 options 零 doc 触碰）。
  *
  * 失败面：W1 三码 + `PATH_NOT_ALLOWED` 原样透传（绝不吸收、无半窗）；接缝终态由本模块构造
  * （`WindowReadFailure` 单源类型复用）——全部同步返回、响亮不抛；模块级零可变态、零缓存、
@@ -68,7 +77,11 @@ export interface NamespaceRuntimeWindowReadOk<Entry> {
   readonly value: Entry[];
   /** 元素口径投影文本（锚链正文 + ✂ 窗口事实块）或严格 null（锚不可解析）。 */
   readonly schema: string | null;
-  /** `kept < total`（窗口截断机器信号；total=0 恒 false）。 */
+  /**
+   * 截断机器信号（ADR 0029 §5 双语义）：无 `where` = `kept < total`（精确；total=0 恒
+   * false）；有 `where` = **装满判定** `kept === n`（`kept === n` → true 可能还有匹配未入
+   * 窗；`kept < n` → false 匹配集已扫完、确定没有更多）。有 `where` 时不装配 ✂ 段。
+   */
   readonly truncated: boolean;
 }
 
@@ -103,7 +116,8 @@ interface WindowComposeInput<Entry> {
   /**
    * W1 成功结算的候选/匹配计数（单源直通；本模块零重算、零兜底）。值域 `number | undefined`
    * 与 W1 结算同步加宽（ADR 0029 §5）：`undefined` ⟺ W1 已应用 `where` 过滤（B-8 单源
-   * 不变量）——由 `composeWindowRead` 入口 fail-closed 分支消费（缝 2 前 lease 面不接收）。
+   * 不变量）——由 `composeWindowRead` 的 S6 结算消费：有 `where` 走装满判定
+   * `kept === canonical.n`（本值恒不参与），无 `where` 走精确 `kept < total`。
    */
   readonly total: number | undefined;
   /** S3 出口①重派发（W1 权威再校验；零 doc 触碰先于 N0）。 */
@@ -154,22 +168,14 @@ export function composeMapWindowRead(
   });
 }
 
-/** 两面共用骨架（入口 fail-closed → S3 → S5 → S6；顺序不可换——options 合法性由 W1 单权威裁定）。 */
+/** 两面共用骨架（S3 → S5 → S6；顺序不可换——options 合法性由 W1 单权威裁定）。 */
 function composeWindowRead<Entry>(
   input: WindowComposeInput<Entry>,
 ): NamespaceRuntimeWindowReadOk<Entry> | WindowReadFailure {
-  // A2′/D8 入口 fail-closed（SA8 前置门禁 A2 + 设计后复审 A2′）：判据键于 **W1 结算结果**
-  // `total === undefined`（B-8 单源不变量：无 where = 候选标识计数恒数值，有 where =
-  // undefined），**先于 S3**——绝不重读 options、绝不校验 where 形状（故非第三套校验器）。
-  // 缝 1 期间 lease 组合面接收 where 属缝 2（truncated 双语义 + ✂ 永不装配 + S3 镜像扩展
-  // 两层同步扩）：此处必须响亮失败，绝不静默产出「已过滤四键成功面」（S3 白名单单独把关
-  // 挡不住敌意 options 视图漂移——同一 raw 引用可对 W1 呈五键视图、对 S3 呈干净四键视图，
-  // 届时 S6 `kept < undefined → false` 会静默成功）。
-  if (input.total === undefined) return seamWhereNotImplemented(input.path);
   const { state, path, options, face, entries, redispatch } = input;
   const total = input.total;
 
-  // S3 canonical 接缝净化（零 [[Get]]；T1 权威已成功 ⟹ 与此判据不一致即视图不稳定）。
+  // S3 canonical 接缝净化（零 [[Get]]；W1 权威已成功 ⟹ 与此判据不一致即视图不稳定）。
   const canonical = canonicalWindowBudget(options, face);
   if (!canonical.ok) {
     const reDispatch = redispatch();
@@ -186,14 +192,21 @@ function composeWindowRead<Entry>(
   // S5 schema 正文（锚链只消费 schema；锚失败 → null，非读失败）。
   const anchor = segments === null ? null : anchorSchemaBody(state, segments, face, canonical.budget);
 
-  // S6 结算：truncated === kept < total；`total` 为 W1 结算单源直通（ADR 0029 §8 下沉——
-  // 与 entries 同一次枚举产出，本模块零计数）。✂ 窗口事实块仅在截断 ∧ 正文非 null ∧
-  // 快照在场的交集装配（快照缺席时正文必 null，故二者同界）。
+  // S6 结算（ADR 0029 §5 双语义；在场判据键于 W1 结算单源 `total === undefined`——
+  // 绝不重读 options 判定，故 S3 的 canonical 视图是否隐藏 `where` 不影响结算语义）：
+  // - 无 where：`truncated === kept < total`（`total` = W1 结算单源直通，与 entries 同一次
+  //   枚举产出，本模块零计数）；✂ 窗口事实块仅在截断 ∧ 正文非 null ∧ 快照在场的交集装配
+  //   （快照缺席时正文必 null，故二者同界）——既有快照逐字节不变（AC1/F7/F8）；
+  // - 有 where：`truncated === kept === canonical.n`（装满判定：匹配恰 n 亦为 true，计数型
+  //   实现必被击穿）；**✂ 段永不装配**——本分支结构上不出现 `appendWindowFacts`，schema
+  //   原样为元素口径锚链正文（where 不改变 schema 通道；AC2/X 组字节相等锚）。
   const kept = entries.length;
-  const truncated = kept < total;
-  const schema = truncated && anchor !== null && segments !== null
-    ? appendWindowFacts(anchor, windowFactsBlock(segments, canonical.term, kept, total))
-    : anchor;
+  const truncated = total === undefined ? kept === canonical.n : kept < total;
+  const schema = total === undefined
+    ? anchor
+    : truncated && anchor !== null && segments !== null
+      ? appendWindowFacts(anchor, windowFactsBlock(segments, canonical.term, kept, total))
+      : anchor;
   return { ok: true, value: entries, schema, truncated };
 }
 
@@ -205,16 +218,34 @@ type CanonicalTerm =
   | { readonly basis: 'key'; readonly dir: 'asc' | 'desc' }
   | { readonly basis: 'field'; readonly field: string; readonly dir: 'asc' | 'desc' };
 
+/**
+ * v1 `where` 数组长度上限（ADR 0029 §2 哨兵值；恰 16 合法、17 非法）。
+ *
+ * 出处镜像：`packages/doc-runtime/src/window.ts` 的模块私有 `WHERE_TERM_LIMIT`（`#398` P2
+ * 交付）。该常量**不导出**（导出即扩 doc-runtime 公共面，违反本票 F9 零 diff 纪律），故
+ * S3 以具名模块私有常量 + 本出处注释镜像（与 doc-runtime 形态对称、单点定位，便于 Z9
+ * 边界与结构审计锚定；不散落字面量）。判据漂移风险由「恰 16 合法 / 17 非法」行为锚与
+ * §12.6 S4 结构审计守住。
+ */
+const WHERE_TERM_LIMIT = 16;
+
 type CanonicalWindowBudget =
-  | { readonly ok: true; readonly budget: ResolveSchemaBudgetOptions; readonly term: CanonicalTerm }
+  | {
+      readonly ok: true;
+      readonly budget: ResolveSchemaBudgetOptions;
+      readonly term: CanonicalTerm;
+      /** S3 判定通过的 canonical `n`（原样携带、零新判据；S6 装满判定 `kept === n` 的承载）。 */
+      readonly n: number;
+    }
   | { readonly ok: false };
 
 /**
- * options 四键空间重读（W1 `validateWindowOptions`/`validateOrderBy` 判据镜像）：
+ * options 五键空间重读（W1 `validateWindowOptions`/`validateOrderBy`/`validateWhere` 判据镜像）：
  * `Object.keys` 键空间 + `Object.getOwnPropertyDescriptor` 取值（全程零 `[[Get]]`，
  * 零 accessor 执行）+ 整体 try 收编 trap 异常；任何判据不一致 → `{ok:false}`
  * （交出口①/②响亮处置），绝不静默、绝不外抛。预算对象为**新鲜 plain 字面量**
- * （present-undefined 剥离、-0 归一）。
+ * （present-undefined 剥离、-0 归一）；`where` 只做判据镜像（`canonicalWhere`），不产出
+ * 归一化值、不参与过滤语义（合法性单权威在 W1）。
  */
 function canonicalWindowBudget(raw: unknown, face: WindowFace): CanonicalWindowBudget {
   try {
@@ -226,15 +257,24 @@ function canonicalWindowBudget(raw: unknown, face: WindowFace): CanonicalWindowB
     let maxChildrenPerNode: number | undefined;
     let rawOrderBy: unknown;
     let hasOrderBy = false;
+    let rawWhere: unknown;
+    let hasWhere = false;
     for (const key of Object.keys(raw)) {
-      if (key !== 'n' && key !== 'orderBy' && key !== 'depth' && key !== 'maxChildrenPerNode') {
+      // W-1 键集门镜像：白名单恰五键（ADR 0029 §1 加法；未知键在场即拒，含 present-undefined）。
+      if (
+        key !== 'n'
+        && key !== 'orderBy'
+        && key !== 'depth'
+        && key !== 'maxChildrenPerNode'
+        && key !== 'where'
+      ) {
         return { ok: false }; // 键集漂移：W1 视角本应拒绝 → 视图不稳定
       }
       const desc = Object.getOwnPropertyDescriptor(raw, key);
       if (desc === undefined) continue; // ownKeys 谎报键 ≡ 非 own（与 W1 同处置）
       if (desc.get !== undefined || desc.set !== undefined) return { ok: false }; // accessor 显形
       const value = desc.value;
-      if (value === undefined) continue; // present-undefined ≡ 缺席（剥离）
+      if (value === undefined) continue; // present-undefined ≡ 缺席（剥离；顶层已知轴豁免，B-12）
       if (key === 'n') {
         if (typeof value !== 'number' || !Number.isInteger(value) || !Number.isFinite(value) || value < 1) {
           return { ok: false }; // 值非法化：绝不把非法值喂给下游
@@ -246,6 +286,9 @@ function canonicalWindowBudget(raw: unknown, face: WindowFace): CanonicalWindowB
         }
         if (key === 'depth') depth = value === 0 ? 0 : value; // H10 镜像：-0 归一
         else maxChildrenPerNode = value === 0 ? 0 : value;
+      } else if (key === 'where') {
+        rawWhere = value;
+        hasWhere = true;
       } else {
         rawOrderBy = value;
         hasOrderBy = true;
@@ -254,13 +297,97 @@ function canonicalWindowBudget(raw: unknown, face: WindowFace): CanonicalWindowB
     if (n === undefined) return { ok: false }; // W1 必填判据
     const term = canonicalOrderBy(hasOrderBy ? rawOrderBy : undefined, face);
     if (!term.ok) return { ok: false };
+    // where 判据镜像（W1 同款定序：键循环 → n → orderBy → where；S3 内部单一 {ok:false}
+    // 出口使序列不产生行为差异，此处只为与 W1 审计对齐）。不产出归一化值。
+    if (hasWhere && !canonicalWhere(rawWhere)) return { ok: false };
     const budget: { depth?: number; maxChildrenPerNode?: number } = {};
     if (depth !== undefined) budget.depth = depth;
     if (maxChildrenPerNode !== undefined) budget.maxChildrenPerNode = maxChildrenPerNode;
-    return { ok: true, budget, term: term.term };
+    return { ok: true, budget, term: term.term, n };
   } catch {
     return { ok: false }; // 探测期 trap 异常——收编，绝不外抛
   }
+}
+
+// ── S3 `where` 判据镜像（非第三套权威；只回答「与 W1 已接受视图是否判据一致」）──────────
+//
+// 判据逐条镜像 `packages/doc-runtime/src/window.ts` `validateWhere`/`validateWhereTerm`
+// （ADR 0029 §2/§6；W-4–W-13）：数组性、`length` 经 own data descriptor 的非负整数门、
+// 非空、≤ `WHERE_TERM_LIMIT`、逐下标 descriptor（空洞非法）、零 accessor、元素非
+// undefined/null/数组、plain 原型链、恰 `field`/`equals` 两键（皆必填）、`field` 为 string
+// （空串合法）、`equals` 标量闭集（string/boolean/null 直收，number 须 `Number.isFinite`；
+// 禁 truthiness 校验）。全程 `Object.keys` + `Object.getOwnPropertyDescriptor`（零 `[[Get]]`、
+// 零 accessor 执行），任何 trap 抛出由本地 try 收编为「不稳定」→ 既有两出口，绝不外抛。
+//
+// 不产出：镜像只返回稳定/不稳定布尔——不构造归一化数组、不向下游传递、不做谓词求值
+// （组合层零过滤语义参与；在场判据在 S6 单点键于 W1 结算 `total`）。
+
+/** `where` 视图稳定性镜像（W-4–W-13；true = 与 W1 判据一致）。 */
+function canonicalWhere(raw: unknown): boolean {
+  try {
+    // W-4 数组性门（Y.Array / 类数组 / 标量一律不稳定）。
+    if (!Array.isArray(raw)) return false;
+    // W-5 长度门：经 own data descriptor 读 `length`（杜绝 Proxy `length` get trap）。
+    const lenDesc = Object.getOwnPropertyDescriptor(raw, 'length');
+    if (lenDesc === undefined || lenDesc.get !== undefined || lenDesc.set !== undefined) return false;
+    const len = lenDesc.value;
+    if (typeof len !== 'number' || !Number.isInteger(len) || len < 0) return false;
+    if (len === 0) return false; // 非空（要全集的唯一写法是不传 where）
+    if (len > WHERE_TERM_LIMIT) return false; // ≤16（ADR 0029 §2 哨兵）
+    for (let i = 0; i < len; i += 1) {
+      // W-6 逐下标 descriptor 读（仅索引空间；稀疏空洞与下标 accessor 皆不稳定）。
+      const itemDesc = Object.getOwnPropertyDescriptor(raw, String(i));
+      if (itemDesc === undefined) return false;
+      if (itemDesc.get !== undefined || itemDesc.set !== undefined) return false;
+      if (!canonicalWhereTerm(itemDesc.value)) return false;
+    }
+    return true;
+  } catch {
+    return false; // 敌意数组 trap 异常——收编为不稳定
+  }
+}
+
+/** 单项 `WhereTerm` 判据镜像（W-7–W-12；true = 与 W1 判据一致）。 */
+function canonicalWhereTerm(raw: unknown): boolean {
+  // W-7 元素值（WhereTerm 层无 present-undefined 豁免，与顶层 W-3 边界相反）。
+  if (raw === undefined || raw === null || typeof raw !== 'object' || Array.isArray(raw)) return false;
+  try {
+    // W-8 元素宿主：Object.prototype 或 null 原型链。
+    const proto = Object.getPrototypeOf(raw);
+    if (proto !== Object.prototype && proto !== null) return false;
+    let field: unknown;
+    let hasField = false;
+    let equals: unknown;
+    let hasEquals = false;
+    for (const key of Object.keys(raw)) {
+      // W-9 元素键集：白名单恰两键（未知键在场即拒，含 present-undefined 未知键）。
+      if (key !== 'field' && key !== 'equals') return false;
+      const desc = Object.getOwnPropertyDescriptor(raw, key);
+      if (desc === undefined) continue; // ownKeys 谎报键 ≡ 非 own
+      if (desc.get !== undefined || desc.set !== undefined) return false;
+      if (key === 'field') {
+        field = desc.value;
+        hasField = true;
+      } else {
+        equals = desc.value;
+        hasEquals = true;
+      }
+    }
+    if (!hasField || !hasEquals) return false; // W-12 必填闭环
+    if (typeof field !== 'string') return false; // W-10 恰 string（空串合法、零强制转换）
+    return isScalarEquals(equals); // W-11 标量闭集 + finite 门（禁 truthiness 校验）
+  } catch {
+    return false;
+  }
+}
+
+/** `equals` 闭集镜像（W-11）：string/boolean 直收；number 须 `Number.isFinite`；null 收；其余拒。 */
+function isScalarEquals(raw: unknown): boolean {
+  if (raw === null) return true;
+  const kind = typeof raw;
+  if (kind === 'string' || kind === 'boolean') return true;
+  if (kind === 'number') return Number.isFinite(raw as number);
+  return false; // undefined / object / array / bigint / symbol / function / Date / Map …
 }
 
 /** orderBy 封闭形状重读（面词表 + by/field 互斥 + dir 闭集；缺省面符基 asc）。 */
@@ -426,22 +553,6 @@ function seamWindowOptionsInvalid(path: unknown): WindowReadFailure {
     'WINDOW_OPTIONS_INVALID',
     path,
     'WINDOW_OPTIONS_INVALID: 视图不稳定（options 视图在读取期间漂移，敌意 descriptor/Proxy）——接缝拒绝组合窗口读',
-  );
-}
-
-/**
- * 缝 1 中间态终态（A2′/D8）：唯一构造触发 = W1 成功结算 `total === undefined`（⟺ W1 已接受
- * 并执行 `where`，ADR 0029 §5 B-8 单源不变量）——lease 组合面接收 `where`（truncated 双语义
- * + ✂ 永不装配 + S3 镜像扩展「两层同步扩」）属缝 2，缝 1 期间必须**响亮失败**：绝不静默
- * 产出「已过滤四键成功面」，也绝不回落到未过滤成功面。四键形状与 `seamWindowOptionsInvalid`
- * 同款（`windowFailure` 单源构造；message 非契约字段，SA6 §15-O2）。缝 2 落地时本分支被
- * 「truncated 双语义 + ✂ 永不装配 + S3 镜像扩展」整体取代。
- */
-function seamWhereNotImplemented(path: unknown): WindowReadFailure {
-  return windowFailure(
-    'WINDOW_OPTIONS_INVALID',
-    path,
-    'WINDOW_OPTIONS_INVALID: where 已在 W1 生效而 lease 组合面接收属缝 2（truncated 双语义 / ✂ 永不装配 / S3 镜像扩展）——接缝拒绝组合窗口读',
   );
 }
 
