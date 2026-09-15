@@ -1,0 +1,15 @@
+      Tests  14 passed (14)
+   Start at  07:02:06
+   Duration  885ms (transform 397ms, setup 0ms, collect 544ms, tests 196ms, environment 0ms, prepare 47ms)
+
+REPEAT_1_EXIT=0
+      Tests  14 passed (14)
+   Start at  07:02:07
+   Duration  940ms (transform 439ms, setup 0ms, collect 589ms, tests 205ms, environment 0ms, prepare 48ms)
+
+REPEAT_2_EXIT=0
+      Tests  14 passed (14)
+   Start at  07:02:09
+   Duration  895ms (transform 400ms, setup 0ms, collect 547ms, tests 198ms, environment 0ms, prepare 44ms)
+
+REPEAT_3_EXIT=0

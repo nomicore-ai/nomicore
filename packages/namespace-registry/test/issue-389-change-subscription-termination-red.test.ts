@@ -512,7 +512,10 @@ describe('负控 NC3–NC6：数据面与写面纪律零回归', () => {
       value: { title: 'after-recreate', priority: 2 },
     });
     expect(appended.ok).toBe(true);
-    await optionalSink.waitForCount(1);
+    // T4 #390（rebase 适配）：严格祖先删除先产生一条 invalidate-all（订阅存活——非
+    // watch-end，NC5 的「删除 ≠ 终止」断言不变）；重建后 data(t10) 为第 2 条通知，
+    // 屏障须等满 2 条（原「删除零通知」计数假设不再成立）。
+    await optionalSink.waitForCount(2);
     expect(optionalSink.dataKeys(), 'NC5：订阅横跨缺席期，重建后条目定位符照常到达').toContain('t10');
     expect(ghostSink.watchEnds()).toStrictEqual([]);
     expect(optionalSink.watchEnds()).toStrictEqual([]);

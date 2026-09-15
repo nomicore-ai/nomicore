@@ -137,6 +137,8 @@ import {
   NAMESPACE_REGISTRY_RANDOM_REQUIRED_MESSAGE,
   NAMESPACE_REGISTRY_ROLE_INVALID_MESSAGE,
   NAMESPACE_REGISTRY_SCHEDULER_REQUIRED_MESSAGE,
+  NAMESPACE_REGISTRY_WATCH_QUEUE_CAPACITY_RANGE_MESSAGE,
+  NAMESPACE_REGISTRY_WATCH_QUEUE_CAPACITY_TYPE_MESSAGE,
   NAMESPACE_RESET_EXPECTED_IDENTITY_INVALID_MESSAGE,
   NAMESPACE_RESET_FAILED_MESSAGE,
   NAMESPACE_RESET_IDENTITY_MISMATCH_MESSAGE,
@@ -192,6 +194,29 @@ export function resolveIdleTimeoutMs(config: { readonly idleTimeoutMs?: number }
   return value;
 }
 
+/**
+ * watchQueueCapacity 单点校验（【issue #390 / ADR 0030 T4】D5；`resolveIdleTimeoutMs`
+ * 同款纪律）：testing 控件注入值经内部分组成。
+ * - `undefined`（未提供）→ `undefined` —— runtime 缺省参数 = 实现常量（数值不进公共契约）；
+ * - 非 number → TypeError `NAMESPACE_REGISTRY_WATCH_QUEUE_CAPACITY_TYPE: …`；
+ * - 非整数 / <1 / >2_147_483_647 / 非有限 → RangeError `…_RANGE: …`；
+ * message 恒定、零值回显——垃圾值绝不静默按「恒溢出」运行（fail loud，非 fallback）。
+ */
+function resolveWatchQueueCapacity(
+  config: { readonly watchQueueCapacity?: number } | undefined,
+): number | undefined {
+  if (config === undefined) return undefined;
+  const value = config.watchQueueCapacity;
+  if (value === undefined) return undefined;
+  if (typeof value !== 'number') {
+    throw new TypeError(NAMESPACE_REGISTRY_WATCH_QUEUE_CAPACITY_TYPE_MESSAGE);
+  }
+  if (!Number.isInteger(value) || value < 1 || value > 2_147_483_647) {
+    throw new RangeError(NAMESPACE_REGISTRY_WATCH_QUEUE_CAPACITY_RANGE_MESSAGE);
+  }
+  return value;
+}
+
 /** 生产 Runtime 工厂类型（精确形状；仅 testing.ts 注入口与 registry 内部可见）。
  *  #155（§4-D6）：第三可选参 `diagnostic?`——两参实现（测试 override）对三参可选
  *  签名保持可赋值，零测试破坏。 */
@@ -211,6 +236,9 @@ interface RegistryRuntimeOptions {
   readonly emitter?: NamespaceDiagnosticChangeEmitter;
   readonly clock?: () => number;
   readonly replicationObservability?: RuntimeReplicationObservabilitySeam;
+  /** 【issue #390 / ADR 0030 T4】watch 通知队列容量（testing 控件；缺省 undefined =
+   *  runtime 实现常量——数值不进公共契约）。 */
+  readonly watchQueueCapacity?: number;
 }
 
 type RuntimeFactory = (
@@ -430,6 +458,11 @@ export interface NamespaceRegistryInternalOptions {
   /** #150 可选 namespace 诊断变更日志（缺省 = 日志禁用，行为与既有完全一致；
    *  等效生产面 CreateNamespaceRegistryOptions.diagnosticLog）。 */
   readonly diagnosticLog?: NamespaceRegistryDiagnosticLog;
+  /** 【issue #390 / ADR 0030 T4】可选 watch 通知队列容量（testing 控件加法字段：
+   *  `resolveWatchQueueCapacity` 单点校验 → `runtimeOptionsFor` 第三参 → runtime 装配缝
+   *  → `createWatchHub` 第三参）。缺省 = runtime 实现常量；数值不进公共契约
+   *  （生产入口 createNamespaceRegistry 逐一显式转发、不含本字段 ⇒ 结构性不可达）。 */
+  readonly watchQueueCapacity?: number;
 }
 
 /**
@@ -787,6 +820,10 @@ export function createRegistryInternal(
   // 用例以 { clock: {} } 断言 CLOCK 文案——scheduler 先行会改抛 SCHEDULER 文案）。
   assertSchedulerShape(options?.scheduler);
   const idleTimeoutMs = resolveIdleTimeoutMs(options);
+  // 【issue #390 / ADR 0030 T4】watch 队列容量单点校验（构造期 fail-loud；缺省
+  // undefined → runtime 缺省参数 = 实现常量）。排位于 idleTimeoutMs 之后、
+  // randomBytes 门之前——本字段在全部既有调用方缺席 ⇒ 既有门禁文案/顺序零漂移。
+  const watchQueueCapacity = resolveWatchQueueCapacity(options);
   // phase-5 切片 1（ADR 0009/0010）：randomBytes 门禁最后——idleTimeoutMs 的
   // TYPE/RANGE 二分先于随机源，使「非法 idleTimeoutMs + 缺随机源」的既有用例语义
   // 不漂移（错误二分文案稳定）。
@@ -836,8 +873,12 @@ export function createRegistryInternal(
     //  装配点——此处只绑定闭包）。诊断缺席时第三参仍携带 clock（legacy Host 行为不变
     //  ——此前 runtime 不消费该字段；两参测试 factory 对三参可选签名兼容）。
     const schemaLifecycleClock = (): number => clock.now();
+    // 【issue #390 / ADR 0030 T4】watch 队列容量（testing 控件）随第三参到达 factory
+    // （三处 factory 调用点共享本单点；缺省缺席 ⇒ 对象形状与既有逐字节一致）。
+    const watchCapacitySeam =
+      watchQueueCapacity !== undefined ? { watchQueueCapacity } : {};
     if (replicationObservabilityOptions === undefined) {
-      return { ...(diagnostic ?? {}), clock: schemaLifecycleClock };
+      return { ...(diagnostic ?? {}), clock: schemaLifecycleClock, ...watchCapacitySeam };
     }
     const replicationObservability: RuntimeReplicationObservabilitySeam = {
       ...(replicationObservabilityOptions.stageClock !== undefined
@@ -856,6 +897,7 @@ export function createRegistryInternal(
       ...(diagnostic ?? {}),
       clock: schemaLifecycleClock,
       replicationObservability,
+      ...watchCapacitySeam,
     };
   }
 

@@ -88,6 +88,13 @@ export const NAMESPACE_REGISTRY_PLUGIN_CONFIG_MESSAGE =
   'NAMESPACE_REGISTRY_PLUGIN_CONFIG: namespace-registry 插件配置仅接受 idleTimeoutMs 键';
 export const NAMESPACE_REGISTRY_SHUTDOWN_FAILED_MESSAGE =
   'NAMESPACE_REGISTRY_SHUTDOWN_FAILED: Registry shutdown 期间部分 Runtime 关闭失败';
+// —— issue #390（ADR 0030 T4）watch 通知队列容量注入门（testing 控件）——
+// 稳定 message 单一真相源（零插值、零值回显——沿 #112 冻结文本纪律）；语义进契约、
+// 数值不进公共契约（ADR 0030 L66：构造参数 + 实现默认）。
+export const NAMESPACE_REGISTRY_WATCH_QUEUE_CAPACITY_TYPE_MESSAGE =
+  'NAMESPACE_REGISTRY_WATCH_QUEUE_CAPACITY_TYPE: watchQueueCapacity 必须是 number（1..2147483647 有限整数）';
+export const NAMESPACE_REGISTRY_WATCH_QUEUE_CAPACITY_RANGE_MESSAGE =
+  'NAMESPACE_REGISTRY_WATCH_QUEUE_CAPACITY_RANGE: watchQueueCapacity 必须是 1..2147483647 的有限整数（缺省 = runtime 实现常量——数值不进公共契约）';
 // —— phase-5 切片 1 增量（ADR 0010 身份条款/ADR 0009 依赖纪律）——
 export const NAMESPACE_REGISTRY_RANDOM_REQUIRED_MESSAGE =
   'NAMESPACE_REGISTRY_RANDOM_REQUIRED: Registry 必须提供受控随机源 randomBytes(length): Uint8Array';
