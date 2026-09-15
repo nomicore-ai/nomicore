@@ -1,0 +1,24 @@
+=== gh issue view 389 (REST) ===
+{"comments":[],"labels":[{"id":"LA_kwDOT8JVvs8AAAACw6qHcA","name":"in-progress","description":"","color":"fbca04"}],"number":389,"state":"OPEN","title":"复制来源与订阅终止（变更订阅 T3）"}
+
+=== git status --porcelain ===
+?? artifacts/sa6-issue389-1-origin.log
+?? artifacts/sa6-issue389-2-schema-local.log
+?? artifacts/sa6-issue389-3-schema-peer.log
+?? artifacts/sa6-issue389-4-reset.log
+?? artifacts/sa6-issue389-baseline-369-contract.log
+?? artifacts/sa6-issue389-baseline-387-contract.log
+?? artifacts/sa6-issue389-baseline-typecheck.log
+?? artifacts/sa6-issue389-env.log
+?? artifacts/sa6-issue389-probe-5-emission-sites.log
+?? artifacts/sa6-issue389-probe-6-inputs-and-tree.log
+?? artifacts/sa6-issue389-runner-include.log
+?? packages/namespace-registry/.sa6-389/
+?? wiki/raw/task_issue-389.md
+
+=== git log -2 ===
+28faeae fix(#387): watchMap 无谓词形态垂直通路（变更订阅 T1/tracer bullet） (#395)
+6df1c61 docs(adr): 0030 变更订阅——watchMap 键容器变更信号
+
+=== tracked diff stat vs HEAD ===
+(empty = zero tracked modifications)

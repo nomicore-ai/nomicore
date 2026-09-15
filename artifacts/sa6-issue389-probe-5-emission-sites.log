@@ -1,0 +1,28 @@
+=== HEAD ===
+28faeae7a0c619e1352f05d19a83ba46e562879c
+=== watch-end emission sites in packages/*/src ===
+packages/namespace-registry/src/types.ts:495:/** lease.watchMap 通知（runtime 单源别名跟随；data 恰三键 / invalidate-all / watch-end）。 */
+packages/namespace-runtime/src/watch-map.ts:37: * `watch-end` 终止编排与 `'replication'` 验收断言（T3 #389）、父路径删除编排（T4
+packages/namespace-runtime/src/watch-map.ts:67:  | { readonly kind: 'watch-end'; readonly reason: 'schema-changed' | 'doc-replaced' };
+
+=== unguarded string search: 'doc-replaced' / 'schema-changed' in src ===
+packages/namespace-runtime/src/watch-map.ts:67:  | { readonly kind: 'watch-end'; readonly reason: 'schema-changed' | 'doc-replaced' };
+
+=== createWatchHub / watchHub references ===
+packages/namespace-runtime/src/runtime.ts:98:import { createWatchHub } from './watch-map.js';
+packages/namespace-runtime/src/runtime.ts:576:  const watchHub = createWatchHub(doc, state);
+packages/namespace-runtime/src/runtime.ts:633:    watchHub.shutdown();
+packages/namespace-runtime/src/runtime.ts:753:    watchMap: (path, listener) => watchHub.watchMap(path, listener),
+packages/namespace-runtime/src/watch-map.ts:365:export function createWatchHub(
+
+=== watch hub wiring points in schema install / re-arm / reset paths ===
+(none outside watch-map.ts)
+
+=== runtime public surface keys (definition region) ===
+750-    readMap,
+751-    // 【issue #387 / ADR 0030 T1】第十五键：lease 面透传对偶（readData/readMap 同款）；
+752-    //   建立判定/lifecycle 门/登记全在 hub 内（同步 throw 面原样上抛——B-3）。
+753:    watchMap: (path, listener) => watchHub.watchMap(path, listener),
+754-    getSchema: () => {
+755-      // D2（#93 rev2，SA8 裁决 B）：数据投影 getter 停接纳——key 仅 lifecycle（裁决 H：
+756-      // 绝不 keyed on fatal/schemaState）；拒绝先于触碰 live Y.Doc（INV 同 read() 分支）

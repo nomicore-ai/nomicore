@@ -1,0 +1,70 @@
+R1-before-reset: {
+  "notifications": [
+    {
+      "kind": "data",
+      "origin": "local",
+      "changes": [
+        {
+          "path": [
+            "tasks"
+          ],
+          "key": "t3"
+        }
+      ]
+    }
+  ],
+  "leaseStatus": {
+    "lease": "active",
+    "runtime": {
+      "lifecycle": "ready",
+      "read": {
+        "enabled": true
+      },
+      "rootWrite": {
+        "enabled": true
+      },
+      "schemaWrite": {
+        "enabled": true
+      },
+      "schema": {
+        "state": "ready"
+      },
+      "fatal": null,
+      "close": null,
+      "replication": {
+        "state": "enabled",
+        "replicationId": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "replicationEpoch": 1
+      }
+    }
+  }
+}
+R2-reset-result: {
+  "ok": true
+}
+R3-after-reset-notifications: [
+  {
+    "kind": "data",
+    "origin": "local",
+    "changes": [
+      {
+        "path": [
+          "tasks"
+        ],
+        "key": "t3"
+      }
+    ]
+  }
+]
+R4-watch-end-count: 0
+R5-archive-calls: 1
+R6-lease-status-after: {
+  "lease": "released",
+  "runtime": null
+}
+R7-unsubscribe-idempotent: "no-throw"
+R8-rewatch-after-reset: {
+  "threw": true,
+  "name": "NamespaceLeaseReleasedError",
+  "message": "NAMESPACE_LEASE_RELEASED: 此 NamespaceLease 已 release，不能再接纳业务操作"
+}

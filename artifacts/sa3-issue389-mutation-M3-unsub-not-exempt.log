@@ -1,0 +1,88 @@
+
+ RUN  v3.2.7 /home/wangjian/nomicore-fix-issue-389
+
+ DEPRECATED  'basic' reporter is deprecated and will be removed in Vitest v3.
+Remove 'basic' from 'reporters' option. To match 'basic' reporter 100%, use configuration:
+{
+  "test": {
+    "reporters": [
+      [
+        "default",
+        {
+          "summary": false
+        }
+      ]
+    ]
+  }
+}
+ ❯ packages/namespace-registry/test/issue-389-change-subscription-termination-red.test.ts (17 tests | 2 failed | 11 skipped) 2102ms
+   ↓ 组 C1/C2（AC1 + NC3）：复制 apply 与本地写同流——origin 两态、零过滤、零 watch-end > C1/C2：本地写 origin=local、复制 apply origin=replication、同流 FIFO、零 watch-end
+   ↓ 组 C3（AC2-A）：Hub 本地 replaceSchema → watch-end schema-changed > C3：替换 schema ok（oracle 绿）→ 滞留 data 先达、流末条 watch-end schema-changed
+   ↓ 组 C4（AC2-B）：Peer re-arm 路径 → watch-end schema-changed（ADR 0018） > C4：re-arm applied（指纹双侧一致 oracle 绿）→ peer 流末条 watch-end schema-changed
+   ↓ 组 C4（AC2-B）：Peer re-arm 路径 → watch-end schema-changed（ADR 0018） > C4b（B-T3-2 冻结：失败也发）：re-arm failed（fatal INVALID）仍发 watch-end schema-changed
+   × 组 C5/C7/C10（AC3 + AC4 + AC6）：doc 替换 → watch-end doc-replaced > C5：reset ok（归档 1 次）→ 结算即已含已投递末条 watch-end doc-replaced（免 poll） 28ms
+     → AC3/B-T3-3：reset 结算时订阅流已含已投递末条 watch-end（投递结算并入 close 承诺）: expected [ 'data' ] to strictly equal [ 'data', 'watch-end' ]
+   × 组 C5/C7/C10（AC3 + AC4 + AC6）：doc 替换 → watch-end doc-replaced > C10（AC6）：doc-replaced 后重建——released 通道 + 重新 open 后新订阅可用且无终止信号 2010ms
+     → Matcher did not succeed in time.
+   ✓ 组 C6/C8（AC4 + AC5）：watch-end 流末条——此后静默、滞留 data 必达 > C6：终止后「写 + 双预算屏障」零新增通知（含 invalidate-all 不后置） 17ms
+   ✓ 组 C6/C8（AC4 + AC5）：watch-end 流末条——此后静默、滞留 data 必达 > C8（B-T3-6 必达）：多笔快连事务后立即 replaceSchema——data 全部先于 watch-end、末条恒终止项 9ms
+   ✓ 组 C6/C8（AC4 + AC5）：watch-end 流末条——此后静默、滞留 data 必达 > CAP（容量豁免不变量）：>16 笔快连事务溢出降级后 watch-end 仍恒入队且为末条 29ms
+   ↓ 组 C9（AC6）：schema-changed 后重建订阅 > C9：lease 仍 active——重新 watchMap 按新 schema 建立并投递；旧句柄静默/幂等
+   ↓ 组 C11（AC7）：零新接缝——键集与通知闭集 > C11：lease 恰 16 键、runtime 恰 15 键、通知 kind ⊆ 三 kind 闭集、读面冻结
+   ✓ 负控 NC3–NC6：数据面与写面纪律零回归 > NC5：数据缺席 / 容器删除**不终结**订阅（终止只与 lease 和 schema 耦合） 8ms
+   ↓ 负控 NC3–NC6：数据面与写面纪律零回归 > NC6：无效写（schema 拒绝）零事务零通知（通知面与写结果一致）
+   ↓ 负控 NC3–NC6：数据面与写面纪律零回归 > NC3 补充：复制启用后本地写仍 origin=local、远端 apply 恒 replication（无过滤面）
+   ↓ 装置自检：hub/peer/reset 三装置前提为绿（红灯不得误归因于 fixture） > hub 复制装置：enableReplication + session + 身份投影一致
+   ↓ 装置自检：hub/peer/reset 三装置前提为绿（红灯不得误归因于 fixture） > peer 装置：importReplica 排他创建 + peer session 就绪
+   ↓ 装置自检：hub/peer/reset 三装置前提为绿（红灯不得误归因于 fixture） > reset 装置：种子复制身份在 live 投影与 persisted 双源一致
+
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 2 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  packages/namespace-registry/test/issue-389-change-subscription-termination-red.test.ts > 组 C5/C7/C10（AC3 + AC4 + AC6）：doc 替换 → watch-end doc-replaced > C5：reset ok（归档 1 次）→ 结算即已含已投递末条 watch-end doc-replaced（免 poll）
+AssertionError: AC3/B-T3-3：reset 结算时订阅流已含已投递末条 watch-end（投递结算并入 close 承诺）: expected [ 'data' ] to strictly equal [ 'data', 'watch-end' ]
+
+- Expected
++ Received
+
+  [
+    "data",
+-   "watch-end",
+  ]
+
+ ❯ packages/namespace-registry/test/issue-389-change-subscription-termination-red.test.ts:230:7
+    228|       sink.kinds(),
+    229|       'AC3/B-T3-3：reset 结算时订阅流已含已投递末条 watch-end（投递结算并入 close 承诺）',
+    230|     ).toStrictEqual(['data', 'watch-end']);
+       |       ^
+    231|     expect(sink.last(), 'AC3：reason 逐字 doc-replaced（恰两键形状）').toStrictE…
+    232|       kind: 'watch-end',
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/2]⎯
+
+ FAIL  packages/namespace-registry/test/issue-389-change-subscription-termination-red.test.ts > 组 C5/C7/C10（AC3 + AC4 + AC6）：doc 替换 → watch-end doc-replaced > C10（AC6）：doc-replaced 后重建——released 通道 + 重新 open 后新订阅可用且无终止信号
+Error: Matcher did not succeed in time.
+ ❯ T3Sink.waitForWatchEnd packages/namespace-registry/test/issue-389-change-subscription-t3-fixture.ts:442:8
+    440|         { interval: 5, timeout: timeoutMs },
+    441|       )
+    442|       .toBe(true);
+       |        ^
+    443|   }
+    444|
+ ❯ packages/namespace-registry/test/issue-389-change-subscription-termination-red.test.ts:257:16
+
+Caused by: AssertionError: expected false to be true // Object.is equality
+
+- Expected
++ Received
+
+- true
++ false
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/2]⎯
+
+
+ Test Files  1 failed (1)
+      Tests  2 failed | 4 passed | 11 skipped (17)
+   Start at  07:29:56
+   Duration  2.78s (transform 397ms, setup 0ms, collect 537ms, tests 2.10s, environment 0ms, prepare 45ms)
