@@ -40,6 +40,12 @@ Nomicore 的设计思想是 **schema 与数据严格绑定**：VFSL schema 不�
   lease.mutateData({ op: 'set', path, value })                    // 单操作
   lease.mutateData({ op: 'set', ..., guard: { path, equals } })   // CAS（并发安全）
   lease.mutateData({ ops: [ ... ] })                              // 批量原子（≤16，全有或全无）
+
+订阅（变更信号——不含值，定位符 {path, key}；建立失败同步 throw）:
+  lease.watchMap(path, listener[, { where }])   // 键容器订阅 → { unsubscribe() }
+  // where 谓词: { field, equals } | { field, in }（标量；缺失/null 恒不匹配；in 空数组拒绝）
+  // 通知三 kind: data（按 key 拉终态自辨）/ invalidate-all（全量重拉）/ watch-end（重建订阅）
+  // origin: 'local' | 'replication'——self-echo 抑制在消费方；消费协议模板见 nomicore skill
 ```
 
 内联的合法性来自两条：基本面是**稳定的公共 API 契约**（比机制细节稳定得多，漂移风险低）；且**版本锚定**（本节标明对应版本，升级依赖时必 review）。机制深水区（✂ 段解读、边界行为、完整纪律）不内联——见第 5 件的 GitHub 引用。
@@ -86,7 +92,7 @@ Nomicore 的设计思想是 **schema 与数据严格绑定**：VFSL schema 不�
 ## 机制参考（随时取最新）
 
 - nomicore skill 全文: https://github.com/welltop-jim-wang/nomicore/tree/main/.agents/skills/nomicore
-  （typed-access = 读/写/窗口；schema = 建模与口径；cordis-host / replication = 组装与复制）
+  （typed-access = 读/写/窗口/订阅——含 watchMap 消费协议模板；schema = 建模与口径；cordis-host / replication = 组装与复制）
 - 应用端 skill 构建指南: docs/integration/app-data-access-skill.md（同仓库）
 
 注意版本错位：GitHub main 的 skill 反映最新机制语义；本项目锁定的 npm 版本较旧时，
@@ -97,6 +103,9 @@ Nomicore 的设计思想是 **schema 与数据严格绑定**：VFSL schema 不�
 - `WINDOW_TARGET_ABSENT` —— 路径错或条目已不在；停下重新推导，勿重试、勿期待静默吸收
 - `MUTATION_GUARD_MISMATCH` —— CAS 竞争拒绝；重读旧值重构造后重试
 - `WINDOW_CARRIER_MISMATCH` —— 换另一个 API（index ↔ key）
+- `WATCH_MAP_CARRIER_MISMATCH` —— 订阅目标非键容器（偏离 schema / 数组载体）；修路径，数组走窗口读
+- `WATCH_MAP_OPTIONS_INVALID` —— 谓词词形非法（field 不存在 / 非标量域 / `in` 空数组）；修 options，勿重试
+- `WATCH_MAP_SCHEMA_UNAVAILABLE` —— 无 active schema，watchMap 整体不可用（含无谓词形态）；先装 schema
 ```
 
 ## 澄清闭环
@@ -128,6 +137,7 @@ agent 读到 value + 投影文本
 获取 schema: lease.getSchema() / getActiveSchema()；运行时口径 = readData 的 schema 键
 读: readData(path[, budget]) / readArray(path, {n, orderBy}) / readMap(path, {n, orderBy})
 写: mutateData(<typed adapter 构造的信封>；guard CAS / { ops } 批量原子)
+订阅: watchMap(path, listener[, {where}]) → {unsubscribe}；通知=不含值的信号，消费协议见 nomicore skill
 
 ## Namespaces
 - `<id>` —— <一句话定位>。schema: <路径>；类型: <路径>
