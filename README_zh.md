@@ -43,23 +43,27 @@ Nomicore 将每一份数据与其 schema 和业务口径绑定在一起。Agent 
 - 这条记录由哪个 schema 版本生成？
 - 这个指标的定义是否在当前月份与历史记录之间发生过变化？
 
-在 Nomicore 中，读取结果会同时携带适用于该数据的 schema 和业务口径。从概念上看，Agent 得到的是：
+在 Nomicore 中，`readData([])` 的成功结果严格包含四个键：`{ ok, value, schema, truncated }`。假设这个 Namespace 的 VFSL schema 已为字段写明业务口径，那么真实返回结果的格式如下：
 
-```text
-数据
-  month: 2025-01
-  revenue: 120
+```js
+{
+  ok: true,
+  value: {
+    month: '2025-01',
+    revenue: 120
+  },
+  schema: `# readData []
 
-Schema
-  month: YYYY-MM
-  revenue: number
-
-业务口径
-  revenue:
-    单位: 千美元
-    定义: 已确认收入，不含税费和退款
-    会计政策: 2025-v2
+{
+  month: Pattern<"^[0-9]{4}-(0[1-9]|1[0-2])$"> // 报告月份，格式为 YYYY-MM
+  revenue: Range<0, 999999999> // 已确认收入，单位为千美元，不含税费和退款；会计政策 2025-v2
+}
+`,
+  truncated: false
+}
 ```
+
+`value` 是逻辑数据；`schema` 是针对本次读取路径生成的、确定性的 VFSL 风格投影文本，其中类型描述正式的数据规范，字段注释承载 schema 作者写入的业务口径。由于这是一次无预算读取，`truncated` 为 `false`；如果读取发生截断，它会变为 `true`，投影文本末尾也会追加 `✂ 截断事实：` 段。
 
 现在，Agent 可以确定 `120` 表示按 `2025-v2` 会计政策计算的 12 万美元已确认收入。如果较早的记录使用不同的数据形状或业务口径，它可以继续保留自己的 schema 和口径，而不会被默认套用当前规则。
 

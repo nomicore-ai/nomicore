@@ -45,23 +45,27 @@ The value looks simple, but the Agent cannot safely use it without asking more q
 - Which schema version produced this record?
 - Did the definition change between this month and historical records?
 
-With Nomicore, the value is read together with the schema and semantics that apply to it. Conceptually, the Agent receives:
+With Nomicore, `readData([])` returns exactly four keys: `{ ok, value, schema, truncated }`. For a Namespace whose VFSL schema documents the business meaning of these fields, the actual result has this form:
 
-```text
-Data
-  month: 2025-01
-  revenue: 120
+```js
+{
+  ok: true,
+  value: {
+    month: '2025-01',
+    revenue: 120
+  },
+  schema: `# readData []
 
-Schema
-  month: YYYY-MM
-  revenue: number
-
-Semantics
-  revenue:
-    unit: USD thousands
-    definition: recognized revenue, excluding tax and refunds
-    accounting policy: 2025-v2
+{
+  month: Pattern<"^[0-9]{4}-(0[1-9]|1[0-2])$"> // Reporting month in YYYY-MM format
+  revenue: Range<0, 999999999> // Recognized revenue in USD thousands, excluding tax and refunds; accounting policy 2025-v2
+}
+`,
+  truncated: false
+}
 ```
+
+`value` contains the logical data. `schema` is the deterministic VFSL-style projection text for the requested path: its types describe the formal schema, while its comments carry the business semantics authored for those fields. Because this is an unbudgeted read, `truncated` is `false`; a truncated read would report `true` and append a `✂ 截断事实：` section to the projection text.
 
 The Agent now knows that `120` means USD 120,000 of recognized revenue under accounting policy `2025-v2`. If an older record uses a different shape or definition, that record can retain its own schema and semantics rather than being silently interpreted under the latest rules.
 
