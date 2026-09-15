@@ -1,0 +1,22 @@
+Testing types with tsc and vue-tsc is an experimental feature.
+Breaking changes might not follow SemVer, please pin Vitest's version when using it.
+
+ RUN  v3.2.7 /home/wangjian/nomicore-fix-issue-382
+
+ ✓ packages/doc-runtime/test/issue-382-where-window-contract-red.test.ts (76 tests) 214ms
+ ✓ packages/namespace-registry/test/issue-369-window-read-lease-contract-red.test.ts (33 tests) 111ms
+ ✓ packages/namespace-runtime/test/issue-369-window-read-composition-red.test.ts (17 tests) 80ms
+ ✓ packages/doc-runtime/test/issue-368-window-read-contract-red.test.ts (47 tests) 48ms
+ ✓ packages/namespace-registry/test/issue-382-lease-where-no-silent-pass.test.ts (3 tests) 29ms
+ ✓ packages/doc-runtime/test/issue-381-window-total-red.test.ts (14 tests) 31ms
+ ✓ packages/doc-runtime/test/issue-368-window-read-design-pins.test.ts (11 tests) 27ms
+ ✓ packages/doc-runtime/test/public-surface-guard.test.ts (6 tests) 5ms
+ ✓  TS  packages/doc-runtime/test/issue-382-where-window-type-guard.test-d.ts (3 tests)
+ ✓  TS  packages/doc-runtime/test/public-surface-type-guard.test-d.ts (14 tests)
+ ✓  TS  packages/namespace-registry/test/issue-369-window-read-lease-surface.test-d.ts (2 tests)
+
+ Test Files  11 passed (11)
+      Tests  226 passed (226)
+Type Errors  no errors
+   Start at  09:56:25
+   Duration  8.02s (transform 658ms, setup 0ms, collect 1.62s, tests 544ms, environment 1ms, prepare 426ms, typecheck 7.94s)

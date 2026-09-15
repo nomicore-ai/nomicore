@@ -1,0 +1,4 @@
+packages/namespace-runtime/src/window-read.ts(193,28): error TS18048: 'total' is possibly 'undefined'.
+packages/namespace-runtime/src/window-read.ts(195,82): error TS2345: Argument of type 'number | undefined' is not assignable to parameter of type 'number'.
+  Type 'undefined' is not assignable to type 'number'.
+PURE_DELETE_TSC_EXIT=2
