@@ -1,0 +1,11 @@
+container ['tasks'] -> {"kind":"object","fields":[{"name":"<key>","value":{"kind":"ref","name":"Task"}}]}
+entry ['tasks','k'] -> {"kind":"ref","name":"Task"}
+field ['tasks','k','title'] -> {"kind":"scalar","type":"string"}
+field ['tasks','k','status'] -> {"kind":"ref","name":"Status"}
+field ['tasks','k','state'] -> {"kind":"enum","values":["open","done"]}
+field ['tasks','k','nested'] -> {"kind":"object","fields":[{"name":"x","value":{"kind":"scalar","type":"string"}}]}
+field ['tasks','k','tags'] -> {"kind":"array","element":{"kind":"scalar","type":"string"}}
+field ['tasks','k','note'] -> {"kind":"optional","value":{"kind":"scalar","type":"string"}}
+field ['tasks','k','missing'] -> {"ok":false,"code":"SCHEMA_PATH_NOT_FOUND","path":["tasks","k","missing"]}
+aliases.Status = {"kind":"leaf"}
+values.Status = {"kind":"scalar","type":"string"}

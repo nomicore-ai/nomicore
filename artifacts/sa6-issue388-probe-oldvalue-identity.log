@@ -1,0 +1,6 @@
+### W1 整值替换 t2 (done→closed) | ok=true | notify=1
+    [{"path":["tasks"],"keys":[{"key":"t2","action":"update","oldRead":"Y.Map identityWithOriginalT2=true get(status)=undefined toJSON={}"}]}]
+    t2 identity after = replaced | originalT2.get(status) now = undefined
+### W2 delete t1 (匹配 open 删除) | ok=true | notify=1
+    [{"path":["tasks"],"keys":[{"key":"t1","action":"delete","oldRead":"Y.Map identityWithOriginalT2=false get(status)=undefined toJSON={}"}]}]
+    t2 identity after = replaced | originalT2.get(status) now = undefined

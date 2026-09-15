@@ -1,0 +1,8 @@
+P1 批量新增（t9 匹配 + t10 非匹配） | ok=true | HEAD notify=1 | keys=[["t9","t10"]]
+P1 目标：keys 恰 [t9]（新增旧态=缺席可判 → 非匹配 t10 剔除）
+P2 非法路径 + 非法谓词（门次序：载体门先） -> THREW code="WATCH_MAP_CARRIER_MISMATCH" name=WatchMapError
+P3 合法词形（alias Status 字段） -> RETURNED handle=function
+P4 合法词形（字面量域 state） -> RETURNED handle=function
+P5 released lease + 非法谓词（released 短路先） -> THREW code="NAMESPACE_LEASE_RELEASED" name=NamespaceLeaseReleasedError
+P6 legacy schema.state = unavailable
+P6 无 active schema + 非法谓词（schema 门先） -> THREW code="WATCH_MAP_SCHEMA_UNAVAILABLE" name=WatchMapError

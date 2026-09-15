@@ -99,6 +99,7 @@ import { createWatchHub } from './watch-map.js';
 import type {
   NamespaceRuntimeWatchMapHandle,
   NamespaceRuntimeWatchMapNotification,
+  NamespaceRuntimeWatchMapOptions,
 } from './watch-map.js';
 
 
@@ -283,7 +284,8 @@ export interface NamespaceRuntime {
     options: NamespaceRuntimeReadMapOptions,
   ) => NamespaceRuntimeReadMapResult;
   /**
-   * 第十五键（issue #387 / ADR 0030 T1）：`path` 终点键容器的变更订阅（无谓词形态）。
+   * 第十五键（issue #387 / ADR 0030 T1；issue #388 T2 纯加法加宽第三参）：`path`
+   * 终点键容器的变更订阅（无谓词形态 + 谓词形态）。
    *
    * - **建立判定全部由 active schema 完成**（ADR §3，零 live 载体探测）：valueSchema
    *   （ref 追尽后）`'object'` → 键容器（Y.Map 载体 / plain object 容器 / 封闭对象
@@ -294,6 +296,15 @@ export interface NamespaceRuntime {
    * - **数据缺席合法**：schema 已声明但未物化 / 已删除的容器照常建立成功（订阅是机制
    *   不是数据快照——读对缺席报错、订阅宽容等待）；建立成功返回恰 `{ unsubscribe }`
    *   句柄（幂等退订、零 throw、退订后零通知）；
+   * - **谓词（T2；ADR §2 封闭词表）**：第三参 `options.where` 为
+   *   `{field, equals}` | `{field, in}`（恰一算子、单段 field、值域恒标量）；建立期由
+   *   active schema 裁决（field 不存在 / 条目无统一值域 / 非标量域 / `in` 空数组 /
+   *   词形非法）→ 同步 throw `WATCH_MAP_OPTIONS_INVALID`（失败零订阅登记）；
+   *   省略 options / `undefined` / `{}` / `{where: undefined}` ⇒ 无谓词，T1 行为逐字不变；
+   * - **通知判定（ADR §5 宁多勿漏）**：通知 ⟺ 真变 ∧（无谓词 ∨ 旧匹配 ∨ 新匹配 ∨
+   *   旧态不可判 → 保守通知）。精确静默面 = 新增非匹配条目、plain 快照条目的整替/删除；
+   *   保守面 = 嵌套部分更新（AC7 逐字）与 live Y 载体整替/删除（旧态被 Yjs 清空，
+   *   不可判）。退出匹配集照常通知（消费方拉终态自辨删除视图项）；
    * - **通知**：`data` 通知恰三键 `{kind:'data', origin, changes}`——`changes` 为
    *   `{path, key}` 定位符列表（`[...path, key]` 直接拼下一轮读路径），**不含值**；
    *   一事务一通知（`observeDeep` 每事务恰一次回调）、同事务同 key 合并、FIFO；
@@ -309,6 +320,7 @@ export interface NamespaceRuntime {
   readonly watchMap: (
     path: readonly (string | number)[],
     listener: (notification: NamespaceRuntimeWatchMapNotification) => void,
+    options?: NamespaceRuntimeWatchMapOptions,
   ) => NamespaceRuntimeWatchMapHandle;
   /** SCHEMA 四标准键投影（D4；载体缺席 → null，载体异型 → loud throw NSRT-SCHEMA-E2；
    *  非 primitive 值 → loud throw）。
@@ -748,9 +760,10 @@ export function createNamespaceRuntimeWithSeam(input: NamespaceRuntimeSeamInput)
     readData,
     readArray,
     readMap,
-    // 【issue #387 / ADR 0030 T1】第十五键：lease 面透传对偶（readData/readMap 同款）；
-    //   建立判定/lifecycle 门/登记全在 hub 内（同步 throw 面原样上抛——B-3）。
-    watchMap: (path, listener) => watchHub.watchMap(path, listener),
+    // 【issue #387 / ADR 0030 T1；T2 #388 纯加法加宽第三参】第十五键：lease 面透传
+    //   对偶（readData/readMap 同款）；建立判定（含谓词门⑥）/lifecycle 门/登记全在
+    //   hub 内（同步 throw 面原样上抛——B-3；options raw 引用直传，runtime 层零解释）。
+    watchMap: (path, listener, options) => watchHub.watchMap(path, listener, options),
     getSchema: () => {
       // D2（#93 rev2，SA8 裁决 B）：数据投影 getter 停接纳——key 仅 lifecycle（裁决 H：
       // 绝不 keyed on fatal/schemaState）；拒绝先于触碰 live Y.Doc（INV 同 read() 分支）

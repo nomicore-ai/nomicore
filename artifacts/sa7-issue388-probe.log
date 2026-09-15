@@ -1,0 +1,9 @@
+
+ RUN  v3.2.7 /home/wangjian/nomicore-fix-issue-388
+
+ ✓ packages/namespace-registry/test/sa7-tmp-dataflow-probe.test.ts (6 tests) 116ms
+
+ Test Files  1 passed (1)
+      Tests  6 passed (6)
+   Start at  10:17:28
+   Duration  851ms (transform 430ms, setup 0ms, collect 582ms, tests 116ms, environment 0ms, prepare 46ms)
