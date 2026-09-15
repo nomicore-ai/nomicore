@@ -9,22 +9,28 @@
  *
  * 编排（镜像姊妹 G0 → OPT → N0 → N1 → P1；设计 §8.1）：
  * - G0 path 形态守卫：非数组 → `PATH_NOT_ALLOWED`（DOCRT-E100 前缀，与姊妹逐字同款）；
- * - OPT options/orderBy 封闭形状校验（D9）：非法 → `WINDOW_OPTIONS_INVALID`，零 doc 触碰；
+ * - OPT options/orderBy/where 封闭形状校验（D9 + ADR 0029 §2/§6）：非法 →
+ *   `WINDOW_OPTIONS_INVALID`，零 doc 触碰、零 `[[Get]]`、零 accessor 执行、trap 异常收编；
  * - N0 `probeRoot`（只碰 'ROOT'）；ROOT 非 Y.Map → `PATH_NOT_ALLOWED`；
  * - N1 导航循环：段纪律/载体分类/失败分类沿用姊妹（read.ts 逐条镜像），**唯一分歧** =
  *   姊妹的缺席吸收位（缺键/数组越界）改判 `WINDOW_TARGET_ABSENT`（响亮，不吸收——决策 7）；
  * - C 目标载体面检查：数组面收 attached Y.Array / plain array，键面收 attached Y.Map /
  *   plain object；detached → `PATH_NOT_ALLOWED`；其余 → `WINDOW_CARRIER_MISMATCH`；
- * - E/S 候选枚举 + 原始排序键分类 + 全序排序（决策 5；D3 值键语义、D4 `Number.isFinite`
+ * - E/S+W 候选枚举 + 原始排序键分类 + 全序排序（决策 5；D3 值键语义、D4 `Number.isFinite`
  *   门、D10 码点比较器）：O(N) 枚举 + field 基每 child 恰一次单段下钻，
  *   未入选子树零物化（决策 8）；
+ * - W 内联过滤（ADR 0029 §2–§4；issue #382 P2）：`where` 在场时在候选枚举循环内逐候选评估
+ *   合取谓词（每 child 每 term 恰一次单段原始读 `drillField`）：field 缺席 / 条目不可下钻 /
+ *   值非标量 / 值 non-finite / 稀疏空洞 → **安静不匹配**（脏项不挤掉正常项、不炸读、
+ *   未匹配候选零物化）——管线序 **where（候选筛选）→ orderBy（匹配集总序）→ n（窗口前缀）**；
+ *   `where` 缺席时 E 阶段逐字节不变（array 面零元素读）；
  * - M 逐入选项物化：`entry.value := readLogicalValueAtPath(doc, [...path, 身份], 同预算)`
  *   （决策 4 组合式 depth；两轴均缺席 → 两参 legacy 调用）——任一项失败即整窗失败
  *   （D8 透传 `PATH_NOT_ALLOWED`：fail-fast、无半窗、无静默跳项、无补位）；
  * - A 装配：成功 `{ok:true, value:[{index|key, value}…], total}` 恰三键
- *   （ADR 0029 §5/§8：`total` = 候选标识计数，由 C/E 段同一次枚举顺带产出——零额外遍历、
- *   零额外物化；本票无 `where` ⟹ `total` 恒为数值）；顶层 try/catch（E100 镜像）→
- *   `PATH_NOT_ALLOWED`，绝不二次抛。
+ *   （ADR 0029 §5/§8：`total` 键恒在——无 `where` = 候选标识计数，由 C/E 段同一次枚举
+ *   顺带产出，零额外遍历、零额外物化；有 `where` = `undefined`，匹配总数恒不承诺）；
+ *   顶层 try/catch（E100 镜像）→ `PATH_NOT_ALLOWED`，绝不二次抛。
  *
  * 复制纪律（设计 D2 / SA2-F4）：`read.ts` **零 diff**（冻结面）；本模块按需复制其模块私有
  * 助手（下方每个复制件头注释带 `copied from read.ts@36a73bb (<原名>)` 出处标记），
@@ -53,12 +59,27 @@ export type FieldWindowTerm = { field: string; dir?: WindowDir };
 /** ADR 0028 决策 2 的 WindowTerm 闭合联合（v1 单对象；多字段演进 = 变项列表）。 */
 export type WindowTerm = IndexWindowTerm | KeyWindowTerm | FieldWindowTerm;
 
+/**
+ * ADR 0029 §2 谓词项 v1（issue #382 P2）：单段**字面**键（点号不拆分）+ 标量闭集等值
+ * （`string | number | boolean | null`；number 须 `Number.isFinite`，运行时校验）。
+ * `where` 数组 = **合取**（全部满足）；形状永不再变——演进只走「数组项形态加法」
+ * （`in` / 范围 / OR / NOT / 多段 field / 容器深相等一律 v1 词表外响亮拒绝）。
+ */
+export type WhereTerm = {
+  field: string;
+  equals: string | number | boolean | null;
+};
+
+/** v1 `where` 数组长度上限（ADR 0029 §2 哨兵值；恰 16 合法、17 非法）。 */
+const WHERE_TERM_LIMIT = 16;
+
 /** 数组面窗口 options（B-3）：`n` 必填 ≥1 有限整数；预算两轴语义同 ADR-0024。 */
 export interface ReadArrayWindowOptions {
   n: number;
   orderBy?: IndexWindowTerm;
   depth?: number;
   maxChildrenPerNode?: number;
+  where?: readonly WhereTerm[];
 }
 
 /** 键面窗口 options（B-3）：`orderBy` 为 `by:'key'` 或单段 `field`。 */
@@ -67,6 +88,7 @@ export interface ReadMapWindowOptions {
   orderBy?: KeyWindowTerm | FieldWindowTerm;
   depth?: number;
   maxChildrenPerNode?: number;
+  where?: readonly WhereTerm[];
 }
 
 /** 数组面条目（ADR 0028 决策 3）：身份随行、值不含容器壳。 */
@@ -97,15 +119,16 @@ export interface WindowReadFailure {
 }
 
 /**
- * 数组面结算联合：成功恰三键 `{ok,value,total}`（ADR 0029 §5；`total` = 候选标识计数，
- * 与 `value` 同一次枚举产出）。失败成员形状不变（B-5 恰四键）。
+ * 数组面结算联合：成功恰三键 `{ok,value,total}`（ADR 0029 §5；`total` **键恒在**：
+ * 无 `where` = 候选标识计数（与 `value` 同一次枚举产出）；有 `where` = `undefined`
+ * ——匹配总数恒不承诺）。失败成员形状不变（B-5 恰四键）。
  */
 export type ReadArrayWindowResult =
-  | { ok: true; value: ArrayWindowEntry[]; total: number }
+  | { ok: true; value: ArrayWindowEntry[]; total: number | undefined }
   | WindowReadFailure;
 /** 键面结算联合：成功恰三键 `{ok,value,total}`（同上：键面 `total` = 非 undefined 值键数）。 */
 export type ReadMapWindowResult =
-  | { ok: true; value: MapWindowEntry[]; total: number }
+  | { ok: true; value: MapWindowEntry[]; total: number | undefined }
   | WindowReadFailure;
 
 // ── 公共入口（B-1/B-2/B-3；仅经 src/index.ts 对外）────────────────────────────────────
@@ -114,6 +137,8 @@ export type ReadMapWindowResult =
  * 数组面窗口读：对 `path` 终点序列容器（attached Y.Array / plain array）确定性选窗。
  * 排序键 = 项值本身（D3 钉死：类型组总序 + 下标 asc 恒定平局锚），窗口 = 有序基前
  * `min(n, 候选数)` 项；每项物化 ≡ `readLogicalValueAtPath(doc, [...path, index], 同预算)`。
+ * `where` 在场时管线序 = **where（候选筛选）→ orderBy（匹配集总序）→ n（前缀）**，
+ * 结算 `total` 为 `undefined`（匹配总数恒不承诺，ADR 0029 §4/§5）。
  */
 export function readArrayWindowAtPath(
   doc: Y.Doc,
@@ -128,6 +153,7 @@ export function readArrayWindowAtPath(
 /**
  * 键面容窗口读：对 `path` 终点键容器（attached Y.Map / plain object）确定性选窗。
  * 排序基 = 键码点序（缺省）或单段值属性（D5 字面键）；不可比组恒居尾、身份锚恒 asc。
+ * `where` 语义同数组面（对称获得；ADR 0029 §4）。
  */
 export function readMapWindowAtPath(
   doc: Y.Doc,
@@ -144,8 +170,8 @@ export function readMapWindowAtPath(
 type Path = readonly (string | number)[];
 type WindowFace = 'array' | 'map';
 
-/** 内核结算：成功条目列表 + 候选标识计数（面专属字段由公共入口包装）+ 失败联合。 */
-type WindowCoreResult = { ok: true; value: unknown[]; total: number } | WindowReadFailure;
+/** 内核结算：成功条目列表 + 候选/匹配计数 → 结算值域（面专属字段由公共入口包装）+ 失败联合。 */
+type WindowCoreResult = { ok: true; value: unknown[]; total: number | undefined } | WindowReadFailure;
 
 /** 归一化排序项：`index` 基（数组面值键）/ `key` 基 / `field` 基（单段字面键）。 */
 type NormalizedTerm =
@@ -153,12 +179,16 @@ type NormalizedTerm =
   | { kind: 'key'; field: ''; dir: WindowDir }
   | { kind: 'field'; field: string; dir: WindowDir };
 
-/** 校验后的窗口 options（`undefined` 轴 = 缺席；`-0` 已归一 0）。 */
+/** 校验后的谓词项（防御性浅拷贝产物；与调用方对象零别名）。 */
+type NormalizedWhereTerm = { field: string; equals: string | number | boolean | null };
+
+/** 校验后的窗口 options（`undefined` 轴 = 缺席；`-0` 已归一 0；`where` 缺席 = 不过滤）。 */
 interface ValidatedWindowOptions {
   n: number;
   depth: number | undefined;
   maxChildrenPerNode: number | undefined;
   term: NormalizedTerm;
+  where: readonly NormalizedWhereTerm[] | undefined;
 }
 
 /** 排序键分类（决策 5 + D4）：组 0 有限 number → 组 1 string → 组 2 不可比（恒居尾）。 */
@@ -194,8 +224,8 @@ function windowCore(doc: Y.Doc, path: unknown, options: unknown, face: WindowFac
     const nav = navigate(probe.map, segments);
     if (!nav.ok) return windowFailure(nav.code, segments, nav.message);
 
-    // C/E — 目标载体面检查（face 词表 + detached 前置）+ 候选枚举（原始键，零物化）。
-    const collected = collectCandidates(nav.target, face, validated.value.term);
+    // C/E+W — 目标载体面检查（face 词表 + detached 前置）+ 候选枚举/内联过滤（原始键，零物化）。
+    const collected = collectCandidates(nav.target, face, validated.value.term, validated.value.where);
     if (!collected.ok) return windowFailure(collected.code, segments, collected.message);
     const candidates = collected.candidates;
 
@@ -214,7 +244,10 @@ function windowCore(doc: Y.Doc, path: unknown, options: unknown, face: WindowFac
       if (face === 'array') entries.push({ index: candidate.id as number, value: materialized.value });
       else entries.push({ key: candidate.id as string, value: materialized.value });
     }
-    return { ok: true, value: entries, total: candidates.length };
+    // A 装配：`total` 键恒在——无 where = 候选标识计数（E 段同一次枚举产出，零额外遍历）；
+    // 有 where = `undefined`（匹配总数恒不承诺；过滤后 candidates.length 恰为匹配数但有意不报告，
+    // ADR 0029 §5：total 可见性不得依赖实现路径）。
+    return { ok: true, value: entries, total: validated.value.where === undefined ? candidates.length : undefined };
   } catch (err) {
     // 崩溃边界 E100 镜像（safeDetail 收编敌意抛出物；绝不二次抛）。
     return windowFailure('PATH_NOT_ALLOWED', path, `DOCRT-E100: 内部错误（意外异常）: ${safeDetail(err)}`);
@@ -254,7 +287,7 @@ function describeOptions(raw: unknown): string {
   return typeof raw;
 }
 
-// ── OPT 阶段：options / orderBy 封闭形状校验（D9；镜像 read.ts validateReadOptions 纪律）──
+// ── OPT 阶段：options / orderBy / where 封闭形状校验（D9 + ADR 0029 §2/§6 判据）──────────
 
 function validateWindowOptions(
   raw: unknown,
@@ -273,8 +306,11 @@ function validateWindowOptions(
     let maxChildrenPerNode: number | undefined;
     let rawOrderBy: unknown;
     let hasOrderBy = false;
+    let rawWhere: unknown;
+    let hasWhere = false;
     for (const key of Object.keys(raw)) {
-      if (key !== 'n' && key !== 'orderBy' && key !== 'depth' && key !== 'maxChildrenPerNode') {
+      // W-1 键集门：白名单恰五键（ADR 0029 §1 加法；未知键在场即拒，含 present-undefined）。
+      if (key !== 'n' && key !== 'orderBy' && key !== 'depth' && key !== 'maxChildrenPerNode' && key !== 'where') {
         return { ok: false, msg: `window options 含未知键（封闭形状）：${key}` };
       }
       const desc = Object.getOwnPropertyDescriptor(raw, key);
@@ -283,7 +319,7 @@ function validateWindowOptions(
         return { ok: false, msg: `window options.${key} 不得为 accessor（零 accessor 执行纪律）` };
       }
       const value = desc.value;
-      if (value === undefined) continue; // 键在场、值 undefined ≡ 缺席
+      if (value === undefined) continue; // W-3 键在场、值 undefined ≡ 缺席（顶层已知轴豁免）
       if (key === 'n') {
         // 窗口 n 必填且 ≥1（异于预算轴 ≥0）：0/-0/-1/非整数/非有限/非 number 一律非法（G3）。
         if (typeof value !== 'number' || !Number.isInteger(value) || !Number.isFinite(value) || value < 1) {
@@ -297,6 +333,9 @@ function validateWindowOptions(
         const normalized = value === 0 ? 0 : value; // -0 ≡ 0
         if (key === 'depth') depth = normalized;
         else maxChildrenPerNode = normalized;
+      } else if (key === 'where') {
+        rawWhere = value;
+        hasWhere = true;
       } else {
         rawOrderBy = value;
         hasOrderBy = true;
@@ -305,10 +344,140 @@ function validateWindowOptions(
     if (n === undefined) return { ok: false, msg: 'window options.n 缺失（窗口读必填 ≥1 有限整数）' };
     const term = validateOrderBy(hasOrderBy ? rawOrderBy : undefined, face);
     if (!term.ok) return term;
-    return { ok: true, value: { n, depth, maxChildrenPerNode, term: term.term } };
+    const where = validateWhere(hasWhere ? rawWhere : undefined);
+    if (!where.ok) return where;
+    return { ok: true, value: { n, depth, maxChildrenPerNode, term: term.term, where: where.where } };
   } catch {
     return { ok: false, msg: 'window options 探测期异常（敌意对象）——已收编为 WINDOW_OPTIONS_INVALID' };
   }
+}
+
+// ── OPT/W 阶段：`where` 谓词列表封闭形状校验（ADR 0029 §2/§6 判据 W-4–W-13）──────────────
+//
+// 全部探测在 descriptor 纪律下进行（零 `[[Get]]`、零 accessor 执行），任何 trap 抛出由本函数
+// 的 try 与 `validateWindowOptions` 外层 try 双重收编 → 响亮 `WINDOW_OPTIONS_INVALID`，零外抛。
+// 校验产物为**新鲜 plain 对象数组**（防御性浅拷贝：与调用方对象/数组零别名，调用后改写原实参
+// 不影响已生效的过滤语义——OPT 之后 E+W 只消费该快照）。
+
+function validateWhere(
+  raw: unknown,
+): { ok: true; where: readonly NormalizedWhereTerm[] | undefined } | { ok: false; msg: string } {
+  if (raw === undefined) return { ok: true, where: undefined }; // 缺席 ≡ 不过滤（要全集 = 不传 where）
+  try {
+    // W-4 数组性门：仅普通数组（Y.Array / 类数组 / 标量一律拒）。
+    if (!Array.isArray(raw)) {
+      return { ok: false, msg: `window options.where 必须是 WhereTerm 数组（实际 ${describeOptions(raw)}）` };
+    }
+    // W-5 长度门：经 descriptor 读 `length`（与元素读同纪律，杜绝 Proxy `length` get trap）。
+    const lenDesc = Object.getOwnPropertyDescriptor(raw, 'length');
+    if (lenDesc === undefined || lenDesc.get !== undefined || lenDesc.set !== undefined) {
+      return { ok: false, msg: 'window options.where.length 必须是 data 属性（零 accessor 执行纪律）' };
+    }
+    const len = lenDesc.value;
+    if (typeof len !== 'number' || !Number.isInteger(len) || len < 0) {
+      return { ok: false, msg: 'window options.where.length 必须是非负整数' };
+    }
+    if (len === 0) {
+      return { ok: false, msg: 'window options.where 不得为空数组（「要全集」的唯一写法是不传 where）' };
+    }
+    if (len > WHERE_TERM_LIMIT) {
+      return { ok: false, msg: `window options.where 最多 ${WHERE_TERM_LIMIT} 项（实际 ${len} 项）` };
+    }
+    const out: NormalizedWhereTerm[] = [];
+    for (let i = 0; i < len; i++) {
+      // W-6 元素读纪律：逐下标 descriptor 读（仅索引空间 0..len-1；非索引 own 属性不参与语义）。
+      const itemDesc = Object.getOwnPropertyDescriptor(raw, String(i));
+      if (itemDesc === undefined) {
+        return { ok: false, msg: `window options.where[${i}] 缺失（稀疏空洞非法）` };
+      }
+      if (itemDesc.get !== undefined || itemDesc.set !== undefined) {
+        return { ok: false, msg: `window options.where[${i}] 不得为 accessor（零 accessor 执行纪律）` };
+      }
+      const term = validateWhereTerm(itemDesc.value, i);
+      if (!term.ok) return term;
+      out.push(term.term);
+    }
+    return { ok: true, where: out };
+  } catch {
+    return { ok: false, msg: 'window options.where 探测期异常（敌意数组）——已收编为 WINDOW_OPTIONS_INVALID' };
+  }
+}
+
+/** 单项 WhereTerm 校验（W-7–W-12）：恰 `field`/`equals` 两键、plain 原型链、零强制转换。 */
+function validateWhereTerm(
+  raw: unknown,
+  index: number,
+): { ok: true; term: NormalizedWhereTerm } | { ok: false; msg: string } {
+  // W-7 元素值：WhereTerm 层无 present-undefined 豁免（与顶层 W-3 的豁免边界相反）。
+  if (raw === undefined || raw === null || typeof raw !== 'object' || Array.isArray(raw)) {
+    return { ok: false, msg: `window options.where[${index}] 必须是 plain 对象（实际 ${describeWhereItem(raw)}）` };
+  }
+  try {
+    // W-8 元素宿主：Object.prototype 或 null 原型链（class 实例 / 数组 / Map / 函数 → 拒）。
+    const proto = Object.getPrototypeOf(raw);
+    if (proto !== Object.prototype && proto !== null) {
+      return { ok: false, msg: `window options.where[${index}] 宿主必须是 Object.prototype 或 null 原型的 plain 对象` };
+    }
+    let field: unknown;
+    let hasField = false;
+    let equals: unknown;
+    let hasEquals = false;
+    for (const key of Object.keys(raw)) {
+      // W-9 元素键集：白名单恰两键（未知键在场即拒，含 present-undefined 未知键）。
+      if (key !== 'field' && key !== 'equals') {
+        return { ok: false, msg: `window options.where[${index}] 含未知键（封闭形状）：${key}` };
+      }
+      const desc = Object.getOwnPropertyDescriptor(raw, key);
+      if (desc === undefined) continue; // 敌意 ownKeys 谎报的键：无 descriptor ≡ 非 own 属性
+      if (desc.get !== undefined || desc.set !== undefined) {
+        return { ok: false, msg: `window options.where[${index}].${key} 不得为 accessor（零 accessor 执行纪律）` };
+      }
+      if (key === 'field') {
+        field = desc.value;
+        hasField = true;
+      } else {
+        equals = desc.value;
+        hasEquals = true;
+      }
+    }
+    // W-12 必填闭环：两键皆必填（无可选键、无判别互斥）。
+    if (!hasField || !hasEquals) {
+      return { ok: false, msg: `window options.where[${index}] 必须恰含 field 与 equals 两键（皆必填）` };
+    }
+    // W-10 `field`：恰 string（空串合法；零强制转换——绝不调 toString）。
+    if (typeof field !== 'string') {
+      return { ok: false, msg: `window options.where[${index}].field 必须是字符串（v1 单段字面键，零强制转换）` };
+    }
+    // W-11 `equals`：标量闭集 + finite 门；**禁 truthiness 校验**（''/0/false/null 全合法）。
+    const checked = validateWhereEquals(equals);
+    if (!checked.ok) {
+      return { ok: false, msg: `window options.where[${index}].equals 必须是 string | number(finite) | boolean | null` };
+    }
+    return { ok: true, term: { field, equals: checked.value } };
+  } catch {
+    return { ok: false, msg: `window options.where[${index}] 探测期异常（敌意对象）——已收编为 WINDOW_OPTIONS_INVALID` };
+  }
+}
+
+/** `equals` 闭集校验（W-11）：string/boolean 直收；number 须 `Number.isFinite`；null 收；其余拒。 */
+function validateWhereEquals(
+  raw: unknown,
+): { ok: true; value: string | number | boolean | null } | { ok: false } {
+  if (raw === null) return { ok: true, value: null };
+  const kind = typeof raw;
+  if (kind === 'string' || kind === 'boolean') return { ok: true, value: raw as string | boolean };
+  if (kind === 'number') {
+    if (!Number.isFinite(raw as number)) return { ok: false }; // NaN / ±Infinity → 响亮
+    return { ok: true, value: raw as number };
+  }
+  return { ok: false }; // undefined / object / array / bigint / symbol / function / Date / Map …
+}
+
+/** 诊断词汇（message 非契约字段）：where 项的实际类型。 */
+function describeWhereItem(raw: unknown): string {
+  if (raw === null) return 'null';
+  if (Array.isArray(raw)) return 'array';
+  return typeof raw;
 }
 
 /** orderBy 单 WindowTerm 封闭校验（D9 face 词表 + G4/G5/G7）；缺省项：数组 `index` / 键面 `key`。 */
@@ -448,7 +617,8 @@ function notAllowedNav(message: string): NavResult {
   return { ok: false, code: 'PATH_NOT_ALLOWED', message };
 }
 
-// ── C/E 目标载体面检查 + 候选枚举（决策 8：O(N) 原始枚举 + field 基每 child 一次单段下钻）──
+// ── C/E+W 目标载体面检查 + 候选枚举/内联过滤（决策 8 + ADR 0029 §3/§4：O(N) 原始枚举、
+//    field 基每 child 一次单段下钻、where 在场时逐候选一次单段谓词下钻、未匹配零物化）──────
 
 /** 目标分类（face 专属窄化）：`ok` 携带面符容器；detached 面符但不可读；其余载体不符。 */
 type TargetClassification<T> =
@@ -460,7 +630,12 @@ type CandidateCollection =
   | { ok: true; candidates: Candidate[] }
   | { ok: false; code: 'PATH_NOT_ALLOWED' | 'WINDOW_CARRIER_MISMATCH'; message: string };
 
-function collectCandidates(rawTarget: unknown, face: WindowFace, term: NormalizedTerm): CandidateCollection {
+function collectCandidates(
+  rawTarget: unknown,
+  face: WindowFace,
+  term: NormalizedTerm,
+  where: readonly NormalizedWhereTerm[] | undefined,
+): CandidateCollection {
   if (face === 'array') {
     const target = classifyArrayTarget(rawTarget);
     if (target.kind === 'detached') {
@@ -469,7 +644,7 @@ function collectCandidates(rawTarget: unknown, face: WindowFace, term: Normalize
     if (target.kind === 'mismatch') {
       return { ok: false, code: 'WINDOW_CARRIER_MISMATCH', message: `数组面收 Y.Array / plain array（实际 ${target.word}）` };
     }
-    return { ok: true, candidates: enumerateArrayCandidates(target.target) };
+    return { ok: true, candidates: enumerateArrayCandidates(target.target, where) };
   }
   const target = classifyMapTarget(rawTarget);
   if (target.kind === 'detached') {
@@ -478,7 +653,7 @@ function collectCandidates(rawTarget: unknown, face: WindowFace, term: Normalize
   if (target.kind === 'mismatch') {
     return { ok: false, code: 'WINDOW_CARRIER_MISMATCH', message: `键面收 Y.Map / plain object（实际 ${target.word}）` };
   }
-  return { ok: true, candidates: enumerateMapCandidates(target.target, term) };
+  return { ok: true, candidates: enumerateMapCandidates(target.target, term, where) };
 }
 
 function classifyArrayTarget(v: unknown): TargetClassification<Y.Array<unknown> | unknown[]> {
@@ -509,7 +684,10 @@ function describeCarrierWord(v: unknown): string {
   return typeof v;
 }
 
-function enumerateArrayCandidates(target: Y.Array<unknown> | unknown[]): Candidate[] {
+function enumerateArrayCandidates(
+  target: Y.Array<unknown> | unknown[],
+  where: readonly NormalizedWhereTerm[] | undefined,
+): Candidate[] {
   const out: Candidate[] = [];
   // index 基 = 位置序（ADR 0028 决策 2：「asc = 自 [0] 取」，desc 自尾部取；issue #376）：
   // 排序键 = 下标本身（数值组、键唯一 → 无平局、组序纪律自动满足），**不是元素值**——
@@ -517,25 +695,42 @@ function enumerateArrayCandidates(target: Y.Array<unknown> | unknown[]): Candida
   // 对象。按元素值排序会使容器元素（记录数组）全落不可比组 → 平局锚吞掉 dir（desc 与
   // asc 逐位相同），标量数组 asc/desc 亦非「自 [0] 取 / 自尾部取」。元素值的读取纪律
   // （Y.Array 原始读 / plain array descriptor 读）归入选后的姊妹物化（现行 fail-fast 不变）。
+  //
+  // where 在场（ADR 0029 §3/§4）：枚举位逐下标**原始读一次**评估谓词；不可读下标
+  // （越界/空洞/undefined 元素/下标 accessor）与不可下钻元素值 → **安静不匹配**（跳过，
+  // 不入选、不物化）——与无 where 路径的「入选后物化判 violation → PATH_NOT_ALLOWED」
+  // 有意分界：过滤在选窗前，脏元素不入选即不入物化位。where 缺席时本函数逐字节不变
+  // （数组面零元素读）。
   if (target instanceof Y.Array) {
     const len = target.length;
     for (let i = 0; i < len; i++) {
+      if (where !== undefined && !whereMatches(target.get(i), where)) continue;
       out.push({ id: i, sort: { group: 0, value: i } });
     }
     return out;
   }
   for (let i = 0; i < target.length; i++) {
+    if (where !== undefined) {
+      const hit = readableArrayElement(target, i);
+      if (hit.kind !== 'ok') continue; // 空洞/undefined/accessor 下标 → 安静不匹配
+      if (!whereMatches(hit.value, where)) continue;
+    }
     out.push({ id: i, sort: { group: 0, value: i } });
   }
   return out;
 }
 
-function enumerateMapCandidates(target: Y.Map<unknown> | Record<string, unknown>, term: NormalizedTerm): Candidate[] {
+function enumerateMapCandidates(
+  target: Y.Map<unknown> | Record<string, unknown>,
+  term: NormalizedTerm,
+  where: readonly NormalizedWhereTerm[] | undefined,
+): Candidate[] {
   const out: Candidate[] = [];
   if (target instanceof Y.Map) {
     for (const k of target.keys()) {
       const child = target.get(k);
       if (child === undefined) continue; // D6：显式 undefined 值键出条目空间（载体同构）
+      if (where !== undefined && !whereMatches(child, where)) continue; // E+W：未匹配候选零物化
       const sort = term.kind === 'field' ? classifySortKey(drillField(child, term.field)) : classifySortKey(k);
       out.push({ id: k, sort });
     }
@@ -544,6 +739,7 @@ function enumerateMapCandidates(target: Y.Map<unknown> | Record<string, unknown>
   for (const k of Object.keys(target)) {
     const hit = readableOwnDataValue(target, k); // accessor/non-enumerable/undefined 值 → 键空间外
     if (!hit.hit) continue;
+    if (where !== undefined && !whereMatches(hit.value, where)) continue;
     const sort = term.kind === 'field' ? classifySortKey(drillField(hit.value, term.field)) : classifySortKey(k);
     out.push({ id: k, sort });
   }
@@ -551,11 +747,42 @@ function enumerateMapCandidates(target: Y.Map<unknown> | Record<string, unknown>
 }
 
 /**
- * field 基单段下钻（D5）：每 child **恰一次**原始读，绝不整项物化。
+ * 合取谓词评估（ADR 0029 §2–§4；E+W 内联过滤位）：数组序短路，任一 term 不匹配即整体不匹配。
+ * 下钻复用 `drillField` 单段原始读（与 orderBy field 基同源，绝不整项物化/递归）；
+ * `undefined`（field 缺席 / 显式 undefined / detached / 条目不可下钻）⇒ **安静不匹配**
+ * （`equals: null` 亦不匹配缺席——`undefined` 不是 `null`）。
+ */
+function whereMatches(child: unknown, where: readonly NormalizedWhereTerm[]): boolean {
+  for (const term of where) {
+    const value = drillField(child, term.field);
+    if (value === undefined) return false;
+    if (!matchesWhereTerm(value, term.equals)) return false;
+  }
+  return true;
+}
+
+/**
+ * 单 term 标量等值判定（ADR 0029 §2/§3）：typeof 标量闭集门（`true ≠ 1`、`'5' ≠ 5`）
+ * + `Number.isFinite` 门（NaN/±Infinity 安静不匹配）+ 严格 `===`（`-0 ≡ 0`）；
+ * 非标量值（容器/载体/数组/函数）恒不匹配——绝不 `[[Get]]` 下钻、绝不深相等。
+ */
+function matchesWhereTerm(value: unknown, equals: string | number | boolean | null): boolean {
+  if (equals === null) return value === null;
+  if (typeof value !== typeof equals) return false;
+  if (typeof value === 'number') return Number.isFinite(value) && value === equals;
+  if (typeof value === 'string' || typeof value === 'boolean') return value === equals;
+  return false;
+}
+
+/**
+ * field 基单段下钻（D5）：每 child **恰一次**原始读，绝不整项物化。orderBy field 基与
+ * `where` 谓词（ADR 0029 §4）共用本件（同 child 同 field 的两次单段读不去重——成本上界
+ * N×16 次原始读即 where 项数上限的存在理由；调用全程同步、doc 无并发写）。
  * - Y.Map child：`get(field)`（原始值）；
  * - plain object child：`readableOwnDataValue` 同款 descriptor 读（零 accessor 执行）；
- * - detached Yjs child：零触碰归尾组（budgetFold B16 先例）；Y.Array/XmlFragment/Text/
- *   未知 shared、标量、plain array、非 plain 对象：字段不可解析 ≡ 缺失 → 尾组。
+ * - detached Yjs child：零触碰归尾组（budgetFold B16 先例）——`where` 语义下 `undefined`
+ *   即安静不匹配；Y.Array/XmlFragment/Text/未知 shared、标量、plain array、非 plain 对象：
+ *   字段不可解析 ≡ 缺失 → 尾组 / 安静不匹配。
  */
 function drillField(child: unknown, field: string): unknown {
   if (child instanceof Y.AbstractType) {

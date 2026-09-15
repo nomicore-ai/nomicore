@@ -7,7 +7,10 @@
  * 口径投影文本（锚链 + B-8 ✂ 窗口事实块）、`truncated === kept < total`（`total` 消费自
  * W1 成功结算单源）。
  *
- * 组合顺序（S3/S5/S6；S1 lifecycle gate 与 S2 W1 直通在 runtime.ts 公共方法层）：
+ * 组合顺序（入口 fail-closed → S3/S5/S6；S1 lifecycle gate 与 S2 W1 直通在 runtime.ts 公共方法层）：
+ * - 入口 fail-closed（A2′/D8）：`total === undefined` ⟺ W1 已应用 `where`（ADR 0029 §5 B-8
+ *   单源不变量）→ 响亮 `WINDOW_OPTIONS_INVALID`（缝 2 前 lease 组合面不接收 `where`；
+ *   该判据键于 W1 结算结果而非 options 重读，对敌意视图漂移免疫）；
  * - S3 `canonicalWindowBudget`：以 descriptor 纪律重读 options 四键空间
  *   （`{n, orderBy, depth, maxChildrenPerNode}`，零 `[[Get]]`）产新鲜预算对象与归一化
  *   排序项；视图不稳定（键集漂移 / accessor 显形 / 轴值非法 / trap 抛出）→ 重派发 W1
@@ -97,8 +100,12 @@ interface WindowComposeInput<Entry> {
   readonly face: WindowFace;
   /** W1 入选项物化产物（原样直通）。 */
   readonly entries: Entry[];
-  /** W1 成功结算的候选标识计数（单源直通；本模块零重算、零兜底）。 */
-  readonly total: number;
+  /**
+   * W1 成功结算的候选/匹配计数（单源直通；本模块零重算、零兜底）。值域 `number | undefined`
+   * 与 W1 结算同步加宽（ADR 0029 §5）：`undefined` ⟺ W1 已应用 `where` 过滤（B-8 单源
+   * 不变量）——由 `composeWindowRead` 入口 fail-closed 分支消费（缝 2 前 lease 面不接收）。
+   */
+  readonly total: number | undefined;
   /** S3 出口①重派发（W1 权威再校验；零 doc 触碰先于 N0）。 */
   readonly redispatch: () => { readonly ok: true; readonly value: unknown[] } | WindowReadFailure;
 }
@@ -112,7 +119,7 @@ export function composeArrayWindowRead(
   path: readonly (string | number)[],
   options: NamespaceRuntimeReadArrayOptions,
   entries: ArrayWindowEntry[],
-  total: number,
+  total: number | undefined,
 ): NamespaceRuntimeReadArrayResult {
   return composeWindowRead<ArrayWindowEntry>({
     state,
@@ -134,7 +141,7 @@ export function composeMapWindowRead(
   path: readonly (string | number)[],
   options: NamespaceRuntimeReadMapOptions,
   entries: MapWindowEntry[],
-  total: number,
+  total: number | undefined,
 ): NamespaceRuntimeReadMapResult {
   return composeWindowRead<MapWindowEntry>({
     state,
@@ -147,11 +154,20 @@ export function composeMapWindowRead(
   });
 }
 
-/** 两面共用骨架（S3 → S5 → S6；顺序不可换——options 合法性由 W1 单权威裁定）。 */
+/** 两面共用骨架（入口 fail-closed → S3 → S5 → S6；顺序不可换——options 合法性由 W1 单权威裁定）。 */
 function composeWindowRead<Entry>(
   input: WindowComposeInput<Entry>,
 ): NamespaceRuntimeWindowReadOk<Entry> | WindowReadFailure {
-  const { state, path, options, face, entries, total, redispatch } = input;
+  // A2′/D8 入口 fail-closed（SA8 前置门禁 A2 + 设计后复审 A2′）：判据键于 **W1 结算结果**
+  // `total === undefined`（B-8 单源不变量：无 where = 候选标识计数恒数值，有 where =
+  // undefined），**先于 S3**——绝不重读 options、绝不校验 where 形状（故非第三套校验器）。
+  // 缝 1 期间 lease 组合面接收 where 属缝 2（truncated 双语义 + ✂ 永不装配 + S3 镜像扩展
+  // 两层同步扩）：此处必须响亮失败，绝不静默产出「已过滤四键成功面」（S3 白名单单独把关
+  // 挡不住敌意 options 视图漂移——同一 raw 引用可对 W1 呈五键视图、对 S3 呈干净四键视图，
+  // 届时 S6 `kept < undefined → false` 会静默成功）。
+  if (input.total === undefined) return seamWhereNotImplemented(input.path);
+  const { state, path, options, face, entries, redispatch } = input;
+  const total = input.total;
 
   // S3 canonical 接缝净化（零 [[Get]]；T1 权威已成功 ⟹ 与此判据不一致即视图不稳定）。
   const canonical = canonicalWindowBudget(options, face);
@@ -410,6 +426,22 @@ function seamWindowOptionsInvalid(path: unknown): WindowReadFailure {
     'WINDOW_OPTIONS_INVALID',
     path,
     'WINDOW_OPTIONS_INVALID: 视图不稳定（options 视图在读取期间漂移，敌意 descriptor/Proxy）——接缝拒绝组合窗口读',
+  );
+}
+
+/**
+ * 缝 1 中间态终态（A2′/D8）：唯一构造触发 = W1 成功结算 `total === undefined`（⟺ W1 已接受
+ * 并执行 `where`，ADR 0029 §5 B-8 单源不变量）——lease 组合面接收 `where`（truncated 双语义
+ * + ✂ 永不装配 + S3 镜像扩展「两层同步扩」）属缝 2，缝 1 期间必须**响亮失败**：绝不静默
+ * 产出「已过滤四键成功面」，也绝不回落到未过滤成功面。四键形状与 `seamWindowOptionsInvalid`
+ * 同款（`windowFailure` 单源构造；message 非契约字段，SA6 §15-O2）。缝 2 落地时本分支被
+ * 「truncated 双语义 + ✂ 永不装配 + S3 镜像扩展」整体取代。
+ */
+function seamWhereNotImplemented(path: unknown): WindowReadFailure {
+  return windowFailure(
+    'WINDOW_OPTIONS_INVALID',
+    path,
+    'WINDOW_OPTIONS_INVALID: where 已在 W1 生效而 lease 组合面接收属缝 2（truncated 双语义 / ✂ 永不装配 / S3 镜像扩展）——接缝拒绝组合窗口读',
   );
 }
 
