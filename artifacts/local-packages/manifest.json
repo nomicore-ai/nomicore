@@ -7,7 +7,7 @@
   "@nomicore/instance": "nomicore-instance-0.1.0.tgz",
   "@nomicore/persistence": "nomicore-persistence-0.2.3.tgz",
   "@nomicore/dsh-persistence": "nomicore-dsh-persistence-0.2.2.tgz",
-  "@nomicore/namespace-diagnostic-log": "nomicore-namespace-diagnostic-log-0.1.8.tgz",
+  "@nomicore/namespace-diagnostic-log": "nomicore-namespace-diagnostic-log-0.1.9.tgz",
   "@nomicore/namespace-runtime": "nomicore-namespace-runtime-0.1.12.tgz",
   "@nomicore/namespace-registry": "nomicore-namespace-registry-0.1.10.tgz",
   "@nomicore/replication-protocol": "nomicore-replication-protocol-0.1.2.tgz",
