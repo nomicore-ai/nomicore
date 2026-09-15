@@ -19,6 +19,7 @@
     "@nomicore/clock": "workspace:*",
     "@nomicore/doc-runtime": "workspace:*",
     "@nomicore/instance": "workspace:*",
+    "@nomicore/namespace-api": "workspace:*",
     "@nomicore/namespace-diagnostic-log": "workspace:*",
     "@nomicore/namespace-registry": "workspace:*",
     "@nomicore/persistence": "workspace:*",
