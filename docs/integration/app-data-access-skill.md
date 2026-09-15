@@ -33,8 +33,11 @@ Nomicore 的设计思想是 **schema 与数据严格绑定**：VFSL schema 不�
 读:
   lease.readData(path)                       // 完整投影，四键 { ok, value, schema, truncated }
   lease.readData(path, { depth, maxChildrenPerNode })   // 预算读（depth≥0，0 = 骨架）
-  lease.readArray(path, { n, orderBy })      // 序列容器窗口（index 基 = 位置序）
-  lease.readMap(path, { n, orderBy })        // 键容器窗口（key/field 基 = 值序）
+  lease.readArray(path, { n, orderBy, where? })   // 序列容器窗口（index 基 = 位置序）
+  lease.readMap(path, { n, orderBy, where? })     // 键容器窗口（key/field 基 = 值序）
+  // where 过滤窗口（ADR 0029）：[{ field, equals }] 标量等值合取，管线 where → orderBy → n；
+  //   匹配总数不承诺、✂ 段不装配，truncated = 装满判定（kept===n 可能还有 / kept<n 确定没有更多，
+  //   要计数给大 n）；脏值（字段缺席/非标量/不可下钻）安静不匹配。深水区见 nomicore skill
 
 写（一律经 typed adapter 构造，生成类型约束路径与值）:
   lease.mutateData({ op: 'set', path, value })                    // 单操作
@@ -103,6 +106,7 @@ Nomicore 的设计思想是 **schema 与数据严格绑定**：VFSL schema 不�
 - `WINDOW_TARGET_ABSENT` —— 路径错或条目已不在；停下重新推导，勿重试、勿期待静默吸收
 - `MUTATION_GUARD_MISMATCH` —— CAS 竞争拒绝；重读旧值重构造后重试
 - `WINDOW_CARRIER_MISMATCH` —— 换另一个 API（index ↔ key）
+- `WINDOW_OPTIONS_INVALID` —— 选项词形非法（n:0 / orderBy 越词表 / where 形状非法——非数组、未知键、空或超限、非标量 equals）；修 options，勿重试
 - `WATCH_MAP_CARRIER_MISMATCH` —— 订阅目标非键容器（偏离 schema / 数组载体）；修路径，数组走窗口读
 - `WATCH_MAP_OPTIONS_INVALID` —— 谓词词形非法（field 不存在 / 非标量域 / `in` 空数组）；修 options，勿重试
 - `WATCH_MAP_SCHEMA_UNAVAILABLE` —— 无 active schema，watchMap 整体不可用（含无谓词形态）；先装 schema
@@ -120,6 +124,10 @@ agent 读到 value + 投影文本
 
 对比错误路径："口径不清楚 → 问人 / 查 wiki / 在 skill 里补一段" → 第二信源诞生 → 漂移 → 上游或 schema 修复后本地仍在教旧事实。
 
+## 工具面暴露的边界（`nomicore_read` 等 L2 通用只读工具）
+
+有的消费方宿主把 Nomicore 读查询进一步包装成通用只读工具（如 `nomicore_read`，L2 层）暴露给自己的 agent。这类工具本体属其宿主仓库：本仓的责任到文档与 skill 口径为止——`readData` / 窗口读 / 过滤窗口（`where`，[ADR 0029](../adr/0029-filtered-window-read.md)）的读法、结算形状与失败码以上游文档（[ADR 0027](../adr/0027-readdata-projection-text.md) / [0028](../adr/0028-window-read.md) / 0029 与 nomicore skill）为准绳；工具面暴露（注册、参数与截断预算形状）属消费面票，由宿主仓库自行决定。
+
 ## 反模式清单
 
 - **复制机制深水区**——机制细节分两级：基本面调用形态（获取 schema / 读 / 写）可内联且必须版本锚定（五件套第 1 件）；深水区（✂ 段解读、预算/窗口完整纪律、边界行为、mutation policy）指向 [GitHub 的 nomicore skill](https://github.com/welltop-jim-wang/nomicore/tree/main/.agents/skills/nomicore) 随时取最新，复制一份即制造漂移面。
@@ -135,7 +143,7 @@ agent 读到 value + 投影文本
 
 ## API 基本面（对应 @nomicore/*@<锁定版本>；升级依赖时 review 本节）
 获取 schema: lease.getSchema() / getActiveSchema()；运行时口径 = readData 的 schema 键
-读: readData(path[, budget]) / readArray(path, {n, orderBy}) / readMap(path, {n, orderBy})
+读: readData(path[, budget]) / readArray(path, {n, orderBy, where?}) / readMap(path, {n, orderBy, where?})
 写: mutateData(<typed adapter 构造的信封>；guard CAS / { ops } 批量原子)
 订阅: watchMap(path, listener[, {where}]) → {unsubscribe}；通知=不含值的信号，消费协议见 nomicore skill
 
