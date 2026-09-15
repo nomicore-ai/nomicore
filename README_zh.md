@@ -71,14 +71,13 @@ Nomicore 将每一份数据与其 schema 和业务口径绑定在一起。Agent 
 
 ## 当前能力
 
-- **VFSL v1**：解析、求值、schema envelope、逻辑 ROOT 校验、路径与载体投影。
-- **TypeScript codegen**：从宿主拥有的 `schema.vfsl` 生成 `VfslPathMap` augmentation，用于强类型写路径和值。
-- **Namespace Runtime**：同步读取、VFSL 校验写、严格 FIFO write sequencer、SCHEMA replacement。
-- **Namespace Registry**：namespace create/open、lease、idle retention、生命周期与有序 shutdown。
-- **Persistence**：Memory/File adapters、dirty/flush、恢复、归档与 replica reset；File root 由单一 active process 独占。
-- **Instance identity**：不可变的 `instanceId + role` Cordis service。
-- **WebSocket replication**：角色专用 Hub/Peer Cordis plugins、认证授权、bootstrap/reconcile、backpressure、liveness、GOAWAY drain 与受控恢复。
-- **Standalone server**：`@nomicore/yjs-server` CLI，以及可供嵌入式 Node Host 使用的 Hub listener 和 Peer dial adapters。
+- **用熟悉的语法定义数据**：使用接近 TypeScript 的语法描述数据结构，并把字段含义、业务规则和解读口径直接写在结构定义中，让数据规范既便于人阅读，也便于 Agent 理解。
+- **由数据库内核执行 Schema 约束**：所有写入都会经过 Schema 校验，数据库从底层阻止不符合规范的数据进入，避免数据结构和业务约束随着时间逐渐漂移。
+- **实时感知数据变更**：数据发生变化时，Agent 可以立即收到变更信号并作出响应，不必依赖周期性轮询，也不必反复读取整个数据集。
+- **多种数据访问与搜索方式**：既可以按精确路径读取单个字段、对象或集合，也可以限制读取深度和宽度，按需获取大型数据结构的一部分；还可以对数组或键值集合进行窗口读取，按索引、键或字段排序，选取最新记录、稳定区间或 Top-K 结果。每次读取都会同时返回相应的数据规范和业务口径。
+- **原生支持多方协作**：同一份数据可以由多个参与者持续协作修改，并保留细粒度、可合并的数据变更。它既适用于 Agent 与 Agent 之间共享和协同处理数据，也适用于 Agent 与 Human 围绕同一份数据共同工作。
+- **灵活部署并可横向扩展**：Nomicore 可以作为模块嵌入任意应用程序，也可以作为独立服务运行；当规模扩大时，可部署为通过 Hub/Peer 同步的多实例集群，在不同节点之间维护完整副本。
+- **原生支持 DeepSeek Harness**：Nomicore 可直接为 DeepSeek Harness 提供持久化、带 Schema 和业务口径的数据访问，以及跨 Session、跨 Agent 的协作数据基础。
 
 ## 进一步了解
 

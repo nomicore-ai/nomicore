@@ -73,14 +73,13 @@ When this result is sent to another Agent, its schema and semantics travel with 
 
 ## Capabilities
 
-- **VFSL v1**: parsing, evaluation, schema envelopes, logical ROOT validation, and path/carrier projections.
-- **TypeScript code generation**: generates a `VfslPathMap` augmentation from the host-owned `schema.vfsl`, providing typed mutation paths and values.
-- **Namespace Runtime**: synchronous reads, VFSL-validated writes, a strict FIFO write sequencer, and SCHEMA replacement.
-- **Namespace Registry**: namespace creation/opening, leases, idle retention, lifecycle management, and ordered shutdown.
-- **Persistence**: Memory and File adapters, dirty tracking and flush scheduling, recovery, archival, and replica reset. A File root is exclusively owned by one active process.
-- **Instance identity**: an immutable `instanceId + role` Cordis service.
-- **WebSocket replication**: role-specific Hub/Peer Cordis plugins with authentication, authorization, bootstrap/reconcile, backpressure, liveness, GOAWAY drain, and controlled recovery.
-- **Standalone server**: the `@nomicore/yjs-server` CLI plus embeddable Node Hub-listen and Peer-dial adapters.
+- **Define data with familiar syntax**: describe data structures with TypeScript-like syntax, and write field meanings, business rules, and interpretation guidance directly alongside those definitions so they are readable by both humans and Agents.
+- **Enforce Schema constraints in the database kernel**: every write is validated against its Schema. Invalid data is rejected at the storage boundary, preventing structures and business constraints from drifting over time.
+- **React to data changes in real time**: Agents can receive change signals as soon as data is updated and respond immediately, without periodically polling or repeatedly reading the entire dataset.
+- **Access and search data in multiple ways**: read a precise field, object, or collection by path; bound the depth and width of a read to retrieve only part of a large structure; or use window reads over arrays and keyed collections, ordered by index, key, or field, to select recent entries, stable ranges, or Top-K results. Every read also returns the applicable data specification and business semantics.
+- **Collaborate natively across participants**: multiple participants can continuously modify the same data through fine-grained, mergeable changes. This supports both Agent-to-Agent collaboration and Agent-to-Human collaboration over a shared source of truth.
+- **Embed anywhere and scale out**: use Nomicore as a module inside any application or run it as a standalone service. As demand grows, deploy multiple instances as a Hub/Peer replicated cluster with complete replicas across nodes.
+- **Native DeepSeek Harness support**: Nomicore can directly provide DeepSeek Harness with persistence, Schema- and semantics-aware data access, and a shared data foundation for collaboration across Sessions and Agents.
 
 ## Learn more
 
