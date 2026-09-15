@@ -22,6 +22,11 @@
  * #387 增量（ADR 0030 T1，纯加法）：lease 公共面 +watchMap（15 → 16 键；键容器变更
  * 订阅，建立失败同步 throw、lease 释放自动清理）；type-only 追加三个 watch 别名
  * （runtime 同名单源别名跟随）；值导出面不变。
+ *
+ * #388 增量（ADR 0030 T2，纯加法）：lease `watchMap` 签名原位加宽第三参
+ * （谓词 options，raw 透传 runtime、lease 层零解释；非法谓词 → runtime 侧
+ * `WATCH_MAP_OPTIONS_INVALID` 同步 throw、零登记；lease 键集仍恰 16 键——不新增键）；
+ * type-only 追加两个别名（options 袋 + 标量值域）；值导出面不变。
  */
 export {
   createNamespaceRegistry,
@@ -63,6 +68,8 @@ export type {
   NamespaceLeaseWatchMapChange,
   NamespaceLeaseWatchMapHandle,
   NamespaceLeaseWatchMapNotification,
+  NamespaceLeaseWatchMapOptions,
+  NamespaceLeaseWatchMapScalarValue,
   NamespaceOwner,
   NamespaceRegistry,
   NamespaceRegistryDiagnosticLog,

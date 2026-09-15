@@ -1,0 +1,13 @@
+--- ymap-missing-field | where={"where":{"field":"status","equals":"open"}} | established ---
+A 非匹配条目改 title（status 缺失 → 恒不匹配） | ok=true | notify=1 | payload=[["t2"]]
+B 匹配条目同值写 status=open | ok=true | notify=0 | payload=[]
+C 匹配条目退出匹配集 status=open→done | ok=true | notify=1 | payload=[["t1"]]
+D 缺失→匹配 status 由缺失到 open | ok=true | notify=1 | payload=[["t2"]]
+E 嵌套子容器变更（t2 现匹配；保守面） | ok=true | notify=1 | payload=[["t2"]]
+F 混合事务：t3 title + t3 进入匹配（status done→open） | ok=true | notify=1 | payload=[["t3"]]
+G 混合事务：t1 title + t3 title（两者皆不匹配） | ok=true | notify=1 | payload=[["t1","t3"]]
+--- plain-object-carrier | where={"where":{"field":"status","in":["open","open","blocked"]}} | established ---
+H plain 条目非匹配整值替换 done→closed（精确可判） | ok=false issues=[{"message":"Yjs 载体错位（ROOT）：期望 Y.Map，实际 plain value","path":[]}] | notify=0 | payload=[]
+I plain 条目退出匹配集 open→done | ok=false issues=[{"message":"Yjs 载体错位（ROOT）：期望 Y.Map，实际 plain value","path":[]}] | notify=0 | payload=[]
+J plain 条目同值整值替换（status=done 不变） | ok=false issues=[{"message":"Yjs 载体错位（ROOT）：期望 Y.Map，实际 plain value","path":[]}] | notify=0 | payload=[]
+K plain 条目进入匹配集 closed→blocked（in 集合顺序/去重无关） | ok=false issues=[{"message":"Yjs 载体错位（ROOT）：期望 Y.Map，实际 plain value","path":[]}] | notify=0 | payload=[]

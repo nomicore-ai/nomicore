@@ -1,0 +1,21 @@
+schema.state = ready
+lease.watchMap.type = function
+lease.watchMap.arity(length) = 2
+lease keys = ["bumpReplicationEpoch","enableReplication","getActiveSchema","getMetadata","getSchema","getStatus","mutateData","namespaceId","openReplicationSession","owner","readArray","readData","readMap","release","replaceSchema","watchMap"]
+establish[where.equals(status=open)] = RETURNED handle=function
+establish[where.in[] (ADR 0030 §2 空数组非法)] = RETURNED handle=function
+establish[where.field-missing (ADR 0030 §3 field 不存在)] = RETURNED handle=function
+establish[where.field-nonscalar (sub 为嵌套 YMap 域)] = RETURNED handle=function
+establish[where.shape-violation (无算子键)] = RETURNED handle=function
+establish[where.extra-word (notEquals 不在词表)] = RETURNED handle=function
+establish[no-options (T1 对照)] = RETURNED handle=function
+mutate.nonmatching.ok = true
+notify_after_nonmatching_change = 7
+notification_payload = [{"kind":"data","origin":"local","changes":[{"path":["tasks"],"key":"t2"}]},{"kind":"data","origin":"local","changes":[{"path":["tasks"],"key":"t2"}]},{"kind":"data","origin":"local","changes":[{"path":["tasks"],"key":"t2"}]},{"kind":"data","origin":"local","changes":[{"path":["tasks"],"key":"t2"}]},{"kind":"data","origin":"local","changes":[{"path":["tasks"],"key":"t2"}]},{"kind":"data","origin":"local","changes":[{"path":["tasks"],"key":"t2"}]},{"kind":"data","origin":"local","changes":[{"path":["tasks"],"key":"t2"}]}]
+notify_after_same_value_write = 0
+notify_after_matching_entry_change = 7
+notification_payload_matching = [{"kind":"data","origin":"local","changes":[{"path":["tasks"],"key":"t1"}]},{"kind":"data","origin":"local","changes":[{"path":["tasks"],"key":"t1"}]},{"kind":"data","origin":"local","changes":[{"path":["tasks"],"key":"t1"}]},{"kind":"data","origin":"local","changes":[{"path":["tasks"],"key":"t1"}]},{"kind":"data","origin":"local","changes":[{"path":["tasks"],"key":"t1"}]},{"kind":"data","origin":"local","changes":[{"path":["tasks"],"key":"t1"}]},{"kind":"data","origin":"local","changes":[{"path":["tasks"],"key":"t1"}]}]
+mutate.entry_without_predicate_field.ok = true
+notify_after_entry_without_field = 0
+readData.ok = true keys= ["ok","schema","truncated","value"]
+readMap.ok = true entries= 2

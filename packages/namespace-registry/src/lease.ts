@@ -45,6 +45,8 @@ import type {
   NamespaceLeaseWatchMapChange,
   NamespaceLeaseWatchMapHandle,
   NamespaceLeaseWatchMapNotification,
+  NamespaceLeaseWatchMapOptions,
+  NamespaceLeaseWatchMapScalarValue,
   NamespaceRuntimeStatusProjection,
   ReplicationSession,
   ReplicationSessionApplyResult,
@@ -68,6 +70,8 @@ import type {
   NamespaceRuntimeWatchMapChange,
   NamespaceRuntimeWatchMapHandle,
   NamespaceRuntimeWatchMapNotification,
+  NamespaceRuntimeWatchMapOptions,
+  NamespaceRuntimeWatchMapScalarValue,
 } from '@nomicore/namespace-runtime';
 import type { NamespaceRuntimeStatus } from '@nomicore/namespace-runtime';
 import { dispatchObserver, type RegistryObserver } from './observer.js';
@@ -340,15 +344,16 @@ export function createLeaseController(
       return entry.runtime.readMap(path, options);
     },
     /**
-     * 【issue #387 / ADR 0030 T1（设计 §8-F）】lease 第 16 键：released 通道 → 透传 →
-     * 登记（双幂等包装句柄）。lease 层零建立判定（全在 runtime hub）、零参数解释
-     * ——active 期 raw 引用直传；失败 throw 原样上抛（B-3 同步 throw 面）。
+     * 【issue #387 / ADR 0030 T1（设计 §8-F）；T2 #388 纯加法加宽第三参】lease 第 16 键：
+     * released 通道 → 透传 → 登记（双幂等包装句柄）。lease 层零建立判定（全在 runtime
+     * hub，含谓词门⑥）、零参数解释——active 期 options raw 引用直传；失败 throw 原样
+     * 上抛（B-3 同步 throw 面，含 `WATCH_MAP_OPTIONS_INVALID`）。
      */
-    watchMap(path, listener): NamespaceLeaseWatchMapHandle {
+    watchMap(path, listener, options): NamespaceLeaseWatchMapHandle {
       // released 通道：getter 域先例（lease.ts 三投影 getter 同款——释放在场即拒，
       // 零透传、零登记）
       if (released) throw new NamespaceLeaseReleasedError();
-      const handle = entry.runtime.watchMap(path, listener);
+      const handle = entry.runtime.watchMap(path, listener, options);
       // 双幂等包装（设计 §8-F）：本层标志 + hub 层标志；退订同时摘登记（释放清理
       // 遍历与主动退订互不重复）。
       let unsubscribed = false;
@@ -496,8 +501,9 @@ type _readArrayOptionsAlias = AssertTrue<
 type _readMapOptionsAlias = AssertTrue<
   Equal<NamespaceLeaseReadMapOptions, Parameters<NamespaceRuntime['readMap']>[1]>
 >;
-// issue #387（ADR 0030 T1）：watchMap 别名跟随（三别名 = runtime 单源同名单源别名；
-// 失败走同步 throw ⇒ ReturnType 恰 handle；T1 无 options ⇒ 无 Options 别名）。
+// issue #387（ADR 0030 T1）/ issue #388（T2 加法）：watchMap 别名跟随（别名 = runtime
+// 单源同名单源别名；失败走同步 throw ⇒ ReturnType 恰 handle；T2 追加 options 袋 +
+// 标量值域两锁——成员第三参加宽由 _watchMapMemberAlias 双源对偶锁定）。
 type _watchMapNotificationAlias = AssertTrue<
   Equal<NamespaceLeaseWatchMapNotification, NamespaceRuntimeWatchMapNotification>
 >;
@@ -506,6 +512,15 @@ type _watchMapChangeAlias = AssertTrue<
 >;
 type _watchMapHandleAlias = AssertTrue<
   Equal<NamespaceLeaseWatchMapHandle, NamespaceRuntimeWatchMapHandle>
+>;
+type _watchMapOptionsAlias = AssertTrue<
+  Equal<NamespaceLeaseWatchMapOptions, NamespaceRuntimeWatchMapOptions>
+>;
+type _watchMapOptionsMemberAlias = AssertTrue<
+  Equal<NamespaceLeaseWatchMapOptions, NonNullable<Parameters<NamespaceLease['watchMap']>[2]>>
+>;
+type _watchMapScalarValueAlias = AssertTrue<
+  Equal<NamespaceLeaseWatchMapScalarValue, NamespaceRuntimeWatchMapScalarValue>
 >;
 type _watchMapMemberAlias = AssertTrue<
   Equal<Parameters<NamespaceLease['watchMap']>, Parameters<NamespaceRuntime['watchMap']>>
@@ -569,6 +584,9 @@ export type LeaseTypeAssertions = {
   readonly watchMapNotificationAlias: _watchMapNotificationAlias;
   readonly watchMapChangeAlias: _watchMapChangeAlias;
   readonly watchMapHandleAlias: _watchMapHandleAlias;
+  readonly watchMapOptionsAlias: _watchMapOptionsAlias;
+  readonly watchMapOptionsMemberAlias: _watchMapOptionsMemberAlias;
+  readonly watchMapScalarValueAlias: _watchMapScalarValueAlias;
   readonly watchMapMemberAlias: _watchMapMemberAlias;
   readonly watchMapResultAlias: _watchMapResultAlias;
   readonly schemaEnvelope: _schemaEnvelopeAlias;

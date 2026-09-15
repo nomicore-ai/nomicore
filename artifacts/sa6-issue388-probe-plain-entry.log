@@ -1,0 +1,23 @@
+=== A plain 容器 + 受控条目整值 set ===
+A1 条目 set（plain 值，非匹配 done→closed） | ok=false issues=[{"message":"Yjs 载体错位（ROOT）：期望 Y.Map，实际 plain value","path":[]}] | notify=0
+=== B Y.Map 容器 + 条目整值 set ===
+B1 条目 set（非匹配 done→closed） | ok=true | notify=1
+    event path=["tasks"] keys=[["t2","update","Y.Map"]]
+      oldYMap.toJSON={} get(status)=undefined
+B2 条目 delete（匹配 open 删除） | ok=true | notify=1
+    event path=["tasks"] keys=[["t1","delete","Y.Map"]]
+      oldYMap.toJSON={} get(status)=undefined
+=== C plain 容器 + raw peer 写（条目整值替换） ===
+C1 受控写无关条目 add t3 | ok=false issues=[{"message":"Yjs 载体错位（ROOT）：期望 Y.Map，实际 plain value","path":[]}] | notify=0
+raw peer write | notify=0
+file:///home/wangjian/nomicore-fix-issue-388/node_modules/.pnpm/lib0@0.2.117/node_modules/lib0/error.js:12
+export const create = s => new Error(s)
+                           ^
+
+Error: You must not compute changes after the event-handler fired.
+    at Module.create (file:///home/wangjian/nomicore-fix-issue-388/node_modules/.pnpm/lib0@0.2.117/node_modules/lib0/error.js:12:28)
+    at YMapEvent.get changes (/home/wangjian/nomicore-fix-issue-388/node_modules/.pnpm/yjs@13.6.32/node_modules/yjs/src/utils/YEvent.js:176:21)
+    at run (file:///home/wangjian/nomicore-fix-issue-388/packages/namespace-registry/[eval1]:56:96)
+    at async file:///home/wangjian/nomicore-fix-issue-388/packages/namespace-registry/[eval1]:71:1
+
+Node.js v24.13.0

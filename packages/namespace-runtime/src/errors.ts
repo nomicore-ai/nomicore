@@ -250,9 +250,16 @@ export const WATCH_MAP_CARRIER_MISMATCH_CODE = 'WATCH_MAP_CARRIER_MISMATCH' as c
  *  的全部无 active schema 态——watchMap 整体不可用（含无谓词形态）。 */
 export const WATCH_MAP_SCHEMA_UNAVAILABLE_CODE = 'WATCH_MAP_SCHEMA_UNAVAILABLE' as const;
 
+/** watchMap 谓词 options 非法稳定码（issue #388 / ADR 0030 T2 决策 2/3 append-only 注册）：
+ *  封闭词表 `{field, equals}` | `{field, in}`（值域恒标量）之外的任何形态、`in` 空数组、
+ *  active schema 侧 field 不存在 / 条目无统一值域 / 非标量域——建立期同步 throw，
+ *  失败零订阅登记（ADR 0030 §3 L37；SA8 action 2 新码 append-only，既有两码零改动）。 */
+export const WATCH_MAP_OPTIONS_INVALID_CODE = 'WATCH_MAP_OPTIONS_INVALID' as const;
+
 export type WatchMapErrorCode =
   | typeof WATCH_MAP_CARRIER_MISMATCH_CODE
-  | typeof WATCH_MAP_SCHEMA_UNAVAILABLE_CODE;
+  | typeof WATCH_MAP_SCHEMA_UNAVAILABLE_CODE
+  | typeof WATCH_MAP_OPTIONS_INVALID_CODE;
 
 /**
  * watchMap 建立失败错误（issue #387 设计 §7-B3 冻结：同步 throw；类不进 index，

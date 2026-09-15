@@ -1,0 +1,10 @@
+=== R1-R4 Y.Map 条目 in-place 面 (predicate where={field:status,equals:open}) ===
+R1 匹配条目 in-place title 变更（t1 open） | ok=true | HEAD notify=1 | keys=[["t1"]]
+R2 非匹配条目 in-place title 变更（t2 done） | ok=true | HEAD notify=1 | keys=[["t2"]]
+R3 退出匹配集（t1 open→done） | ok=true | HEAD notify=1 | keys=[["t1"]]
+R4 进入匹配集（t2 done→open） | ok=true | HEAD notify=1 | keys=[["t2"]]
+R5 同值写（t2 open→open） | ok=true | HEAD notify=0 | keys=[]
+R6 非匹配整值替换（t2 open→closed） | ok=true | HEAD notify=1 | keys=[["t2"]]
+R7 新增非匹配条目（t9 status done） | ok=true | HEAD notify=1 | keys=[["t9"]]
+=== R8 plain 条目 oldValue 可读面 (predicate where={field:status,equals:open}) ===
+raw peer entry replace (plain entry) | HEAD notify=1 | keys=[["t3"]]
