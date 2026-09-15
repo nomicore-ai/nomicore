@@ -1,0 +1,9 @@
+
+ RUN  v3.2.7 /home/wangjian/nomicore-fix-issue-388
+
+ ✓ packages/namespace-registry/test/issue-388-watch-map-predicate-red.test.ts (29 tests) 262ms
+
+ Test Files  1 passed (1)
+      Tests  29 passed (29)
+   Start at  02:28:42
+   Duration  989ms (transform 423ms, setup 0ms, collect 584ms, tests 262ms, environment 0ms, prepare 44ms)

@@ -1,0 +1,13 @@
+### Y1 nested in-place field write (t2.title) | ok=true
+    events = [[{"target":"YMap","path":["tasks","t2"],"keys":[{"key":"title","action":"update","oldValue":"\"beta\"","oldAliasesCurrent":false}]}]]
+### Y2 nested in-place same-value write (t1.status=open) | ok=true
+    events = [[{"target":"YMap","path":["tasks","t1"],"keys":[{"key":"status","action":"update","oldValue":"\"open\"","oldAliasesCurrent":true}]}]]
+### Y3 whole-entry set (t2 plain value replacement) | ok=true
+    events = [[{"target":"YMap","path":["tasks"],"keys":[{"key":"t2","action":"update","oldValue":"Y.Map#other","oldAliasesCurrent":false}]}]]
+### Y4 add entry (t3) | ok=true
+    events = [[{"target":"YMap","path":["tasks"],"keys":[{"key":"t3","action":"add","oldValue":"undefined","oldAliasesCurrent":false}]}]]
+### Y5 delete entry (t3) | ok=true
+    events = [[{"target":"YMap","path":["tasks"],"keys":[{"key":"t3","action":"delete","oldValue":"Y.Map#other","oldAliasesCurrent":false}]}]]
+### Y6 nested sub-container write (t2.sub.x) | ok=false
+    events = []
+existing t2 carrier after Y3 = replaced

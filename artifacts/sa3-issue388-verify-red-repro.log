@@ -1,0 +1,425 @@
+=== worktree list (pre) ===
+/home/wangjian/nomicore                                     7635fd5 [main]
+/home/wangjian/nomicore-fix-issue-154                       d6617bb [fix/issue-154-on-docs-namespace-diagnostic-change-log]
+/home/wangjian/nomicore-fix-issue-155                       b86de55 [mabf/issue-155]
+/home/wangjian/nomicore-fix-issue-214                       afd50a0 [mabf/issue-214]
+/home/wangjian/nomicore-fix-issue-388                       28faeae [mabf/issue-388]
+/home/wangjian/nomicore-fix-issue-390                       19bebd6 [mabf/issue-390]
+/home/wangjian/nomicore-refactor-pubtest-lifecycle--203356  cf665d8 [refactor/pubtest-lifecycle--203356]
+Preparing worktree (detached HEAD 28faeae)
+HEAD is now at 28faeae fix(#387): watchMap 无谓词形态垂直通路（变更订阅 T1/tracer bullet） (#395)
+=== install ===
+Scope: all 16 workspace projects
+Lockfile is up to date, resolution step is skipped
+Progress: resolved 1, reused 0, downloaded 0, added 0
+Packages: +65
++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+Progress: resolved 65, reused 65, downloaded 0, added 65, done
+
+devDependencies:
++ tsx 4.23.12
++ typescript 5.9.3
++ vitest 3.2.7
+
+╭ Warning ─────────────────────────────────────────────────────────────────────╮
+│                                                                              │
+│   Ignored build scripts: esbuild@0.28.2.                                     │
+│   Run "pnpm approve-builds" to pick which dependencies should be allowed     │
+│   to run scripts.                                                            │
+│                                                                              │
+╰──────────────────────────────────────────────────────────────────────────────╯
+Done in 492ms using pnpm v10.28.2
+INSTALL_EXIT=0
+=== red behavior (HEAD sources + new contract) ===
+
+ RUN  v3.2.7 /home/wangjian/nomicore-fix-issue-388/.worktrees/sa3-388-red
+
+ ❯ packages/namespace-registry/test/issue-388-watch-map-predicate-red.test.ts (29 tests | 13 failed) 254ms
+   ✓ 组 E（AC1/AC2）：谓词建立判定 —— 全部由 active schema 完成 > E1 AC1：标量叶 field（title）建立成功，返回恰 `{unsubscribe}` 句柄 16ms
+   ✓ 组 E（AC1/AC2）：谓词建立判定 —— 全部由 active schema 完成 > E2 AC1：number 域 `in`（乱序非空）建立成功 3ms
+   ✓ 组 E（AC1/AC2）：谓词建立判定 —— 全部由 active schema 完成 > E3 AC1：别名域（status→Status）/ 字面量域（state enum）/ 可选标量（note?）三形态均建立成功 3ms
+   × 组 E（AC1/AC2）：谓词建立判定 —— 全部由 active schema 完成 > E4 AC2：field 不存在 → WATCH_MAP_OPTIONS_INVALID，且失败零订阅登记 9ms
+     → AC2：field 不存在必须响亮拒绝（禁止静默建立恒不匹配死订阅）: expected true to be false // Object.is equality
+   × 组 E（AC1/AC2）：谓词建立判定 —— 全部由 active schema 完成 > E5 AC2：非标量域同族（object / array / union / xml）→ 同码拒绝（非标量域 message） 5ms
+     → AC2：嵌套对象域 非标量域必须拒绝（值域恒标量；容器/联合/XML 拒绝）: expected true to be false // Object.is equality
+   × 组 E（AC1/AC2）：谓词建立判定 —— 全部由 active schema 完成 > E5b AC2：封闭对象 map（meta）与标量条目容器（counters）→ 同码拒绝（条目无统一值域） 2ms
+     → AC2：封闭对象map 条目无统一值域（条目无成员语义）必须拒绝（禁止静默建立部分恒不匹配面）: expected true to be false // Object.is equality
+   × 组 E（AC1/AC2）：谓词建立判定 —— 全部由 active schema 完成 > E6 AC1：`in: []` → 同码拒绝（恒不匹配的订阅是配置错误）且零登记 2ms
+     → AC1：in 空数组必须响亮拒绝: expected true to be false // Object.is equality
+   × 组 E（AC1/AC2）：谓词建立判定 —— 全部由 active schema 完成 > E7 AC2：词形错误族 fail-closed（缺算子/双算子/未知键/非标量算子/options 形状/敌意通道） 2ms
+     → AC2：缺算子 必须 fail-closed 拒绝（禁止静默建立语义未定义死订阅）: expected true to be false // Object.is equality
+   ✓ 组 E（AC1/AC2）：谓词建立判定 —— 全部由 active schema 完成 > E8 AC2（负控 NC3）：门次序不回退——released / 无 active schema / 非法 path 先于谓词门 5ms
+   ✓ 组 E（AC1/AC2）：谓词建立判定 —— 全部由 active schema 完成 > E9 AC1（负控 NC6）：数据缺席容器（未物化 ghost）+ 合法谓词建立成功（纯 schema 侧） 2ms
+   ✓ 组 E（AC1/AC2）：谓词建立判定 —— 全部由 active schema 完成 > E10（负控 NC1）：省略 options / undefined / {} / {where: undefined} → T1 无谓词行为逐字不变 34ms
+   × 组 E（AC1/AC2）：谓词建立判定 —— 全部由 active schema 完成 > E11 AC2（SA8 action 2）：新码 append-only 注册 + message 纪律（前缀/非空/六 cause 可区分/零回显） 2ms
+     → AC2（options形状）：应拒绝: expected true to be false // Object.is equality
+   ✓ 组 N（AC5/AC6/AC7）：谓词判定矩阵 —— 宁多勿漏 > N1/N2 AC7：C-2 嵌套部分更新 → 保守通知（匹配条目 t1 与非匹配条目 t2 均必须通知） 8ms
+   ✓ 组 N（AC5/AC6/AC7）：谓词判定矩阵 —— 宁多勿漏 > N3 AC6：t1 退出匹配集（open→done）→ 必须通知（消费方拉终态自辨删除视图项） 7ms
+   ✓ 组 N（AC5/AC6/AC7）：谓词判定矩阵 —— 宁多勿漏 > N4 AC5：t2 进入匹配集（done→open）→ 必须通知 6ms
+   ✓ 组 N（AC5/AC6/AC7）：谓词判定矩阵 —— 宁多勿漏 > N5 AC4（负控 NC5）：谓词字段同值写 → 真变判定前置过滤，零通知 13ms
+   ✓ 组 N（AC5/AC6/AC7）：谓词判定矩阵 —— 宁多勿漏 > N6 AC7：live Y.Map 条目整值替换（oldValue 内容被 Yjs 清空）→ 保守通知 7ms
+   × 组 N（AC5/AC6/AC7）：谓词判定矩阵 —— 宁多勿漏 > N7 AC5（首红行）：新增非匹配条目（status done）→ 零通知（旧态=缺席可判） 7ms
+     → AC5：非匹配新增零通知（降噪是谓词的存在理由）: expected 2 to be 1 // Object.is equality
+   × 组 N（AC5/AC6/AC7）：谓词判定矩阵 —— 宁多勿漏 > N8 AC5（首红行）：同事务批量新增 t9（匹配）+ t10（非匹配）→ changes 恰 [t9] 9ms
+     → AC5：混合事务非匹配 key（t10）被剔除: expected [ [ 't9', 't10' ] ] to strictly equal [ [ 't9' ] ]
+   × 组 N（AC5/AC6/AC7）：谓词判定矩阵 —— 宁多勿漏 > N9 AC7（首红行）：plain 条目整值替换、旧态为 plain 快照 → 两态可读 → 精确静默 8ms
+     → AC7：oldValue 为 plain 快照（done→closed 均不匹配）→ 零通知: expected 2 to be 1 // Object.is equality
+   × 组 N（AC5/AC6/AC7）：谓词判定矩阵 —— 宁多勿漏 > N9b AC7：plain 条目（非匹配）raw delete → oldValue 可判 ∧ 新态缺席 → 零通知 7ms
+     → AC7：非匹配 plain 快照 delete → 零通知: expected 2 to be 1 // Object.is equality
+   ✓ 组 N（AC5/AC6/AC7）：谓词判定矩阵 —— 宁多勿漏 > N10/N10b AC7：plain 快照两态可读 → 进入匹配集通知；delete（旧态匹配）通知 12ms
+   × 组 N（AC5/AC6/AC7）：谓词判定矩阵 —— 宁多勿漏 > N11 AC3：缺失 / null 恒不匹配——不抛、零参数错误；通知按载体分档 18ms
+     → AC3：缺失字段新增 → 不匹配（精确静默）: expected 4 to be 3 // Object.is equality
+   × 组 N（AC5/AC6/AC7）：谓词判定矩阵 —— 宁多勿漏 > N12 AC1：`in` 集合语义——乱序/重复两形态行为逐字节同构；空数组建立拒绝 9ms
+     → AC1：集合语义（顺序无关、去重）→ 匹配通知 + 非匹配静默 + 屏障: expected [ [ 't9' ], [ 't10' ], [ 't1' ] ] to strictly equal [ [ 't9' ], [ 't1' ] ]
+   × 组 N（AC5/AC6/AC7）：谓词判定矩阵 —— 宁多勿漏 > N12b（非承重文档行）：标量相等 = SameValue——NaN 匹配 NaN；±0 互不匹配 14ms
+     → F-4：-0 ≠ +0（SameValue，非 SameValueZero）→ 精确静默: expected 2 to be 1 // Object.is equality
+   ✓ 组 N（AC5/AC6/AC7）：谓词判定矩阵 —— 宁多勿漏 > N13（负控 NC7）：通知载荷零改动——三键/两键/不含值/kind 闭集 7ms
+   ✓ 组 N（AC5/AC6/AC7）：谓词判定矩阵 —— 宁多勿漏 > N14（负控 NC1）：谓词订阅退订幂等零回声；lease 释放清理谓词订阅 25ms
+   ✓ 组 N（AC5/AC6/AC7）：谓词判定矩阵 —— 宁多勿漏 > N15（SA8 action 5）：谓词求值期数据异常不抛、写不变、通知流零 error kind、订阅存活 6ms
+   ✓ 负控（NC2/NC5）：冻结面零改动 > NC：readData 恒四键（集中化 helper）、窗口读在产、窗口读载体码零改动、lease 恰 16 键 6ms
+
+⎯⎯⎯⎯⎯⎯ Failed Tests 13 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  packages/namespace-registry/test/issue-388-watch-map-predicate-red.test.ts > 组 E（AC1/AC2）：谓词建立判定 —— 全部由 active schema 完成 > E4 AC2：field 不存在 → WATCH_MAP_OPTIONS_INVALID，且失败零订阅登记
+AssertionError: AC2：field 不存在必须响亮拒绝（禁止静默建立恒不匹配死订阅）: expected true to be false // Object.is equality
+
+- Expected
++ Received
+
+- false
++ true
+
+ ❯ packages/namespace-registry/test/issue-388-watch-map-predicate-red.test.ts:185:62
+    183|     const control = new NotificationSink();
+    184|     const outcome = attemptEstablishWatch(fixture.lease, ['tasks'], le…
+    185|     expect(outcome.ok, 'AC2：field 不存在必须响亮拒绝（禁止静默建立恒不匹配死订阅）').toBe(fals…
+       |                                                              ^
+    186|     if (outcome.ok) return;
+    187|     expect(outcome.code, 'AC2：稳定码逐字 = WATCH_MAP_OPTIONS_INVALID').toBe…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/13]⎯
+
+ FAIL  packages/namespace-registry/test/issue-388-watch-map-predicate-red.test.ts > 组 E（AC1/AC2）：谓词建立判定 —— 全部由 active schema 完成 > E5 AC2：非标量域同族（object / array / union / xml）→ 同码拒绝（非标量域 message）
+AssertionError: AC2：嵌套对象域 非标量域必须拒绝（值域恒标量；容器/联合/XML 拒绝）: expected true to be false // Object.is equality
+
+- Expected
++ Received
+
+- false
++ true
+
+ ❯ packages/namespace-registry/test/issue-388-watch-map-predicate-red.test.ts:206:71
+    204|     const messages = new Set<string>();
+    205|     for (const [label, outcome] of Object.entries(outcomes)) {
+    206|       expect(outcome.ok, `AC2：${label} 非标量域必须拒绝（值域恒标量；容器/联合/XML 拒绝）`).…
+       |                                                                       ^
+    207|       if (outcome.ok) continue;
+    208|       expect(outcome.code).toBe(WATCH_MAP_OPTIONS_INVALID);
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/13]⎯
+
+ FAIL  packages/namespace-registry/test/issue-388-watch-map-predicate-red.test.ts > 组 E（AC1/AC2）：谓词建立判定 —— 全部由 active schema 完成 > E5b AC2：封闭对象 map（meta）与标量条目容器（counters）→ 同码拒绝（条目无统一值域）
+AssertionError: AC2：封闭对象map 条目无统一值域（条目无成员语义）必须拒绝（禁止静默建立部分恒不匹配面）: expected true to be false // Object.is equality
+
+- Expected
++ Received
+
+- false
++ true
+
+ ❯ packages/namespace-registry/test/issue-388-watch-map-predicate-red.test.ts:228:9
+    226|         outcome.ok,
+    227|         `AC2：${label} 条目无统一值域（条目无成员语义）必须拒绝（禁止静默建立部分恒不匹配面）`,
+    228|       ).toBe(false);
+       |         ^
+    229|       if (outcome.ok) continue;
+    230|       expect(outcome.code).toBe(WATCH_MAP_OPTIONS_INVALID);
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[3/13]⎯
+
+ FAIL  packages/namespace-registry/test/issue-388-watch-map-predicate-red.test.ts > 组 E（AC1/AC2）：谓词建立判定 —— 全部由 active schema 完成 > E6 AC1：`in: []` → 同码拒绝（恒不匹配的订阅是配置错误）且零登记
+AssertionError: AC1：in 空数组必须响亮拒绝: expected true to be false // Object.is equality
+
+- Expected
++ Received
+
+- false
++ true
+
+ ❯ packages/namespace-registry/test/issue-388-watch-map-predicate-red.test.ts:242:44
+    240|     const control = new NotificationSink();
+    241|     const outcome = attemptEstablishWatch(fixture.lease, ['tasks'], le…
+    242|     expect(outcome.ok, 'AC1：in 空数组必须响亮拒绝').toBe(false);
+       |                                            ^
+    243|     if (outcome.ok) return;
+    244|     expect(outcome.code).toBe(WATCH_MAP_OPTIONS_INVALID);
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[4/13]⎯
+
+ FAIL  packages/namespace-registry/test/issue-388-watch-map-predicate-red.test.ts > 组 E（AC1/AC2）：谓词建立判定 —— 全部由 active schema 完成 > E7 AC2：词形错误族 fail-closed（缺算子/双算子/未知键/非标量算子/options 形状/敌意通道）
+AssertionError: AC2：缺算子 必须 fail-closed 拒绝（禁止静默建立语义未定义死订阅）: expected true to be false // Object.is equality
+
+- Expected
++ Received
+
+- false
++ true
+
+ ❯ packages/namespace-registry/test/issue-388-watch-map-predicate-red.test.ts:273:76
+    271|     for (const [label, options] of Object.entries(whereShapeCases)) {
+    272|       const outcome = attemptEstablishWatch(fixture.lease, ['tasks'], …
+    273|       expect(outcome.ok, `AC2：${label} 必须 fail-closed 拒绝（禁止静默建立语义未定义死订…
+       |                                                                            ^
+    274|       if (outcome.ok) continue;
+    275|       expect(outcome.code, `AC2：${label} 稳定码`).toBe(WATCH_MAP_OPTIONS_…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[5/13]⎯
+
+ FAIL  packages/namespace-registry/test/issue-388-watch-map-predicate-red.test.ts > 组 E（AC1/AC2）：谓词建立判定 —— 全部由 active schema 完成 > E11 AC2（SA8 action 2）：新码 append-only 注册 + message 纪律（前缀/非空/六 cause 可区分/零回显）
+AssertionError: AC2（options形状）：应拒绝: expected true to be false // Object.is equality
+
+- Expected
++ Received
+
+- false
++ true
+
+ ❯ packages/namespace-registry/test/issue-388-watch-map-predicate-red.test.ts:400:47
+    398|     for (const [cause, spec] of Object.entries(causes)) {
+    399|       const outcome = attemptEstablishWatch(fixture.lease, spec.path, …
+    400|       expect(outcome.ok, `AC2（${cause}）：应拒绝`).toBe(false);
+       |                                               ^
+    401|       if (outcome.ok) continue;
+    402|       expect(outcome.code, `AC2（${cause}）：码逐字相等`).toBe(WATCH_MAP_OPTIO…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[6/13]⎯
+
+ FAIL  packages/namespace-registry/test/issue-388-watch-map-predicate-red.test.ts > 组 N（AC5/AC6/AC7）：谓词判定矩阵 —— 宁多勿漏 > N7 AC5（首红行）：新增非匹配条目（status done）→ 零通知（旧态=缺席可判）
+AssertionError: AC5：非匹配新增零通知（降噪是谓词的存在理由）: expected 2 to be 1 // Object.is equality
+
+- Expected
++ Received
+
+- 1
++ 2
+
+ ❯ packages/namespace-registry/test/issue-388-watch-map-predicate-red.test.ts:514:62
+    512|     await barrierTransaction(fixture);
+    513|     await sink.waitForCount(1);
+    514|     expect(sink.received.length, 'AC5：非匹配新增零通知（降噪是谓词的存在理由）').toBe(1);
+       |                                                              ^
+    515|     expect(keySequence(sink), 'AC5：唯一通知来自屏障（t9 被精确剔除）').toStrictEqual(…
+    516|   });
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[7/13]⎯
+
+ FAIL  packages/namespace-registry/test/issue-388-watch-map-predicate-red.test.ts > 组 N（AC5/AC6/AC7）：谓词判定矩阵 —— 宁多勿漏 > N8 AC5（首红行）：同事务批量新增 t9（匹配）+ t10（非匹配）→ changes 恰 [t9]
+AssertionError: AC5：混合事务非匹配 key（t10）被剔除: expected [ [ 't9', 't10' ] ] to strictly equal [ [ 't9' ] ]
+
+- Expected
++ Received
+
+  [
+    [
+      "t9",
++     "t10",
+    ],
+  ]
+
+ ❯ packages/namespace-registry/test/issue-388-watch-map-predicate-red.test.ts:531:58
+    529|     await sink.waitForCount(1);
+    530|     expect(sink.received.length, 'AC5：一事务一通知 + 逐 key 精确过滤').toBe(1);
+    531|     expect(keySequence(sink), 'AC5：混合事务非匹配 key（t10）被剔除').toStrictEqual…
+       |                                                          ^
+    532|   });
+    533|
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[8/13]⎯
+
+ FAIL  packages/namespace-registry/test/issue-388-watch-map-predicate-red.test.ts > 组 N（AC5/AC6/AC7）：谓词判定矩阵 —— 宁多勿漏 > N9 AC7（首红行）：plain 条目整值替换、旧态为 plain 快照 → 两态可读 → 精确静默
+AssertionError: AC7：oldValue 为 plain 快照（done→closed 均不匹配）→ 零通知: expected 2 to be 1 // Object.is equality
+
+- Expected
++ Received
+
+- 1
++ 2
+
+ ❯ packages/namespace-registry/test/issue-388-watch-map-predicate-red.test.ts:554:84
+    552|     ).not.toThrow();
+    553|     await sink.waitForCount(1);
+    554|     expect(sink.received.length, 'AC7：oldValue 为 plain 快照（done→closed …
+       |                                                                                    ^
+    555|     expect(keySequence(sink), 'AC7：唯一通知来自屏障（t3 被精确剔除）').toStrictEqual(…
+    556|   });
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[9/13]⎯
+
+ FAIL  packages/namespace-registry/test/issue-388-watch-map-predicate-red.test.ts > 组 N（AC5/AC6/AC7）：谓词判定矩阵 —— 宁多勿漏 > N9b AC7：plain 条目（非匹配）raw delete → oldValue 可判 ∧ 新态缺席 → 零通知
+AssertionError: AC7：非匹配 plain 快照 delete → 零通知: expected 2 to be 1 // Object.is equality
+
+- Expected
++ Received
+
+- 1
++ 2
+
+ ❯ packages/namespace-registry/test/issue-388-watch-map-predicate-red.test.ts:576:67
+    574|     ).not.toThrow();
+    575|     await sink.waitForCount(1);
+    576|     expect(sink.received.length, 'AC7：非匹配 plain 快照 delete → 零通知').toBe…
+       |                                                                   ^
+    577|     expect(keySequence(sink)).toStrictEqual([['p9']]);
+    578|   });
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[10/13]⎯
+
+ FAIL  packages/namespace-registry/test/issue-388-watch-map-predicate-red.test.ts > 组 N（AC5/AC6/AC7）：谓词判定矩阵 —— 宁多勿漏 > N11 AC3：缺失 / null 恒不匹配——不抛、零参数错误；通知按载体分档
+AssertionError: AC3：缺失字段新增 → 不匹配（精确静默）: expected 4 to be 3 // Object.is equality
+
+- Expected
++ Received
+
+- 3
++ 4
+
+ ❯ packages/namespace-registry/test/issue-388-watch-map-predicate-red.test.ts:635:60
+    633|     await barrierTransaction(fixture);
+    634|     await sink.waitForCount(3);
+    635|     expect(sink.received.length, 'AC3：缺失字段新增 → 不匹配（精确静默）').toBe(3);
+       |                                                            ^
+    636|     expect(keySequence(sink)[2], 'AC3：唯一新增通知来自屏障').toStrictEqual(['t1'…
+    637|
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[11/13]⎯
+
+ FAIL  packages/namespace-registry/test/issue-388-watch-map-predicate-red.test.ts > 组 N（AC5/AC6/AC7）：谓词判定矩阵 —— 宁多勿漏 > N12 AC1：`in` 集合语义——乱序/重复两形态行为逐字节同构；空数组建立拒绝
+AssertionError: AC1：集合语义（顺序无关、去重）→ 匹配通知 + 非匹配静默 + 屏障: expected [ [ 't9' ], [ 't10' ], [ 't1' ] ] to strictly equal [ [ 't9' ], [ 't1' ] ]
+
+- Expected
++ Received
+
+  [
+    [
+      "t9",
+    ],
+    [
++     "t10",
++   ],
++   [
+      "t1",
+    ],
+  ]
+
+ ❯ packages/namespace-registry/test/issue-388-watch-map-predicate-red.test.ts:680:73
+    678|       await barrierTransaction(fixture);
+    679|       await sink.waitForCount(2);
+    680|       expect(keySequence(sink), 'AC1：集合语义（顺序无关、去重）→ 匹配通知 + 非匹配静默 + 屏障'…
+       |                                                                         ^
+    681|         ['t9'],
+    682|         ['t1'],
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[12/13]⎯
+
+ FAIL  packages/namespace-registry/test/issue-388-watch-map-predicate-red.test.ts > 组 N（AC5/AC6/AC7）：谓词判定矩阵 —— 宁多勿漏 > N12b（非承重文档行）：标量相等 = SameValue——NaN 匹配 NaN；±0 互不匹配
+AssertionError: F-4：-0 ≠ +0（SameValue，非 SameValueZero）→ 精确静默: expected 2 to be 1 // Object.is equality
+
+- Expected
++ Received
+
+- 1
++ 2
+
+ ❯ packages/namespace-registry/test/issue-388-watch-map-predicate-red.test.ts:715:86
+    713|     ).not.toThrow();
+    714|     await zeroSink.waitForCount(1);
+    715|     expect(zeroSink.received.length, 'F-4：-0 ≠ +0（SameValue，非 SameValu…
+       |                                                                                      ^
+    716|     expect(keySequence(zeroSink), 'F-4：唯一通知来自屏障（-0 被精确剔除）').toStrictEq…
+    717|   });
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[13/13]⎯
+
+
+ Test Files  1 failed (1)
+      Tests  13 failed | 16 passed (29)
+   Start at  09:32:05
+   Duration  1.04s (transform 451ms, setup 0ms, collect 622ms, tests 254ms, environment 0ms, prepare 52ms)
+
+RED_BEHAVIOR_EXIT=1
+=== red surface (HEAD sources + new contract) ===
+Testing types with tsc and vue-tsc is an experimental feature.
+Breaking changes might not follow SemVer, please pin Vitest's version when using it.
+
+ RUN  v3.2.7 /home/wangjian/nomicore-fix-issue-388/.worktrees/sa3-388-red
+
+ ❯  TS  packages/namespace-registry/test/issue-388-watch-map-predicate-surface.test-d.ts (3 tests | 1 failed)
+   × NamespaceLease / NamespaceRuntime 暴露 watchMap 谓词公共面（ADR 0030 §2/§3；B-1/B-2/B-8） > 正例：三参调用（equals / in）编译通过、两参调用兼容、where 两成员判别窄化、句柄恰 {unsubscribe}
+     → Expected 2 arguments, but got 3.
+     → Expected 2 arguments, but got 3.
+     → Expected 2 arguments, but got 3.
+     → Expected 2 arguments, but got 3.
+   ✓ NamespaceLease / NamespaceRuntime 暴露 watchMap 谓词公共面（ADR 0030 §2/§3；B-1/B-2/B-8） > 正例：where 两成员判别窄化（equals / in 各自类型可达）
+   ✓ NamespaceLease / NamespaceRuntime 暴露 watchMap 谓词公共面（ADR 0030 §2/§3；B-1/B-2/B-8） > 负例 fail closed：未知算子 / 缺算子 / 非标量算子 / field 非 string / in 非数组 / in 成员非标量 / options 未知键 / present-undefined
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  packages/namespace-registry/test/issue-388-watch-map-predicate-surface.test-d.ts > NamespaceLease / NamespaceRuntime 暴露 watchMap 谓词公共面（ADR 0030 §2/§3；B-1/B-2/B-8） > 正例：三参调用（equals / in）编译通过、两参调用兼容、where 两成员判别窄化、句柄恰 {unsubscribe}
+TypeCheckError: Expected 2 arguments, but got 3.
+ ❯ packages/namespace-registry/test/issue-388-watch-map-predicate-surface.test-d.ts:102:7
+    100|         void notification;
+    101|       },
+    102|       { where: { field: 'status', equals: 'open' } },
+       |       ^
+    103|     );
+    104|     const inHandle = lease.watchMap(
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/4]⎯
+
+ FAIL  packages/namespace-registry/test/issue-388-watch-map-predicate-surface.test-d.ts > NamespaceLease / NamespaceRuntime 暴露 watchMap 谓词公共面（ADR 0030 §2/§3；B-1/B-2/B-8） > 正例：三参调用（equals / in）编译通过、两参调用兼容、where 两成员判别窄化、句柄恰 {unsubscribe}
+TypeCheckError: Expected 2 arguments, but got 3.
+ ❯ packages/namespace-registry/test/issue-388-watch-map-predicate-surface.test-d.ts:109:7
+    107|         void notification;
+    108|       },
+    109|       { where: { field: 'status', in: ['open', 'blocked'] } },
+       |       ^
+    110|     );
+    111|     const scalarDomainHandle = runtime.watchMap(
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/4]⎯
+
+ FAIL  packages/namespace-registry/test/issue-388-watch-map-predicate-surface.test-d.ts > NamespaceLease / NamespaceRuntime 暴露 watchMap 谓词公共面（ADR 0030 §2/§3；B-1/B-2/B-8） > 正例：三参调用（equals / in）编译通过、两参调用兼容、where 两成员判别窄化、句柄恰 {unsubscribe}
+TypeCheckError: Expected 2 arguments, but got 3.
+ ❯ packages/namespace-registry/test/issue-388-watch-map-predicate-surface.test-d.ts:116:7
+    114|         void notification;
+    115|       },
+    116|       { where: { field: 'priority', in: [1, true, 'x'] } },
+       |       ^
+    117|     );
+    118|     const twoArgHandle = lease.watchMap(['tasks'], () => {});
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[3/4]⎯
+
+ FAIL  packages/namespace-registry/test/issue-388-watch-map-predicate-surface.test-d.ts > NamespaceLease / NamespaceRuntime 暴露 watchMap 谓词公共面（ADR 0030 §2/§3；B-1/B-2/B-8） > 正例：三参调用（equals / in）编译通过、两参调用兼容、where 两成员判别窄化、句柄恰 {unsubscribe}
+TypeCheckError: Expected 2 arguments, but got 3.
+ ❯ packages/namespace-registry/test/issue-388-watch-map-predicate-surface.test-d.ts:120:64
+    118|     const twoArgHandle = lease.watchMap(['tasks'], () => {});
+    119|     const optionsOmitted: NamespaceLeaseWatchMapOptions = {};
+    120|     const withOptionsBag = lease.watchMap(['tasks'], () => {}, options…
+       |                                                                ^
+    121|
+    122|     const unsubscribe: () => void = equalsHandle.unsubscribe;
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[4/4]⎯
+
+
+ Test Files  1 failed (1)
+      Tests  1 failed | 2 passed (3)
+Type Errors  1 failed
+   Start at  09:32:07
+   Duration  8.25s (transform 0ms, setup 0ms, collect 0ms, tests 0ms, environment 0ms, prepare 0ms, typecheck 8.20s)
+
+RED_SURFACE_EXIT=1
+=== head sha of red worktree ===
+28faeae7a0c619e1352f05d19a83ba46e562879c
+=== source diff in red worktree (must be zero) ===

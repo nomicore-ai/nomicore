@@ -1,0 +1,7 @@
+### Z1 整值替换 t2（done→done，非匹配两态） | ok=true | notify=1
+    events = [{"targetClass":"YMap","path":["tasks"],"keys":[{"key":"t2","action":"update","oldValue":"Y.Map"}]}]
+    oldValue(Y.Map).get(status) = undefined | current entry.status = "done"
+### Z2 嵌套子容器写 t2.sub.x（entry 级 delta keys.size=0） | ok=false | notify=0
+    events = []
+### Z3 嵌套 status 写 done→open（字段级 oldValue 在场） | ok=true | notify=1
+    events = [{"targetClass":"YMap","path":["tasks","t2"],"keys":[{"key":"status","action":"update","oldValue":"\"done\""}]}]

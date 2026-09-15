@@ -1,0 +1,4 @@
+N1 整容器替换（plain 值） | ok=true | notify=0 | payload=[]
+N2 条目 set（plain 值，Y.Map 期望） | ok=true | notify=1 | payload=[["t2"]]
+N3 delete 容器 | ok=false issues=[{"message":"缺少必填字段 \"tasks\"","path":["tasks"]}] | notify=0 | payload=[]
+raw replace events = [{"target":"YMap","path":[],"keys":[["tasks","update","object:YMap"]]}]
