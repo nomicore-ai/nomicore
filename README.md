@@ -45,7 +45,7 @@ The value looks simple, but the Agent cannot safely use it without asking more q
 - Which schema version produced this record?
 - Did the definition change between this month and historical records?
 
-With Nomicore, `readData([])` returns exactly four keys: `{ ok, value, schema, truncated }`. For a Namespace whose VFSL schema documents the business meaning of these fields, the actual result has this form:
+With Nomicore, the result includes both the data and the information needed to interpret it:
 
 ```js
 {
@@ -65,7 +65,7 @@ With Nomicore, `readData([])` returns exactly four keys: `{ ok, value, schema, t
 }
 ```
 
-`value` contains the logical data. `schema` is the deterministic VFSL-style projection text for the requested path: its types describe the formal schema, while its comments carry the business semantics authored for those fields. Because this is an unbudgeted read, `truncated` is `false`; a truncated read would report `true` and append a `✂ 截断事实：` section to the projection text.
+`Pattern<"…">` means the value must match the specified format. `Range<0, 999999999>` means the value must be a number within that range. The comments explain what each field means and how it should be interpreted.
 
 The Agent now knows that `120` means USD 120,000 of recognized revenue under accounting policy `2025-v2`. If an older record uses a different shape or definition, that record can retain its own schema and semantics rather than being silently interpreted under the latest rules.
 
