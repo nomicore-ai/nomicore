@@ -50,6 +50,7 @@ import type {
   ReplaceIssue,
   ReplaceResult,
   ValidatedMutation,
+  WhereTerm,
   WindowDir,
   WindowFailureCode,
   WindowReadFailure,
@@ -80,6 +81,8 @@ declare const indexWindowTerm: IndexWindowTerm;
 declare const keyWindowTerm: KeyWindowTerm;
 declare const fieldWindowTerm: FieldWindowTerm;
 declare const windowTerm: WindowTerm;
+// ADR 0029 缝 1（issue #382 P2）窗口 where 谓词项名目：缺失 → import TS2305 → 红
+declare const whereTerm: WhereTerm;
 declare const arrayWindowOptions: ReadArrayWindowOptions;
 declare const mapWindowOptions: ReadMapWindowOptions;
 declare const arrayWindowEntry: ArrayWindowEntry;
@@ -195,6 +198,11 @@ describe('@nomicore/doc-runtime 公共入口 — 窗口原语类型名目（ADR 
     expectTypeOf(arrayWindowOptions.n).toEqualTypeOf<number>();
     expectTypeOf(arrayWindowOptions.orderBy).toEqualTypeOf<IndexWindowTerm | undefined>();
     expectTypeOf(mapWindowOptions.orderBy).toEqualTypeOf<KeyWindowTerm | FieldWindowTerm | undefined>();
+    // ADR 0029 缝 1（issue #382 P2）：两面 options 对称获得 where（B-10 投影）。
+    expectTypeOf(whereTerm.field).toEqualTypeOf<string>();
+    expectTypeOf(whereTerm.equals).toEqualTypeOf<string | number | boolean | null>();
+    expectTypeOf(arrayWindowOptions.where).toEqualTypeOf<readonly WhereTerm[] | undefined>();
+    expectTypeOf(mapWindowOptions.where).toEqualTypeOf<readonly WhereTerm[] | undefined>();
     expectTypeOf(arrayWindowEntry.index).toEqualTypeOf<number>();
     expectTypeOf(arrayWindowEntry.value).toEqualTypeOf<unknown>();
     expectTypeOf(mapWindowEntry.key).toEqualTypeOf<string>();
@@ -211,9 +219,10 @@ describe('@nomicore/doc-runtime 公共入口 — 窗口原语类型名目（ADR 
       .toEqualTypeOf<'ok' | 'value' | 'total'>();
     expectTypeOf<keyof Extract<ReadMapWindowResult, { ok: true }>>()
       .toEqualTypeOf<'ok' | 'value' | 'total'>();
-    // total 成员类型：本票无 where ⟹ 恒数值（P2 where 票按 ADR 0029 §5 加宽为 number | undefined）
-    expectTypeOf<Extract<ReadArrayWindowResult, { ok: true }>['total']>().toEqualTypeOf<number>();
-    expectTypeOf<Extract<ReadMapWindowResult, { ok: true }>['total']>().toEqualTypeOf<number>();
+    // total 成员类型：ADR 0029 §5 值域已加宽（#382 P2 where 票落地）——无 where = 数值、
+    // 有 where = undefined；`total` 键恒在（B-8 own 键集锁不变）。
+    expectTypeOf<Extract<ReadArrayWindowResult, { ok: true }>['total']>().toEqualTypeOf<number | undefined>();
+    expectTypeOf<Extract<ReadMapWindowResult, { ok: true }>['total']>().toEqualTypeOf<number | undefined>();
     // 失败面零变化（增键不回渗失败成员）
     expectTypeOf<keyof Extract<ReadArrayWindowResult, { ok: false }>>()
       .toEqualTypeOf<'ok' | 'code' | 'path' | 'message'>();

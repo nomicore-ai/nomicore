@@ -1,0 +1,112 @@
+=== SA3 #382 structural audit (S1-S4 + A2'/A6' S4 additions) ===
+2026-09-15T01:33:46Z
+
+--- S1: read.ts frozen surface (zero diff + sha256 + mirror markers) ---
+git diff --stat exit=0 (empty output above = zero diff)
+3bf6b8b016e4066dd089f2cfd17d9c5bf3ad161ab3285c91b71298d983b1b312  packages/doc-runtime/src/read.ts
+expected: 3bf6b8b016e4066dd089f2cfd17d9c5bf3ad161ab3285c91b71298d983b1b312
+mirror markers in worktree window.ts: 10
+mirror markers at HEAD window.ts:      10
+
+--- S2: filter landing point (window.ts in place; no new read path/module/memo/subscription) ---
+changed src paths:
+ M packages/doc-runtime/src/index.ts
+ M packages/doc-runtime/src/window.ts
+ M packages/namespace-runtime/src/window-read.ts
+new untracked src files: 0
+changed hunk line ranges in window.ts:
+@@ -12 +12,2 @@
+@@ -18 +19 @@
+@@ -20,0 +22,5 @@
+@@ -25,3 +31,3 @@
+@@ -55,0 +62,14 @@ export type WindowTerm = IndexWindowTerm | KeyWindowTerm | FieldWindowTerm;
+@@ -61,0 +82 @@ export interface ReadArrayWindowOptions {
+@@ -69,0 +91 @@ export interface ReadMapWindowOptions {
+@@ -100,2 +122,3 @@ export interface WindowReadFailure {
+@@ -104 +127 @@ export type ReadArrayWindowResult =
+@@ -108 +131 @@ export type ReadMapWindowResult =
+@@ -116,0 +140,2 @@ export type ReadMapWindowResult =
+@@ -130,0 +156 @@ export function readArrayWindowAtPath(
+@@ -147,2 +173,2 @@ type WindowFace = 'array' | 'map';
+@@ -156 +182,4 @@ type NormalizedTerm =
+@@ -161,0 +191 @@ interface ValidatedWindowOptions {
+@@ -197,2 +227,2 @@ function windowCore(doc: Y.Doc, path: unknown, options: unknown, face: WindowFac
+@@ -217 +247,4 @@ function windowCore(doc: Y.Doc, path: unknown, options: unknown, face: WindowFac
+@@ -257 +290 @@ function describeOptions(raw: unknown): string {
+@@ -275,0 +309,2 @@ function validateWindowOptions(
+@@ -277 +312,2 @@ function validateWindowOptions(
+@@ -286 +322 @@ function validateWindowOptions(
+@@ -299,0 +336,3 @@ function validateWindowOptions(
+@@ -308 +347,3 @@ function validateWindowOptions(
+@@ -313,0 +355,128 @@ function validateWindowOptions(
+@@ -451 +620,2 @@ function notAllowedNav(message: string): NavResult {
+@@ -463 +633,6 @@ type CandidateCollection =
+@@ -472 +647 @@ function collectCandidates(rawTarget: unknown, face: WindowFace, term: Normalize
+@@ -481 +656 @@ function collectCandidates(rawTarget: unknown, face: WindowFace, term: Normalize
+@@ -512 +687,4 @@ function describeCarrierWord(v: unknown): string {
+@@ -519,0 +698,6 @@ function enumerateArrayCandidates(target: Y.Array<unknown> | unknown[]): Candida
+@@ -522,0 +707 @@ function enumerateArrayCandidates(target: Y.Array<unknown> | unknown[]): Candida
+@@ -527,0 +713,5 @@ function enumerateArrayCandidates(target: Y.Array<unknown> | unknown[]): Candida
+@@ -533 +723,5 @@ function enumerateArrayCandidates(target: Y.Array<unknown> | unknown[]): Candida
+@@ -538,0 +733 @@ function enumerateMapCandidates(target: Y.Map<unknown> | Record<string, unknown>
+@@ -546,0 +742 @@ function enumerateMapCandidates(target: Y.Map<unknown> | Record<string, unknown>
+@@ -554 +750,31 @@ function enumerateMapCandidates(target: Y.Map<unknown> | Record<string, unknown>
+@@ -557,2 +783,3 @@ function enumerateMapCandidates(target: Y.Map<unknown> | Record<string, unknown>
+where plumbing symbols in window.ts:
+74:const WHERE_TERM_LIMIT = 16;
+250:    return { ok: true, value: entries, total: validated.value.where === undefined ? candidates.length : undefined };
+362:function validateWhere(
+383:    if (len > WHERE_TERM_LIMIT) {
+384:      return { ok: false, msg: `window options.where 最多 ${WHERE_TERM_LIMIT} 项（实际 ${len} 项）` };
+407:function validateWhereTerm(
+463:function validateWhereEquals(
+707:      if (where !== undefined && !whereMatches(target.get(i), where)) continue;
+713:    if (where !== undefined) {
+733:      if (where !== undefined && !whereMatches(child, where)) continue; // E+W：未匹配候选零物化
+742:    if (where !== undefined && !whereMatches(hit.value, where)) continue;
+755:function whereMatches(child: unknown, where: readonly NormalizedWhereTerm[]): boolean {
+769:function matchesWhereTerm(value: unknown, equals: string | number | boolean | null): boolean {
+no new event/subscription/memo surface (diff grep):
+(none)
+
+--- S3: no-where branch unchanged (baseline family green) ---
+ ✓ packages/doc-runtime/test/issue-368-window-read-contract-red.test.ts (47 tests) 50ms
+ ✓ packages/doc-runtime/test/issue-381-window-total-red.test.ts (14 tests) 25ms
+ ✓ packages/doc-runtime/test/issue-368-window-read-design-pins.test.ts (11 tests) 19ms
+(full focused-family result)
+ ✓  TS  packages/namespace-registry/test/issue-369-window-read-lease-surface.test-d.ts (2 tests)
+
+ Test Files  11 passed (11)
+      Tests  226 passed (226)
+Type Errors  no errors
+   Start at  09:31:40
+   Duration  7.58s (transform 613ms, setup 0ms, collect 1.56s, tests 501ms, environment 1ms, prepare 411ms, typecheck 7.50s)
+
+
+--- S4: compose entry fail-closed branch (present / first statement / before S3 / keyed on W1 result) ---
+158:function composeWindowRead<Entry>(
+/** 两面共用骨架（入口 fail-closed → S3 → S5 → S6；顺序不可换——options 合法性由 W1 单权威裁定）。 */
+function composeWindowRead<Entry>(
+  input: WindowComposeInput<Entry>,
+): NamespaceRuntimeWindowReadOk<Entry> | WindowReadFailure {
+  // A2′/D8 入口 fail-closed（SA8 前置门禁 A2 + 设计后复审 A2′）：判据键于 **W1 结算结果**
+  // `total === undefined`（B-8 单源不变量：无 where = 候选标识计数恒数值，有 where =
+  // undefined），**先于 S3**——绝不重读 options、绝不校验 where 形状（故非第三套校验器）。
+  // 缝 1 期间 lease 组合面接收 where 属缝 2（truncated 双语义 + ✂ 永不装配 + S3 镜像扩展
+  // 两层同步扩）：此处必须响亮失败，绝不静默产出「已过滤四键成功面」（S3 白名单单独把关
+  // 挡不住敌意 options 视图漂移——同一 raw 引用可对 W1 呈五键视图、对 S3 呈干净四键视图，
+  // 届时 S6 `kept < undefined → false` 会静默成功）。
+  if (input.total === undefined) return seamWhereNotImplemented(input.path);
+  const { state, path, options, face, entries, redispatch } = input;
+  const total = input.total;
+
+  // S3 canonical 接缝净化（零 [[Get]]；T1 权威已成功 ⟹ 与此判据不一致即视图不稳定）。
+  const canonical = canonicalWindowBudget(options, face);
+  if (!canonical.ok) {
+    const reDispatch = redispatch();
+    if (!reDispatch.ok) return reDispatch; // 出口①：重派发失败成员原样透传
+S3 canonicalWindowBudget whitelist (must remain 4 keys):
+230:      if (key !== 'n' && key !== 'orderBy' && key !== 'depth' && key !== 'maxChildrenPerNode') {
+D8 branch/new constructor source:
+168:  if (input.total === undefined) return seamWhereNotImplemented(input.path);
+440:function seamWhereNotImplemented(path: unknown): WindowReadFailure {

@@ -1,0 +1,1290 @@
+Testing types with tsc and vue-tsc is an experimental feature.
+Breaking changes might not follow SemVer, please pin Vitest's version when using it.
+
+ RUN  v3.2.7 /home/wangjian/nomicore-fix-issue-382
+
+ ❯ packages/doc-runtime/test/issue-382-where-window-contract-red.test.ts (76 tests | 44 failed) 241ms
+   × C 合取正确性矩阵（AC1；ADR 0029 §2/§4） > C1 键面 where：Y.Map 载体按 state=claimed 过滤，键序 t1,t3,t5，total own 键在场且 undefined 23ms
+     → 期望窗口读 ok:true，实际 {"code":"WINDOW_OPTIONS_INVALID","ok":false,"path":["tasks"],"message":"window options 含未知键（封闭形状）：where"}: expected false to be true // Object.is equality
+   × C 合取正确性矩阵（AC1；ADR 0029 §2/§4） > C2 plain object 载体族同构（state=claimed 过滤同 C1） 5ms
+     → 期望窗口读 ok:true，实际 {"code":"WINDOW_OPTIONS_INVALID","ok":false,"path":["plainTasks"],"message":"window options 含未知键（封闭形状）：where"}: expected false to be true // Object.is equality
+   × C 合取正确性矩阵（AC1；ADR 0029 §2/§4） > C3 数组面 where：Y.Array 载体位置序过滤（index 0,2） 4ms
+     → 期望窗口读 ok:true，实际 {"code":"WINDOW_OPTIONS_INVALID","ok":false,"path":["list"],"message":"window options 含未知键（封闭形状）：where"}: expected false to be true // Object.is equality
+   × C 合取正确性矩阵（AC1；ADR 0029 §2/§4） > C4 plain array 载体族同构（index 0,2） 5ms
+     → 期望窗口读 ok:true，实际 {"code":"WINDOW_OPTIONS_INVALID","ok":false,"path":["plainList"],"message":"window options 含未知键（封闭形状）：where"}: expected false to be true // Object.is equality
+   × C 合取正确性矩阵（AC1；ADR 0029 §2/§4） > C5 falsy 合法标量：equals '' / false / 0 均合法且命中 e0（零 truthiness 校验） 4ms
+     → 期望窗口读 ok:true，实际 {"code":"WINDOW_OPTIONS_INVALID","ok":false,"path":["edge"],"message":"window options 含未知键（封闭形状）：where"}: expected false to be true // Object.is equality
+   × C 合取正确性矩阵（AC1；ADR 0029 §2/§4） > C6 标量类型门：equals true 命中 e1；类型不符（true ≠ 1）不命中 4ms
+     → 期望窗口读 ok:true，实际 {"code":"WINDOW_OPTIONS_INVALID","ok":false,"path":["edge"],"message":"window options 含未知键（封闭形状）：where"}: expected false to be true // Object.is equality
+   × C 合取正确性矩阵（AC1；ADR 0029 §2/§4） > C7 单段字面键：点号不拆分（field 'a.b' 命中 c1；field 'b' 零命中） 12ms
+     → 期望窗口读 ok:true，实际 {"code":"WINDOW_OPTIONS_INVALID","ok":false,"path":["dotted"],"message":"window options 含未知键（封闭形状）：where"}: expected false to be true // Object.is equality
+   ✓ C 合取正确性矩阵（AC1；ADR 0029 §2/§4） > C8 where 不触碰 orderBy 面词表：三向语境外排序项仍 WINDOW_OPTIONS_INVALID（F4） 4ms
+   × C 合取正确性矩阵（AC1；ADR 0029 §2/§4） > C9 空串字段名合法字面键（emptyKey：field '' 命中 k） 3ms
+     → 期望窗口读 ok:true，实际 {"code":"WINDOW_OPTIONS_INVALID","ok":false,"path":["emptyKey"],"message":"window options 含未知键（封闭形状）：where"}: expected false to be true // Object.is equality
+   × C 合取正确性矩阵（AC1；ADR 0029 §2/§4） > C10 null 原型链 WhereTerm 合法（plain 链含 null 原型） 3ms
+     → 期望窗口读 ok:true，实际 {"code":"WINDOW_OPTIONS_INVALID","ok":false,"path":["tasks"],"message":"window options 含未知键（封闭形状）：where"}: expected false to be true // Object.is equality
+   × C 合取正确性矩阵（AC1；ADR 0029 §2/§4） > C11 显式 undefined 字段值 ≡ 缺席（undefKey 恰 u2） 3ms
+     → 期望窗口读 ok:true，实际 {"code":"WINDOW_OPTIONS_INVALID","ok":false,"path":["undefKey"],"message":"window options 含未知键（封闭形状）：where"}: expected false to be true // Object.is equality
+   × D 安静不匹配矩阵（AC2；ADR 0029 §3：脏项不炸读、不挤掉正常项） > D1 脏矩阵 n=50：恰 d2 命中（脏条目零挤出、零响亮失败） 2ms
+     → 期望窗口读 ok:true，实际 {"code":"WINDOW_OPTIONS_INVALID","ok":false,"path":["dirty"],"message":"window options 含未知键（封闭形状）：where"}: expected false to be true // Object.is equality
+   × D 安静不匹配矩阵（AC2；ADR 0029 §3：脏项不炸读、不挤掉正常项） > D2 equals 'done'：恰 d1；标量条目（sStr='claimed'）不匹配任何 equals 2ms
+     → 期望窗口读 ok:true，实际 {"code":"WINDOW_OPTIONS_INVALID","ok":false,"path":["dirty"],"message":"window options 含未知键（封闭形状）：where"}: expected false to be true // Object.is equality
+   × D 安静不匹配矩阵（AC2；ADR 0029 §3：脏项不炸读、不挤掉正常项） > D3 equals null：恰 nullState/nullState2（在场 null 匹配；缺席/显式 undefined 不匹配） 2ms
+     → 期望窗口读 ok:true，实际 {"code":"WINDOW_OPTIONS_INVALID","ok":false,"path":["dirty"],"message":"window options 含未知键（封闭形状）：where"}: expected false to be true // Object.is equality
+   × D 安静不匹配矩阵（AC2；ADR 0029 §3：脏项不炸读、不挤掉正常项） > D4 field 值 non-finite（NaN/+∞/-∞）一律安静不匹配 2ms
+     → 期望窗口读 ok:true，实际 {"code":"WINDOW_OPTIONS_INVALID","ok":false,"path":["dirty"],"message":"window options 含未知键（封闭形状）：where"}: expected false to be true // Object.is equality
+   × D 安静不匹配矩阵（AC2；ADR 0029 §3：脏项不炸读、不挤掉正常项） > D5 field 值非标量（Y.Map / plain object / array）一律安静不匹配 3ms
+     → 期望窗口读 ok:true，实际 {"code":"WINDOW_OPTIONS_INVALID","ok":false,"path":["dirty"],"message":"window options 含未知键（封闭形状）：where"}: expected false to be true // Object.is equality
+   × D 安静不匹配矩阵（AC2；ADR 0029 §3：脏项不炸读、不挤掉正常项） > D6 条目值非可下钻对象（标量条目：number/string/null/boolean/array）一律安静不匹配 2ms
+     → 期望窗口读 ok:true，实际 {"code":"WINDOW_OPTIONS_INVALID","ok":false,"path":["dirty"],"message":"window options 含未知键（封闭形状）：where"}: expected false to be true // Object.is equality
+   × D 安静不匹配矩阵（AC2；ADR 0029 §3：脏项不炸读、不挤掉正常项） > D7 accessor 字段安静不匹配且零执行（计数器 === 0）；non-enumerable 字段不参与 2ms
+     → 期望窗口读 ok:true，实际 {"code":"WINDOW_OPTIONS_INVALID","ok":false,"path":["dirty"],"message":"window options 含未知键（封闭形状）：where"}: expected false to be true // Object.is equality
+   × D 安静不匹配矩阵（AC2；ADR 0029 §3：脏项不炸读、不挤掉正常项） > D8 标量元素数组面：全安静不匹配（ok:true, value: []），不响亮失败 7ms
+     → 期望窗口读 ok:true，实际 {"code":"WINDOW_OPTIONS_INVALID","ok":false,"path":["scalarArray"],"message":"window options 含未知键（封闭形状）：where"}: expected false to be true // Object.is equality
+   × D 安静不匹配矩阵（AC2；ADR 0029 §3：脏项不炸读、不挤掉正常项） > D9 稀疏 plain array：空洞安静跳过、不物化，恰 1998/1999 命中 2ms
+     → 期望窗口读 ok:true，实际 {"code":"WINDOW_OPTIONS_INVALID","ok":false,"path":["sparseArr"],"message":"window options 含未知键（封闭形状）：where"}: expected false to be true // Object.is equality
+   × D 安静不匹配矩阵（AC2；ADR 0029 §3：脏项不炸读、不挤掉正常项） > D10 空容器（Y.Map / plain object）：ok:true + value [] 1ms
+     → 期望窗口读 ok:true，实际 {"code":"WINDOW_OPTIONS_INVALID","ok":false,"path":["emptyMap"],"message":"window options 含未知键（封闭形状）：where"}: expected false to be true // Object.is equality
+   × D 安静不匹配矩阵（AC2；ADR 0029 §3：脏项不炸读、不挤掉正常项） > D11 同 field 重复项 AND 自然收敛（claimed ∧ done → 空，不响亮） 2ms
+     → 期望窗口读 ok:true，实际 {"code":"WINDOW_OPTIONS_INVALID","ok":false,"path":["dirty"],"message":"window options 含未知键（封闭形状）：where"}: expected false to be true // Object.is equality
+   × D 安静不匹配矩阵（AC2；ADR 0029 §3：脏项不炸读、不挤掉正常项） > D12 四载体 × 零匹配：全 ok:true + value [] + total undefined 8ms
+     → 期望窗口读 ok:true，实际 {"code":"WINDOW_OPTIONS_INVALID","ok":false,"path":["scalarArray"],"message":"window options 含未知键（封闭形状）：where"}: expected false to be true // Object.is equality
+   ✓ V 入参侧响亮（AC3/AC4；一律 WINDOW_OPTIONS_INVALID、零外抛） > V1 空数组非法（「要全集」= 不传 where） 2ms
+   ✓ V 入参侧响亮（AC3/AC4；一律 WINDOW_OPTIONS_INVALID、零外抛） > V2 17 项超上限 16 非法 5ms
+   × V 入参侧响亮（AC3/AC4；一律 WINDOW_OPTIONS_INVALID、零外抛） > V3 反向边界：恰 16 项合法（校验器不是「见 where 即拒」）→ ok:true, value [] 2ms
+     → 期望窗口读 ok:true，实际 {"code":"WINDOW_OPTIONS_INVALID","ok":false,"path":["tasks"],"message":"window options 含未知键（封闭形状）：where"}: expected false to be true // Object.is equality
+   ✓ V 入参侧响亮（AC3/AC4；一律 WINDOW_OPTIONS_INVALID、零外抛） > V4 equals number 非 finite（NaN / +∞ / -∞）一律非法 2ms
+   ✓ V 入参侧响亮（AC3/AC4；一律 WINDOW_OPTIONS_INVALID、零外抛） > V5 equals 闭集外类型（object/array/bigint/symbol/function/Date/Map）一律非法 4ms
+   ✓ V 入参侧响亮（AC3/AC4；一律 WINDOW_OPTIONS_INVALID、零外抛） > V6 equals 缺失 / 显式 undefined 非法（形状漂移，无 present-undefined 豁免） 3ms
+   ✓ V 入参侧响亮（AC3/AC4；一律 WINDOW_OPTIONS_INVALID、零外抛） > V7 field 缺失 / 显式 undefined 非法 3ms
+   ✓ V 入参侧响亮（AC3/AC4；一律 WINDOW_OPTIONS_INVALID、零外抛） > V8 field 非 string 非法且零强制转换（不得调 toString） 3ms
+   ✓ V 入参侧响亮（AC3/AC4；一律 WINDOW_OPTIONS_INVALID、零外抛） > V9 WhereTerm 未知键非法（含 present-undefined 未知键） 4ms
+   ✓ V 入参侧响亮（AC3/AC4；一律 WINDOW_OPTIONS_INVALID、零外抛） > V10 WhereTerm 非 plain 原型（class 实例 / 数组 / Map / 函数）非法 2ms
+   ✓ V 入参侧响亮（AC3/AC4；一律 WINDOW_OPTIONS_INVALID、零外抛） > V11 where 数组下标 accessor 非法且零执行（计数器 === 0） 2ms
+   ✓ V 入参侧响亮（AC3/AC4；一律 WINDOW_OPTIONS_INVALID、零外抛） > V12 where 数组含空洞非法（非 undefined continue） 5ms
+   ✓ V 入参侧响亮（AC3/AC4；一律 WINDOW_OPTIONS_INVALID、零外抛） > V13 WhereTerm Proxy 四 trap 抛异常：响亮 ∧ 零外抛 2ms
+   ✓ V 入参侧响亮（AC3/AC4；一律 WINDOW_OPTIONS_INVALID、零外抛） > V14 options Proxy 四 trap 抛异常：响亮 ∧ 零外抛 3ms
+   ✓ V 入参侧响亮（AC3/AC4；一律 WINDOW_OPTIONS_INVALID、零外抛） > V15 options.where 为 own accessor：非法且零 [[Get]]（计数器 === 0） 4ms
+   ✓ V 入参侧响亮（AC3/AC4；一律 WINDOW_OPTIONS_INVALID、零外抛） > V16 where 非数组（string/object/null/number/[undefined]/[null]/Y.Array）非法 3ms
+   ✓ V 入参侧响亮（AC3/AC4；一律 WINDOW_OPTIONS_INVALID、零外抛） > V17 n 非法 + 合法 where：一律 WINDOW_OPTIONS_INVALID（n 纪律不因 where 放宽） 3ms
+   ✓ V 入参侧响亮（AC3/AC4；一律 WINDOW_OPTIONS_INVALID、零外抛） > V18 where + 语境外 orderBy：三向 WINDOW_OPTIONS_INVALID（F4；过滤与排序正交） 2ms
+   ✓ V 入参侧响亮（AC3/AC4；一律 WINDOW_OPTIONS_INVALID、零外抛） > V19 顶层未知键 + 合法 where：WINDOW_OPTIONS_INVALID（options 封闭形状不回退） 1ms
+   × V 入参侧响亮（AC3/AC4；一律 WINDOW_OPTIONS_INVALID、零外抛） > V20 反向边界：where: undefined（own 键、值 undefined）≡ 缺席 → ok:true、不过滤、total 数值 1ms
+     → 期望窗口读 ok:true，实际 {"code":"WINDOW_OPTIONS_INVALID","ok":false,"path":["tasks"],"message":"window options 含未知键（封闭形状）：where"}: expected false to be true // Object.is equality
+   ✓ V 入参侧响亮（AC3/AC4；一律 WINDOW_OPTIONS_INVALID、零外抛） > V21 非法 where + 缺席路径：OPT 先于 N0/N1 → WINDOW_OPTIONS_INVALID（不报 WINDOW_TARGET_ABSENT） 1ms
+   × P 管线序 where → orderBy → n（匹配子集上选窗） > P1 field desc n=2：匹配集总序前缀 t3(5), t1(2)（「排序→取 n→过滤」变异必红） 1ms
+     → 期望窗口读 ok:true，实际 {"code":"WINDOW_OPTIONS_INVALID","ok":false,"path":["tasks"],"message":"window options 含未知键（封闭形状）：where"}: expected false to be true // Object.is equality
+   × P 管线序 where → orderBy → n（匹配子集上选窗） > P2 field asc n=3：t5(1), t1(2), t3(5)（dir 只翻组内序、平局锚 key asc 恒定） 1ms
+     → 期望窗口读 ok:true，实际 {"code":"WINDOW_OPTIONS_INVALID","ok":false,"path":["tasks"],"message":"window options 含未知键（封闭形状）：where"}: expected false to be true // Object.is equality
+   × P 管线序 where → orderBy → n（匹配子集上选窗） > P3 位置序 desc n=1：恰 index 2（自尾部取匹配前缀） 2ms
+     → 期望窗口读 ok:true，实际 {"code":"WINDOW_OPTIONS_INVALID","ok":false,"path":["list"],"message":"window options 含未知键（封闭形状）：where"}: expected false to be true // Object.is equality
+   × P 管线序 where → orderBy → n（匹配子集上选窗） > P4 合取跨字段（state=claimed ∧ priority=5）：恰 t3 2ms
+     → 期望窗口读 ok:true，实际 {"code":"WINDOW_OPTIONS_INVALID","ok":false,"path":["tasks"],"message":"window options 含未知键（封闭形状）：where"}: expected false to be true // Object.is equality
+   × P 管线序 where → orderBy → n（匹配子集上选窗） > P5 n 三向：匹配集恒定、前缀长度 = min(n, matches)、total 恒 undefined 2ms
+     → 期望窗口读 ok:true，实际 {"code":"WINDOW_OPTIONS_INVALID","ok":false,"path":["tasks"],"message":"window options 含未知键（封闭形状）：where"}: expected false to be true // Object.is equality
+   ✓ T total 双形态（无 where = 标识计数；有 where = own 键在场且 undefined） > T1 无 where：own 键集恰三键、total = 独立预言机计数、value.length = min(n,total) 4ms
+   ✓ T total 双形态（无 where = 标识计数；有 where = own 键在场且 undefined） > T2 无 where 数组面：total = length 预言机；desc 位置序条目 2,1 2ms
+   ✓ T total 双形态（无 where = 标识计数；有 where = own 键在场且 undefined） > T3 无 where 零物化哨兵：poisonScored n=2 → ok:true, total = 2000 4ms
+   × T total 双形态（无 where = 标识计数；有 where = own 键在场且 undefined） > T4/T6 有 where（matches ≥ n）：total own 键在场且 undefined；成功面 own 键集恰三键 2ms
+     → expected false to be true // Object.is equality
+   × T total 双形态（无 where = 标识计数；有 where = own 键在场且 undefined） > T5 有 where（matches < n 与 0 匹配）：total 同样 own 键在场且 undefined（恒不承诺） 2ms
+     → 期望窗口读 ok:true，实际 {"code":"WINDOW_OPTIONS_INVALID","ok":false,"path":["tasks"],"message":"window options 含未知键（封闭形状）：where"}: expected false to be true // Object.is equality
+   × Z 零物化哨兵（未匹配条目内埋毒值/空洞必须 ok:true） > Z1 Y.Array：1998 个 NaN 标量 + 尾部 2 命中 → 恰 1998,1999 2ms
+     → 期望窗口读 ok:true，实际 {"code":"WINDOW_OPTIONS_INVALID","ok":false,"path":["poisonArr"],"message":"window options 含未知键（封闭形状）：where"}: expected false to be true // Object.is equality
+   × Z 零物化哨兵（未匹配条目内埋毒值/空洞必须 ok:true） > Z2 Y.Map：1998 个 NaN 值键 + p1998/p1999 命中 → 恰两条 2ms
+     → 期望窗口读 ok:true，实际 {"code":"WINDOW_OPTIONS_INVALID","ok":false,"path":["poisonMap"],"message":"window options 含未知键（封闭形状）：where"}: expected false to be true // Object.is equality
+   × Z 零物化哨兵（未匹配条目内埋毒值/空洞必须 ok:true） > Z3 稀疏 plain array：1998 空洞 + 尾部 2 命中 → 恰 1998,1999（空洞未触） 2ms
+     → 期望窗口读 ok:true，实际 {"code":"WINDOW_OPTIONS_INVALID","ok":false,"path":["sparseArr"],"message":"window options 含未知键（封闭形状）：where"}: expected false to be true // Object.is equality
+   × Z 零物化哨兵（未匹配条目内埋毒值/空洞必须 ok:true） > Z4 Y.Map 全不匹配（equals done）：ok:true, value []（NaN 值键不炸读） 2ms
+     → 期望窗口读 ok:true，实际 {"code":"WINDOW_OPTIONS_INVALID","ok":false,"path":["poisonMap"],"message":"window options 含未知键（封闭形状）：where"}: expected false to be true // Object.is equality
+   × Z 零物化哨兵（未匹配条目内埋毒值/空洞必须 ok:true） > Z5 规模 N=2000 两向（n=2/5）：命中数正确、total undefined（计数不可短路） 3ms
+     → 期望窗口读 ok:true，实际 {"code":"WINDOW_OPTIONS_INVALID","ok":false,"path":["poisonArr"],"message":"window options 含未知键（封闭形状）：where"}: expected false to be true // Object.is equality
+   × Z 零物化哨兵（未匹配条目内埋毒值/空洞必须 ok:true） > Z6 未匹配条目内埋 non-finite（payload:NaN）：恰 1998,1999（全量物化/整项深读必红） 2ms
+     → 期望窗口读 ok:true，实际 {"code":"WINDOW_OPTIONS_INVALID","ok":false,"path":["poisonRecArr"],"message":"window options 含未知键（封闭形状）：where"}: expected false to be true // Object.is equality
+   × Z 零物化哨兵（未匹配条目内埋毒值/空洞必须 ok:true） > Z7 键面同款「未匹配条目内埋毒值」：恰 m1,m2 2ms
+     → 期望窗口读 ok:true，实际 {"code":"WINDOW_OPTIONS_INVALID","ok":false,"path":["poisonPayloadMap"],"message":"window options 含未知键（封闭形状）：where"}: expected false to be true // Object.is equality
+   × Z 零物化哨兵（未匹配条目内埋毒值/空洞必须 ok:true） > Z8 未匹配条目递归内埋稀疏空洞：恰 1998,1999（谓词只下钻单段，绝不递归） 4ms
+     → 期望窗口读 ok:true，实际 {"code":"WINDOW_OPTIONS_INVALID","ok":false,"path":["poisonHoleArr"],"message":"window options 含未知键（封闭形状）：where"}: expected false to be true // Object.is equality
+   × F 失败码与冻结面（AC7；三码语义不回归、where 不吸收缺口） > F1 WINDOW_TARGET_ABSENT：终点缺键 / 中间缺键 / 数组越界（带合法 where 时同样响亮） 2ms
+     → 期望稳定码 WINDOW_TARGET_ABSENT，实际 WINDOW_OPTIONS_INVALID: expected 'WINDOW_OPTIONS_INVALID' to be 'WINDOW_TARGET_ABSENT' // Object.is equality
+   × F 失败码与冻结面（AC7；三码语义不回归、where 不吸收缺口） > F2 WINDOW_CARRIER_MISMATCH：载体与面符不符（where 在场仍优先于过滤） 2ms
+     → 期望稳定码 WINDOW_CARRIER_MISMATCH，实际 WINDOW_OPTIONS_INVALID: expected 'WINDOW_OPTIONS_INVALID' to be 'WINDOW_CARRIER_MISMATCH' // Object.is equality
+   ✓ F 失败码与冻结面（AC7；三码语义不回归、where 不吸收缺口） > F3 WINDOW_OPTIONS_INVALID：where 形状非法与 n/orderBy 既有非法面同码 1ms
+   × F 失败码与冻结面（AC7；三码语义不回归、where 不吸收缺口） > F4 PATH_NOT_ALLOWED 透传：命中项物化失败仍 fail-fast、path 精确到项、无半窗 2ms
+     → 期望稳定码 PATH_NOT_ALLOWED，实际 WINDOW_OPTIONS_INVALID: expected 'WINDOW_OPTIONS_INVALID' to be 'PATH_NOT_ALLOWED' // Object.is equality
+   × F 失败码与冻结面（AC7；三码语义不回归、where 不吸收缺口） > F5 失败面形状：恰四键 {code,ok,path,message}，无 value/total/truncated 3ms
+     → 期望稳定码 WINDOW_TARGET_ABSENT，实际 WINDOW_OPTIONS_INVALID: expected 'WINDOW_OPTIONS_INVALID' to be 'WINDOW_TARGET_ABSENT' // Object.is equality
+   × F 失败码与冻结面（AC7；三码语义不回归、where 不吸收缺口） > F6 三码互异、各就各位（缺席 / 载体不符 / 规则非法） 2ms
+     → 期望稳定码 WINDOW_TARGET_ABSENT，实际 WINDOW_OPTIONS_INVALID: expected 'WINDOW_OPTIONS_INVALID' to be 'WINDOW_TARGET_ABSENT' // Object.is equality
+   ✓ NC 负控（冻结面与相邻面零回归；HEAD 绿 → 实现后保持绿） > NC1 无 where 成功面：own 键集恰三键、total = 标识计数（含空容器 0） 3ms
+   ✓ NC 负控（冻结面与相邻面零回归；HEAD 绿 → 实现后保持绿） > NC2 无 where value.length = min(n,total) 与排序基不变（index desc 位置序） 2ms
+   ✓ NC 负控（冻结面与相邻面零回归；HEAD 绿 → 实现后保持绿） > NC3 无 where 零物化哨兵：poisonScored n=2 → ok:true、恰 2 条、total=2000 2ms
+   ✓ NC 负控（冻结面与相邻面零回归；HEAD 绿 → 实现后保持绿） > NC4 姊妹 readLogicalValueAtPath 冻结：无 options 恰两键；带 where → READ_OPTIONS_INVALID 2ms
+   ✓ NC 负控（冻结面与相邻面零回归；HEAD 绿 → 实现后保持绿） > NC5 无 where orderBy v1 词表不变（readArray 仅 by:index；readMap 无 by:index） 2ms
+   ✓ NC 负控（冻结面与相邻面零回归；HEAD 绿 → 实现后保持绿） > NC6 公共值导出面纯加法：/Window/ 恰两枚；WhereTerm 为 type-only（运行时键空间零新增） 1ms
+   ✓ NC 负控（冻结面与相邻面零回归；HEAD 绿 → 实现后保持绿） > NC7 确定性：同一 doc 同参数重复调用逐字节一致（含 where 调用） 3ms
+   ✓ NC 负控（冻结面与相邻面零回归；HEAD 绿 → 实现后保持绿） > NC8 条目空间语义不变：稀疏空洞仍计入候选但在入选物化位 fail-fast；undefined 字段值仍出字段空间 4ms
+ ✓ packages/namespace-registry/test/issue-382-lease-where-no-silent-pass.test.ts (3 tests) 29ms
+ ❯  TS  packages/doc-runtime/test/issue-382-where-window-type-guard.test-d.ts (3 tests | 3 failed)
+   × issue #382 窗口 where 类型面（ADR 0029 缝 1，类型层） > Y1/Y2 WhereTerm 可经公共入口导入；两面 options 收 where 且投影为 readonly WhereTerm[] | undefined
+     → Property 'where' does not exist on type 'ReadArrayWindowOptions'.
+     → Property 'where' does not exist on type 'ReadMapWindowOptions'.
+     → Object literal may only specify known properties, and 'where' does not exist in type 'ReadArrayWindowOptions'.
+     → Object literal may only specify known properties, and 'where' does not exist in type 'ReadMapWindowOptions'.
+   × issue #382 窗口 where 类型面（ADR 0029 缝 1，类型层） > Y3 成功面 total 加宽为 number | undefined；成功面 own 键集仍恰三键（#381 键集锁不变）
+     → Type 'number | undefined' does not satisfy the constraint '"Expected number, Actual never" | "Expected undefined, Actual never"'.
+  Type 'undefined' is not assignable to type '"Expected number, Actual never" | "Expected undefined, Actual never"'.
+     → Type 'number | undefined' does not satisfy the constraint '"Expected number, Actual never" | "Expected undefined, Actual never"'.
+  Type 'undefined' is not assignable to type '"Expected number, Actual never" | "Expected undefined, Actual never"'.
+   × issue #382 窗口 where 类型面（ADR 0029 缝 1，类型层） > Y4 编译期负例 fail-closed：equals 闭集外 / WhereTerm 未知键 / where 非数组 / 语境外 orderBy
+     → Unused '@ts-expect-error' directive.
+     → Unused '@ts-expect-error' directive.
+     → Unused '@ts-expect-error' directive.
+     → Unused '@ts-expect-error' directive.
+     → Unused '@ts-expect-error' directive.
+
+⎯⎯⎯⎯⎯⎯ Failed Tests 47 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  packages/doc-runtime/test/issue-382-where-window-contract-red.test.ts > C 合取正确性矩阵（AC1；ADR 0029 §2/§4） > C1 键面 where：Y.Map 载体按 state=claimed 过滤，键序 t1,t3,t5，total own 键在场且 undefined
+AssertionError: 期望窗口读 ok:true，实际 {"code":"WINDOW_OPTIONS_INVALID","ok":false,"path":["tasks"],"message":"window options 含未知键（封闭形状）：where"}: expected false to be true // Object.is equality
+
+- Expected
++ Received
+
+- true
++ false
+
+ ❯ expectWindowOk packages/doc-runtime/test/issue-382-where-window-contract-red.test.ts:86:57
+     84|   expect(result !== null && typeof result === 'object', `期望窗口读结果为对象，实际…
+     85|   const r = result as WindowResult;
+     86|   expect(r.ok, `期望窗口读 ok:true，实际 ${JSON.stringify(r)}`).toBe(true);
+       |                                                         ^
+     87|   expect(Object.prototype.hasOwnProperty.call(r, 'value'), '窗口成功结算必须携带…
+     88|   return r.value;
+ ❯ entriesOf packages/doc-runtime/test/issue-382-where-window-contract-red.test.ts:102:17
+ ❯ keysOf packages/doc-runtime/test/issue-382-where-window-contract-red.test.ts:109:10
+ ❯ packages/doc-runtime/test/issue-382-where-window-contract-red.test.ts:426:12
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/55]⎯
+
+ FAIL  packages/doc-runtime/test/issue-382-where-window-contract-red.test.ts > C 合取正确性矩阵（AC1；ADR 0029 §2/§4） > C2 plain object 载体族同构（state=claimed 过滤同 C1）
+AssertionError: 期望窗口读 ok:true，实际 {"code":"WINDOW_OPTIONS_INVALID","ok":false,"path":["plainTasks"],"message":"window options 含未知键（封闭形状）：where"}: expected false to be true // Object.is equality
+
+- Expected
++ Received
+
+- true
++ false
+
+ ❯ expectWindowOk packages/doc-runtime/test/issue-382-where-window-contract-red.test.ts:86:57
+     84|   expect(result !== null && typeof result === 'object', `期望窗口读结果为对象，实际…
+     85|   const r = result as WindowResult;
+     86|   expect(r.ok, `期望窗口读 ok:true，实际 ${JSON.stringify(r)}`).toBe(true);
+       |                                                         ^
+     87|   expect(Object.prototype.hasOwnProperty.call(r, 'value'), '窗口成功结算必须携带…
+     88|   return r.value;
+ ❯ entriesOf packages/doc-runtime/test/issue-382-where-window-contract-red.test.ts:102:17
+ ❯ keysOf packages/doc-runtime/test/issue-382-where-window-contract-red.test.ts:109:10
+ ❯ packages/doc-runtime/test/issue-382-where-window-contract-red.test.ts:439:12
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/55]⎯
+
+ FAIL  packages/doc-runtime/test/issue-382-where-window-contract-red.test.ts > C 合取正确性矩阵（AC1；ADR 0029 §2/§4） > C3 数组面 where：Y.Array 载体位置序过滤（index 0,2）
+AssertionError: 期望窗口读 ok:true，实际 {"code":"WINDOW_OPTIONS_INVALID","ok":false,"path":["list"],"message":"window options 含未知键（封闭形状）：where"}: expected false to be true // Object.is equality
+
+- Expected
++ Received
+
+- true
++ false
+
+ ❯ expectWindowOk packages/doc-runtime/test/issue-382-where-window-contract-red.test.ts:86:57
+     84|   expect(result !== null && typeof result === 'object', `期望窗口读结果为对象，实际…
+     85|   const r = result as WindowResult;
+     86|   expect(r.ok, `期望窗口读 ok:true，实际 ${JSON.stringify(r)}`).toBe(true);
+       |                                                         ^
+     87|   expect(Object.prototype.hasOwnProperty.call(r, 'value'), '窗口成功结算必须携带…
+     88|   return r.value;
+ ❯ entriesOf packages/doc-runtime/test/issue-382-where-window-contract-red.test.ts:102:17
+ ❯ indicesOf packages/doc-runtime/test/issue-382-where-window-contract-red.test.ts:114:10
+ ❯ packages/doc-runtime/test/issue-382-where-window-contract-red.test.ts:447:12
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[3/55]⎯
+
+ FAIL  packages/doc-runtime/test/issue-382-where-window-contract-red.test.ts > C 合取正确性矩阵（AC1；ADR 0029 §2/§4） > C4 plain array 载体族同构（index 0,2）
+AssertionError: 期望窗口读 ok:true，实际 {"code":"WINDOW_OPTIONS_INVALID","ok":false,"path":["plainList"],"message":"window options 含未知键（封闭形状）：where"}: expected false to be true // Object.is equality
+
+- Expected
++ Received
+
+- true
++ false
+
+ ❯ expectWindowOk packages/doc-runtime/test/issue-382-where-window-contract-red.test.ts:86:57
+     84|   expect(result !== null && typeof result === 'object', `期望窗口读结果为对象，实际…
+     85|   const r = result as WindowResult;
+     86|   expect(r.ok, `期望窗口读 ok:true，实际 ${JSON.stringify(r)}`).toBe(true);
+       |                                                         ^
+     87|   expect(Object.prototype.hasOwnProperty.call(r, 'value'), '窗口成功结算必须携带…
+     88|   return r.value;
+ ❯ entriesOf packages/doc-runtime/test/issue-382-where-window-contract-red.test.ts:102:17
+ ❯ indicesOf packages/doc-runtime/test/issue-382-where-window-contract-red.test.ts:114:10
+ ❯ packages/doc-runtime/test/issue-382-where-window-contract-red.test.ts:456:12
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[4/55]⎯
+
+ FAIL  packages/doc-runtime/test/issue-382-where-window-contract-red.test.ts > C 合取正确性矩阵（AC1；ADR 0029 §2/§4） > C5 falsy 合法标量：equals '' / false / 0 均合法且命中 e0（零 truthiness 校验）
+AssertionError: 期望窗口读 ok:true，实际 {"code":"WINDOW_OPTIONS_INVALID","ok":false,"path":["edge"],"message":"window options 含未知键（封闭形状）：where"}: expected false to be true // Object.is equality
+
+- Expected
++ Received
+
+- true
++ false
+
+ ❯ expectWindowOk packages/doc-runtime/test/issue-382-where-window-contract-red.test.ts:86:57
+     84|   expect(result !== null && typeof result === 'object', `期望窗口读结果为对象，实际…
+     85|   const r = result as WindowResult;
+     86|   expect(r.ok, `期望窗口读 ok:true，实际 ${JSON.stringify(r)}`).toBe(true);
+       |                                                         ^
+     87|   expect(Object.prototype.hasOwnProperty.call(r, 'value'), '窗口成功结算必须携带…
+     88|   return r.value;
+ ❯ entriesOf packages/doc-runtime/test/issue-382-where-window-contract-red.test.ts:102:17
+ ❯ keysOf packages/doc-runtime/test/issue-382-where-window-contract-red.test.ts:109:10
+ ❯ packages/doc-runtime/test/issue-382-where-window-contract-red.test.ts:462:12
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[5/55]⎯
+
+ FAIL  packages/doc-runtime/test/issue-382-where-window-contract-red.test.ts > C 合取正确性矩阵（AC1；ADR 0029 §2/§4） > C6 标量类型门：equals true 命中 e1；类型不符（true ≠ 1）不命中
+AssertionError: 期望窗口读 ok:true，实际 {"code":"WINDOW_OPTIONS_INVALID","ok":false,"path":["edge"],"message":"window options 含未知键（封闭形状）：where"}: expected false to be true // Object.is equality
+
+- Expected
++ Received
+
+- true
++ false
+
+ ❯ expectWindowOk packages/doc-runtime/test/issue-382-where-window-contract-red.test.ts:86:57
+     84|   expect(result !== null && typeof result === 'object', `期望窗口读结果为对象，实际…
+     85|   const r = result as WindowResult;
+     86|   expect(r.ok, `期望窗口读 ok:true，实际 ${JSON.stringify(r)}`).toBe(true);
+       |                                                         ^
+     87|   expect(Object.prototype.hasOwnProperty.call(r, 'value'), '窗口成功结算必须携带…
+     88|   return r.value;
+ ❯ entriesOf packages/doc-runtime/test/issue-382-where-window-contract-red.test.ts:102:17
+ ❯ keysOf packages/doc-runtime/test/issue-382-where-window-contract-red.test.ts:109:10
+ ❯ packages/doc-runtime/test/issue-382-where-window-contract-red.test.ts:469:12
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[6/55]⎯
+
+ FAIL  packages/doc-runtime/test/issue-382-where-window-contract-red.test.ts > C 合取正确性矩阵（AC1；ADR 0029 §2/§4） > C7 单段字面键：点号不拆分（field 'a.b' 命中 c1；field 'b' 零命中）
+AssertionError: 期望窗口读 ok:true，实际 {"code":"WINDOW_OPTIONS_INVALID","ok":false,"path":["dotted"],"message":"window options 含未知键（封闭形状）：where"}: expected false to be true // Object.is equality
+
+- Expected
++ Received
+
+- true
++ false
+
+ ❯ expectWindowOk packages/doc-runtime/test/issue-382-where-window-contract-red.test.ts:86:57
+     84|   expect(result !== null && typeof result === 'object', `期望窗口读结果为对象，实际…
+     85|   const r = result as WindowResult;
+     86|   expect(r.ok, `期望窗口读 ok:true，实际 ${JSON.stringify(r)}`).toBe(true);
+       |                                                         ^
+     87|   expect(Object.prototype.hasOwnProperty.call(r, 'value'), '窗口成功结算必须携带…
+     88|   return r.value;
+ ❯ entriesOf packages/doc-runtime/test/issue-382-where-window-contract-red.test.ts:102:17
+ ❯ keysOf packages/doc-runtime/test/issue-382-where-window-contract-red.test.ts:109:10
+ ❯ packages/doc-runtime/test/issue-382-where-window-contract-red.test.ts:477:12
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[7/55]⎯
+
+ FAIL  packages/doc-runtime/test/issue-382-where-window-contract-red.test.ts > C 合取正确性矩阵（AC1；ADR 0029 §2/§4） > C9 空串字段名合法字面键（emptyKey：field '' 命中 k）
+AssertionError: 期望窗口读 ok:true，实际 {"code":"WINDOW_OPTIONS_INVALID","ok":false,"path":["emptyKey"],"message":"window options 含未知键（封闭形状）：where"}: expected false to be true // Object.is equality
+
+- Expected
++ Received
+
+- true
++ false
+
+ ❯ expectWindowOk packages/doc-runtime/test/issue-382-where-window-contract-red.test.ts:86:57
+     84|   expect(result !== null && typeof result === 'object', `期望窗口读结果为对象，实际…
+     85|   const r = result as WindowResult;
+     86|   expect(r.ok, `期望窗口读 ok:true，实际 ${JSON.stringify(r)}`).toBe(true);
+       |                                                         ^
+     87|   expect(Object.prototype.hasOwnProperty.call(r, 'value'), '窗口成功结算必须携带…
+     88|   return r.value;
+ ❯ entriesOf packages/doc-runtime/test/issue-382-where-window-contract-red.test.ts:102:17
+ ❯ keysOf packages/doc-runtime/test/issue-382-where-window-contract-red.test.ts:109:10
+ ❯ packages/doc-runtime/test/issue-382-where-window-contract-red.test.ts:499:12
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[8/55]⎯
+
+ FAIL  packages/doc-runtime/test/issue-382-where-window-contract-red.test.ts > C 合取正确性矩阵（AC1；ADR 0029 §2/§4） > C10 null 原型链 WhereTerm 合法（plain 链含 null 原型）
+AssertionError: 期望窗口读 ok:true，实际 {"code":"WINDOW_OPTIONS_INVALID","ok":false,"path":["tasks"],"message":"window options 含未知键（封闭形状）：where"}: expected false to be true // Object.is equality
+
+- Expected
++ Received
+
+- true
++ false
+
+ ❯ expectWindowOk packages/doc-runtime/test/issue-382-where-window-contract-red.test.ts:86:57
+     84|   expect(result !== null && typeof result === 'object', `期望窗口读结果为对象，实际…
+     85|   const r = result as WindowResult;
+     86|   expect(r.ok, `期望窗口读 ok:true，实际 ${JSON.stringify(r)}`).toBe(true);
+       |                                                         ^
+     87|   expect(Object.prototype.hasOwnProperty.call(r, 'value'), '窗口成功结算必须携带…
+     88|   return r.value;
+ ❯ entriesOf packages/doc-runtime/test/issue-382-where-window-contract-red.test.ts:102:17
+ ❯ keysOf packages/doc-runtime/test/issue-382-where-window-contract-red.test.ts:109:10
+ ❯ packages/doc-runtime/test/issue-382-where-window-contract-red.test.ts:505:12
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[9/55]⎯
+
+ FAIL  packages/doc-runtime/test/issue-382-where-window-contract-red.test.ts > C 合取正确性矩阵（AC1；ADR 0029 §2/§4） > C11 显式 undefined 字段值 ≡ 缺席（undefKey 恰 u2）
+AssertionError: 期望窗口读 ok:true，实际 {"code":"WINDOW_OPTIONS_INVALID","ok":false,"path":["undefKey"],"message":"window options 含未知键（封闭形状）：where"}: expected false to be true // Object.is equality
+
+- Expected
++ Received
+
+- true
++ false
+
+ ❯ expectWindowOk packages/doc-runtime/test/issue-382-where-window-contract-red.test.ts:86:57
+     84|   expect(result !== null && typeof result === 'object', `期望窗口读结果为对象，实际…
+     85|   const r = result as WindowResult;
+     86|   expect(r.ok, `期望窗口读 ok:true，实际 ${JSON.stringify(r)}`).toBe(true);
+       |                                                         ^
+     87|   expect(Object.prototype.hasOwnProperty.call(r, 'value'), '窗口成功结算必须携带…
+     88|   return r.value;
+ ❯ entriesOf packages/doc-runtime/test/issue-382-where-window-contract-red.test.ts:102:17
+ ❯ keysOf packages/doc-runtime/test/issue-382-where-window-contract-red.test.ts:109:10
+ ❯ packages/doc-runtime/test/issue-382-where-window-contract-red.test.ts:510:12
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[10/55]⎯
+
+ FAIL  packages/doc-runtime/test/issue-382-where-window-contract-red.test.ts > D 安静不匹配矩阵（AC2；ADR 0029 §3：脏项不炸读、不挤掉正常项） > D1 脏矩阵 n=50：恰 d2 命中（脏条目零挤出、零响亮失败）
+AssertionError: 期望窗口读 ok:true，实际 {"code":"WINDOW_OPTIONS_INVALID","ok":false,"path":["dirty"],"message":"window options 含未知键（封闭形状）：where"}: expected false to be true // Object.is equality
+
+- Expected
++ Received
+
+- true
++ false
+
+ ❯ expectWindowOk packages/doc-runtime/test/issue-382-where-window-contract-red.test.ts:86:57
+     84|   expect(result !== null && typeof result === 'object', `期望窗口读结果为对象，实际…
+     85|   const r = result as WindowResult;
+     86|   expect(r.ok, `期望窗口读 ok:true，实际 ${JSON.stringify(r)}`).toBe(true);
+       |                                                         ^
+     87|   expect(Object.prototype.hasOwnProperty.call(r, 'value'), '窗口成功结算必须携带…
+     88|   return r.value;
+ ❯ entriesOf packages/doc-runtime/test/issue-382-where-window-contract-red.test.ts:102:17
+ ❯ keysOf packages/doc-runtime/test/issue-382-where-window-contract-red.test.ts:109:10
+ ❯ packages/doc-runtime/test/issue-382-where-window-contract-red.test.ts:520:12
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[11/55]⎯
+
+ FAIL  packages/doc-runtime/test/issue-382-where-window-contract-red.test.ts > D 安静不匹配矩阵（AC2；ADR 0029 §3：脏项不炸读、不挤掉正常项） > D2 equals 'done'：恰 d1；标量条目（sStr='claimed'）不匹配任何 equals
+AssertionError: 期望窗口读 ok:true，实际 {"code":"WINDOW_OPTIONS_INVALID","ok":false,"path":["dirty"],"message":"window options 含未知键（封闭形状）：where"}: expected false to be true // Object.is equality
+
+- Expected
++ Received
+
+- true
++ false
+
+ ❯ expectWindowOk packages/doc-runtime/test/issue-382-where-window-contract-red.test.ts:86:57
+     84|   expect(result !== null && typeof result === 'object', `期望窗口读结果为对象，实际…
+     85|   const r = result as WindowResult;
+     86|   expect(r.ok, `期望窗口读 ok:true，实际 ${JSON.stringify(r)}`).toBe(true);
+       |                                                         ^
+     87|   expect(Object.prototype.hasOwnProperty.call(r, 'value'), '窗口成功结算必须携带…
+     88|   return r.value;
+ ❯ entriesOf packages/doc-runtime/test/issue-382-where-window-contract-red.test.ts:102:17
+ ❯ keysOf packages/doc-runtime/test/issue-382-where-window-contract-red.test.ts:109:10
+ ❯ packages/doc-runtime/test/issue-382-where-window-contract-red.test.ts:527:12
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[12/55]⎯
+
+ FAIL  packages/doc-runtime/test/issue-382-where-window-contract-red.test.ts > D 安静不匹配矩阵（AC2；ADR 0029 §3：脏项不炸读、不挤掉正常项） > D3 equals null：恰 nullState/nullState2（在场 null 匹配；缺席/显式 undefined 不匹配）
+AssertionError: 期望窗口读 ok:true，实际 {"code":"WINDOW_OPTIONS_INVALID","ok":false,"path":["dirty"],"message":"window options 含未知键（封闭形状）：where"}: expected false to be true // Object.is equality
+
+- Expected
++ Received
+
+- true
++ false
+
+ ❯ expectWindowOk packages/doc-runtime/test/issue-382-where-window-contract-red.test.ts:86:57
+     84|   expect(result !== null && typeof result === 'object', `期望窗口读结果为对象，实际…
+     85|   const r = result as WindowResult;
+     86|   expect(r.ok, `期望窗口读 ok:true，实际 ${JSON.stringify(r)}`).toBe(true);
+       |                                                         ^
+     87|   expect(Object.prototype.hasOwnProperty.call(r, 'value'), '窗口成功结算必须携带…
+     88|   return r.value;
+ ❯ entriesOf packages/doc-runtime/test/issue-382-where-window-contract-red.test.ts:102:17
+ ❯ keysOf packages/doc-runtime/test/issue-382-where-window-contract-red.test.ts:109:10
+ ❯ packages/doc-runtime/test/issue-382-where-window-contract-red.test.ts:534:12
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[13/55]⎯
+
+ FAIL  packages/doc-runtime/test/issue-382-where-window-contract-red.test.ts > D 安静不匹配矩阵（AC2；ADR 0029 §3：脏项不炸读、不挤掉正常项） > D4 field 值 non-finite（NaN/+∞/-∞）一律安静不匹配
+AssertionError: 期望窗口读 ok:true，实际 {"code":"WINDOW_OPTIONS_INVALID","ok":false,"path":["dirty"],"message":"window options 含未知键（封闭形状）：where"}: expected false to be true // Object.is equality
+
+- Expected
++ Received
+
+- true
++ false
+
+ ❯ expectWindowOk packages/doc-runtime/test/issue-382-where-window-contract-red.test.ts:86:57
+     84|   expect(result !== null && typeof result === 'object', `期望窗口读结果为对象，实际…
+     85|   const r = result as WindowResult;
+     86|   expect(r.ok, `期望窗口读 ok:true，实际 ${JSON.stringify(r)}`).toBe(true);
+       |                                                         ^
+     87|   expect(Object.prototype.hasOwnProperty.call(r, 'value'), '窗口成功结算必须携带…
+     88|   return r.value;
+ ❯ entriesOf packages/doc-runtime/test/issue-382-where-window-contract-red.test.ts:102:17
+ ❯ keysOf packages/doc-runtime/test/issue-382-where-window-contract-red.test.ts:109:10
+ ❯ packages/doc-runtime/test/issue-382-where-window-contract-red.test.ts:543:18
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[14/55]⎯
+
+ FAIL  packages/doc-runtime/test/issue-382-where-window-contract-red.test.ts > D 安静不匹配矩阵（AC2；ADR 0029 §3：脏项不炸读、不挤掉正常项） > D5 field 值非标量（Y.Map / plain object / array）一律安静不匹配
+AssertionError: 期望窗口读 ok:true，实际 {"code":"WINDOW_OPTIONS_INVALID","ok":false,"path":["dirty"],"message":"window options 含未知键（封闭形状）：where"}: expected false to be true // Object.is equality
+
+- Expected
++ Received
+
+- true
++ false
+
+ ❯ expectWindowOk packages/doc-runtime/test/issue-382-where-window-contract-red.test.ts:86:57
+     84|   expect(result !== null && typeof result === 'object', `期望窗口读结果为对象，实际…
+     85|   const r = result as WindowResult;
+     86|   expect(r.ok, `期望窗口读 ok:true，实际 ${JSON.stringify(r)}`).toBe(true);
+       |                                                         ^
+     87|   expect(Object.prototype.hasOwnProperty.call(r, 'value'), '窗口成功结算必须携带…
+     88|   return r.value;
+ ❯ entriesOf packages/doc-runtime/test/issue-382-where-window-contract-red.test.ts:102:17
+ ❯ keysOf packages/doc-runtime/test/issue-382-where-window-contract-red.test.ts:109:10
+ ❯ packages/doc-runtime/test/issue-382-where-window-contract-red.test.ts:549:18
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[15/55]⎯
+
+ FAIL  packages/doc-runtime/test/issue-382-where-window-contract-red.test.ts > D 安静不匹配矩阵（AC2；ADR 0029 §3：脏项不炸读、不挤掉正常项） > D6 条目值非可下钻对象（标量条目：number/string/null/boolean/array）一律安静不匹配
+AssertionError: 期望窗口读 ok:true，实际 {"code":"WINDOW_OPTIONS_INVALID","ok":false,"path":["dirty"],"message":"window options 含未知键（封闭形状）：where"}: expected false to be true // Object.is equality
+
+- Expected
++ Received
+
+- true
++ false
+
+ ❯ expectWindowOk packages/doc-runtime/test/issue-382-where-window-contract-red.test.ts:86:57
+     84|   expect(result !== null && typeof result === 'object', `期望窗口读结果为对象，实际…
+     85|   const r = result as WindowResult;
+     86|   expect(r.ok, `期望窗口读 ok:true，实际 ${JSON.stringify(r)}`).toBe(true);
+       |                                                         ^
+     87|   expect(Object.prototype.hasOwnProperty.call(r, 'value'), '窗口成功结算必须携带…
+     88|   return r.value;
+ ❯ entriesOf packages/doc-runtime/test/issue-382-where-window-contract-red.test.ts:102:17
+ ❯ keysOf packages/doc-runtime/test/issue-382-where-window-contract-red.test.ts:109:10
+ ❯ packages/doc-runtime/test/issue-382-where-window-contract-red.test.ts:555:18
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[16/55]⎯
+
+ FAIL  packages/doc-runtime/test/issue-382-where-window-contract-red.test.ts > D 安静不匹配矩阵（AC2；ADR 0029 §3：脏项不炸读、不挤掉正常项） > D7 accessor 字段安静不匹配且零执行（计数器 === 0）；non-enumerable 字段不参与
+AssertionError: 期望窗口读 ok:true，实际 {"code":"WINDOW_OPTIONS_INVALID","ok":false,"path":["dirty"],"message":"window options 含未知键（封闭形状）：where"}: expected false to be true // Object.is equality
+
+- Expected
++ Received
+
+- true
++ false
+
+ ❯ expectWindowOk packages/doc-runtime/test/issue-382-where-window-contract-red.test.ts:86:57
+     84|   expect(result !== null && typeof result === 'object', `期望窗口读结果为对象，实际…
+     85|   const r = result as WindowResult;
+     86|   expect(r.ok, `期望窗口读 ok:true，实际 ${JSON.stringify(r)}`).toBe(true);
+       |                                                         ^
+     87|   expect(Object.prototype.hasOwnProperty.call(r, 'value'), '窗口成功结算必须携带…
+     88|   return r.value;
+ ❯ entriesOf packages/doc-runtime/test/issue-382-where-window-contract-red.test.ts:102:17
+ ❯ keysOf packages/doc-runtime/test/issue-382-where-window-contract-red.test.ts:109:10
+ ❯ packages/doc-runtime/test/issue-382-where-window-contract-red.test.ts:562:18
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[17/55]⎯
+
+ FAIL  packages/doc-runtime/test/issue-382-where-window-contract-red.test.ts > D 安静不匹配矩阵（AC2；ADR 0029 §3：脏项不炸读、不挤掉正常项） > D8 标量元素数组面：全安静不匹配（ok:true, value: []），不响亮失败
+AssertionError: 期望窗口读 ok:true，实际 {"code":"WINDOW_OPTIONS_INVALID","ok":false,"path":["scalarArray"],"message":"window options 含未知键（封闭形状）：where"}: expected false to be true // Object.is equality
+
+- Expected
++ Received
+
+- true
++ false
+
+ ❯ expectWindowOk packages/doc-runtime/test/issue-382-where-window-contract-red.test.ts:86:57
+     84|   expect(result !== null && typeof result === 'object', `期望窗口读结果为对象，实际…
+     85|   const r = result as WindowResult;
+     86|   expect(r.ok, `期望窗口读 ok:true，实际 ${JSON.stringify(r)}`).toBe(true);
+       |                                                         ^
+     87|   expect(Object.prototype.hasOwnProperty.call(r, 'value'), '窗口成功结算必须携带…
+     88|   return r.value;
+ ❯ packages/doc-runtime/test/issue-382-where-window-contract-red.test.ts:573:12
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[18/55]⎯
+
+ FAIL  packages/doc-runtime/test/issue-382-where-window-contract-red.test.ts > D 安静不匹配矩阵（AC2；ADR 0029 §3：脏项不炸读、不挤掉正常项） > D9 稀疏 plain array：空洞安静跳过、不物化，恰 1998/1999 命中
+AssertionError: 期望窗口读 ok:true，实际 {"code":"WINDOW_OPTIONS_INVALID","ok":false,"path":["sparseArr"],"message":"window options 含未知键（封闭形状）：where"}: expected false to be true // Object.is equality
+
+- Expected
++ Received
+
+- true
++ false
+
+ ❯ expectWindowOk packages/doc-runtime/test/issue-382-where-window-contract-red.test.ts:86:57
+     84|   expect(result !== null && typeof result === 'object', `期望窗口读结果为对象，实际…
+     85|   const r = result as WindowResult;
+     86|   expect(r.ok, `期望窗口读 ok:true，实际 ${JSON.stringify(r)}`).toBe(true);
+       |                                                         ^
+     87|   expect(Object.prototype.hasOwnProperty.call(r, 'value'), '窗口成功结算必须携带…
+     88|   return r.value;
+ ❯ entriesOf packages/doc-runtime/test/issue-382-where-window-contract-red.test.ts:102:17
+ ❯ indicesOf packages/doc-runtime/test/issue-382-where-window-contract-red.test.ts:114:10
+ ❯ packages/doc-runtime/test/issue-382-where-window-contract-red.test.ts:580:12
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[19/55]⎯
+
+ FAIL  packages/doc-runtime/test/issue-382-where-window-contract-red.test.ts > D 安静不匹配矩阵（AC2；ADR 0029 §3：脏项不炸读、不挤掉正常项） > D10 空容器（Y.Map / plain object）：ok:true + value []
+AssertionError: 期望窗口读 ok:true，实际 {"code":"WINDOW_OPTIONS_INVALID","ok":false,"path":["emptyMap"],"message":"window options 含未知键（封闭形状）：where"}: expected false to be true // Object.is equality
+
+- Expected
++ Received
+
+- true
++ false
+
+ ❯ expectWindowOk packages/doc-runtime/test/issue-382-where-window-contract-red.test.ts:86:57
+     84|   expect(result !== null && typeof result === 'object', `期望窗口读结果为对象，实际…
+     85|   const r = result as WindowResult;
+     86|   expect(r.ok, `期望窗口读 ok:true，实际 ${JSON.stringify(r)}`).toBe(true);
+       |                                                         ^
+     87|   expect(Object.prototype.hasOwnProperty.call(r, 'value'), '窗口成功结算必须携带…
+     88|   return r.value;
+ ❯ packages/doc-runtime/test/issue-382-where-window-contract-red.test.ts:586:12
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[20/55]⎯
+
+ FAIL  packages/doc-runtime/test/issue-382-where-window-contract-red.test.ts > D 安静不匹配矩阵（AC2；ADR 0029 §3：脏项不炸读、不挤掉正常项） > D11 同 field 重复项 AND 自然收敛（claimed ∧ done → 空，不响亮）
+AssertionError: 期望窗口读 ok:true，实际 {"code":"WINDOW_OPTIONS_INVALID","ok":false,"path":["dirty"],"message":"window options 含未知键（封闭形状）：where"}: expected false to be true // Object.is equality
+
+- Expected
++ Received
+
+- true
++ false
+
+ ❯ expectWindowOk packages/doc-runtime/test/issue-382-where-window-contract-red.test.ts:86:57
+     84|   expect(result !== null && typeof result === 'object', `期望窗口读结果为对象，实际…
+     85|   const r = result as WindowResult;
+     86|   expect(r.ok, `期望窗口读 ok:true，实际 ${JSON.stringify(r)}`).toBe(true);
+       |                                                         ^
+     87|   expect(Object.prototype.hasOwnProperty.call(r, 'value'), '窗口成功结算必须携带…
+     88|   return r.value;
+ ❯ packages/doc-runtime/test/issue-382-where-window-contract-red.test.ts:596:12
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[21/55]⎯
+
+ FAIL  packages/doc-runtime/test/issue-382-where-window-contract-red.test.ts > D 安静不匹配矩阵（AC2；ADR 0029 §3：脏项不炸读、不挤掉正常项） > D12 四载体 × 零匹配：全 ok:true + value [] + total undefined
+AssertionError: 期望窗口读 ok:true，实际 {"code":"WINDOW_OPTIONS_INVALID","ok":false,"path":["scalarArray"],"message":"window options 含未知键（封闭形状）：where"}: expected false to be true // Object.is equality
+
+- Expected
++ Received
+
+- true
++ false
+
+ ❯ expectWindowOk packages/doc-runtime/test/issue-382-where-window-contract-red.test.ts:86:57
+     84|   expect(result !== null && typeof result === 'object', `期望窗口读结果为对象，实际…
+     85|   const r = result as WindowResult;
+     86|   expect(r.ok, `期望窗口读 ok:true，实际 ${JSON.stringify(r)}`).toBe(true);
+       |                                                         ^
+     87|   expect(Object.prototype.hasOwnProperty.call(r, 'value'), '窗口成功结算必须携带…
+     88|   return r.value;
+ ❯ packages/doc-runtime/test/issue-382-where-window-contract-red.test.ts:610:14
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[22/55]⎯
+
+ FAIL  packages/doc-runtime/test/issue-382-where-window-contract-red.test.ts > V 入参侧响亮（AC3/AC4；一律 WINDOW_OPTIONS_INVALID、零外抛） > V3 反向边界：恰 16 项合法（校验器不是「见 where 即拒」）→ ok:true, value []
+AssertionError: 期望窗口读 ok:true，实际 {"code":"WINDOW_OPTIONS_INVALID","ok":false,"path":["tasks"],"message":"window options 含未知键（封闭形状）：where"}: expected false to be true // Object.is equality
+
+- Expected
++ Received
+
+- true
++ false
+
+ ❯ expectWindowOk packages/doc-runtime/test/issue-382-where-window-contract-red.test.ts:86:57
+     84|   expect(result !== null && typeof result === 'object', `期望窗口读结果为对象，实际…
+     85|   const r = result as WindowResult;
+     86|   expect(r.ok, `期望窗口读 ok:true，实际 ${JSON.stringify(r)}`).toBe(true);
+       |                                                         ^
+     87|   expect(Object.prototype.hasOwnProperty.call(r, 'value'), '窗口成功结算必须携带…
+     88|   return r.value;
+ ❯ packages/doc-runtime/test/issue-382-where-window-contract-red.test.ts:634:12
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[23/55]⎯
+
+ FAIL  packages/doc-runtime/test/issue-382-where-window-contract-red.test.ts > V 入参侧响亮（AC3/AC4；一律 WINDOW_OPTIONS_INVALID、零外抛） > V20 反向边界：where: undefined（own 键、值 undefined）≡ 缺席 → ok:true、不过滤、total 数值
+AssertionError: 期望窗口读 ok:true，实际 {"code":"WINDOW_OPTIONS_INVALID","ok":false,"path":["tasks"],"message":"window options 含未知键（封闭形状）：where"}: expected false to be true // Object.is equality
+
+- Expected
++ Received
+
+- true
++ false
+
+ ❯ expectWindowOk packages/doc-runtime/test/issue-382-where-window-contract-red.test.ts:86:57
+     84|   expect(result !== null && typeof result === 'object', `期望窗口读结果为对象，实际…
+     85|   const r = result as WindowResult;
+     86|   expect(r.ok, `期望窗口读 ok:true，实际 ${JSON.stringify(r)}`).toBe(true);
+       |                                                         ^
+     87|   expect(Object.prototype.hasOwnProperty.call(r, 'value'), '窗口成功结算必须携带…
+     88|   return r.value;
+ ❯ entriesOf packages/doc-runtime/test/issue-382-where-window-contract-red.test.ts:102:17
+ ❯ keysOf packages/doc-runtime/test/issue-382-where-window-contract-red.test.ts:109:10
+ ❯ packages/doc-runtime/test/issue-382-where-window-contract-red.test.ts:857:12
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[24/55]⎯
+
+ FAIL  packages/doc-runtime/test/issue-382-where-window-contract-red.test.ts > P 管线序 where → orderBy → n（匹配子集上选窗） > P1 field desc n=2：匹配集总序前缀 t3(5), t1(2)（「排序→取 n→过滤」变异必红）
+AssertionError: 期望窗口读 ok:true，实际 {"code":"WINDOW_OPTIONS_INVALID","ok":false,"path":["tasks"],"message":"window options 含未知键（封闭形状）：where"}: expected false to be true // Object.is equality
+
+- Expected
++ Received
+
+- true
++ false
+
+ ❯ expectWindowOk packages/doc-runtime/test/issue-382-where-window-contract-red.test.ts:86:57
+     84|   expect(result !== null && typeof result === 'object', `期望窗口读结果为对象，实际…
+     85|   const r = result as WindowResult;
+     86|   expect(r.ok, `期望窗口读 ok:true，实际 ${JSON.stringify(r)}`).toBe(true);
+       |                                                         ^
+     87|   expect(Object.prototype.hasOwnProperty.call(r, 'value'), '窗口成功结算必须携带…
+     88|   return r.value;
+ ❯ entriesOf packages/doc-runtime/test/issue-382-where-window-contract-red.test.ts:102:17
+ ❯ packages/doc-runtime/test/issue-382-where-window-contract-red.test.ts:878:12
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[25/55]⎯
+
+ FAIL  packages/doc-runtime/test/issue-382-where-window-contract-red.test.ts > P 管线序 where → orderBy → n（匹配子集上选窗） > P2 field asc n=3：t5(1), t1(2), t3(5)（dir 只翻组内序、平局锚 key asc 恒定）
+AssertionError: 期望窗口读 ok:true，实际 {"code":"WINDOW_OPTIONS_INVALID","ok":false,"path":["tasks"],"message":"window options 含未知键（封闭形状）：where"}: expected false to be true // Object.is equality
+
+- Expected
++ Received
+
+- true
++ false
+
+ ❯ expectWindowOk packages/doc-runtime/test/issue-382-where-window-contract-red.test.ts:86:57
+     84|   expect(result !== null && typeof result === 'object', `期望窗口读结果为对象，实际…
+     85|   const r = result as WindowResult;
+     86|   expect(r.ok, `期望窗口读 ok:true，实际 ${JSON.stringify(r)}`).toBe(true);
+       |                                                         ^
+     87|   expect(Object.prototype.hasOwnProperty.call(r, 'value'), '窗口成功结算必须携带…
+     88|   return r.value;
+ ❯ entriesOf packages/doc-runtime/test/issue-382-where-window-contract-red.test.ts:102:17
+ ❯ keysOf packages/doc-runtime/test/issue-382-where-window-contract-red.test.ts:109:10
+ ❯ packages/doc-runtime/test/issue-382-where-window-contract-red.test.ts:890:12
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[26/55]⎯
+
+ FAIL  packages/doc-runtime/test/issue-382-where-window-contract-red.test.ts > P 管线序 where → orderBy → n（匹配子集上选窗） > P3 位置序 desc n=1：恰 index 2（自尾部取匹配前缀）
+AssertionError: 期望窗口读 ok:true，实际 {"code":"WINDOW_OPTIONS_INVALID","ok":false,"path":["list"],"message":"window options 含未知键（封闭形状）：where"}: expected false to be true // Object.is equality
+
+- Expected
++ Received
+
+- true
++ false
+
+ ❯ expectWindowOk packages/doc-runtime/test/issue-382-where-window-contract-red.test.ts:86:57
+     84|   expect(result !== null && typeof result === 'object', `期望窗口读结果为对象，实际…
+     85|   const r = result as WindowResult;
+     86|   expect(r.ok, `期望窗口读 ok:true，实际 ${JSON.stringify(r)}`).toBe(true);
+       |                                                         ^
+     87|   expect(Object.prototype.hasOwnProperty.call(r, 'value'), '窗口成功结算必须携带…
+     88|   return r.value;
+ ❯ entriesOf packages/doc-runtime/test/issue-382-where-window-contract-red.test.ts:102:17
+ ❯ indicesOf packages/doc-runtime/test/issue-382-where-window-contract-red.test.ts:114:10
+ ❯ packages/doc-runtime/test/issue-382-where-window-contract-red.test.ts:900:12
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[27/55]⎯
+
+ FAIL  packages/doc-runtime/test/issue-382-where-window-contract-red.test.ts > P 管线序 where → orderBy → n（匹配子集上选窗） > P4 合取跨字段（state=claimed ∧ priority=5）：恰 t3
+AssertionError: 期望窗口读 ok:true，实际 {"code":"WINDOW_OPTIONS_INVALID","ok":false,"path":["tasks"],"message":"window options 含未知键（封闭形状）：where"}: expected false to be true // Object.is equality
+
+- Expected
++ Received
+
+- true
++ false
+
+ ❯ expectWindowOk packages/doc-runtime/test/issue-382-where-window-contract-red.test.ts:86:57
+     84|   expect(result !== null && typeof result === 'object', `期望窗口读结果为对象，实际…
+     85|   const r = result as WindowResult;
+     86|   expect(r.ok, `期望窗口读 ok:true，实际 ${JSON.stringify(r)}`).toBe(true);
+       |                                                         ^
+     87|   expect(Object.prototype.hasOwnProperty.call(r, 'value'), '窗口成功结算必须携带…
+     88|   return r.value;
+ ❯ entriesOf packages/doc-runtime/test/issue-382-where-window-contract-red.test.ts:102:17
+ ❯ keysOf packages/doc-runtime/test/issue-382-where-window-contract-red.test.ts:109:10
+ ❯ packages/doc-runtime/test/issue-382-where-window-contract-red.test.ts:909:12
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[28/55]⎯
+
+ FAIL  packages/doc-runtime/test/issue-382-where-window-contract-red.test.ts > P 管线序 where → orderBy → n（匹配子集上选窗） > P5 n 三向：匹配集恒定、前缀长度 = min(n, matches)、total 恒 undefined
+AssertionError: 期望窗口读 ok:true，实际 {"code":"WINDOW_OPTIONS_INVALID","ok":false,"path":["tasks"],"message":"window options 含未知键（封闭形状）：where"}: expected false to be true // Object.is equality
+
+- Expected
++ Received
+
+- true
++ false
+
+ ❯ expectWindowOk packages/doc-runtime/test/issue-382-where-window-contract-red.test.ts:86:57
+     84|   expect(result !== null && typeof result === 'object', `期望窗口读结果为对象，实际…
+     85|   const r = result as WindowResult;
+     86|   expect(r.ok, `期望窗口读 ok:true，实际 ${JSON.stringify(r)}`).toBe(true);
+       |                                                         ^
+     87|   expect(Object.prototype.hasOwnProperty.call(r, 'value'), '窗口成功结算必须携带…
+     88|   return r.value;
+ ❯ entriesOf packages/doc-runtime/test/issue-382-where-window-contract-red.test.ts:102:17
+ ❯ packages/doc-runtime/test/issue-382-where-window-contract-red.test.ts:917:20
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[29/55]⎯
+
+ FAIL  packages/doc-runtime/test/issue-382-where-window-contract-red.test.ts > T total 双形态（无 where = 标识计数；有 where = own 键在场且 undefined） > T4/T6 有 where（matches ≥ n）：total own 键在场且 undefined；成功面 own 键集恰三键
+AssertionError: expected false to be true // Object.is equality
+
+- Expected
++ Received
+
+- true
++ false
+
+ ❯ packages/doc-runtime/test/issue-382-where-window-contract-red.test.ts:958:77
+    956|     const doc = buildWhereDoc();
+    957|     const result = mapWindow()(doc, ['tasks'], { n: 2, where: [CLAIMED…
+    958|     expect(Object.prototype.hasOwnProperty.call(result as object, 'tot…
+       |                                                                             ^
+    959|     expect(totalOf(result)).toBeUndefined();
+    960|     expect(ownKeysOf(result)).toEqual(['ok', 'total', 'value']);
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[30/55]⎯
+
+ FAIL  packages/doc-runtime/test/issue-382-where-window-contract-red.test.ts > T total 双形态（无 where = 标识计数；有 where = own 键在场且 undefined） > T5 有 where（matches < n 与 0 匹配）：total 同样 own 键在场且 undefined（恒不承诺）
+AssertionError: 期望窗口读 ok:true，实际 {"code":"WINDOW_OPTIONS_INVALID","ok":false,"path":["tasks"],"message":"window options 含未知键（封闭形状）：where"}: expected false to be true // Object.is equality
+
+- Expected
++ Received
+
+- true
++ false
+
+ ❯ expectWindowOk packages/doc-runtime/test/issue-382-where-window-contract-red.test.ts:86:57
+     84|   expect(result !== null && typeof result === 'object', `期望窗口读结果为对象，实际…
+     85|   const r = result as WindowResult;
+     86|   expect(r.ok, `期望窗口读 ok:true，实际 ${JSON.stringify(r)}`).toBe(true);
+       |                                                         ^
+     87|   expect(Object.prototype.hasOwnProperty.call(r, 'value'), '窗口成功结算必须携带…
+     88|   return r.value;
+ ❯ entriesOf packages/doc-runtime/test/issue-382-where-window-contract-red.test.ts:102:17
+ ❯ packages/doc-runtime/test/issue-382-where-window-contract-red.test.ts:966:12
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[31/55]⎯
+
+ FAIL  packages/doc-runtime/test/issue-382-where-window-contract-red.test.ts > Z 零物化哨兵（未匹配条目内埋毒值/空洞必须 ok:true） > Z1 Y.Array：1998 个 NaN 标量 + 尾部 2 命中 → 恰 1998,1999
+AssertionError: 期望窗口读 ok:true，实际 {"code":"WINDOW_OPTIONS_INVALID","ok":false,"path":["poisonArr"],"message":"window options 含未知键（封闭形状）：where"}: expected false to be true // Object.is equality
+
+- Expected
++ Received
+
+- true
++ false
+
+ ❯ expectWindowOk packages/doc-runtime/test/issue-382-where-window-contract-red.test.ts:86:57
+     84|   expect(result !== null && typeof result === 'object', `期望窗口读结果为对象，实际…
+     85|   const r = result as WindowResult;
+     86|   expect(r.ok, `期望窗口读 ok:true，实际 ${JSON.stringify(r)}`).toBe(true);
+       |                                                         ^
+     87|   expect(Object.prototype.hasOwnProperty.call(r, 'value'), '窗口成功结算必须携带…
+     88|   return r.value;
+ ❯ entriesOf packages/doc-runtime/test/issue-382-where-window-contract-red.test.ts:102:17
+ ❯ indicesOf packages/doc-runtime/test/issue-382-where-window-contract-red.test.ts:114:10
+ ❯ packages/doc-runtime/test/issue-382-where-window-contract-red.test.ts:980:12
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[32/55]⎯
+
+ FAIL  packages/doc-runtime/test/issue-382-where-window-contract-red.test.ts > Z 零物化哨兵（未匹配条目内埋毒值/空洞必须 ok:true） > Z2 Y.Map：1998 个 NaN 值键 + p1998/p1999 命中 → 恰两条
+AssertionError: 期望窗口读 ok:true，实际 {"code":"WINDOW_OPTIONS_INVALID","ok":false,"path":["poisonMap"],"message":"window options 含未知键（封闭形状）：where"}: expected false to be true // Object.is equality
+
+- Expected
++ Received
+
+- true
++ false
+
+ ❯ expectWindowOk packages/doc-runtime/test/issue-382-where-window-contract-red.test.ts:86:57
+     84|   expect(result !== null && typeof result === 'object', `期望窗口读结果为对象，实际…
+     85|   const r = result as WindowResult;
+     86|   expect(r.ok, `期望窗口读 ok:true，实际 ${JSON.stringify(r)}`).toBe(true);
+       |                                                         ^
+     87|   expect(Object.prototype.hasOwnProperty.call(r, 'value'), '窗口成功结算必须携带…
+     88|   return r.value;
+ ❯ entriesOf packages/doc-runtime/test/issue-382-where-window-contract-red.test.ts:102:17
+ ❯ keysOf packages/doc-runtime/test/issue-382-where-window-contract-red.test.ts:109:10
+ ❯ packages/doc-runtime/test/issue-382-where-window-contract-red.test.ts:987:12
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[33/55]⎯
+
+ FAIL  packages/doc-runtime/test/issue-382-where-window-contract-red.test.ts > Z 零物化哨兵（未匹配条目内埋毒值/空洞必须 ok:true） > Z3 稀疏 plain array：1998 空洞 + 尾部 2 命中 → 恰 1998,1999（空洞未触）
+AssertionError: 期望窗口读 ok:true，实际 {"code":"WINDOW_OPTIONS_INVALID","ok":false,"path":["sparseArr"],"message":"window options 含未知键（封闭形状）：where"}: expected false to be true // Object.is equality
+
+- Expected
++ Received
+
+- true
++ false
+
+ ❯ expectWindowOk packages/doc-runtime/test/issue-382-where-window-contract-red.test.ts:86:57
+     84|   expect(result !== null && typeof result === 'object', `期望窗口读结果为对象，实际…
+     85|   const r = result as WindowResult;
+     86|   expect(r.ok, `期望窗口读 ok:true，实际 ${JSON.stringify(r)}`).toBe(true);
+       |                                                         ^
+     87|   expect(Object.prototype.hasOwnProperty.call(r, 'value'), '窗口成功结算必须携带…
+     88|   return r.value;
+ ❯ entriesOf packages/doc-runtime/test/issue-382-where-window-contract-red.test.ts:102:17
+ ❯ indicesOf packages/doc-runtime/test/issue-382-where-window-contract-red.test.ts:114:10
+ ❯ packages/doc-runtime/test/issue-382-where-window-contract-red.test.ts:993:12
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[34/55]⎯
+
+ FAIL  packages/doc-runtime/test/issue-382-where-window-contract-red.test.ts > Z 零物化哨兵（未匹配条目内埋毒值/空洞必须 ok:true） > Z4 Y.Map 全不匹配（equals done）：ok:true, value []（NaN 值键不炸读）
+AssertionError: 期望窗口读 ok:true，实际 {"code":"WINDOW_OPTIONS_INVALID","ok":false,"path":["poisonMap"],"message":"window options 含未知键（封闭形状）：where"}: expected false to be true // Object.is equality
+
+- Expected
++ Received
+
+- true
++ false
+
+ ❯ expectWindowOk packages/doc-runtime/test/issue-382-where-window-contract-red.test.ts:86:57
+     84|   expect(result !== null && typeof result === 'object', `期望窗口读结果为对象，实际…
+     85|   const r = result as WindowResult;
+     86|   expect(r.ok, `期望窗口读 ok:true，实际 ${JSON.stringify(r)}`).toBe(true);
+       |                                                         ^
+     87|   expect(Object.prototype.hasOwnProperty.call(r, 'value'), '窗口成功结算必须携带…
+     88|   return r.value;
+ ❯ packages/doc-runtime/test/issue-382-where-window-contract-red.test.ts:999:12
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[35/55]⎯
+
+ FAIL  packages/doc-runtime/test/issue-382-where-window-contract-red.test.ts > Z 零物化哨兵（未匹配条目内埋毒值/空洞必须 ok:true） > Z5 规模 N=2000 两向（n=2/5）：命中数正确、total undefined（计数不可短路）
+AssertionError: 期望窗口读 ok:true，实际 {"code":"WINDOW_OPTIONS_INVALID","ok":false,"path":["poisonArr"],"message":"window options 含未知键（封闭形状）：where"}: expected false to be true // Object.is equality
+
+- Expected
++ Received
+
+- true
++ false
+
+ ❯ expectWindowOk packages/doc-runtime/test/issue-382-where-window-contract-red.test.ts:86:57
+     84|   expect(result !== null && typeof result === 'object', `期望窗口读结果为对象，实际…
+     85|   const r = result as WindowResult;
+     86|   expect(r.ok, `期望窗口读 ok:true，实际 ${JSON.stringify(r)}`).toBe(true);
+       |                                                         ^
+     87|   expect(Object.prototype.hasOwnProperty.call(r, 'value'), '窗口成功结算必须携带…
+     88|   return r.value;
+ ❯ entriesOf packages/doc-runtime/test/issue-382-where-window-contract-red.test.ts:102:17
+ ❯ indicesOf packages/doc-runtime/test/issue-382-where-window-contract-red.test.ts:114:10
+ ❯ packages/doc-runtime/test/issue-382-where-window-contract-red.test.ts:1006:14
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[36/55]⎯
+
+ FAIL  packages/doc-runtime/test/issue-382-where-window-contract-red.test.ts > Z 零物化哨兵（未匹配条目内埋毒值/空洞必须 ok:true） > Z6 未匹配条目内埋 non-finite（payload:NaN）：恰 1998,1999（全量物化/整项深读必红）
+AssertionError: 期望窗口读 ok:true，实际 {"code":"WINDOW_OPTIONS_INVALID","ok":false,"path":["poisonRecArr"],"message":"window options 含未知键（封闭形状）：where"}: expected false to be true // Object.is equality
+
+- Expected
++ Received
+
+- true
++ false
+
+ ❯ expectWindowOk packages/doc-runtime/test/issue-382-where-window-contract-red.test.ts:86:57
+     84|   expect(result !== null && typeof result === 'object', `期望窗口读结果为对象，实际…
+     85|   const r = result as WindowResult;
+     86|   expect(r.ok, `期望窗口读 ok:true，实际 ${JSON.stringify(r)}`).toBe(true);
+       |                                                         ^
+     87|   expect(Object.prototype.hasOwnProperty.call(r, 'value'), '窗口成功结算必须携带…
+     88|   return r.value;
+ ❯ entriesOf packages/doc-runtime/test/issue-382-where-window-contract-red.test.ts:102:17
+ ❯ indicesOf packages/doc-runtime/test/issue-382-where-window-contract-red.test.ts:114:10
+ ❯ packages/doc-runtime/test/issue-382-where-window-contract-red.test.ts:1014:12
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[37/55]⎯
+
+ FAIL  packages/doc-runtime/test/issue-382-where-window-contract-red.test.ts > Z 零物化哨兵（未匹配条目内埋毒值/空洞必须 ok:true） > Z7 键面同款「未匹配条目内埋毒值」：恰 m1,m2
+AssertionError: 期望窗口读 ok:true，实际 {"code":"WINDOW_OPTIONS_INVALID","ok":false,"path":["poisonPayloadMap"],"message":"window options 含未知键（封闭形状）：where"}: expected false to be true // Object.is equality
+
+- Expected
++ Received
+
+- true
++ false
+
+ ❯ expectWindowOk packages/doc-runtime/test/issue-382-where-window-contract-red.test.ts:86:57
+     84|   expect(result !== null && typeof result === 'object', `期望窗口读结果为对象，实际…
+     85|   const r = result as WindowResult;
+     86|   expect(r.ok, `期望窗口读 ok:true，实际 ${JSON.stringify(r)}`).toBe(true);
+       |                                                         ^
+     87|   expect(Object.prototype.hasOwnProperty.call(r, 'value'), '窗口成功结算必须携带…
+     88|   return r.value;
+ ❯ entriesOf packages/doc-runtime/test/issue-382-where-window-contract-red.test.ts:102:17
+ ❯ keysOf packages/doc-runtime/test/issue-382-where-window-contract-red.test.ts:109:10
+ ❯ packages/doc-runtime/test/issue-382-where-window-contract-red.test.ts:1020:12
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[38/55]⎯
+
+ FAIL  packages/doc-runtime/test/issue-382-where-window-contract-red.test.ts > Z 零物化哨兵（未匹配条目内埋毒值/空洞必须 ok:true） > Z8 未匹配条目递归内埋稀疏空洞：恰 1998,1999（谓词只下钻单段，绝不递归）
+AssertionError: 期望窗口读 ok:true，实际 {"code":"WINDOW_OPTIONS_INVALID","ok":false,"path":["poisonHoleArr"],"message":"window options 含未知键（封闭形状）：where"}: expected false to be true // Object.is equality
+
+- Expected
++ Received
+
+- true
++ false
+
+ ❯ expectWindowOk packages/doc-runtime/test/issue-382-where-window-contract-red.test.ts:86:57
+     84|   expect(result !== null && typeof result === 'object', `期望窗口读结果为对象，实际…
+     85|   const r = result as WindowResult;
+     86|   expect(r.ok, `期望窗口读 ok:true，实际 ${JSON.stringify(r)}`).toBe(true);
+       |                                                         ^
+     87|   expect(Object.prototype.hasOwnProperty.call(r, 'value'), '窗口成功结算必须携带…
+     88|   return r.value;
+ ❯ entriesOf packages/doc-runtime/test/issue-382-where-window-contract-red.test.ts:102:17
+ ❯ indicesOf packages/doc-runtime/test/issue-382-where-window-contract-red.test.ts:114:10
+ ❯ packages/doc-runtime/test/issue-382-where-window-contract-red.test.ts:1026:12
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[39/55]⎯
+
+ FAIL  packages/doc-runtime/test/issue-382-where-window-contract-red.test.ts > F 失败码与冻结面（AC7；三码语义不回归、where 不吸收缺口） > F1 WINDOW_TARGET_ABSENT：终点缺键 / 中间缺键 / 数组越界（带合法 where 时同样响亮）
+AssertionError: 期望稳定码 WINDOW_TARGET_ABSENT，实际 WINDOW_OPTIONS_INVALID: expected 'WINDOW_OPTIONS_INVALID' to be 'WINDOW_TARGET_ABSENT' // Object.is equality
+
+Expected: "WINDOW_TARGET_ABSENT"
+Received: "WINDOW_OPTIONS_INVALID"
+
+ ❯ expectWindowErr packages/doc-runtime/test/issue-382-where-window-contract-red.test.ts:96:56
+     94|   const r = result as WindowResult;
+     95|   expect(r.ok === true, `期望窗口读 ok:false，实际 ${JSON.stringify(r)}`).toBe…
+     96|   expect(r.code, `期望稳定码 ${code}，实际 ${String(r.code)}`).toBe(code);
+       |                                                        ^
+     97|   return r;
+     98| }
+ ❯ packages/doc-runtime/test/issue-382-where-window-contract-red.test.ts:1035:5
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[40/55]⎯
+
+ FAIL  packages/doc-runtime/test/issue-382-where-window-contract-red.test.ts > F 失败码与冻结面（AC7；三码语义不回归、where 不吸收缺口） > F2 WINDOW_CARRIER_MISMATCH：载体与面符不符（where 在场仍优先于过滤）
+AssertionError: 期望稳定码 WINDOW_CARRIER_MISMATCH，实际 WINDOW_OPTIONS_INVALID: expected 'WINDOW_OPTIONS_INVALID' to be 'WINDOW_CARRIER_MISMATCH' // Object.is equality
+
+Expected: "WINDOW_CARRIER_MISMATCH"
+Received: "WINDOW_OPTIONS_INVALID"
+
+ ❯ expectWindowErr packages/doc-runtime/test/issue-382-where-window-contract-red.test.ts:96:56
+     94|   const r = result as WindowResult;
+     95|   expect(r.ok === true, `期望窗口读 ok:false，实际 ${JSON.stringify(r)}`).toBe…
+     96|   expect(r.code, `期望稳定码 ${code}，实际 ${String(r.code)}`).toBe(code);
+       |                                                        ^
+     97|   return r;
+     98| }
+ ❯ packages/doc-runtime/test/issue-382-where-window-contract-red.test.ts:1042:5
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[41/55]⎯
+
+ FAIL  packages/doc-runtime/test/issue-382-where-window-contract-red.test.ts > F 失败码与冻结面（AC7；三码语义不回归、where 不吸收缺口） > F4 PATH_NOT_ALLOWED 透传：命中项物化失败仍 fail-fast、path 精确到项、无半窗
+AssertionError: 期望稳定码 PATH_NOT_ALLOWED，实际 WINDOW_OPTIONS_INVALID: expected 'WINDOW_OPTIONS_INVALID' to be 'PATH_NOT_ALLOWED' // Object.is equality
+
+Expected: "PATH_NOT_ALLOWED"
+Received: "WINDOW_OPTIONS_INVALID"
+
+ ❯ expectWindowErr packages/doc-runtime/test/issue-382-where-window-contract-red.test.ts:96:56
+     94|   const r = result as WindowResult;
+     95|   expect(r.ok === true, `期望窗口读 ok:false，实际 ${JSON.stringify(r)}`).toBe…
+     96|   expect(r.code, `期望稳定码 ${code}，实际 ${String(r.code)}`).toBe(code);
+       |                                                        ^
+     97|   return r;
+     98| }
+ ❯ packages/doc-runtime/test/issue-382-where-window-contract-red.test.ts:1056:21
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[42/55]⎯
+
+ FAIL  packages/doc-runtime/test/issue-382-where-window-contract-red.test.ts > F 失败码与冻结面（AC7；三码语义不回归、where 不吸收缺口） > F5 失败面形状：恰四键 {code,ok,path,message}，无 value/total/truncated
+AssertionError: 期望稳定码 WINDOW_TARGET_ABSENT，实际 WINDOW_OPTIONS_INVALID: expected 'WINDOW_OPTIONS_INVALID' to be 'WINDOW_TARGET_ABSENT' // Object.is equality
+
+Expected: "WINDOW_TARGET_ABSENT"
+Received: "WINDOW_OPTIONS_INVALID"
+
+ ❯ expectWindowErr packages/doc-runtime/test/issue-382-where-window-contract-red.test.ts:96:56
+     94|   const r = result as WindowResult;
+     95|   expect(r.ok === true, `期望窗口读 ok:false，实际 ${JSON.stringify(r)}`).toBe…
+     96|   expect(r.code, `期望稳定码 ${code}，实际 ${String(r.code)}`).toBe(code);
+       |                                                        ^
+     97|   return r;
+     98| }
+ ❯ packages/doc-runtime/test/issue-382-where-window-contract-red.test.ts:1065:7
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[43/55]⎯
+
+ FAIL  packages/doc-runtime/test/issue-382-where-window-contract-red.test.ts > F 失败码与冻结面（AC7；三码语义不回归、where 不吸收缺口） > F6 三码互异、各就各位（缺席 / 载体不符 / 规则非法）
+AssertionError: 期望稳定码 WINDOW_TARGET_ABSENT，实际 WINDOW_OPTIONS_INVALID: expected 'WINDOW_OPTIONS_INVALID' to be 'WINDOW_TARGET_ABSENT' // Object.is equality
+
+Expected: "WINDOW_TARGET_ABSENT"
+Received: "WINDOW_OPTIONS_INVALID"
+
+ ❯ expectWindowErr packages/doc-runtime/test/issue-382-where-window-contract-red.test.ts:96:56
+     94|   const r = result as WindowResult;
+     95|   expect(r.ok === true, `期望窗口读 ok:false，实际 ${JSON.stringify(r)}`).toBe…
+     96|   expect(r.code, `期望稳定码 ${code}，实际 ${String(r.code)}`).toBe(code);
+       |                                                        ^
+     97|   return r;
+     98| }
+ ❯ packages/doc-runtime/test/issue-382-where-window-contract-red.test.ts:1079:7
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[44/55]⎯
+
+ FAIL  packages/doc-runtime/test/issue-382-where-window-type-guard.test-d.ts > issue #382 窗口 where 类型面（ADR 0029 缝 1，类型层） > Y1/Y2 WhereTerm 可经公共入口导入；两面 options 收 where 且投影为 readonly WhereTerm[] | undefined
+TypeCheckError: Property 'where' does not exist on type 'ReadArrayWindowOptions'.
+ ❯ packages/doc-runtime/test/issue-382-where-window-type-guard.test-d.ts:38:37
+     36|     expectTypeOf(whereTerm.field).toEqualTypeOf<string>();
+     37|     expectTypeOf(whereTerm.equals).toEqualTypeOf<string | number | boo…
+     38|     expectTypeOf(arrayWindowOptions.where).toEqualTypeOf<readonly Wher…
+       |                                     ^
+     39|     expectTypeOf(mapWindowOptions.where).toEqualTypeOf<readonly WhereT…
+     40|     // 对象字面量直传（TS2353 消失）：两面均接受 where 项数组。
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[45/55]⎯
+
+ FAIL  packages/doc-runtime/test/issue-382-where-window-type-guard.test-d.ts > issue #382 窗口 where 类型面（ADR 0029 缝 1，类型层） > Y1/Y2 WhereTerm 可经公共入口导入；两面 options 收 where 且投影为 readonly WhereTerm[] | undefined
+TypeCheckError: Property 'where' does not exist on type 'ReadMapWindowOptions'.
+ ❯ packages/doc-runtime/test/issue-382-where-window-type-guard.test-d.ts:39:35
+     37|     expectTypeOf(whereTerm.equals).toEqualTypeOf<string | number | boo…
+     38|     expectTypeOf(arrayWindowOptions.where).toEqualTypeOf<readonly Wher…
+     39|     expectTypeOf(mapWindowOptions.where).toEqualTypeOf<readonly WhereT…
+       |                                   ^
+     40|     // 对象字面量直传（TS2353 消失）：两面均接受 where 项数组。
+     41|     const arrayLiteral: ReadArrayWindowOptions = { n: 5, where: [{ fie…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[46/55]⎯
+
+ FAIL  packages/doc-runtime/test/issue-382-where-window-type-guard.test-d.ts > issue #382 窗口 where 类型面（ADR 0029 缝 1，类型层） > Y1/Y2 WhereTerm 可经公共入口导入；两面 options 收 where 且投影为 readonly WhereTerm[] | undefined
+TypeCheckError: Object literal may only specify known properties, and 'where' does not exist in type 'ReadArrayWindowOptions'.
+ ❯ packages/doc-runtime/test/issue-382-where-window-type-guard.test-d.ts:41:58
+     39|     expectTypeOf(mapWindowOptions.where).toEqualTypeOf<readonly WhereT…
+     40|     // 对象字面量直传（TS2353 消失）：两面均接受 where 项数组。
+     41|     const arrayLiteral: ReadArrayWindowOptions = { n: 5, where: [{ fie…
+       |                                                          ^
+     42|     const mapLiteral: ReadMapWindowOptions = {
+     43|       n: 5,
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[47/55]⎯
+
+ FAIL  packages/doc-runtime/test/issue-382-where-window-type-guard.test-d.ts > issue #382 窗口 where 类型面（ADR 0029 缝 1，类型层） > Y1/Y2 WhereTerm 可经公共入口导入；两面 options 收 where 且投影为 readonly WhereTerm[] | undefined
+TypeCheckError: Object literal may only specify known properties, and 'where' does not exist in type 'ReadMapWindowOptions'.
+ ❯ packages/doc-runtime/test/issue-382-where-window-type-guard.test-d.ts:45:7
+     43|       n: 5,
+     44|       orderBy: { field: 'priority', dir: 'desc' },
+     45|       where: [{ field: 'state', equals: 'claimed' }, { field: 'priorit…
+       |       ^
+     46|     };
+     47|     expectTypeOf(arrayLiteral).toEqualTypeOf<ReadArrayWindowOptions>();
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[48/55]⎯
+
+ FAIL  packages/doc-runtime/test/issue-382-where-window-type-guard.test-d.ts > issue #382 窗口 where 类型面（ADR 0029 缝 1，类型层） > Y3 成功面 total 加宽为 number | undefined；成功面 own 键集仍恰三键（#381 键集锁不变）
+TypeCheckError: Type 'number | undefined' does not satisfy the constraint '"Expected number, Actual never" | "Expected undefined, Actual never"'.
+  Type 'undefined' is not assignable to type '"Expected number, Actual never" | "Expected undefined, Actual never"'.
+ ❯ packages/doc-runtime/test/issue-382-where-window-type-guard.test-d.ts:63:89
+     61|
+     62|   it('Y3 成功面 total 加宽为 number | undefined；成功面 own 键集仍恰三键（#381 键集锁不变）',…
+     63|     expectTypeOf<Extract<ReadArrayWindowResult, { ok: true }>['total']…
+       |                                                                                         ^
+     64|     expectTypeOf<Extract<ReadMapWindowResult, { ok: true }>['total']>(…
+     65|     expectTypeOf<keyof Extract<ReadArrayWindowResult, { ok: true }>>()…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[49/55]⎯
+
+ FAIL  packages/doc-runtime/test/issue-382-where-window-type-guard.test-d.ts > issue #382 窗口 where 类型面（ADR 0029 缝 1，类型层） > Y3 成功面 total 加宽为 number | undefined；成功面 own 键集仍恰三键（#381 键集锁不变）
+TypeCheckError: Type 'number | undefined' does not satisfy the constraint '"Expected number, Actual never" | "Expected undefined, Actual never"'.
+  Type 'undefined' is not assignable to type '"Expected number, Actual never" | "Expected undefined, Actual never"'.
+ ❯ packages/doc-runtime/test/issue-382-where-window-type-guard.test-d.ts:64:87
+     62|   it('Y3 成功面 total 加宽为 number | undefined；成功面 own 键集仍恰三键（#381 键集锁不变）',…
+     63|     expectTypeOf<Extract<ReadArrayWindowResult, { ok: true }>['total']…
+     64|     expectTypeOf<Extract<ReadMapWindowResult, { ok: true }>['total']>(…
+       |                                                                                       ^
+     65|     expectTypeOf<keyof Extract<ReadArrayWindowResult, { ok: true }>>()…
+     66|     expectTypeOf<keyof Extract<ReadMapWindowResult, { ok: true }>>().t…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[50/55]⎯
+
+ FAIL  packages/doc-runtime/test/issue-382-where-window-type-guard.test-d.ts > issue #382 窗口 where 类型面（ADR 0029 缝 1，类型层） > Y4 编译期负例 fail-closed：equals 闭集外 / WhereTerm 未知键 / where 非数组 / 语境外 orderBy
+TypeCheckError: Unused '@ts-expect-error' directive.
+ ❯ packages/doc-runtime/test/issue-382-where-window-type-guard.test-d.ts:75:5
+     73|
+     74|   it('Y4 编译期负例 fail-closed：equals 闭集外 / WhereTerm 未知键 / where 非数组 / 语境…
+     75|     // @ts-expect-error equals 闭集外（对象不是 string|number|boolean|null）
+       |     ^
+     76|     const objectEquals: WhereTerm = { field: 'state', equals: {} };
+     77|     // @ts-expect-error equals 闭集外（数组同上）
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[51/55]⎯
+
+ FAIL  packages/doc-runtime/test/issue-382-where-window-type-guard.test-d.ts > issue #382 窗口 where 类型面（ADR 0029 缝 1，类型层） > Y4 编译期负例 fail-closed：equals 闭集外 / WhereTerm 未知键 / where 非数组 / 语境外 orderBy
+TypeCheckError: Unused '@ts-expect-error' directive.
+ ❯ packages/doc-runtime/test/issue-382-where-window-type-guard.test-d.ts:77:5
+     75|     // @ts-expect-error equals 闭集外（对象不是 string|number|boolean|null）
+     76|     const objectEquals: WhereTerm = { field: 'state', equals: {} };
+     77|     // @ts-expect-error equals 闭集外（数组同上）
+       |     ^
+     78|     const arrayEquals: WhereTerm = { field: 'state', equals: [1] };
+     79|     // @ts-expect-error equals 闭集外（bigint 不在 v1 标量闭集）
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[52/55]⎯
+
+ FAIL  packages/doc-runtime/test/issue-382-where-window-type-guard.test-d.ts > issue #382 窗口 where 类型面（ADR 0029 缝 1，类型层） > Y4 编译期负例 fail-closed：equals 闭集外 / WhereTerm 未知键 / where 非数组 / 语境外 orderBy
+TypeCheckError: Unused '@ts-expect-error' directive.
+ ❯ packages/doc-runtime/test/issue-382-where-window-type-guard.test-d.ts:79:5
+     77|     // @ts-expect-error equals 闭集外（数组同上）
+     78|     const arrayEquals: WhereTerm = { field: 'state', equals: [1] };
+     79|     // @ts-expect-error equals 闭集外（bigint 不在 v1 标量闭集）
+       |     ^
+     80|     const bigintEquals: WhereTerm = { field: 'state', equals: 1n };
+     81|     // @ts-expect-error WhereTerm 未知键（恰 field/equals 两键，封闭形状）
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[53/55]⎯
+
+ FAIL  packages/doc-runtime/test/issue-382-where-window-type-guard.test-d.ts > issue #382 窗口 where 类型面（ADR 0029 缝 1，类型层） > Y4 编译期负例 fail-closed：equals 闭集外 / WhereTerm 未知键 / where 非数组 / 语境外 orderBy
+TypeCheckError: Unused '@ts-expect-error' directive.
+ ❯ packages/doc-runtime/test/issue-382-where-window-type-guard.test-d.ts:81:5
+     79|     // @ts-expect-error equals 闭集外（bigint 不在 v1 标量闭集）
+     80|     const bigintEquals: WhereTerm = { field: 'state', equals: 1n };
+     81|     // @ts-expect-error WhereTerm 未知键（恰 field/equals 两键，封闭形状）
+       |     ^
+     82|     const unknownKey: WhereTerm = { field: 'state', equals: 'claimed',…
+     83|     // @ts-expect-error field 必须单段字符串（段数组非法）
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[54/55]⎯
+
+ FAIL  packages/doc-runtime/test/issue-382-where-window-type-guard.test-d.ts > issue #382 窗口 where 类型面（ADR 0029 缝 1，类型层） > Y4 编译期负例 fail-closed：equals 闭集外 / WhereTerm 未知键 / where 非数组 / 语境外 orderBy
+TypeCheckError: Unused '@ts-expect-error' directive.
+ ❯ packages/doc-runtime/test/issue-382-where-window-type-guard.test-d.ts:83:5
+     81|     // @ts-expect-error WhereTerm 未知键（恰 field/equals 两键，封闭形状）
+     82|     const unknownKey: WhereTerm = { field: 'state', equals: 'claimed',…
+     83|     // @ts-expect-error field 必须单段字符串（段数组非法）
+       |     ^
+     84|     const multiSegment: WhereTerm = { field: ['a', 'b'], equals: 'v' };
+     85|     // @ts-expect-error where 必须是 WhereTerm 数组（非数组非法）
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[55/55]⎯
+
+⎯⎯⎯⎯⎯⎯ Unhandled Errors ⎯⎯⎯⎯⎯⎯
+
+Vitest caught 9 unhandled errors during the test run.
+This might cause false positive tests. Resolve unhandled errors to make sure your tests are not affected.
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Module '"../src/index.js"' has no exported member 'WhereTerm'.
+ ❯ packages/doc-runtime/test/public-surface-type-guard.test-d.ts:53:3
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Property 'where' does not exist on type 'ReadArrayWindowOptions'.
+ ❯ packages/doc-runtime/test/public-surface-type-guard.test-d.ts:204:37
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Property 'where' does not exist on type 'ReadMapWindowOptions'.
+ ❯ packages/doc-runtime/test/public-surface-type-guard.test-d.ts:205:35
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Type 'number | undefined' does not satisfy the constraint '"Expected number, Actual never" | "Expected undefined, Actual never"'.
+  Type 'undefined' is not assignable to type '"Expected number, Actual never" | "Expected undefined, Actual never"'.
+ ❯ packages/doc-runtime/test/public-surface-type-guard.test-d.ts:224:89
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Type 'number | undefined' does not satisfy the constraint '"Expected number, Actual never" | "Expected undefined, Actual never"'.
+  Type 'undefined' is not assignable to type '"Expected number, Actual never" | "Expected undefined, Actual never"'.
+ ❯ packages/doc-runtime/test/public-surface-type-guard.test-d.ts:225:87
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Object literal may only specify known properties, and 'where' does not exist in type 'ReadMapWindowOptions'.
+ ❯ packages/namespace-registry/test/issue-382-lease-where-no-silent-pass.test.ts:84:42
+     82|     await withLease(({ lease }) => {
+     83|       expectNoSilentPass(
+     84|         lease.readMap(['tasks'], { n: 2, where: [{ field: 'priority', …
+       |                                          ^
+     85|         { field: 'priority', equals: 5 },
+     86|         'readMap priority=5',
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Object literal may only specify known properties, and 'where' does not exist in type 'ReadMapWindowOptions'.
+ ❯ packages/namespace-registry/test/issue-382-lease-where-no-silent-pass.test.ts:89:42
+     87|       );
+     88|       expectNoSilentPass(
+     89|         lease.readMap(['tasks'], { n: 3, where: [{ field: 'title', equ…
+       |                                          ^
+     90|         { field: 'title', equals: 'beta' },
+     91|         'readMap title=beta',
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Object literal may only specify known properties, and 'where' does not exist in type 'ReadArrayWindowOptions'.
+ ❯ packages/namespace-registry/test/issue-382-lease-where-no-silent-pass.test.ts:99:47
+     97|     await withLease(({ lease }) => {
+     98|       expectNoSilentPass(
+     99|         lease.readArray(['taskList'], { n: 2, where: [{ field: 'priori…
+       |                                               ^
+    100|         { field: 'priority', equals: 2 },
+    101|         'readArray taskList priority=2',
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Object literal may only specify known properties, and 'where' does not exist in type 'ReadArrayWindowOptions'.
+ ❯ packages/namespace-registry/test/issue-382-lease-where-no-silent-pass.test.ts:104:50
+    102|       );
+    103|       expectNoSilentPass(
+    104|         lease.readArray(['workRecords'], { n: 2, where: [{ field: 'sta…
+       |                                                  ^
+    105|         { field: 'state', equals: 'claimed' },
+    106|         'readArray workRecords state=claimed（标量元素 ⇒ 缝 2 态零匹配）',
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯
+
+
+ Test Files  2 failed | 1 passed (3)
+      Tests  47 failed | 35 passed (82)
+Type Errors  3 failed
+     Errors  9 errors
+   Start at  09:56:10
+   Duration  7.55s (transform 602ms, setup 0ms, collect 897ms, tests 270ms, environment 0ms, prepare 89ms, typecheck 7.50s)
