@@ -10,6 +10,7 @@ export const publishPackages = Object.freeze([
   { root: 'packages', name: 'namespace-diagnostic-log' },
   { root: 'packages', name: 'namespace-runtime' },
   { root: 'packages', name: 'namespace-registry' },
+  { root: 'packages', name: 'namespace-api' },
   { root: 'packages', name: 'replication-protocol' },
   { root: 'packages', name: 'ws-replication' },
   { root: 'apps', name: 'yjs-server' },
