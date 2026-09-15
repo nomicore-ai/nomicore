@@ -273,10 +273,16 @@ describe('issue #268 默认 limits 生效（AC2）', () => {
     }
   });
 
-  it('AC5: `-0` 无额外语义（与 0 同样走通成功路径）', async () => {
+  it('AC5: `0` 走通成功路径；`-0` 按 ADR 0021 值域收窄拒绝（422）', async () => {
     await withRealRegistry(async (registry) => {
       const router = hubRouter(registry);
-      for (const literal of ['0', '-0']) {
+      // ADR 0021（issue #312）：number 家族收窄为 JSON 可忠实表示数，-0 在语义层拒绝；
+      // 原 AC5「-0 无额外语义」冻结于该决策之前，本锚随 main 契约对齐。
+      const expectations: Array<{ literal: string; status: number }> = [
+        { literal: '0', status: 201 },
+        { literal: '-0', status: 422 },
+      ];
+      for (const { literal, status } of expectations) {
         const response = matchedResponse(
           await router.handle(
             rawJsonRequest(
@@ -285,7 +291,7 @@ describe('issue #268 默认 limits 生效（AC2）', () => {
             ),
           ),
         );
-        expect(response.status, `n=${literal}`).toBe(201);
+        expect(response.status, `n=${literal}`).toBe(status);
       }
     });
   });

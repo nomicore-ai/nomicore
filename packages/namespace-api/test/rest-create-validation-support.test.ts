@@ -10,8 +10,9 @@
  * 2. VFSL 锚：合法 schemaText 派生 sc1-，非法 schemaText 的 issues 携带 line/column
  *    （422 映射的真实来源）；
  * 3. Registry 锚：ROOT 领域非法 → `NAMESPACE_ROOT_INVALID` 且 issues 携带 path；
- *    深层嵌套 / 120k 数组 / `-0` / `Number.MAX_SAFE_INTEGER` / 256 KiB 注释文本本身可被
- *    领域接纳（413/400 期望纯属 REST 策略，不是下游拒收）；
+ *    深层嵌套 / 120k 数组 / `Number.MAX_SAFE_INTEGER` / 256 KiB 注释文本本身可被
+ *    领域接纳（413/400 期望纯属 REST 策略，不是下游拒收）；`-0` 自 ADR 0021
+ *    （issue #312）起在语义层拒绝，锚已随 main 契约对齐；
  * 4. 门禁锚：非有限数在 Registry 输入快照即 `NAMESPACE_CREATE_INVALID_INPUT`
  *    （REST 若不做数字范围检查将落入安全 500 路径，而非 400）；
  * 5. poison registry 自证：任何成员被调用即 throw（契约中「零 Registry 触达」断言有效）。
@@ -142,12 +143,11 @@ describe('issue #268 契约支撑锚（平台 / fixture，恒绿）', () => {
     });
   });
 
-  it('Registry 锚：深层 / 数组 / -0 / MAX_SAFE_INTEGER / 256 KiB 文本本身可被领域接纳', async () => {
+  it('Registry 锚：深层 / 数组 / MAX_SAFE_INTEGER / 256 KiB 文本可被领域接纳；`-0` 按 ADR 0021 拒绝', async () => {
     await withFixture(async (registry) => {
       const accepted: Array<{ schemaText: string; root: unknown }> = [
         { schemaText: UNKNOWN_FIELD_SCHEMA_TEXT, root: { v: [[[[[[[[[[0]]]]]]]]]] } },
         { schemaText: NUMBER_ARRAY_SCHEMA_TEXT, root: { v: [1, 2, 3] } },
-        { schemaText: 'type ROOT = { n: number };', root: { n: -0 } },
         { schemaText: 'type ROOT = { n: number };', root: { n: Number.MAX_SAFE_INTEGER } },
         { schemaText: exactByteSchemaText(SCHEMA_TEXT_DEFAULT_LIMIT), root: { title: 'hello' } },
       ];
@@ -160,6 +160,13 @@ describe('issue #268 契约支撑锚（平台 / fixture，恒绿）', () => {
         expect(created.ok, `schema=${body.schemaText.slice(0, 40)} 应被领域接纳`).toBe(true);
         if (created.ok) await created.lease.release();
       }
+      // ADR 0021（issue #312）：-0 非法——原「-0 可被接纳」锚冻结于该决策之前，随 main 契约对齐。
+      const rejected = await registry.create({
+        owner: { userId: 'support-owner' },
+        schema: envelopeFor('type ROOT = { n: number };'),
+        root: { n: -0 },
+      });
+      expect(rejected.ok).toBe(false);
     });
   });
 

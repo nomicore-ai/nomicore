@@ -75,7 +75,13 @@ function runSupportContract(adapterName: string, factory: AdapterFactory): void 
         const opened = await registry.open({ userId: OWNER_USER_ID }, created.lease.namespaceId);
         expect(opened.ok).toBe(true);
         if (!opened.ok) throw new Error(`契约前置失败：open 失败 ${opened.code}`);
-        expect(opened.lease.readData(['title'])).toEqual({ ok: true, value: 'hello' });
+        // ADR 0027：readData 四键交付形 { ok, value, schema, truncated }——schema 为投影文本。
+        expect(opened.lease.readData(['title'])).toEqual({
+          ok: true,
+          value: 'hello',
+          schema: expect.any(String),
+          truncated: false,
+        });
         expect(opened.lease.getSchema()).toEqual(envelope);
         await opened.lease.release();
       } finally {
@@ -110,7 +116,13 @@ function runSupportContract(adapterName: string, factory: AdapterFactory): void 
           const reopened = await reopenedRegistry.open({ userId: OWNER_USER_ID }, namespaceId);
           expect(reopened.ok).toBe(true);
           if (!reopened.ok) throw new Error(`契约前置失败：重启后 open 失败 ${reopened.code}`);
-          expect(reopened.lease.readData(['title'])).toEqual({ ok: true, value: 'hello' });
+          // ADR 0027：readData 四键交付形 { ok, value, schema, truncated }——schema 为投影文本。
+          expect(reopened.lease.readData(['title'])).toEqual({
+            ok: true,
+            value: 'hello',
+            schema: expect.any(String),
+            truncated: false,
+          });
           expect(reopened.lease.getSchema()).toEqual(envelope);
           await reopened.lease.release();
         } finally {

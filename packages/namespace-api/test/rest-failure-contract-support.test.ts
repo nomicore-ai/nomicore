@@ -136,7 +136,13 @@ describe('issue #269 支撑绿锚：真实 Registry 故障面', () => {
       const opened = await verifier.open({ userId: OWNER_SENTINEL }, committedNamespaceId);
       expect(opened.ok).toBe(true);
       if (!opened.ok) throw new Error(`契约前置失败：已提交 namespace 无法 open（${opened.code}）`);
-      expect(opened.lease.readData(['title'])).toEqual({ ok: true, value: 'hello' });
+      // ADR 0027：readData 四键交付形 { ok, value, schema, truncated }——schema 为投影文本。
+      expect(opened.lease.readData(['title'])).toEqual({
+        ok: true,
+        value: 'hello',
+        schema: expect.any(String),
+        truncated: false,
+      });
       await opened.lease.release();
     } finally {
       if (verifier !== undefined) await verifier.shutdown();
