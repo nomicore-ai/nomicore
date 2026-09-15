@@ -1,0 +1,10 @@
+
+ RUN  v3.2.7 /home/wangjian/nomicore-fix-issue-389
+
+ ✓ packages/namespace-registry/test/issue-389-change-subscription-termination-red.test.ts (17 tests) 205ms
+ ✓ packages/namespace-registry/test/issue-389-sa7-dynamic-verification.test.ts (7 tests) 109ms
+
+ Test Files  2 passed (2)
+      Tests  24 passed (24)
+   Start at  07:55:59
+   Duration  1.23s (transform 399ms, setup 0ms, collect 652ms, tests 315ms, environment 0ms, prepare 90ms)

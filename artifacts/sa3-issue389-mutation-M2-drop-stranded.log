@@ -1,0 +1,68 @@
+
+ RUN  v3.2.7 /home/wangjian/nomicore-fix-issue-389
+
+ DEPRECATED  'basic' reporter is deprecated and will be removed in Vitest v3.
+Remove 'basic' from 'reporters' option. To match 'basic' reporter 100%, use configuration:
+{
+  "test": {
+    "reporters": [
+      [
+        "default",
+        {
+          "summary": false
+        }
+      ]
+    ]
+  }
+}
+ ❯ packages/namespace-registry/test/issue-389-change-subscription-termination-red.test.ts (17 tests | 1 failed | 14 skipped) 72ms
+   ↓ 组 C1/C2（AC1 + NC3）：复制 apply 与本地写同流——origin 两态、零过滤、零 watch-end > C1/C2：本地写 origin=local、复制 apply origin=replication、同流 FIFO、零 watch-end
+   ↓ 组 C3（AC2-A）：Hub 本地 replaceSchema → watch-end schema-changed > C3：替换 schema ok（oracle 绿）→ 滞留 data 先达、流末条 watch-end schema-changed
+   ↓ 组 C4（AC2-B）：Peer re-arm 路径 → watch-end schema-changed（ADR 0018） > C4：re-arm applied（指纹双侧一致 oracle 绿）→ peer 流末条 watch-end schema-changed
+   ↓ 组 C4（AC2-B）：Peer re-arm 路径 → watch-end schema-changed（ADR 0018） > C4b（B-T3-2 冻结：失败也发）：re-arm failed（fatal INVALID）仍发 watch-end schema-changed
+   ↓ 组 C5/C7/C10（AC3 + AC4 + AC6）：doc 替换 → watch-end doc-replaced > C5：reset ok（归档 1 次）→ 结算即已含已投递末条 watch-end doc-replaced（免 poll）
+   ↓ 组 C5/C7/C10（AC3 + AC4 + AC6）：doc 替换 → watch-end doc-replaced > C10（AC6）：doc-replaced 后重建——released 通道 + 重新 open 后新订阅可用且无终止信号
+   ✓ 组 C6/C8（AC4 + AC5）：watch-end 流末条——此后静默、滞留 data 必达 > C6：终止后「写 + 双预算屏障」零新增通知（含 invalidate-all 不后置） 33ms
+   × 组 C6/C8（AC4 + AC5）：watch-end 流末条——此后静默、滞留 data 必达 > C8（B-T3-6 必达）：多笔快连事务后立即 replaceSchema——data 全部先于 watch-end、末条恒终止项 15ms
+     → C8(ii)/B-T3-6：终止前已提交事务的 data 全部先于 watch-end 到达（清队丢滞留 data 即红）: expected [] to strictly equal [ 't3', 't4', 't5' ]
+   ✓ 组 C6/C8（AC4 + AC5）：watch-end 流末条——此后静默、滞留 data 必达 > CAP（容量豁免不变量）：>16 笔快连事务溢出降级后 watch-end 仍恒入队且为末条 23ms
+   ↓ 组 C9（AC6）：schema-changed 后重建订阅 > C9：lease 仍 active——重新 watchMap 按新 schema 建立并投递；旧句柄静默/幂等
+   ↓ 组 C11（AC7）：零新接缝——键集与通知闭集 > C11：lease 恰 16 键、runtime 恰 15 键、通知 kind ⊆ 三 kind 闭集、读面冻结
+   ↓ 负控 NC3–NC6：数据面与写面纪律零回归 > NC5：数据缺席 / 容器删除**不终结**订阅（终止只与 lease 和 schema 耦合）
+   ↓ 负控 NC3–NC6：数据面与写面纪律零回归 > NC6：无效写（schema 拒绝）零事务零通知（通知面与写结果一致）
+   ↓ 负控 NC3–NC6：数据面与写面纪律零回归 > NC3 补充：复制启用后本地写仍 origin=local、远端 apply 恒 replication（无过滤面）
+   ↓ 装置自检：hub/peer/reset 三装置前提为绿（红灯不得误归因于 fixture） > hub 复制装置：enableReplication + session + 身份投影一致
+   ↓ 装置自检：hub/peer/reset 三装置前提为绿（红灯不得误归因于 fixture） > peer 装置：importReplica 排他创建 + peer session 就绪
+   ↓ 装置自检：hub/peer/reset 三装置前提为绿（红灯不得误归因于 fixture） > reset 装置：种子复制身份在 live 投影与 persisted 双源一致
+
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  packages/namespace-registry/test/issue-389-change-subscription-termination-red.test.ts > 组 C6/C8（AC4 + AC5）：watch-end 流末条——此后静默、滞留 data 必达 > C8（B-T3-6 必达）：多笔快连事务后立即 replaceSchema——data 全部先于 watch-end、末条恒终止项
+AssertionError: C8(ii)/B-T3-6：终止前已提交事务的 data 全部先于 watch-end 到达（清队丢滞留 data 即红）: expected [] to strictly equal [ 't3', 't4', 't5' ]
+
+- Expected
++ Received
+
+- [
+-   "t3",
+-   "t4",
+-   "t5",
+- ]
++ []
+
+ ❯ packages/namespace-registry/test/issue-389-change-subscription-termination-red.test.ts:363:7
+    361|       sink.dataKeys(),
+    362|       'C8(ii)/B-T3-6：终止前已提交事务的 data 全部先于 watch-end 到达（清队丢滞留 data 即红）',
+    363|     ).toStrictEqual(['t3', 't4', 't5']);
+       |       ^
+    364|     expect(sink.kinds(), 'C8(iii)：终止后零通知').toStrictEqual([
+    365|       'data',
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+
+
+ Test Files  1 failed (1)
+      Tests  1 failed | 2 passed | 14 skipped (17)
+   Start at  07:29:54
+   Duration  745ms (transform 393ms, setup 0ms, collect 535ms, tests 72ms, environment 0ms, prepare 43ms)

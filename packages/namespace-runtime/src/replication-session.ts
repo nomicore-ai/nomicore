@@ -41,6 +41,7 @@ import type { DocHandle, DocHandleStatus } from '@nomicore/persistence';
 import type { CompileSchemaEnvelopeResult, SchemaEnvelope } from '@nomicore/vfsl';
 import { rearmPeerActiveSchema, snapshotSchemaFourKeys } from './schema-rearm.js';
 import type { RuntimeReplicationSchemaRearmOutcome, SchemaFourKeySnapshot } from './schema-rearm.js';
+import type { NamespaceRuntimeWatchHub } from './watch-map.js';
 import {
   FATAL_REPLICATION_APPLY_WRITE_INTERNAL_CODE,
   REPLICATION_EPOCH_CONFLICTED_CODE,
@@ -349,6 +350,9 @@ export interface RuntimeReplicationHost {
   /** 【issue #286】re-arm 编译步（构造栈 V3b 捕获局部量——与 P0/SCHEMA 写槽同一
    *  seam 注入；apply 槽 R5.6 共享段消费，INV-N14 纪律延续）。 */
   readonly compile: (envelope: SchemaEnvelope) => CompileSchemaEnvelopeResult;
+  /** 【issue #389 / ADR 0030 §4，T3】watch 订阅中枢（构造栈捕获局部量；R5.6
+   *  `text` 变化块内的 `watch-end:'schema-changed'` 编排入口——包内模块通道）。 */
+  readonly watchHub: NamespaceRuntimeWatchHub;
 }
 
 /** 模块级 host 登记（WeakMap——以 runtime 对象引用为键；不触碰 runtime 对象本身，
@@ -813,6 +817,15 @@ async function runSessionApplySlot(
         // 不经 diag.updateBytes 侧通道（两者此处等价，同形防漂移）。
         diagFatalTx(diag, rearmOutcome.code, true, 'schema-rearm', capturedUpdate);
       }
+      // ── R5.7【issue #389 / ADR 0030 §4，T3】schema-changed 订阅终止编排 ──────
+      //  挂点（SA6 B-T3-1 / 设计 §7-D4）：R5.6 `text` 变化块内、re-arm 结局与 diag
+      //  配对之后、R6 `dirtyStart`/`await notifyDirty()` 之前——同步段入队（R5 事务
+      //  经 ROOT observeDeep 产生的 data 通知已先行入队，终止项队尾追加 = 同槽 FIFO）。
+      //  覆盖 `applied` 与 `failed` 两结局（SA1 B-T3-2 冻结：**发**）——终止因 = 已
+      //  提交的 SCHEMA `text` 变更使旧 active schema 下的谓词语义失效，与 re-arm 成败
+      //  正交；`text` 未变 ⟹ 不终止。`void` fire-and-forget（槽不 await 投递——ADR 0018
+      //  §1「零新槽类型、不插队、dirty/ACK 照常」）。
+      void host.watchHub.terminateAll('schema-changed');
     }
   }
 

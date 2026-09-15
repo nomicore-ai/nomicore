@@ -1,0 +1,2 @@
+$ npx tsc -p tsconfig.typecheck.json --noEmit
+EXIT=0

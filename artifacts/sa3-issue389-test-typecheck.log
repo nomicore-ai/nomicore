@@ -1,0 +1,16 @@
+packages/namespace-registry/test/issue-389-change-subscription-t3-fixture.ts(450,5): error TS2322: Type 'NamespaceRuntimeWatchMapNotification[]' is not assignable to type '{ readonly kind: "watch-end"; readonly reason: string; }[]'.
+  Type 'NamespaceRuntimeWatchMapNotification' is not assignable to type '{ readonly kind: "watch-end"; readonly reason: string; }'.
+    Property 'reason' is missing in type '{ readonly kind: "data"; readonly origin: "local" | "replication"; readonly changes: readonly NamespaceRuntimeWatchMapChange[]; }' but required in type '{ readonly kind: "watch-end"; readonly reason: string; }'.
+packages/namespace-registry/test/issue-389-change-subscription-t3-fixture.ts(451,17): error TS2677: A type predicate's type must be assignable to its parameter's type.
+  Type '{ readonly kind: "watch-end"; readonly reason: string; }' is not assignable to type 'NamespaceRuntimeWatchMapNotification'.
+    Type '{ readonly kind: "watch-end"; readonly reason: string; }' is not assignable to type '{ readonly kind: "watch-end"; readonly reason: "schema-changed" | "doc-replaced"; }'.
+      Types of property 'reason' are incompatible.
+        Type 'string' is not assignable to type '"schema-changed" | "doc-replaced"'.
+packages/namespace-registry/test/issue-389-change-subscription-t3-fixture.ts(460,5): error TS2322: Type 'NamespaceRuntimeWatchMapNotification[]' is not assignable to type '{ readonly kind: "data"; readonly origin: string; readonly changes: readonly { readonly path: readonly (string | number)[]; readonly key: string; }[]; }[]'.
+  Type 'NamespaceRuntimeWatchMapNotification' is not assignable to type '{ readonly kind: "data"; readonly origin: string; readonly changes: readonly { readonly path: readonly (string | number)[]; readonly key: string; }[]; }'.
+    Property 'changes' is missing in type '{ readonly kind: "invalidate-all"; readonly origin: "local" | "replication"; }' but required in type '{ readonly kind: "data"; readonly origin: string; readonly changes: readonly { readonly path: readonly (string | number)[]; readonly key: string; }[]; }'.
+packages/namespace-registry/test/issue-389-change-subscription-t3-fixture.ts(461,17): error TS2677: A type predicate's type must be assignable to its parameter's type.
+  Type '{ kind: "data"; origin: string; changes: readonly { path: readonly (string | number)[]; key: string; }[]; }' is not assignable to type 'NamespaceRuntimeWatchMapNotification'.
+    Type '{ kind: "data"; origin: string; changes: readonly { path: readonly (string | number)[]; key: string; }[]; }' is not assignable to type '{ readonly kind: "data"; readonly origin: "local" | "replication"; readonly changes: readonly NamespaceRuntimeWatchMapChange[]; }'.
+      Types of property 'origin' are incompatible.
+        Type 'string' is not assignable to type '"local" | "replication"'.

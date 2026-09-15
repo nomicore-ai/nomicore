@@ -1,0 +1,9 @@
+
+ RUN  v3.2.7 /home/wangjian/nomicore-fix-issue-389
+
+ ✓ packages/namespace-registry/test/issue-389-sa7-dynamic-verification.test.ts (7 tests) 110ms
+
+ Test Files  1 passed (1)
+      Tests  7 passed (7)
+   Start at  07:55:29
+   Duration  785ms (transform 391ms, setup 0ms, collect 538ms, tests 110ms, environment 0ms, prepare 44ms)

@@ -1,7 +1,7 @@
 /**
  * @nomicore/namespace-runtime —— watchMap 键容器变更订阅（issue #387 / ADR 0030
- * 「变更订阅」T1 tracer bullet + issue #388 T2 谓词订阅的 runtime 侧唯一实现载体；
- * 设计 §8-B/C/D/E/G 与 T2 设计 §8.2/§8.3）。
+ * 「变更订阅」T1 tracer bullet + issue #388 T2 谓词订阅 + issue #389 T3 终止编排的
+ * runtime 侧唯一实现载体；设计 §8-B/C/D/E/G 与 T2 设计 §8.2/§8.3、ADR 0030 §4）。
  *
  * 职责（ADR 0030 §7 分层）：订阅簿记 + 建立判定 + 事务级信号推导 + 真变判定 +
  * **谓词判定（T2）** + 槽外异步分发与有界队列 + 关停。registry lease 面只做透传与
@@ -43,11 +43,18 @@
  * - **零 throw 硬红线**：handler 整体 try/catch 吞没——observer 内 throw 会经
  *   `transactGuarded` 收编 DOCRT-E203 写 fatal（永久禁写），直接违反 AC7。
  *
- * 边界（T2 非目标）：`watch-end` 终止编排与 `'replication'` 验收断言（T3 #389）、
- * 队列溢出注入与父路径删除/容器整替编排（T4 #390——C-3 不产出条目定位符）、
- * 文档面（T5 #391）。词表演进（`notEquals` / `and` / key 级过滤 / 数组载体
- * `watchArray` / 含值通知）不在 T2 封闭词表内（ADR §2 封闭小集）。`changes` 定位符不带值
- * （信号不含值——通知为深冻结纯数据，零 payload / 零载体引用 / 零投影文本）。
+ * - **T3 终止编排（issue #389 / ADR 0030 §4）**：`terminateAll(reason)` 向全部存活订阅
+ *   的队尾追加 `{kind:'watch-end', reason}`（恰两键）并从集合摘除（此后零入队点 =
+ *   「流末条 + 此后静默」的结构性保证）；终止项**复用既有 FIFO 队列与单飞泵**（绝不
+ *   同步直调 listener——绕过队列即违反 ADR §4 相对顺序），投递结算承诺在队列排空时
+ *   resolve（reset 关闭 admission 消费；schema 安装段 fire-and-forget）。终止后的
+ *   `unsubscribe()` 幂等 no-op（**不清队**——滞留 data 必达，B-T3-6）。
+ *
+ * 边界（T3 非目标）：队列溢出注入与父路径删除/容器整替编排（T4 #390——C-3 不产出
+ * 条目定位符）、文档面（T5 #391）。词表演进（`notEquals` / `and` / key 级过滤 /
+ * 数组载体 `watchArray` / 含值通知）不在 T2 封闭词表内（ADR §2 封闭小集）。
+ * `changes` 定位符不带值（信号不含值——通知为深冻结纯数据，零 payload / 零载体
+ * 引用 / 零投影文本）。
  *
  * 空路径边界（设计 §7-D3 显式承认）：map 形 ROOT 下 `watchMap([])` 合法（ROOT 本身
  * 即键容器），通知流产出 `{ path: [], key }` 定位符——`[...path, key]` 即根级条目路径。
@@ -125,6 +132,19 @@ export interface NamespaceRuntimeWatchHub {
     listener: (notification: NamespaceRuntimeWatchMapNotification) => void,
     options?: NamespaceRuntimeWatchMapOptions,
   ): NamespaceRuntimeWatchMapHandle;
+  /**
+   * 【issue #389 / ADR 0030 §4，T3】终止编排入口：向全部存活订阅的队尾追加
+   * `{kind:'watch-end', reason}` 并注销订阅（摘除出集合 ⇒ 此后零入队点）；返回的
+   * Promise 在「每个被终止订阅的队列已排空（终止项已投递）」时 resolve，**永不
+   * reject**（泵逐 listener try/catch 隔离，X1 沿用）。零存活订阅 → 立即 resolve。
+   *
+   * - 终止项**恒入队**（容量上界只治理 data 入队——终止项不可丢，否则复活「静默死亡」
+   *   失败形态）；
+   * - 幂等：多次调用各自作用于当时的存活集合（已终止订阅不在集合内，天然不重复）；
+   * - 调用侧：schema 安装段 `void`（fire-and-forget，槽语义零变化）；reset 关闭
+   *   admission `await`（投递结算并入 close 承诺——registry 结算即已投递）。
+   */
+  terminateAll(reason: 'schema-changed' | 'doc-replaced'): Promise<void>;
   /** Runtime close 同步段收口：摘 observer、清全部订阅（静默——ADR §4 终结三因
    *  不含 runtime close；lease force-release 已先行清理，此处为防御性收口）。 */
   shutdown(): void;
@@ -195,6 +215,13 @@ interface WatchSubscription {
   pumpScheduled: boolean;
   /** 退订标志（幂等守卫 + 泵在下一让步点的退出判据 + handler 跳过判据）。 */
   unsubscribed: boolean;
+  /** 【issue #389 / T3】终止标志（`terminateAll` 置位；与 `unsubscribed` 分立——
+   *  终止项必须投递，故 terminated 订阅的 `unsubscribed` 恒 false，泵排空至队空）。
+   *  置位同时从 `subscriptions` 集合摘除（零入队点的结构性保证）。 */
+  terminated: boolean;
+  /** 投递结算回调位（`terminateAll` 的返回承诺；泵 `finally` 中
+   *  `terminated && queue.length === 0` 时 resolve，恰一次）。 */
+  drainResolve: (() => void) | undefined;
 }
 
 // ─────────────────────────────── 建立判定（设计 §8-B） ───────────────────────────────
@@ -674,6 +701,13 @@ function schedulePump(subscription: WatchSubscription): void {
       // 非 listener 抛点收敛于此（泵零 unhandled rejection）
     } finally {
       subscription.pumpScheduled = false; // 与 while 退出检查同一同步段 ⇒ 无丢失唤醒
+      // 【issue #389 / T3】投递结算：终止订阅排空至队空 ⟹ 终止项已投递（队尾追加），
+      //   resolve `terminateAll` 的结算承诺（恰一次；Promise resolve 幂等）。
+      if (subscription.terminated && subscription.queue.length === 0) {
+        const drainResolve = subscription.drainResolve;
+        subscription.drainResolve = undefined;
+        drainResolve?.();
+      }
     }
   })();
 }
@@ -803,11 +837,17 @@ export function createWatchHub(
         queue: [],
         pumpScheduled: false,
         unsubscribed: false,
+        terminated: false,
+        drainResolve: undefined,
       };
       subscriptions.add(subscription);
       let unsubscribed = false;
       const handle: NamespaceRuntimeWatchMapHandle = {
         unsubscribe: (): void => {
+          // 【issue #389 / T3，AC4】终止后幂等 no-op：**不清队**——滞留 data 与终止项
+          //   必须投递（B-T3-6 必达）；lease force-release 清理路径同样经此收敛为
+          //   no-op（机制点：终止订阅的队列免于释放清队）。
+          if (subscription.terminated) return;
           if (unsubscribed) return; // 幂等：重复退订零 throw、零副作用
           unsubscribed = true;
           subscription.unsubscribed = true;
@@ -816,6 +856,27 @@ export function createWatchHub(
         },
       };
       return Object.freeze(handle);
+    },
+    /**
+     * 【issue #389 / ADR 0030 §4，T3】终编排（D1）：快照迭代 + 队尾追加 + 摘除 +
+     * 投递结算承诺。纯同步、无抛点结构（内存集合/队列与冻结字面量操作）。
+     */
+    terminateAll(reason) {
+      const drains: Promise<void>[] = [];
+      for (const subscription of [...subscriptions]) {
+        if (subscription.unsubscribed) continue; // 结构性：退订即摘除
+        subscription.terminated = true;
+        subscriptions.delete(subscription); // 摘除 ⇒ onRootTransaction 天然跳过（零新入队）
+        subscription.queue.push(Object.freeze({ kind: 'watch-end', reason })); // 恰两键；容量豁免
+        drains.push(
+          new Promise<void>((resolve) => {
+            subscription.drainResolve = resolve;
+          }),
+        );
+        schedulePump(subscription);
+      }
+      if (drains.length === 0) return Promise.resolve(); // 零存活订阅 → 立即结算
+      return Promise.all(drains).then(() => undefined); // 永不 reject（drain 仅 resolve）
     },
     shutdown() {
       if (shutdownDone) return; // 幂等（close 同步段防御性收口）
