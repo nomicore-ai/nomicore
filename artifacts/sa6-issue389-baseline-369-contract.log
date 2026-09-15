@@ -1,0 +1,9 @@
+
+ RUN  v3.2.7 /home/wangjian/nomicore-fix-issue-389
+
+ ✓ packages/namespace-registry/test/issue-369-window-read-lease-contract-red.test.ts (33 tests) 111ms
+
+ Test Files  1 passed (1)
+      Tests  33 passed (33)
+   Start at  06:15:52
+   Duration  1.04s (transform 540ms, setup 0ms, collect 716ms, tests 111ms, environment 0ms, prepare 72ms)

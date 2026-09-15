@@ -1,0 +1,13 @@
+Testing types with tsc and vue-tsc is an experimental feature.
+Breaking changes might not follow SemVer, please pin Vitest's version when using it.
+
+ RUN  v3.2.7 /home/wangjian/nomicore-fix-issue-388
+
+ ✓ packages/namespace-registry/test/issue-387-watch-map-tracer-red.test.ts (21 tests) 193ms
+ ✓  TS  packages/namespace-registry/test/issue-387-watch-map-lease-surface.test-d.ts (2 tests)
+
+ Test Files  2 passed (2)
+      Tests  23 passed (23)
+Type Errors  no errors
+   Start at  09:31:16
+   Duration  2.07s (transform 608ms, setup 0ms, collect 876ms, tests 193ms, environment 0ms, prepare 47ms, typecheck 2.02s)

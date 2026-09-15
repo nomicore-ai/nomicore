@@ -180,6 +180,64 @@ For `readArray` the identity segment is `entry.index` — already a number, so t
 
 **Element-scope projection text.** `schema` is the **element-scope projection text** — the [ADR 0027](../../../docs/adr/0027-readdata-projection-text.md) form without a `readData` head line: the type block and docs of one entry, with `depth` fold markers inside the element subtree. The `{ index | key, value }` wrapper is the transport form and never enters the 口径: the text describes the *entry's* schema slice, not the list shape. It is path-keyed and data-independent, so an empty container still returns the element scope. The carrier check is schema-blind — any keyed container is a legal `readMap` target, whether Record-shaped (dynamic keys) or a closed `YMap<{…}>`; that distinction only affects the schema anchor below. For a Record-shaped key container the anchor is the dynamic key slot (`'<key>'`); for a closed `YMap<{…}>` shape that anchor does not resolve and the text falls back to the **container path**, whose type block statically enumerates every entry key and value type — in that fallback `depth` counts from the container, so pass `depth ≥ 1` for the full field scope. `schema` stays `null` when there is no active schema, the path strays off-schema, or no anchor resolves; as with `readData`, a null projection is not a read failure. Interpret the text with the same triad discipline — value + formal schema + 数据口径.
 
+## Change subscription: `watchMap`
+
+When a consumer must react to entries changing — an agent refreshing a held task view, a host UI invalidating a panel — `lease.watchMap(path, listener, options?)` ([ADR 0030](../../../docs/adr/0030-change-subscription.md)) establishes a keyed-container change subscription and returns an idempotent `{ unsubscribe() }` handle. The contract is **signal, not value**（信号不含值）: every notification carries entry **locators** `{ path, key }` — identity-isomorphic with window-read entries, so `[...path, key]` feeds the next `readData` / window read directly — and nothing else (no payload, no carrier reference, no projection text; deeply frozen pure data). Division of labour with the pull face: `watchMap` decides **when to look again**, the read faces decide **what to read**; a subscription never replaces the initial full read.
+
+```ts
+const watch = lease.watchMap(
+  ['tasks'],
+  (notification) => consumeTasksSignal(notification), // consumption protocol below
+  { where: { field: 'status', in: ['draft', 'reviewing'] } }, // predicate optional — omit for every entry
+)
+// later: watch.unsubscribe() — idempotent, zero-throw, produces no notification of its own
+```
+
+### Establishment: synchronous throw, all validation by the active schema
+
+Every establishment failure throws **synchronously** — a `WatchMapError` with a stable `WATCH_MAP_*` code, unlike the read faces' result unions — and registers zero subscription; after establishment the stream carries no parameter errors. The stable codes:
+
+- `WATCH_MAP_SCHEMA_UNAVAILABLE` — no active schema: `watchMap` is unavailable for the whole namespace, predicate or not (the mechanism is defined by the schema; install a schema first).
+- `WATCH_MAP_CARRIER_MISMATCH` — the path is off-schema, hostile, or its endpoint is not a keyed container (array carrier, scalar); the message distinguishes the cause. Arrays are outside the v1 vocabulary (`watchArray` is a v2 seat) — a subscription, unlike a window read, has no "switch to the other API" disposition for them.
+- `WATCH_MAP_OPTIONS_INVALID` — the predicate is illegal: hostile options/`where` shape, `in` empty array, `field` missing on the entry shape, entries without a unified record value domain, or a non-scalar field domain. Fix the options — a caller bug, not a data condition.
+
+A released lease throws `NamespaceLeaseReleasedError` before any passthrough; a non-`ready` runtime throws `RuntimeReadDisabledError`. **Data absence is legal** — the deliberate opposite of window reads' loud `WINDOW_TARGET_ABSENT`: a schema-declared container may be watched while unmaterialized or deleted, because the subscription is a mechanism, not a snapshot — it waits for future creation and survives container delete/recreate cycles (entries flow again after recreation). On a map-shaped ROOT, `watchMap([])` is legal and yields `{ path: [], key }` locators.
+
+### Predicate vocabulary (closed set)
+
+`options.where` is exactly `{ field, equals }` or `{ field, in }` — one operator, a single-segment `field`, and **scalar** values only (`string | number | boolean` / schema literals). Missing or `null` field values **never match**, uniformly for every operator (no NULL three-valued logic; a state that should match "missing" belongs in the schema as an explicit literal). `in` is set semantics (order-free, deduplicated) and an **empty array is rejected loudly** — a never-matching subscription is a configuration error. Composition stays out of the vocabulary: no `and` (run several single-predicate subscriptions and intersect by key — the intersection state is part of your view), no key-level filter (the key rides on every locator; one `filter` line does it). New operators are vocabulary evolution through design review, as with guard and window reads.
+
+### Notification stream: three kinds, per-subscription FIFO
+
+```ts
+{ kind: 'data',           origin, changes: [{ path, key }] } // exactly three keys
+{ kind: 'invalidate-all', origin }                           // subscription stays alive
+{ kind: 'watch-end',      reason }                           // final item, then silence
+```
+
+- **`data`** — `changes` is the locator list of changed entries (`path` = the watched container path, `key` = the entry key). One transaction yields at most one notification per subscription, same key merged into one locator; a batched mutation envelope is one transaction, so its entries arrive atomically in one notification. A notification means the entry's **projected value really changed**: same-value writes are filtered when both old and new sides are plain data (deep structural comparison); a live Yjs carrier or a nested partial update on either side is unjudgeable — **conservative notification**（宁多勿漏）. With a predicate, an entry is notified when it really changed *and* (no predicate ∨ old state matched ∨ new state matched ∨ old match state unjudgeable — conservative): both entering and leaving the match set are notified.
+- **`invalidate-all`** — the subscription survives; the entire prior locator knowledge is void, re-read everything (next section, step 3). Triggers: notification-queue overflow (a bounded queue; the number is deliberately outside the public contract) and structural invalidation — deletion or whole-replacement of a strict ancestor of the watched path. It also clears queued-but-undelivered notifications, whose semantics it subsumes.
+- **`watch-end`** — the stream's final item, then permanent silence. `reason: 'schema-changed'`（local `replaceSchema` or Peer re-arm）or `'doc-replaced'`（reset / bootstrap import / genesis）. Schema change terminates rather than persists silently: under a new schema the predicate's meaning may be broken. Data absence and entry deletion never end a subscription; the three endings are lease release (itself silent — the capability is gone), schema change, and doc replacement. After `watch-end`, `unsubscribe()` is an idempotent no-op that clears nothing — queued data still delivers first (FIFO through the final item).
+
+`origin` is `'local' | 'replication'` — local writes (`mutateData` through the write sequencer) versus replicated applies (via `openReplicationSession`). The engine never filters by origin; **self-echo suppression is the consumer's job** — skip or specially handle `origin: 'local'` notifications for writes you issued yourself. Delivery is asynchronous after the transaction commits, outside the write-sequencer slot; ordering is per-subscription FIFO; a listener that throws is silently isolated — a notification failure never changes a write's outcome.
+
+### Consumption protocol (v1, no reconciliation)
+
+Every notification makes exactly one promise: **"the entries at this position may differ from what you know"**（这个位置的条目状态可能与你所知不同）— no direction (no entered/left/changed typing) and no certainty of real change (false notifications are tolerated: 宁多勿漏 — a missed notification means a consumer permanently holds stale data, unacceptable; an extra one costs one re-read). The correct consumption is therefore idempotent **pull the final state and see for yourself**, never delta application:
+
+1. **Establish, then one full pull** — right after `watchMap` returns, read the container once (`readMap` / `readData`) to build the initial view; notifications racing in between are absorbed by the next steps.
+2. **On `data`** — for each locator, read `[...change.path, change.key]` and update the view by presence: entry present → update it; entry absent → drop it. Collapse duplicate locators by key (idempotent).
+3. **On `invalidate-all`** — drop entry-level assumptions and re-pull the whole container (the step-1 read).
+4. **On `watch-end`** — rebuild: re-derive the predicate against the new schema (the field may be renamed or retyped), re-establish the subscription, start over at step 1.
+
+Coalescing and throttling (UI per frame, agent per decision point) are host-side bridging concerns; the engine guarantees transaction-atomic notifications and FIFO only.
+
+### Open-set pitfall, and the other change streams
+
+**An open state set leaks notifications**: an `in` list does not extend itself when the schema later adds a new status literal. An entry already outside the list (say, a newly added `'parked'`) that changes again to another outside value triggers no notification — neither old nor new state matches. When the schema widens a literal union an `in` predicate subscribes to, extend the list and re-establish the subscription (step 4 above).
+
+`watchMap` is the business consumers' change face; keep it apart from the three streams it resembles: `ReplicationSession.subscribeOwnedUpdates` delivers **raw Yjs bytes to trusted transports only** (wire replication, not semantics); the diagnostic change log（ADR 0011/0014）is **offline best-effort observability**; the Registry observer seam is **lifecycle failure diagnostics** with no public subscription in v1. None of the three carries entry locators, predicate filtering, or lease-scoped lifetime — and `watchMap` carries none of their duties.
+
 ## Mutation policy: minimal, mergeable, semantic
 
 Design every business write against three simultaneous criteria:
@@ -263,4 +321,4 @@ The runtime SCHEMA passed to Registry creation or an existing namespace's `repla
 
 ## Completion gate
 
-Complete when generation succeeds, `--check` reports fresh output using the same format flags as generation (including `--semicolon-free` when selected), generated files are tracked by the host, `tsc --listFilesOnly` proves the consuming Program contains the exact projection, and activation guards prove a known path's exact type plus an unknown path's fail-closed behavior. Positive access code type-checks, intentional invalid examples are rejected, and every business write is demonstrably minimal, mergeable, and semantic: its verb/path describe the intended change, it preserves unrelated Yjs nodes, and it does not reconstruct ROOT or a parent container. Budget reads, when used, keep `DeepOptional` optional access and never feed a mutation as a complete snapshot. Window reads, when used, pick the API by carrier (loud `WINDOW_CARRIER_MISMATCH` switching, loud absence — no silent absorption), re-stitch entry identity (`[...path, entry.index | entry.key]`, array segments numeric) for every follow-up deep read or mutation, and are never treated as pagination or a complete snapshot. Runtime failures remain handled as structured results, concurrency tests cover independent edits where relevant, and both the package-local build Program and the projection-aware typecheck Program pass their required CI gates.
+Complete when generation succeeds, `--check` reports fresh output using the same format flags as generation (including `--semicolon-free` when selected), generated files are tracked by the host, `tsc --listFilesOnly` proves the consuming Program contains the exact projection, and activation guards prove a known path's exact type plus an unknown path's fail-closed behavior. Positive access code type-checks, intentional invalid examples are rejected, and every business write is demonstrably minimal, mergeable, and semantic: its verb/path describe the intended change, it preserves unrelated Yjs nodes, and it does not reconstruct ROOT or a parent container. Budget reads, when used, keep `DeepOptional` optional access and never feed a mutation as a complete snapshot. Window reads, when used, pick the API by carrier (loud `WINDOW_CARRIER_MISMATCH` switching, loud absence — no silent absorption), re-stitch entry identity (`[...path, entry.index | entry.key]`, array segments numeric) for every follow-up deep read or mutation, and are never treated as pagination or a complete snapshot. Change subscriptions, when used, treat every notification as the one-sentence promise (entries at this position may differ — no direction, no certainty): full pull once after establishment, per-key final-state pulls on `data` (present → update, absent → drop), whole-container re-pull on `invalidate-all`, rebuild on `watch-end`; self-echo is suppressed by `origin` at the consumer, and notifications are never applied as deltas or held as a snapshot. Runtime failures remain handled as structured results, concurrency tests cover independent edits where relevant, and both the package-local build Program and the projection-aware typecheck Program pass their required CI gates.

@@ -1,0 +1,63 @@
+P1-enableReplication: {
+  "ok": true
+}
+P2-replication-facts: {
+  "replicationId": "00000000000000000000000000000001",
+  "replicationEpoch": 1
+}
+P3-detached-schema-text-prefix: "type Task = YMap<{\n "
+P4-importReplica: {
+  "ok": true
+}
+P5-peer-active-schema-before: {
+  "text": "V1",
+  "fingerprint": "sha256:v1:a778cbe7beb64da469e3f84cf4d2a89c748703f2714ed2d3edb128d064fc9a70"
+}
+P6-peer-session-open: {
+  "ok": true
+}
+P7-peer-local-write-notification: [
+  {
+    "kind": "data",
+    "origin": "local",
+    "changes": [
+      {
+        "path": [
+          "tasks"
+        ],
+        "key": "t3"
+      }
+    ]
+  }
+]
+P8-hub-replaceSchema: {
+  "ok": true
+}
+P9-hub-owned-updates: 1
+P10-peer-applyRemoteUpdate: {
+  "ok": true,
+  "schemaRearm": {
+    "kind": "applied",
+    "semanticFingerprint": "sha256:v1:1cbe51995ae4c3c660342e7697918084ad1c47947f7ed0dad8a1a527c4d0b8f1",
+    "updatedAt": "2023-11-14T22:15:23.456Z"
+  }
+}
+P11-peer-active-schema-after: {
+  "text": "V2",
+  "fingerprint": "sha256:v1:1cbe51995ae4c3c660342e7697918084ad1c47947f7ed0dad8a1a527c4d0b8f1"
+}
+P12-peer-notifications: [
+  {
+    "kind": "data",
+    "origin": "local",
+    "changes": [
+      {
+        "path": [
+          "tasks"
+        ],
+        "key": "t3"
+      }
+    ]
+  }
+]
+P13-peer-watch-end-count: 0

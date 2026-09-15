@@ -1,0 +1,133 @@
+=== vitest.config.ts ===
+import { fileURLToPath } from 'node:url';
+import { defineConfig } from 'vitest/config';
+
+export default defineConfig({
+  resolve: {
+    alias: [
+      { find: '@nomicore/yjs-server', replacement: fileURLToPath(new URL('./apps/yjs-server/src/index.ts', import.meta.url)) },
+      { find: '@nomicore/vfs3-assets', replacement: fileURLToPath(new URL('./domains/vfs3-assets/index.ts', import.meta.url)) },
+      { find: /^@nomicore\/([^/]+)\/testing$/, replacement: fileURLToPath(new URL('./packages/$1/src/testing.ts', import.meta.url)) },
+      { find: /^@nomicore\/namespace-runtime\/internal$/, replacement: fileURLToPath(new URL('./packages/namespace-runtime/src/internal.ts', import.meta.url)) },
+      { find: /^@nomicore\/([^/]+)$/, replacement: fileURLToPath(new URL('./packages/$1/src/index.ts', import.meta.url)) },
+    ],
+  },
+  test: {
+    include: ['packages/*/test/**/*.test.ts', 'domains/*/test/**/*.test.ts', 'apps/*/test/**/*.test.ts'],
+    passWithNoTests: true,
+    maxWorkers: 1,
+    typecheck: {
+      enabled: true,
+      include: ['packages/*/test/**/*.test-d.ts', 'domains/*/test/**/*.test-d.ts'],
+      tsconfig: './tsconfig.typecheck.json',
+    },
+  },
+});
+
+=== registry test files (collected candidates) ===
+  packages/namespace-registry/test/diag-pump-scheduler-injection.test.ts
+  packages/namespace-registry/test/issue-369-window-read-lease-contract-red.test.ts
+  packages/namespace-registry/test/issue-369-window-read-lease-surface.test-d.ts
+  packages/namespace-registry/test/issue-387-watch-map-lease-surface.test-d.ts
+  packages/namespace-registry/test/issue-387-watch-map-tracer-red.test.ts
+  packages/namespace-registry/test/readdata-docs-adr0016-sync-control.test.ts
+  packages/namespace-registry/test/readdata-docs-adr0016-sync-red.test.ts
+  packages/namespace-registry/test/registry-create-diagnostic-code-source.test.ts
+  packages/namespace-registry/test/registry-create-diagnostic-red.test.ts
+  packages/namespace-registry/test/registry-create-diagnostic-sa7-dynamic.test.ts
+  packages/namespace-registry/test/registry-create.test.ts
+  packages/namespace-registry/test/registry-data-interface.test-d.ts
+  packages/namespace-registry/test/registry-delete-orchestration.test.ts
+  packages/namespace-registry/test/registry-entry-removal-guard.test.ts
+  packages/namespace-registry/test/registry-guard-proxy-consumption.test.ts
+  packages/namespace-registry/test/registry-idle.test.ts
+  packages/namespace-registry/test/registry-issue-226-red.test.ts
+  packages/namespace-registry/test/registry-issue-249-coverage.test.ts
+  packages/namespace-registry/test/registry-issue-249-duplicate-red.test.ts
+  packages/namespace-registry/test/registry-issue-249-pump-red.test.ts
+  packages/namespace-registry/test/registry-node-dispose.test.ts
+  packages/namespace-registry/test/registry-open.test.ts
+  packages/namespace-registry/test/registry-persistence-contract.test.ts
+  packages/namespace-registry/test/registry-phase5-bootstrap-reset-r2-internal.test.ts
+  packages/namespace-registry/test/registry-phase5-bootstrap-reset-r2-red.test.ts
+  packages/namespace-registry/test/registry-phase5-bootstrap-reset-r2-surface.test-d.ts
+  packages/namespace-registry/test/registry-phase5-bootstrap-reset-red.test.ts
+  packages/namespace-registry/test/registry-phase5-bootstrap-reset-surface.test-d.ts
+  packages/namespace-registry/test/registry-phase5-identity-red.test.ts
+  packages/namespace-registry/test/registry-phase5-identity-surface.test-d.ts
+  packages/namespace-registry/test/registry-phase5-replication-channels.test.ts
+  packages/namespace-registry/test/registry-phase5-replication-red.test.ts
+  packages/namespace-registry/test/registry-phase5-replication-session-red.test.ts
+  packages/namespace-registry/test/registry-phase5-replication-session-round2-red.test.ts
+  packages/namespace-registry/test/registry-phase5-replication-session-surface.test-d.ts
+  packages/namespace-registry/test/registry-phase5-replication-surface.test-d.ts
+  packages/namespace-registry/test/registry-plugin.test.ts
+  packages/namespace-registry/test/registry-readdata-budget-passthrough.test-d.ts
+  packages/namespace-registry/test/registry-readdata-budget-passthrough.test.ts
+  packages/namespace-registry/test/registry-readdata-projection-text-red.test.ts
+  packages/namespace-registry/test/registry-readdata-projection-text.test-d.ts
+  packages/namespace-registry/test/registry-readdata-schema-red.test-d.ts
+  packages/namespace-registry/test/registry-sa7-concurrency.test.ts
+  packages/namespace-registry/test/registry-sa7-cordis.test.ts
+  packages/namespace-registry/test/registry-sa7-hostile.test.ts
+  packages/namespace-registry/test/registry-sa7-phase5-bootstrap-reset-dynamic.test.ts
+  packages/namespace-registry/test/registry-sa7-phase5-dynamic.test.ts
+  packages/namespace-registry/test/registry-sa7-phase5-replication-dynamic.test.ts
+  packages/namespace-registry/test/registry-sa7-rev1.test.ts
+  packages/namespace-registry/test/registry-schema-lifecycle.test.ts
+  packages/namespace-registry/test/registry-shutdown.test.ts
+  packages/namespace-registry/test/registry-surface.test.ts
+Testing types with tsc and vue-tsc is an experimental feature.
+Breaking changes might not follow SemVer, please pin Vitest's version when using it.
+packages/namespace-registry/test/diag-pump-scheduler-injection.test.ts
+packages/namespace-registry/test/issue-369-window-read-lease-contract-red.test.ts
+packages/namespace-registry/test/issue-387-watch-map-tracer-red.test.ts
+packages/namespace-registry/test/readdata-docs-adr0016-sync-control.test.ts
+packages/namespace-registry/test/readdata-docs-adr0016-sync-red.test.ts
+packages/namespace-registry/test/registry-create-diagnostic-code-source.test.ts
+packages/namespace-registry/test/registry-create-diagnostic-red.test.ts
+packages/namespace-registry/test/registry-create-diagnostic-sa7-dynamic.test.ts
+packages/namespace-registry/test/registry-create.test.ts
+packages/namespace-registry/test/registry-delete-orchestration.test.ts
+packages/namespace-registry/test/registry-entry-removal-guard.test.ts
+packages/namespace-registry/test/registry-guard-proxy-consumption.test.ts
+packages/namespace-registry/test/registry-idle.test.ts
+packages/namespace-registry/test/registry-issue-226-red.test.ts
+packages/namespace-registry/test/registry-issue-249-coverage.test.ts
+packages/namespace-registry/test/registry-issue-249-duplicate-red.test.ts
+packages/namespace-registry/test/registry-issue-249-pump-red.test.ts
+packages/namespace-registry/test/registry-node-dispose.test.ts
+packages/namespace-registry/test/registry-open.test.ts
+packages/namespace-registry/test/registry-persistence-contract.test.ts
+packages/namespace-registry/test/registry-phase5-bootstrap-reset-r2-internal.test.ts
+packages/namespace-registry/test/registry-phase5-bootstrap-reset-r2-red.test.ts
+packages/namespace-registry/test/registry-phase5-bootstrap-reset-red.test.ts
+packages/namespace-registry/test/registry-phase5-identity-red.test.ts
+packages/namespace-registry/test/registry-phase5-replication-channels.test.ts
+packages/namespace-registry/test/registry-phase5-replication-red.test.ts
+packages/namespace-registry/test/registry-phase5-replication-session-red.test.ts
+packages/namespace-registry/test/registry-phase5-replication-session-round2-red.test.ts
+packages/namespace-registry/test/registry-plugin.test.ts
+packages/namespace-registry/test/registry-readdata-budget-passthrough.test.ts
+packages/namespace-registry/test/registry-readdata-projection-text-red.test.ts
+packages/namespace-registry/test/registry-sa7-concurrency.test.ts
+packages/namespace-registry/test/registry-sa7-cordis.test.ts
+packages/namespace-registry/test/registry-sa7-hostile.test.ts
+packages/namespace-registry/test/registry-sa7-phase5-bootstrap-reset-dynamic.test.ts
+packages/namespace-registry/test/registry-sa7-phase5-dynamic.test.ts
+packages/namespace-registry/test/registry-sa7-phase5-replication-dynamic.test.ts
+packages/namespace-registry/test/registry-sa7-rev1.test.ts
+packages/namespace-registry/test/registry-schema-lifecycle.test.ts
+packages/namespace-registry/test/registry-shutdown.test.ts
+packages/namespace-registry/test/registry-surface.test.ts
+packages/namespace-registry/test/issue-369-window-read-lease-surface.test-d.ts
+packages/namespace-registry/test/issue-387-watch-map-lease-surface.test-d.ts
+packages/namespace-registry/test/registry-data-interface.test-d.ts
+packages/namespace-registry/test/registry-phase5-bootstrap-reset-r2-surface.test-d.ts
+packages/namespace-registry/test/registry-phase5-bootstrap-reset-surface.test-d.ts
+packages/namespace-registry/test/registry-phase5-identity-surface.test-d.ts
+packages/namespace-registry/test/registry-phase5-replication-session-surface.test-d.ts
+packages/namespace-registry/test/registry-phase5-replication-surface.test-d.ts
+packages/namespace-registry/test/registry-readdata-budget-passthrough.test-d.ts
+packages/namespace-registry/test/registry-readdata-projection-text.test-d.ts
+packages/namespace-registry/test/registry-readdata-schema-red.test-d.ts

@@ -1,0 +1,2 @@
+raw plain-entry replace (t3 done→closed, both non-matching) | HEAD notify=1 | keys=[["t3"]]
+delta facts = [{"path":["tasks"],"key":"t3","action":"update","oldValueKind":"plain","oldPlainStatus":"done","newStatus":"closed"}]

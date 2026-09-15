@@ -860,7 +860,7 @@ describe('负控：readData 冻结面与窗口响亮语义互不污染', () => {
   });
 });
 
-// ───────────────────────── F4/F5 的 record 型 runtime 替身（14 键面） ─────────────────────────
+// ───────────────────────── F4/F5 的 record 型 runtime 替身（15 键面） ─────────────────────────
 
 /** 记录型 runtime 替身：窗口两方法可注入；其余面固定返回（不参与断言）。 */
 function makeStubRuntime(overrides: {
@@ -881,6 +881,11 @@ function makeStubRuntime(overrides: {
       if (overrides.readMap !== undefined) return overrides.readMap(path, options);
       if (overrides.disabled !== undefined) return overrides.disabled;
       return { ok: true, value: [], schema: null, truncated: false };
+    },
+    // issue #387（ADR 0030 T1）：15 键面新增成员——本替身不消费订阅，恒响亮拒绝
+    //（建立失败面 = 同步 throw；键集义务纯加法，既有断言零改动）。
+    watchMap: () => {
+      throw new Error('stub: watch 订阅未接线');
     },
     getSchema: () => null,
     getMetadata: () => ({ marker: 'meta' }),

@@ -95,6 +95,12 @@ import { createSessionFanout, registerReplicationHost } from './replication-sess
 import type { RuntimeReplicationHost } from './replication-session.js';
 import type { SequencerSlotSample } from './sequencer.js';
 import { buildDiagnosticEnv, createSlotDiag, emitAttempt, emitSlot } from './diagnostic.js';
+import { createWatchHub } from './watch-map.js';
+import type {
+  NamespaceRuntimeWatchMapHandle,
+  NamespaceRuntimeWatchMapNotification,
+  NamespaceRuntimeWatchMapOptions,
+} from './watch-map.js';
 
 
 /** 复制观测注入（issue #238 §4/§7；缺省 dormant）。 */
@@ -120,6 +126,9 @@ export interface NamespaceRuntimeSeamInput {
   /** Epoch-millisecond source used for diagnostic observedAt. */
   readonly clock?: () => number;
   readonly replicationObservability?: NamespaceReplicationObservability;
+  /** 【issue #390 / ADR 0030 T4】watch 通知队列容量（testing 注入经 Registry 第三参
+   *  到达；缺省 undefined → `createWatchHub` 缺省参数 = 实现常量）。数值不进公共契约。 */
+  readonly watchQueueCapacity?: number;
 }
 
 /** closing/closed 期 read 拒绝分支（#92）：ADR-0008 读取能力节「预期路径、载体和
@@ -277,6 +286,45 @@ export interface NamespaceRuntime {
     path: readonly (string | number)[],
     options: NamespaceRuntimeReadMapOptions,
   ) => NamespaceRuntimeReadMapResult;
+  /**
+   * 第十五键（issue #387 / ADR 0030 T1；issue #388 T2 纯加法加宽第三参）：`path`
+   * 终点键容器的变更订阅（无谓词形态 + 谓词形态）。
+   *
+   * - **建立判定全部由 active schema 完成**（ADR §3，零 live 载体探测）：valueSchema
+   *   （ref 追尽后）`'object'` → 键容器（Y.Map 载体 / plain object 容器 / 封闭对象
+   *   map，对齐 readMap 载体面）；`'array'` 载体、标量/终态形态、path 偏离 schema 或
+   *   形状敌意 → `WATCH_MAP_CARRIER_MISMATCH`（同步 throw，message 区分原因，见
+   *   `WatchMapError`）；**无 active schema 整体拒绝**
+   *   `WATCH_MAP_SCHEMA_UNAVAILABLE`（legacy/preparing/unavailable/fatal 期）；
+   * - **数据缺席合法**：schema 已声明但未物化 / 已删除的容器照常建立成功（订阅是机制
+   *   不是数据快照——读对缺席报错、订阅宽容等待）；建立成功返回恰 `{ unsubscribe }`
+   *   句柄（幂等退订、零 throw、退订后零通知）；
+   * - **谓词（T2；ADR §2 封闭词表）**：第三参 `options.where` 为
+   *   `{field, equals}` | `{field, in}`（恰一算子、单段 field、值域恒标量）；建立期由
+   *   active schema 裁决（field 不存在 / 条目无统一值域 / 非标量域 / `in` 空数组 /
+   *   词形非法）→ 同步 throw `WATCH_MAP_OPTIONS_INVALID`（失败零订阅登记）；
+   *   省略 options / `undefined` / `{}` / `{where: undefined}` ⇒ 无谓词，T1 行为逐字不变；
+   * - **通知判定（ADR §5 宁多勿漏）**：通知 ⟺ 真变 ∧（无谓词 ∨ 旧匹配 ∨ 新匹配 ∨
+   *   旧态不可判 → 保守通知）。精确静默面 = 新增非匹配条目、plain 快照条目的整替/删除；
+   *   保守面 = 嵌套部分更新（AC7 逐字）与 live Y 载体整替/删除（旧态被 Yjs 清空，
+   *   不可判）。退出匹配集照常通知（消费方拉终态自辨删除视图项）；
+   * - **通知**：`data` 通知恰三键 `{kind:'data', origin, changes}`——`changes` 为
+   *   `{path, key}` 定位符列表（`[...path, key]` 直接拼下一轮读路径），**不含值**；
+   *   一事务一通知（`observeDeep` 每事务恰一次回调）、同事务同 key 合并、FIFO；
+   *   `origin` = 事务来源两态分类（本地受控写 `'local'`；复制 apply
+   *   `'replication'`——**无过滤**，ADR §5 宁多勿漏）；
+   * - **分发**：事务提交后在写序列器槽之外异步投递（单飞微任务泵）；订阅回调 throw
+   *   静默隔离（不影响写结果、sequencer 行为与其他订阅）；有界队列溢出 →
+   *   `invalidate-all`（订阅存活）；
+   * - **生命周期**：lease 释放自动清理该 lease 全部订阅；
+   *   lifecycle≠ready（closing/closed）期同步 throw `RuntimeReadDisabledError`（复用
+   *   读域停接纳码族）。
+   */
+  readonly watchMap: (
+    path: readonly (string | number)[],
+    listener: (notification: NamespaceRuntimeWatchMapNotification) => void,
+    options?: NamespaceRuntimeWatchMapOptions,
+  ) => NamespaceRuntimeWatchMapHandle;
   /** SCHEMA 四标准键投影（D4；载体缺席 → null，载体异型 → loud throw NSRT-SCHEMA-E2；
    *  非 primitive 值 → loud throw）。
    *  lifecycle≠ready（closing/closed）期同步 throw RuntimeReadDisabledError（code
@@ -515,11 +563,21 @@ export function createNamespaceRuntimeWithSeam(input: NamespaceRuntimeSeamInput)
   // V3c' writeEnv 一次成型（D6.2：写槽纯数据闭包；notifyDirty 显式 undefined 联合）
   const writeEnv: WriteEnv = { doc, handle, state, notifyDirty: captured.notifyDirty };
 
+  // V3c''-pre watch 订阅中枢一次成型（【issue #387 / ADR 0030 T1】设计 §8-G；【issue #389
+  //   T3】D5-a 构造序前移——其依赖仅 doc/state（构造栈早期即在场），schemaWriteEnv 与
+  //   replicationHost 各捕获同一局部量（INV-N14 捕获局部量纪律）；构造期挂接 ROOT
+  //   observeDeep（每 Runtime 恰一次；零订阅时空集合快路径）；origin 无过滤分类在产
+  //   （D8），复制 apply 经 ROOT 子树结构性直达，无槽可接线。
+  //   【T4 #390】第三参 = 装配缝捕获的通知队列容量（undefined → 缺省参数 = 实现常量；
+  //   测试经 Registry testing overrides 加法字段真达此处——AC1/AC5）。
+  const watchHub = createWatchHub(doc, state, captured.watchQueueCapacity);
+
   // V3c'' schemaWriteEnv 一次成型（D10 零新增注入点：同一批捕获局部量——compile 与
   //   writeEnv 共源的既有 seam 字段同时服务 P0 与 SCHEMA 写槽）
   // 【issue #282】clock 解析：注入 clock seam 优先（Registry 生产装配恒注入 Instance
   //   Clock——单时钟权威），缺省 Date.now（seam 直构/legacy 两参工厂路径——updatedAt
   //   为系统时钟读数，诚实记录安装时间）；S4.5 单点读取、读数校验在槽内。
+  // 【issue #389 / T3】S5.6 `watch-end:'schema-changed'` 编排消费同一 watchHub 局部量。
   const schemaWriteEnv: SchemaWriteEnv = {
     doc,
     handle,
@@ -527,6 +585,7 @@ export function createNamespaceRuntimeWithSeam(input: NamespaceRuntimeSeamInput)
     notifyDirty: captured.notifyDirty,
     compile,
     clock: captured.clock ?? Date.now,
+    watchHub,
   };
 
   // V3c''' closeEnv 一次成型（D2/D3：barrier 纯数据闭包——release 槽体零读 seam 输入）
@@ -572,6 +631,7 @@ export function createNamespaceRuntimeWithSeam(input: NamespaceRuntimeSeamInput)
     fanout,
     diagEnv,
     compile, // 【issue #286】apply 槽 R5.6 re-arm 共享段消费（V3b 同一捕获局部量）
+    watchHub, // 【issue #389 / T3】R5.7 `watch-end:'schema-changed'` 编排（同一局部量）
     ...(obsStageClock !== undefined ? { stageClock: obsStageClock } : {}),
   };
 
@@ -585,19 +645,53 @@ export function createNamespaceRuntimeWithSeam(input: NamespaceRuntimeSeamInput)
     return closePromise;
   };
 
-  // V3d'''' reset/普通 close 共用关闭 admission：终止现存 ReplicationSession 后再创建
-  // 唯一 close barrier。reset fence 已在槽内同步 arm closing，因此这里只补齐普通 close
-  // 同款 session 终止语义；terminateAll 幂等，保证两条入口汇合时零重复副作用。
-  const closeAfterFence = (): Promise<void> => {
+  // V3d'''' reset/普通 close 共用关闭 admission 分型（【issue #389 / ADR 0030 §4 T3】D5-b）：
+  // 两种风味**共享同步首步** `fanout.terminateAll('runtime-close')`——现状 session 终止
+  // 语义逐字保持（R2-2 不变量：close() 同步终止/detach 全部存活 ReplicationSession；
+  // terminateAll 幂等，两入口汇合零重复副作用）。
+  //   ① 正常 close 风味（idle/delete/shutdown/公共 close()）：fanout 终止 + 静默收口
+  //      （watch 订阅静默清场——ADR §4 终结三因不含 runtime close；缺一即非现状）。
+  //   ② reset fence 风味（startCloseAfterFence 唯一消费者）：fanout 终止 + watch 订阅
+  //      终止（doc-replaced，同步段队尾追加 + 摘除）+ 投递结算并入 close 承诺——
+  //      `registry.resetReplica` 结算（await closePromise 之后）即「reset 前已建立的
+  //      订阅流已含已投递的 watch-end 且为末条」（B-T3-3 冻结机制；registry 零改动）。
+  //      force-release 在此同步段之后触发 lease 清理 → 句柄 unsubscribe 对 terminated
+  //      为 no-op（不清队 ⟹ 滞留 data 必达，B-T3-6）。
+  // 风味由**首调用者**固定：`beginResetFence` 在 lifecycle ≠ 'ready' 时拒绝 ⇒ 公共 close
+  // 先行后 fence 不可达；反向（fence 先行、公共 close 复用）安全。缓存已置位后第二入口
+  // 直接复用同一实例、不重跑任何风味体（admission 恰执行一次；SA2 N-4/N-5'）。
+  const closeAfterFenceNormal = (): Promise<void> => {
     fanout.terminateAll('runtime-close');
+    // 【issue #387】watch 中枢同步收口（与 fanout.terminateAll 并置）：摘 observer、
+    //   清全部订阅（静默——ADR §4 终结三因不含 runtime close；lease force-release 已
+    //   先行清理，此处为防御性收口）。
+    watchHub.shutdown();
     return lazyCloseBarrier();
   };
 
+  const closeAfterFenceReset = (): Promise<void> => {
+    if (closePromise !== undefined) return closePromise; // 第二入口直接复用（不重跑风味体）
+    fanout.terminateAll('runtime-close'); // 共享同步首步（现状/A 不变量逐字保持）
+    const delivered = watchHub.terminateAll('doc-replaced'); // 同步段：队尾追加 + 注销
+    const barrier = lazyCloseBarrier(); // 唯一 close barrier（懒创建，恰一次）
+    const admission = barrier.then(async () => {
+      await delivered; // 终止项投递结算（有界微任务——无墙钟、无 I/O）
+      // 防御性收口后置（此时 terminated 订阅队列已排空）；barrier reject 时本成功臂
+      // 不执行 ⟹ 跳过（良性：terminated 已摘除、集合空走 observer 快路径、lifecycle
+      // ='closed' 拒新订阅；终止项仍经独立微任务泵送达）。**禁止**为补上该收口构造
+      // 可 reject 的第二承诺链（SA2 N-1：admission 承诺除 barrier reject 外零新增
+      // reject 面；`.then` 内调用自身零抛点）。
+      watchHub.shutdown();
+    });
+    closePromise = admission; // 缓存完整 admission 承诺（barrier + 投递结算 + 收口）
+    return admission;
+  };
+
   // V3d''''' 受控 reset fence（设计 §3.4/§3.5）：唯一写 sequencer 槽内双源核验 + 同步
-  // arm closing；槽后懒启动共享关闭 admission。仅以 non-enumerable 键挂到 runtime 对象
-  // （Object.keys 十二键审计不漂移——runtime-acceptance-exports-audit /
+  // arm closing；槽后懒启动共享关闭 admission（reset 风味）。仅以 non-enumerable 键挂到
+  // runtime 对象（Object.keys 十二键审计不漂移——runtime-acceptance-exports-audit /
   // runtime-registry-internal-seam 既有锚零回归）。
-  const beginResetFence = createBeginResetFence(sequencer, state, closeAfterFence);
+  const beginResetFence = createBeginResetFence(sequencer, state, closeAfterFenceReset);
   // V3e 公共面（十四键闭包对象；owner/namespaceId 由 V3a 捕获局部量构造——不再解引用成员）
   const owner = Object.freeze({ userId });
 
@@ -707,6 +801,10 @@ export function createNamespaceRuntimeWithSeam(input: NamespaceRuntimeSeamInput)
     readData,
     readArray,
     readMap,
+    // 【issue #387 / ADR 0030 T1；T2 #388 纯加法加宽第三参】第十五键：lease 面透传
+    //   对偶（readData/readMap 同款）；建立判定（含谓词门⑥）/lifecycle 门/登记全在
+    //   hub 内（同步 throw 面原样上抛——B-3；options raw 引用直传，runtime 层零解释）。
+    watchMap: (path, listener, options) => watchHub.watchMap(path, listener, options),
     getSchema: () => {
       // D2（#93 rev2，SA8 裁决 B）：数据投影 getter 停接纳——key 仅 lifecycle（裁决 H：
       // 绝不 keyed on fatal/schemaState）；拒绝先于触碰 live Y.Doc（INV 同 read() 分支）
@@ -829,7 +927,9 @@ export function createNamespaceRuntimeWithSeam(input: NamespaceRuntimeSeamInput)
       // R2-2（issue #134 round 2，§3.1）：共享关闭 admission 同步终止/detach 全部
       // 现存 sessions，再创建队尾 barrier；reset fence 也走同一入口，避免归档/bootstrap
       // 后旧 session 仍 attached。conflicted 终态不降级；已接纳 apply 槽照常排空。
-      closePromise = closeAfterFence();
+      // 【issue #389 / T3】公共 close = 正常风味（fanout 终止 + watch 订阅静默收口）；
+      // 若 reset 风味已先行（fence 先行、close 复用），早退分支已返回同一实例。
+      closePromise = closeAfterFenceNormal();
       return closePromise;
     },
   };
@@ -858,6 +958,9 @@ export interface RuntimeForRegistryDiagnostic {
   readonly emitter?: NamespaceDiagnosticChangeEmitter;
   readonly clock?: () => number;
   readonly replicationObservability?: NamespaceReplicationObservability;
+  /** 【issue #390 / ADR 0030 T4】watch 通知队列容量（testing 控件经 Registry 装配缝
+   *  到达；公共契约零泄漏——主入口构造选项不含本字段）。 */
+  readonly watchQueueCapacity?: number;
 }
 
 /**
@@ -881,6 +984,9 @@ export function createNamespaceRuntime(
           ...(diagnostic.clock !== undefined ? { clock: diagnostic.clock } : {}),
           ...(diagnostic.replicationObservability !== undefined
             ? { replicationObservability: diagnostic.replicationObservability }
+            : {}),
+          ...(diagnostic.watchQueueCapacity !== undefined
+            ? { watchQueueCapacity: diagnostic.watchQueueCapacity }
             : {}),
         }
       : {}),
@@ -1007,6 +1113,7 @@ function captureSeamInput(input: unknown): {
   diagnosticEmitter: NamespaceDiagnosticChangeEmitter | undefined;
   clock: (() => number) | undefined;
   replicationObservability: NamespaceReplicationObservability | undefined;
+  watchQueueCapacity: number | undefined;
 } {
   if (typeof input !== 'object' || input === null) {
     throw new TypeError('seam 输入必须是对象（{ handle, p0Gate?, compile?, notifyDirty? }）');
@@ -1102,6 +1209,25 @@ function captureSeamInput(input: unknown): {
       ...(slotMetrics !== undefined ? { slotMetrics: slotMetrics as (sample: SequencerSlotSample) => void } : {}),
     };
   }
+  // 【issue #390 / ADR 0030 T4】watch 队列容量形状门（沿本文件逐字段形状门纪律；
+  // Registry 单点已挡垃圾值，此处为直连 seam 调用方的防御面）：提供则必须是
+  // 1..2147483647 的有限整数——否则构造期同步 throw（INV-N4：前置于 enqueue、零副作用），
+  // 绝不静默按「恒溢出」降级运行（fail loud，非 fallback）。
+  let watchQueueCapacity: number | undefined;
+  if (rec.watchQueueCapacity !== undefined) {
+    const value = rec.watchQueueCapacity;
+    if (
+      typeof value !== 'number'
+      || !Number.isInteger(value)
+      || value < 1
+      || value > 2_147_483_647
+    ) {
+      throw new TypeError(
+        'input.watchQueueCapacity 若提供必须是 1..2147483647 的有限整数（watch 通知队列容量）',
+      );
+    }
+    watchQueueCapacity = value;
+  }
   return {
     handle: handle as DocHandle,
     userId: userId as string,
@@ -1113,5 +1239,6 @@ function captureSeamInput(input: unknown): {
     diagnosticEmitter,
     clock,
     replicationObservability,
+    watchQueueCapacity,
   };
 }

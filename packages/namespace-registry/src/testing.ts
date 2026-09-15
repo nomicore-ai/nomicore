@@ -14,6 +14,8 @@
  * （返回成功 doc 或领域失败；throw 即模拟 internal）。#112 增量（§2.J）：`scheduler`
  * 为**必需**（同生产形状门禁：无缺省——release 即武装 timer，缺省会静默掩盖 idle
  * 行为；拒绝虚假降级）；`idleTimeoutMs` 可选。主入口不 re-export 本子路径。
+ * #390 增量（ADR 0030 T4）：`watchQueueCapacity` 可选（watch 通知队列有界上界注入；
+ * 缺省 = runtime 实现常量、数值不进公共契约；经 internal 装配缝真达 watch hub）。
  */
 import type { Clock } from '@nomicore/clock';
 import type { DocHandle, DocPersistence } from '@nomicore/persistence';
@@ -61,6 +63,11 @@ export interface NamespaceRegistryTestingOverrides {
   readonly replicationObservability?: NamespaceReplicationObservabilityOptions;
   /** #150 可选诊断日志注入（emitter/initStream；缺省 = 日志禁用，行为与既有一致）。 */
   readonly diagnosticLog?: NamespaceRegistryDiagnosticLog;
+  /** 【issue #390 / ADR 0030 T4】可选 watch 通知队列容量（有界队列上界；≥1 有限整数）。
+   *  缺省 = runtime 实现常量（数值不进公共契约——ADR 0030 §6：语义进契约，数值是构造
+   *  参数 + 实现默认）。注入经 internal 装配缝真达 `createWatchHub` 第三参；
+   *  非法值 → 构造期同步 TypeError/RangeError（fail loud，非静默降级）。 */
+  readonly watchQueueCapacity?: number;
 }
 
 /**
@@ -137,6 +144,7 @@ export function createNamespaceRegistryForTesting(
       root: unknown,
     ) => CreateDocumentGatewayResult;
     diagnosticLog?: NamespaceRegistryDiagnosticLog;
+    watchQueueCapacity?: number;
   } = {
     clock: overrides?.clock as Clock,
     scheduler: overrides?.scheduler as RegistryTimeoutScheduler,
@@ -165,6 +173,11 @@ export function createNamespaceRegistryForTesting(
   }
   if (overrides?.diagnosticLog !== undefined) {
     internal.diagnosticLog = overrides.diagnosticLog;
+  }
+  // 【issue #390 / ADR 0030 T4】watch 通知队列容量（加法字段；缺省缺席 = runtime 实现
+  // 常量——本字段是容量注入的唯一 testing 面，经 internal 装配缝与第三参真达 watch hub）。
+  if (overrides?.watchQueueCapacity !== undefined) {
+    internal.watchQueueCapacity = overrides.watchQueueCapacity;
   }
   return createRegistryInternal(persistence, internal);
 }

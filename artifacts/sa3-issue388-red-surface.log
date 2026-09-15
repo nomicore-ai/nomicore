@@ -1,0 +1,70 @@
+Testing types with tsc and vue-tsc is an experimental feature.
+Breaking changes might not follow SemVer, please pin Vitest's version when using it.
+
+ RUN  v3.2.7 /home/wangjian/nomicore-fix-issue-388
+
+ ❯  TS  packages/namespace-registry/test/issue-388-watch-map-predicate-surface.test-d.ts (3 tests | 1 failed)
+   × NamespaceLease / NamespaceRuntime 暴露 watchMap 谓词公共面（ADR 0030 §2/§3；B-1/B-2/B-8） > 正例：三参调用（equals / in）编译通过、两参调用兼容、where 两成员判别窄化、句柄恰 {unsubscribe}
+     → Expected 2 arguments, but got 3.
+     → Expected 2 arguments, but got 3.
+     → Expected 2 arguments, but got 3.
+     → Expected 2 arguments, but got 3.
+   ✓ NamespaceLease / NamespaceRuntime 暴露 watchMap 谓词公共面（ADR 0030 §2/§3；B-1/B-2/B-8） > 正例：where 两成员判别窄化（equals / in 各自类型可达）
+   ✓ NamespaceLease / NamespaceRuntime 暴露 watchMap 谓词公共面（ADR 0030 §2/§3；B-1/B-2/B-8） > 负例 fail closed：未知算子 / 缺算子 / 非标量算子 / field 非 string / in 非数组 / in 成员非标量 / options 未知键 / present-undefined
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  packages/namespace-registry/test/issue-388-watch-map-predicate-surface.test-d.ts > NamespaceLease / NamespaceRuntime 暴露 watchMap 谓词公共面（ADR 0030 §2/§3；B-1/B-2/B-8） > 正例：三参调用（equals / in）编译通过、两参调用兼容、where 两成员判别窄化、句柄恰 {unsubscribe}
+TypeCheckError: Expected 2 arguments, but got 3.
+ ❯ packages/namespace-registry/test/issue-388-watch-map-predicate-surface.test-d.ts:102:7
+    100|         void notification;
+    101|       },
+    102|       { where: { field: 'status', equals: 'open' } },
+       |       ^
+    103|     );
+    104|     const inHandle = lease.watchMap(
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/4]⎯
+
+ FAIL  packages/namespace-registry/test/issue-388-watch-map-predicate-surface.test-d.ts > NamespaceLease / NamespaceRuntime 暴露 watchMap 谓词公共面（ADR 0030 §2/§3；B-1/B-2/B-8） > 正例：三参调用（equals / in）编译通过、两参调用兼容、where 两成员判别窄化、句柄恰 {unsubscribe}
+TypeCheckError: Expected 2 arguments, but got 3.
+ ❯ packages/namespace-registry/test/issue-388-watch-map-predicate-surface.test-d.ts:109:7
+    107|         void notification;
+    108|       },
+    109|       { where: { field: 'status', in: ['open', 'blocked'] } },
+       |       ^
+    110|     );
+    111|     const scalarDomainHandle = runtime.watchMap(
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/4]⎯
+
+ FAIL  packages/namespace-registry/test/issue-388-watch-map-predicate-surface.test-d.ts > NamespaceLease / NamespaceRuntime 暴露 watchMap 谓词公共面（ADR 0030 §2/§3；B-1/B-2/B-8） > 正例：三参调用（equals / in）编译通过、两参调用兼容、where 两成员判别窄化、句柄恰 {unsubscribe}
+TypeCheckError: Expected 2 arguments, but got 3.
+ ❯ packages/namespace-registry/test/issue-388-watch-map-predicate-surface.test-d.ts:116:7
+    114|         void notification;
+    115|       },
+    116|       { where: { field: 'priority', in: [1, true, 'x'] } },
+       |       ^
+    117|     );
+    118|     const twoArgHandle = lease.watchMap(['tasks'], () => {});
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[3/4]⎯
+
+ FAIL  packages/namespace-registry/test/issue-388-watch-map-predicate-surface.test-d.ts > NamespaceLease / NamespaceRuntime 暴露 watchMap 谓词公共面（ADR 0030 §2/§3；B-1/B-2/B-8） > 正例：三参调用（equals / in）编译通过、两参调用兼容、where 两成员判别窄化、句柄恰 {unsubscribe}
+TypeCheckError: Expected 2 arguments, but got 3.
+ ❯ packages/namespace-registry/test/issue-388-watch-map-predicate-surface.test-d.ts:120:64
+    118|     const twoArgHandle = lease.watchMap(['tasks'], () => {});
+    119|     const optionsOmitted: NamespaceLeaseWatchMapOptions = {};
+    120|     const withOptionsBag = lease.watchMap(['tasks'], () => {}, options…
+       |                                                                ^
+    121|
+    122|     const unsubscribe: () => void = equalsHandle.unsubscribe;
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[4/4]⎯
+
+
+ Test Files  1 failed (1)
+      Tests  1 failed | 2 passed (3)
+Type Errors  1 failed
+   Start at  02:28:27
+   Duration  7.18s (transform 0ms, setup 0ms, collect 0ms, tests 0ms, environment 0ms, prepare 0ms, typecheck 7.14s)

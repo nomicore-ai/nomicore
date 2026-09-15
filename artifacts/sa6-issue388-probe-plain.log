@@ -1,0 +1,9 @@
+schema.state = ready
+predicate = { field: status, in: [open, open, blocked] } (第三参今日被忽略)
+H 非匹配整值替换 done→closed | ok=false issues=[{"message":"Yjs 载体错位（ROOT.t1）：期望 Y.Map，实际 plain value","path":["t1"]}] | notify=0 | payload=[]
+I 退出匹配集 open→done | ok=false issues=[{"message":"Yjs 载体错位（ROOT.t1）：期望 Y.Map，实际 plain value","path":["t1"]}] | notify=0 | payload=[]
+J 同值整值替换（内容逐字相同） | ok=false issues=[{"message":"Yjs 载体错位（ROOT.t1）：期望 Y.Map，实际 plain value","path":["t1"]}] | notify=0 | payload=[]
+K 进入匹配集 closed→blocked | ok=false issues=[{"message":"Yjs 载体错位（ROOT.t1）：期望 Y.Map，实际 plain value","path":["t1"]}] | notify=0 | payload=[]
+L 混合：t1 title（非匹配） + t2 blocked→open（进入匹配） | ok=false issues=[{"message":"Yjs 载体错位（ROOT.t1）：期望 Y.Map，实际 plain value","path":["t1"]},{"message":"Yjs 载体错位（ROOT.t1）：期望 Y.Map，实际 plain value","path":["t1"]}] | notify=0 | payload=[]
+M 缺失字段条目（t3 无 status）改 title | ok=false issues=[{"message":"Yjs 载体错位（ROOT.t1）：期望 Y.Map，实际 plain value","path":["t1"]}] | notify=0 | payload=[]
+readMap.ok = true [{"key":"t1","value":{"title":"alpha","status":"open"}},{"key":"t2","value":{"title":"beta","status":"done"}},{"key":"t3","value":{"title":"gamma"}}]

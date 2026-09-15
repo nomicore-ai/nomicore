@@ -18,6 +18,8 @@
  *  S5.5 事务后 compile+install 共享段（transaction 返回后**同步**执行、await
  *      notifyDirty 之前——AC6；【issue #286】收敛进 schema-rearm.ts
  *      syncActiveSchemaFromCommittedDoc，与 peer apply 槽 R5.6 re-arm 同一段逻辑）
+ *  S5.6 【issue #389 / ADR 0030 §4，T3】`watch-end:'schema-changed'` 终止编排
+ *      （安装成功后的同步段、S6 之前：同槽 FIFO 队尾追加 + 摘除订阅——ADR §4 流末条）
  *  S6 同槽 await notifyDirty（完成信号 = live commit + dirty 登记两者）
  *  S7 槽释放（promise settle；sequencer 自动放行下一项）
  *
@@ -53,6 +55,7 @@ import {
 import { assertCompiledShape, toIssueSummary } from './p0.js';
 import type { RuntimeState } from './p0.js';
 import { syncActiveSchemaFromCommittedDoc } from './schema-rearm.js';
+import type { NamespaceRuntimeWatchHub } from './watch-map.js';
 import {
   disabled,
   markWriteFatal,
@@ -90,6 +93,9 @@ export interface SchemaWriteEnv {
    *  或 Date.now 缺省——Registry 生产装配恒注入 Instance Clock，保持单时钟权威）。
    *  S4.5 单点读取产生 META.schema.updatedAt（UTC ISO 8601）。 */
   readonly clock: () => number;
+  /** 【issue #389 / ADR 0030 §4，T3】watch 订阅中枢（构造栈捕获局部量；S5.5 安装成功后
+   *  的 `watch-end:'schema-changed'` 编排入口——包内模块通道，不经 index 导出）。 */
+  readonly watchHub: NamespaceRuntimeWatchHub;
 }
 
 /**
@@ -304,6 +310,17 @@ export async function runSchemaWriteSlot(env: SchemaWriteEnv, input: unknown, di
       'schema',
     );
   }
+
+  // ── S5.6【issue #389 / ADR 0030 §4，T3】schema 安装成功后的订阅终止编排 ──────
+  //  挂点（SA6 B-T3-1 / 设计 §7-D3）：S5.5 安装/切换成功后的**同步段内**、S6
+  //  `await notifyDirty()` 之前——同槽 FIFO：S5 事务经 ROOT observeDeep 产生的 data
+  //  通知已先行入队，终止项队尾追加（AC5「不会先终止、后到僵尸 data」）。
+  //  不 await 投递（槽语义/时序零变化——ADR 0018 §1「槽继续 dirty/ACK 照常」）；
+  //  终止因 = 已提交的 schema `text` 变更使旧 active schema 下的谓词语义失效。
+  //  【SA2 N-3 不对称注记】本地路径无 text 门（S5.5 `installed` 判定即终止，同文本
+  //  replace 亦终止——updatedAt 前进即新 generation）；peer 路径有 text 门（R5.6 上游
+  //  既有语义），两读法均与 ADR 0030 §4 相容。
+  void env.watchHub.terminateAll('schema-changed');
 
   // ── S6 同槽 await notifyDirty（完成信号 = live commit + dirty 登记两者）──
   try {

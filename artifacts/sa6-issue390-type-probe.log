@@ -1,0 +1,1 @@
+packages/namespace-registry/.sa6-390/type-probe/overrides-missing-field.ts(17,3): error TS2353: Object literal may only specify known properties, and 'watchQueueCapacity' does not exist in type 'NamespaceRegistryTestingOverrides'.

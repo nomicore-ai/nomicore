@@ -36,6 +36,17 @@
  * type-only 追加四个窗口读别名（options 为 doc-runtime 单源别名；结果含 W1 失败成员与
  * `RuntimeReadDisabledResult`）；值导出面仍恰 `RuntimeWriteFatalError` 一键。
  *
+ * #387 增量（ADR 0030 T1，纯加法）：Runtime 十五键（+watchMap 键容器变更订阅——
+ * 建立判定全由 active schema 完成、通知为不含值的 `{path,key}` 定位符、一事务一通知、
+ * 槽外异步分发）；type-only 追加三个 watch 别名（通知/定位符/句柄；值导出面仍恰
+ * `RuntimeWriteFatalError` 一键）。
+ *
+ * #388 增量（ADR 0030 T2，纯加法）：watchMap 签名原位加宽第三参 `options?`
+ * （谓词 `{field, equals}` | `{field, in}`，值域恒标量；建立期 schema 侧裁决，非法
+ * 同步 throw `WATCH_MAP_OPTIONS_INVALID` / 零登记；通知判定 = 真变 ∧（旧匹配 ∨
+ * 新匹配 ∨ 旧态不可判保守）——宁多勿漏）；type-only 追加两个别名（options 袋 +
+ * 标量值域；值导出面不变、Runtime 键集不变）。
+ *
  * 公共面纪律（AC1/AC2/AC6/AC9 锚定；issue #93 round 2 收口）：
  * - 值导出恰一键：RuntimeWriteFatalError（ADR-0008 点名的稳定 rejection 形状——
  *   instanceof 判别 committed/phase 是上层「不得自动重试非幂等写」纪律的依赖面）；
@@ -69,6 +80,19 @@ export type {
   NamespaceRuntimeReadMapResult,
 } from './window-read.js';
 export type { ActiveSchemaInfo } from './p0.js';
+// issue #387（ADR 0030 T1）：watchMap 变更订阅公共类型（type-only——值导出面仍恰
+// RuntimeWriteFatalError 一键冻结）。
+export type {
+  NamespaceRuntimeWatchMapChange,
+  NamespaceRuntimeWatchMapHandle,
+  NamespaceRuntimeWatchMapNotification,
+} from './watch-map.js';
+// issue #388（ADR 0030 T2，纯加法）：watchMap 谓词 options 面（type-only +2——
+// options 袋 + 标量值域别名；`where` 联合为模块内部类型，结构经 Options 可达）。
+export type {
+  NamespaceRuntimeWatchMapOptions,
+  NamespaceRuntimeWatchMapScalarValue,
+} from './watch-map.js';
 export type { RuntimeWriteFatalPhase } from './errors.js';
 export type { DataMutationIssue, MutateDataResult } from './write.js';
 export type { ReplaceSchemaInput, SchemaReplacementIssue, ReplaceSchemaResult } from './schema-write.js';

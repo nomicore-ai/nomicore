@@ -1,0 +1,9 @@
+
+ RUN  v3.2.7 /home/wangjian/nomicore-fix-issue-390
+
+ ✓ packages/namespace-registry/test/issue-390-watch-invalidation-red.test.ts (14 tests) 195ms
+
+ Test Files  1 passed (1)
+      Tests  14 passed (14)
+   Start at  07:02:03
+   Duration  883ms (transform 402ms, setup 0ms, collect 545ms, tests 195ms, environment 0ms, prepare 46ms)

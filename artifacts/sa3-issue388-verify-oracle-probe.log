@@ -1,0 +1,9 @@
+
+ RUN  v3.2.7 /home/wangjian/nomicore-fix-issue-388
+
+ ✓ packages/namespace-registry/test/sa3-tmp-oracle-probe.test.ts (2 tests) 65ms
+
+ Test Files  1 passed (1)
+      Tests  2 passed (2)
+   Start at  09:44:20
+   Duration  817ms (transform 437ms, setup 0ms, collect 593ms, tests 65ms, environment 0ms, prepare 52ms)

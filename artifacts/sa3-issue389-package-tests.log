@@ -1,0 +1,160 @@
+Testing types with tsc and vue-tsc is an experimental feature.
+Breaking changes might not follow SemVer, please pin Vitest's version when using it.
+
+ RUN  v3.2.7 /home/wangjian/nomicore-fix-issue-389
+
+stderr | packages/namespace-registry/test/registry-surface.test.ts
+Using an object as a third argument is deprecated. Vitest 4 will throw an error if the third argument is not a timeout number. Please use the second argument for options. See more at https://vitest.dev/guide/migration
+Using an object as a third argument is deprecated. Vitest 4 will throw an error if the third argument is not a timeout number. Please use the second argument for options. See more at https://vitest.dev/guide/migration
+Using an object as a third argument is deprecated. Vitest 4 will throw an error if the third argument is not a timeout number. Please use the second argument for options. See more at https://vitest.dev/guide/migration
+
+ ✓  TS  packages/namespace-registry/test/issue-369-window-read-lease-surface.test-d.ts (2 tests)
+ ✓  TS  packages/namespace-registry/test/issue-387-watch-map-lease-surface.test-d.ts (2 tests)
+ ✓  TS  packages/namespace-registry/test/registry-data-interface.test-d.ts (3 tests)
+ ✓  TS  packages/namespace-registry/test/registry-phase5-bootstrap-reset-r2-surface.test-d.ts (4 tests)
+ ✓  TS  packages/namespace-registry/test/registry-phase5-bootstrap-reset-surface.test-d.ts (5 tests)
+ ✓  TS  packages/namespace-registry/test/registry-phase5-identity-surface.test-d.ts (5 tests)
+ ✓  TS  packages/namespace-registry/test/registry-phase5-replication-session-surface.test-d.ts (5 tests)
+ ✓  TS  packages/namespace-registry/test/registry-phase5-replication-surface.test-d.ts (6 tests)
+ ✓  TS  packages/namespace-registry/test/registry-readdata-budget-passthrough.test-d.ts (2 tests)
+ ✓  TS  packages/namespace-registry/test/registry-readdata-projection-text.test-d.ts (1 test)
+ ✓  TS  packages/namespace-registry/test/registry-readdata-schema-red.test-d.ts (1 test)
+ ✓  TS  packages/namespace-runtime/test/runtime-close-lifecycle-type-guard.test-d.ts (3 tests)
+ ✓  TS  packages/namespace-runtime/test/runtime-data-interface.test-d.ts (4 tests)
+ ✓  TS  packages/namespace-runtime/test/runtime-mutate-data-type-guard.test-d.ts (4 tests)
+ ✓  TS  packages/namespace-runtime/test/runtime-readdata-projection-text.test-d.ts (2 tests)
+ ✓  TS  packages/namespace-runtime/test/runtime-readdata-schema-red.test-d.ts (2 tests)
+ ✓  TS  packages/namespace-runtime/test/runtime-readdata-shape-budget.test-d.ts (2 tests)
+ ✓  TS  packages/namespace-runtime/test/runtime-registry-internal-type-guard.test-d.ts (3 tests)
+ ✓  TS  packages/namespace-runtime/test/runtime-replace-schema-type-guard.test-d.ts (1 test)
+ ✓ packages/namespace-registry/test/registry-surface.test.ts (12 tests) 5531ms
+   ✓ package surface：exports 面与运行时 export-key 审计 > 主入口运行时 export keys 恰九个公共 value（#112 冻结清单）；DEFAULT_IDLE_TIMEOUT_MS/NOMICORE_REGISTRY_SERVICE 常量值锚；无 Runtime/DocHandle/Y.Doc 值泄漏  632ms
+   ✓ declaration emit 审计：主入口可达声明图无 Runtime/DocHandle/Y.Doc / internal subpath > 主入口可达声明图文本不包含任何禁用标识符，且审计本身非空（覆盖 wrapper 链，含 #112 plugin.ts）  2079ms
+   ✓ declaration emit 审计：主入口可达声明图无 Runtime/DocHandle/Y.Doc / internal subpath > 主入口 index.d.ts：#112 增量类型/值导出在（ShutdownError/PluginConfig/ShutdownFailure/RegistryTimeoutScheduler/plugin 工厂）；RegistryOperationUnavailableIssue 删除后不在  1317ms
+   ✓ declaration emit 审计：主入口可达声明图无 Runtime/DocHandle/Y.Doc / internal subpath > testing 入口声明允许内部类型 import（Runtime/DocHandle 仅出现在受控子路径）  1037ms
+ ✓ packages/namespace-registry/test/registry-phase5-replication-session-red.test.ts (22 tests) 1808ms
+   ✓ AC-5 peer degraded 只允许 hub→peer trusted apply；O-5 补锚 (a)(b) > peer persistence-degraded：业务写禁用（RUNTIME_WRITE_DISABLED）；hub→peer apply 允许（内存生效 + saveDoc 仍登记 + 内存/磁盘可区分）  837ms
+   ✓ AC-5 peer degraded 只允许 hub→peer trusted apply；O-5 补锚 (a)(b) > 补锚 (a)：hub persistence-degraded 拒绝 peer→hub raw apply；读取、身份检查和 state-vector 交换保留  866ms
+ ✓ packages/namespace-runtime/test/runtime-replace-schema-sa7-dynamic.test.ts (11 tests) 2050ms
+   ✓ SA7 动态验证 — T3.4（rev2）：深 doc × keep-root → E 层吸收为领域失败 + 零写入 + fatal 零置位 + provide-root 修复通道开放 > 深 doc × keep-root replaceSchema({schema: ENV_DEEP}) → resolved ok:false（/DOCRT-E100|VFSL-E100|校验工作预算耗尽/）+ 零写入 + fatal 零置位 + 写位未禁（运行时修复通道开放）；同 runtime provide-root 修复尝试的实测结果按 SA6 偏差锚登记（见注释）  1984ms
+ ✓ packages/namespace-registry/test/registry-issue-226-red.test.ts (13 tests) 1211ms
+   ✓ #226 日志 I/O 与业务关键路径隔离（SA1 复现红灯） > T12 慢同步 append 不得阻塞 create 之后的下一个业务写槽（B3：write-sequencer 窗口隔离——经 Registry 生产装配全链路）  304ms
+ ✓ packages/namespace-registry/test/registry-phase5-replication-red.test.ts (16 tests) 870ms
+   ✓ AC-6 close/fatal 竞态与 Memory persistence 恢复 > persistence-degraded：gate 通过后降级——enable 成功、后续 bump 被 RUNTIME_WRITE_DISABLED 拒绝零写入；恢复后 retry 覆盖、bump 成功；Memory 恢复可见  761ms
+ ✓ packages/namespace-runtime/test/runtime-mutate-root-sa7-dynamic.test.ts (4 tests) 915ms
+   ✓ SA7 动态验证 — SA4 重点 1：notifier 挂住双窗口 > DV-1a S6 成功路径挂住：槽停滞、后续写永排队（非 disabled 结算）、read 照常、无 fatal 降级  450ms
+   ✓ SA7 动态验证 — SA4 重点 1：notifier 挂住双窗口 > DV-1b fatal committed:true 路径挂住：status.fatal 先于（永不送达的）rejection 可观测、pA 永 pending、提交值保留、新调用因队列停滞不结算  442ms
+ ✓ packages/namespace-runtime/test/runtime-registry-internal-seam-rev1.test.ts (20 tests) 828ms
+   ✓ RAC1 真实全仓门禁：审计 helper 对仓库生产代码树的既有门禁保持绿 > 防空扫（真实侧）：仓库有生产代码文件被审计（helper 默认 roots = packages/domains/apps）  360ms
+stdout | packages/namespace-registry/test/registry-sa7-phase5-dynamic.test.ts > SA7 动态验证 #131 — plugin 生产随机链路 / File 持久化 / CSPRNG 抽样 / 真实调度锚 A > D1 真实 cordis host 下 plugin 桥接的生产随机链路：create 产物 namespaceId 锚 ^ns-[0-9a-f]{32}$、两次互异、lease 可读
+[SA7-DYN] D1 plugin 链生成 ID: ns-ac4bbd397bcb653eaaacbb068be45e86 / ns-013f6ec92dae5b11bcb049e1e4dd504b
+
+stdout | packages/namespace-registry/test/registry-sa7-phase5-dynamic.test.ts > SA7 动态验证 #131 — plugin 生产随机链路 / File 持久化 / CSPRNG 抽样 / 真实调度锚 A > D2 真实 File Persistence round-trip：生成 ID 按 owner 分区落盘（35 字符文件名）→ 全拆 → 新 host 同 rootDir 恢复；跨 owner NOT_FOUND
+[SA7-DYN] D2 落盘文件: ns-4735fda0a5856a4e1a1309d67ff52365.snapshot, ns-bbf5c2b01e129835ef6a715bc3733ec4.snapshot（rootDir=/tmp/nomicore-sa7-131-qxCUIs）
+
+stdout | packages/namespace-registry/test/registry-sa7-phase5-dynamic.test.ts > SA7 动态验证 #131 — plugin 生产随机链路 / File 持久化 / CSPRNG 抽样 / 真实调度锚 A > D3 生产 CSPRNG 抽样：plugin host 100 次 create 全唯一 + 桥接形状 60,000 抽样零重复/16 字节/分布 ±6σ
+[SA7-DYN] D3 (a) plugin host 100 create → 100 唯一；(b) 60000 抽样 → 0 重复，字节频率界 [3383, 4117]（期望 3750）
+
+stdout | packages/namespace-registry/test/registry-sa7-phase5-dynamic.test.ts > SA7 动态验证 #131 — plugin 生产随机链路 / File 持久化 / CSPRNG 抽样 / 真实调度锚 A > D4 锚 A 真实调度复跑：事件驱动 6 次（shutdown 构造性落在重试 write 在途窗口）+ real-sleep 抖动 6 次；不变量逐次成立、零 unhandled
+[SA7-DYN] D4 12 次真实调度迭代，shutdown 落点分布: {"in-write":6,"pre-write":2,"post-write":4}
+
+ ✓ packages/namespace-registry/test/registry-sa7-phase5-dynamic.test.ts (4 tests) 747ms
+   ✓ SA7 动态验证 #131 — plugin 生产随机链路 / File 持久化 / CSPRNG 抽样 / 真实调度锚 A > D3 生产 CSPRNG 抽样：plugin host 100 次 create 全唯一 + 桥接形状 60,000 抽样零重复/16 字节/分布 ±6σ  667ms
+ ✓ packages/namespace-runtime/test/runtime-acceptance-fullchain.test.ts (8 tests) 409ms
+ ✓ packages/namespace-runtime/test/runtime-root-schema-diagnostic-sa7.test.ts (16 tests) 373ms
+ ✓ packages/namespace-runtime/test/runtime-acceptance-degraded-two-adapter.test.ts (4 tests) 362ms
+ ✓ packages/namespace-runtime/test/runtime-replication-session-round2-red.test.ts (17 tests) 227ms
+ ✓ packages/namespace-registry/test/registry-sa7-phase5-bootstrap-reset-dynamic.test.ts (10 tests) 153ms
+ ✓ packages/namespace-registry/test/issue-389-change-subscription-termination-red.test.ts (17 tests) 202ms
+ ✓ packages/namespace-runtime/test/runtime-replication-diagnostic-red.test.ts (15 tests) 168ms
+ ✓ packages/namespace-runtime/test/runtime-replace-schema-persistence.test.ts (2 tests) 183ms
+ ✓ packages/namespace-registry/test/issue-387-watch-map-tracer-red.test.ts (21 tests) 148ms
+ ✓ packages/namespace-runtime/test/runtime-acceptance-production-assembly.test.ts (2 tests) 155ms
+ ✓ packages/namespace-runtime/test/runtime-mutate-issue-237-hot-path-red.test.ts (4 tests) 154ms
+stdout | packages/namespace-registry/test/registry-create-diagnostic-sa7-dynamic.test.ts > SA7 动态重点 2 — File adapter first-slice 同步落盘与同 key FIFO > first-slice 同步证据：initStream 返回前 stream/manifest/genesis 已可严格读回；每 namespace 至多一次（duplicate 不再付 stream 成本）
+[SA7-DV] first-slice initStream（同步 mkdir+manifest('wx')+genesis append+current.json rename）耗时 17.25ms；含日志 create 总耗时 24.96ms
+
+ ✓ packages/namespace-registry/test/registry-create-diagnostic-sa7-dynamic.test.ts (10 tests) 117ms
+ ✓ packages/namespace-runtime/test/runtime-registry-internal-seam.test.ts (5 tests) 118ms
+ ✓ packages/namespace-runtime/test/runtime-schema-lifecycle-metadata.test.ts (15 tests) 116ms
+ ✓ packages/namespace-registry/test/registry-create-diagnostic-red.test.ts (16 tests) 112ms
+ ✓ packages/namespace-runtime/test/runtime-mutate-root-persistence.test.ts (2 tests) 120ms
+ ✓ packages/namespace-runtime/test/runtime-root-schema-diagnostic-red.test.ts (14 tests) 96ms
+ ✓ packages/namespace-registry/test/registry-sa7-rev1.test.ts (6 tests) 97ms
+ ✓ packages/namespace-runtime/test/runtime-replication-sa7-dynamic.test.ts (4 tests) 102ms
+ ✓ packages/namespace-runtime/test/runtime-mutate-root-sequencer.test.ts (12 tests) 92ms
+ ✓ packages/namespace-runtime/test/issue-349-guard-e2e-competition.test.ts (17 tests) 100ms
+ ✓ packages/namespace-runtime/test/runtime-replication-session-round2.test.ts (25 tests) 100ms
+ ✓ packages/namespace-registry/test/registry-phase5-bootstrap-reset-red.test.ts (19 tests) 82ms
+ ✓ packages/namespace-runtime/test/runtime-replace-schema-sequencer.test.ts (13 tests) 92ms
+ ✓ packages/namespace-runtime/test/runtime-readdata-projection-text-red.test.ts (32 tests) 94ms
+ ✓ packages/namespace-registry/test/issue-369-window-read-lease-contract-red.test.ts (33 tests) 79ms
+ ✓ packages/namespace-registry/test/registry-create.test.ts (47 tests) 74ms
+ ✓ packages/namespace-runtime/test/runtime-readdata-shape-budget-red.test.ts (27 tests) 64ms
+ ✓ packages/namespace-runtime/test/runtime-replication-session.test.ts (30 tests) 73ms
+ ✓ packages/namespace-runtime/test/issue-350-batch-envelope-red.test.ts (7 tests) 66ms
+ ✓ packages/namespace-registry/test/registry-sa7-cordis.test.ts (4 tests) 76ms
+ ✓ packages/namespace-runtime/test/runtime-close-sa7-dynamic.test.ts (4 tests) 80ms
+ ✓ packages/namespace-runtime/test/runtime-registry-internal-sa7-dynamic.test.ts (4 tests) 72ms
+ ✓ packages/namespace-registry/test/registry-sa7-phase5-replication-dynamic.test.ts (4 tests) 56ms
+ ✓ packages/namespace-registry/test/registry-phase5-identity-red.test.ts (20 tests) 38ms
+ ✓ packages/namespace-registry/test/registry-plugin.test.ts (9 tests) 51ms
+ ✓ packages/namespace-runtime/test/runtime-replication-schema-rearm.test.ts (10 tests) 55ms
+ ✓ packages/namespace-runtime/test/issue-347-guard-passthrough-red.test.ts (7 tests) 55ms
+ ✓ packages/namespace-runtime/test/issue-369-window-read-composition-red.test.ts (17 tests) 54ms
+ ✓ packages/namespace-registry/test/registry-phase5-replication-session-round2-red.test.ts (12 tests) 46ms
+ ✓ packages/namespace-registry/test/registry-sa7-concurrency.test.ts (4 tests) 43ms
+ ✓ packages/namespace-registry/test/registry-phase5-bootstrap-reset-r2-red.test.ts (10 tests) 33ms
+ ✓ packages/namespace-runtime/test/runtime-p0-sequencer.test.ts (7 tests) 46ms
+ ✓ packages/namespace-runtime/test/issue-350-batch-shared-boundary.test.ts (2 tests) 46ms
+ ✓ packages/namespace-registry/test/registry-delete-orchestration.test.ts (9 tests) 39ms
+ ✓ packages/namespace-runtime/test/runtime-readdata-schema-projection-red.test.ts (15 tests) 43ms
+ ✓ packages/namespace-registry/test/registry-create-diagnostic-code-source.test.ts (6 tests) 42ms
+ ✓ packages/namespace-runtime/test/runtime-boundary-supplementary.test.ts (3 tests) 40ms
+ ✓ packages/namespace-runtime/test/runtime-sync-read-face.test.ts (4 tests) 40ms
+ ✓ packages/namespace-runtime/test/runtime-replication-write.test.ts (14 tests) 24ms
+ ✓ packages/namespace-runtime/test/runtime-replication-sa4-probe.test.ts (2 tests) 37ms
+ ✓ packages/namespace-registry/test/registry-open.test.ts (32 tests) 31ms
+ ✓ packages/namespace-runtime/test/runtime-readdata-projection-text-control.test.ts (9 tests) 33ms
+ ✓ packages/namespace-registry/test/registry-idle.test.ts (18 tests) 31ms
+ ✓ packages/namespace-runtime/test/runtime-readdata-schema-projection-control.test.ts (7 tests) 34ms
+ ✓ packages/namespace-runtime/test/runtime-close-lifecycle.test.ts (10 tests) 30ms
+ ✓ packages/namespace-registry/test/registry-phase5-bootstrap-reset-r2-internal.test.ts (16 tests) 29ms
+ ✓ packages/namespace-registry/test/readdata-docs-adr0016-sync-control.test.ts (35 tests) 29ms
+ ✓ packages/namespace-registry/test/registry-phase5-replication-channels.test.ts (14 tests) 25ms
+ ✓ packages/namespace-registry/test/registry-persistence-contract.test.ts (2 tests) 27ms
+ ✓ packages/namespace-registry/test/registry-issue-249-coverage.test.ts (7 tests) 24ms
+ ✓ packages/namespace-runtime/test/runtime-readdata-int-range.test.ts (10 tests) 25ms
+ ✓ packages/namespace-runtime/test/runtime-replication-schema-lifecycle.test.ts (7 tests) 23ms
+ ✓ packages/namespace-registry/test/registry-readdata-projection-text-red.test.ts (6 tests) 22ms
+ ✓ packages/namespace-runtime/test/runtime-readdata-shape-budget-control.test.ts (5 tests) 21ms
+ ✓ packages/namespace-runtime/test/runtime-mutate-root-snapshotter-array.test.ts (5 tests) 22ms
+ ✓ packages/namespace-runtime/test/runtime-readdata-hostile-path-guard.test.ts (4 tests) 19ms
+ ✓ packages/namespace-registry/test/registry-schema-lifecycle.test.ts (2 tests) 20ms
+ ✓ packages/namespace-registry/test/registry-issue-249-duplicate-red.test.ts (3 tests) 17ms
+ ✓ packages/namespace-runtime/test/issue-350-sa7-batch-fatal.test.ts (1 test) 17ms
+ ✓ packages/namespace-registry/test/registry-sa7-hostile.test.ts (6 tests) 17ms
+ ✓ packages/namespace-runtime/test/runtime-public-surface-ownership.test.ts (6 tests) 17ms
+ ✓ packages/namespace-registry/test/registry-readdata-budget-passthrough.test.ts (5 tests) 17ms
+ ✓ packages/namespace-runtime/test/metadata-proto-key.test.ts (6 tests) 17ms
+ ✓ packages/namespace-runtime/test/runtime-write-fatal-message-rev1.test.ts (3 tests) 17ms
+ ✓ packages/namespace-runtime/test/runtime-phase5-reset-fence-r2.test.ts (7 tests) 15ms
+ ✓ packages/namespace-runtime/test/runtime-schema-carrier-split.test.ts (4 tests) 15ms
+ ✓ packages/namespace-registry/test/registry-shutdown.test.ts (12 tests) 13ms
+ ✓ packages/namespace-registry/test/registry-guard-proxy-consumption.test.ts (2 tests) 13ms
+ ✓ packages/namespace-runtime/test/sequencer-slotkind-close-barrier.test.ts (3 tests) 10ms
+ ✓ packages/namespace-registry/test/registry-issue-249-pump-red.test.ts (10 tests) 7ms
+ ✓ packages/namespace-registry/test/registry-node-dispose.test.ts (2 tests) 7ms
+ ✓ packages/namespace-runtime/test/readdata-shape-assertion-consolidation-gate.test.ts (24 tests) 6ms
+ ✓ packages/namespace-registry/test/registry-entry-removal-guard.test.ts (7 tests) 6ms
+ ✓ packages/namespace-registry/test/readdata-docs-adr0016-sync-red.test.ts (8 tests) 4ms
+ ✓ packages/namespace-registry/test/diag-pump-scheduler-injection.test.ts (2 tests) 3ms
+ ✓ packages/namespace-runtime/test/runtime-acceptance-exports-audit.test.ts (4 tests) 2ms
+
+ Test Files  114 passed (114)
+      Tests  1080 passed (1080)
+Type Errors  no errors
+   Start at  07:17:53
+   Duration  42.35s (transform 1.32s, setup 0ms, collect 11.04s, tests 19.97s, environment 11ms, prepare 3.82s, typecheck 2.38s)
+
+exit=0
