@@ -83,9 +83,15 @@ type _legacyReturnType = AssertTrue<
   Equal<ReturnType<NamespaceRuntime['readData']>, NamespaceRuntimeReadDataResult>
 >;
 
-/** 预算 options 为 doc-runtime 单源类型别名（零复制）。 */
-type _optionsAlias = AssertTrue<
-  Equal<NamespaceRuntimeReadDataOptions, { depth?: number; maxChildrenPerNode?: number }>
+/** 预算 options：runtime **自持三键闭合形状**（ADR 0031 决策 1 对 ADR 0024 决策 1 的再修订：
+ *  两轴 + `maxBytes`；#364 时曾是 doc-runtime 两键单源别名——三键化后该别名形态不再成立，
+ *  本锁随修订链原位演进）。doc-runtime 两键面零改动由 `issue-405-maxbytes.test-d.ts` 的
+ *  `keyof ReadLogicalValueAtPathOptions` 硬锁独立锚定（ADR 0031 决策 4）。 */
+type _optionsClosedShape = AssertTrue<
+  Equal<
+    NamespaceRuntimeReadDataOptions,
+    { depth?: number; maxChildrenPerNode?: number; maxBytes?: number }
+  >
 >;
 
 // 声明期证明（仅 typecheck 用，零运行时值）。
@@ -106,7 +112,7 @@ export type RuntimeReadDataShapeAssertions = {
   readonly legacyFailureNoSchemaKey: _legacyFailureNoSchemaKey;
   readonly budgetFailureNoSchemaKey: _budgetFailureNoSchemaKey;
   readonly legacyReturnType: _legacyReturnType;
-  readonly optionsAlias: _optionsAlias;
+  readonly optionsClosedShape: _optionsClosedShape;
 };
 
 declare const runtime: NamespaceRuntime;
