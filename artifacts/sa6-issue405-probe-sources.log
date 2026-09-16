@@ -1,0 +1,853 @@
+# SA6 issue #405 临时探针源码留档（探针本体已按 SA6 纪律删除；本文件为证据）
+# HEAD: fc6c1d3a4d56453a6c7288519ec7cbfe852f8e1a  branch: mabf/issue-405  date: 2026-09-15T22:42:49+08:00
+# node: v24.13.0  pnpm: 10.28.2
+
+# 运行命令（复现）:
+#   1) SA6_HEAD=$(git rev-parse HEAD) NODE_OPTIONS=--conditions=nomicore-source pnpm exec tsx packages/namespace-runtime/.sa6-405-probe/probe-runtime.ts
+#   2) SA6_HEAD=$(git rev-parse HEAD) NODE_OPTIONS=--conditions=nomicore-source pnpm exec tsx packages/namespace-registry/.sa6-405-probe/probe-gate.ts
+#   3) pnpm exec tsc -p packages/namespace-registry/.sa6-405-probe/tsconfig.probe.json
+
+════════════════════════════════════════════════════════════════
+### FILE: packages/namespace-runtime/.sa6-405-probe/probe-runtime.ts
+════════════════════════════════════════════════════════════════
+/**
+ * SA6 issue #405 临时行为探针（诊断用；**不是**测试文件——不入 vitest 收集、收尾删除）。
+ *
+ * 目的：
+ *  P1 能力缺口：HEAD 上 `readData(path, { maxBytes })` 命中 options 未知键 → READ_OPTIONS_INVALID
+ *     （无论预算大小），证明 maxBytes 收/拒闸在 HEAD 零落地。
+ *  P2 两通道度量预言机：对若干读面输出 utf8(JSON.stringify(value)) + utf8(schema) 的精确字节数
+ *     （供验收契约的边界锚：total / total-1 / total+1）。
+ *  P3 回归指纹：无 maxBytes 面（无 options / depth / maxChildrenPerNode）的四键形状、头行、
+ *     ✂ 段、交付字节哈希——成功面逐字节回归锚的现状基线。
+ *  P4 负控：已知键 options 正常、生命周期失败面不变、PATH_NOT_ALLOWED 短路不变。
+ *
+ * 运行：NODE_OPTIONS=--conditions=nomicore-source pnpm exec tsx packages/namespace-runtime/.sa6-405-probe/probe-runtime.ts
+ */
+import { createHash } from 'node:crypto';
+import * as Y from 'yjs';
+import { createMemoryPersistence } from '@nomicore/persistence';
+import type { PersistenceScheduler, User } from '@nomicore/persistence';
+import { readLogicalValueAtPath } from '@nomicore/doc-runtime';
+import { createNamespaceRuntimeWithSeam } from '../src/runtime.js';
+import type {
+  NamespaceRuntime,
+  NamespaceRuntimeReadDataOptions,
+  NamespaceRuntimeReadDataResult,
+} from '../src/index.js';
+
+const SCHEDULER: PersistenceScheduler = {
+  setTimeout: (callback, delayMs) => globalThis.setTimeout(callback, delayMs),
+  clearTimeout: (handle) => globalThis.clearTimeout(handle as ReturnType<typeof globalThis.setTimeout>),
+};
+
+/** 含 CJK 的 schema：使 utf8 字节数与 UTF-16 code unit 数**可区分**（反伪绿：度量单位敏感）。 */
+const TXT_405 = `
+type Meta = YMap<{
+  /** 备注内容 */
+  content: YLeaf<string>;
+  /** 附加计数 */
+  extra: YLeaf<number>;
+}>;
+type ROOT = YMap<{
+  /** 页面标题 */
+  title: YLeaf<string>;
+  count: YLeaf<number>;
+  /** 元数据 */
+  meta: Meta;
+  /** 标签组 */
+  tags: YLeaf<string>[];
+  /** 可选昵称 */
+  nick?: YLeaf<string>;
+}>;
+`.trim();
+
+const ENV_405 = { lang: 'vfsl', version: 1, id: 'ns-405', text: TXT_405 } as const;
+const OWNER: User = { userId: 'u-405' };
+
+function seedStrictRoot(root: Y.Map<unknown>): void {
+  root.set('title', '你好，世界'); // 5 CJK/全角 chars → UTF-8 15B ≠ UTF-16 5
+  root.set('count', 3);
+  const meta = new Y.Map<unknown>();
+  meta.set('content', '备注说明'); // 4 CJK chars → UTF-8 12B ≠ UTF-16 4
+  meta.set('extra', 7);
+  root.set('meta', meta);
+  const tags = new Y.Array<string>();
+  tags.push(['甲', '乙', '丙', '丁', '戊']);
+  root.set('tags', tags);
+  // 'nick'（optional）缺席：缺席目标 × 投影文本照常计量的锚
+}
+
+async function makeRuntime(opts: { raw?: boolean } = {}): Promise<{ runtime: NamespaceRuntime; doc: Y.Doc }> {
+  const persistence = createMemoryPersistence({ scheduler: SCHEDULER });
+  const doc = new Y.Doc();
+  const sc = doc.getMap('SCHEMA');
+  for (const [k, v] of Object.entries(ENV_405)) sc.set(k, v);
+  const meta = doc.getMap('META');
+  meta.set('docId', 'ns-405');
+  meta.set('createdAt', 1_700_000_000_000);
+  seedStrictRoot(doc.getMap('ROOT'));
+  if (opts.raw === true) doc.getMap('ROOT').set('rogue', 'x'.repeat(100)); // schema 外数据：值通道单侧计量锚
+  const handle = await persistence.createDoc(OWNER, 'ns-405', doc);
+  const runtime = createNamespaceRuntimeWithSeam({ handle });
+  const deadline = Date.now() + 5_000;
+  while (runtime.getStatus().schema.state !== 'ready') {
+    if (Date.now() > deadline) throw new Error('装置前提失败：schema 未在 5s 内 ready');
+    await new Promise((resolve) => setTimeout(resolve, 10));
+  }
+  return { runtime, doc };
+}
+
+const utf8 = (text: string): number => Buffer.byteLength(text, 'utf8');
+const utf16 = (text: string): number => text.length;
+
+function sha(text: string): string {
+  return createHash('sha256').update(text, 'utf8').digest('hex').slice(0, 16);
+}
+
+interface Delivered {
+  readonly valueJson: string | undefined;
+  readonly schema: string | null;
+  readonly valueBytes: number;
+  readonly schemaBytes: number;
+  readonly total: number;
+}
+
+/** 规范度量（ADR 0031 §2）：值通道 utf8(JSON.stringify(value))（undefined 计 0）+ schema 通道 utf8(投影文本)（null 计 0）。 */
+function measure(value: unknown, schema: string | null): Delivered {
+  const valueJson = JSON.stringify(value);
+  const valueBytes = valueJson === undefined ? 0 : utf8(valueJson);
+  const schemaBytes = schema === null ? 0 : utf8(schema);
+  return { valueJson, schema, valueBytes, schemaBytes, total: valueBytes + schemaBytes };
+}
+
+function okOrThrow(r: NamespaceRuntimeReadDataResult | { ok: true; value: unknown; schema: string | null; truncated: boolean }): {
+  ok: true;
+  value: unknown;
+  schema: string | null;
+  truncated: boolean;
+} {
+  if (r.ok !== true) throw new Error(`装置前提失败：期望 ok:true，实际 ${JSON.stringify(r)}`);
+  return r;
+}
+
+const out: string[] = [];
+const line = (s = ''): void => {
+  out.push(s);
+};
+
+async function main(): Promise<void> {
+  const { runtime, doc } = await makeRuntime();
+  const runtimeKeys = Object.keys(runtime).sort();
+  line(`HEAD=${process.env.SA6_HEAD ?? 'unknown'}`);
+  line(`node=${process.version} keys=${JSON.stringify(runtimeKeys)}`);
+  line(`schema.state=${runtime.getStatus().schema.state}`);
+  line();
+
+  // ───────── P1 能力缺口：maxBytes 在 HEAD 上 = 未知键 ─────────
+  line('=== P1 能力缺口：readData(path, {maxBytes}) @HEAD（raw cast：类型面缺口见 probe-types.ts） ===');
+  const maxBytesCases: ReadonlyArray<{ name: string; path: readonly (string | number)[]; options: object }> = [
+    { name: 'A1 {maxBytes:1} 紧预算', path: [], options: { maxBytes: 1 } },
+    { name: 'A2 {maxBytes:100000} 宽预算', path: [], options: { maxBytes: 100000 } },
+    { name: 'A3 {maxBytes:0} 非法', path: [], options: { maxBytes: 0 } },
+    { name: 'A4 {maxBytes:-1} 非法', path: [], options: { maxBytes: -1 } },
+    { name: 'A5 {maxBytes:1.5} 非法', path: [], options: { maxBytes: 1.5 } },
+    { name: 'A6 {maxBytes:NaN} 非法', path: [], options: { maxBytes: Number.NaN } },
+    { name: 'A7 {maxBytes:Infinity} 非法', path: [], options: { maxBytes: Number.POSITIVE_INFINITY } },
+    { name: "A8 {maxBytes:'100'} 非法", path: [], options: { maxBytes: '100' } },
+    { name: 'A9 {maxBytes:undefined} 缺席语义', path: [], options: { maxBytes: undefined } },
+    { name: 'A10 {unknownKey:1} 未知键（既有负控）', path: [], options: { unknownKey: 1 } },
+    { name: 'A11 {maxBytes:1,depth:1} 混合', path: [], options: { maxBytes: 1, depth: 1 } },
+    { name: 'A12 {depth:1} 已知键（正向负控）', path: [], options: { depth: 1 } },
+    { name: 'A13 {maxChildrenPerNode:2} 已知键（正向负控）', path: [], options: { maxChildrenPerNode: 2 } },
+  ];
+  for (const c of maxBytesCases) {
+    const r = runtime.readData(c.path, c.options as unknown as NamespaceRuntimeReadDataOptions);
+    line(
+      `${c.name} -> ok=${String(r.ok)} code=${r.ok ? '-' : (r as { code: string }).code} keys=${JSON.stringify(Object.keys(r))}` +
+        (r.ok ? '' : ` message=${JSON.stringify((r as { message?: string }).message ?? '')}`),
+    );
+    if (!r.ok && (r as { code: string }).code === 'READ_BUDGET_EXCEEDED') {
+      line(`   measuredBytes=${String((r as { measuredBytes: number }).measuredBytes)}`);
+    }
+  }
+  line();
+
+  // ───────── P2 两通道度量预言机（边界锚） ─────────
+  line('=== P2 规范度量预言机（utf8 字节；供 ≤ 边界锚 total/total±1） ===');
+  const reads: ReadonlyArray<{ name: string; path: readonly (string | number)[]; options?: NamespaceRuntimeReadDataOptions }> = [
+    { name: 'R0 readData([]) 无 options', path: [] },
+    { name: 'R1 readData([], {depth:1})', path: [], options: { depth: 1 } },
+    { name: 'R2 readData([], {depth:0}) 折叠', path: [], options: { depth: 0 } },
+    { name: 'R3 readData([], {maxChildrenPerNode:2}) width 截断', path: [], options: { maxChildrenPerNode: 2 } },
+    { name: 'R4 readData([title]) 标量', path: ['title'] },
+    { name: 'R5 readData([meta]) ref 容器', path: ['meta'] },
+    { name: 'R6 readData([tags]) 数组', path: ['tags'] },
+    { name: 'R7 readData([nick]) 缺席目标（schema 在场）', path: ['nick'] },
+    { name: 'R8 readData([rogue]) 路径偏离（schema null）', path: ['rogue'] },
+  ];
+  for (const r of reads) {
+    const result = r.options === undefined ? runtime.readData(r.path) : runtime.readData(r.path, r.options);
+    if (!result.ok) {
+      line(`${r.name} -> FAILURE code=${(result as { code: string }).code}`);
+      continue;
+    }
+    const m = measure(result.value, result.schema);
+    const valueChars = m.valueJson === undefined ? 0 : utf16(m.valueJson);
+    const schemaChars = m.schema === null ? 0 : utf16(m.schema);
+    line(
+      `${r.name} -> truncated=${String(result.truncated)} keys=${JSON.stringify(Object.keys(result))}\n` +
+        `    valueBytes=${String(m.valueBytes)} schemaBytes=${String(m.schemaBytes)} TOTAL=${String(m.total)}` +
+        ` | utf16 对照 valueChars=${String(valueChars)} schemaChars=${String(schemaChars)}` +
+        ` | utf8≠utf16? value:${String(m.valueBytes !== valueChars)} schema:${String(m.schemaBytes !== schemaChars)}\n` +
+        `    head=${JSON.stringify(m.schema === null ? null : m.schema.split('\n')[0])} schema_null=${String(m.schema === null)}` +
+        ` value_undefined=${String(result.value === undefined)} value_key_present=${String('value' in result)}\n` +
+        `    sha16(valueJson)=${m.valueJson === undefined ? '-' : sha(m.valueJson)} sha16(schema)=${m.schema === null ? '-' : sha(m.schema)}` +
+        ` ✂included=${String(m.schema !== null && m.schema.includes('✂ 截断事实：'))}`,
+    );
+    line(`    schema_tail=${JSON.stringify(m.schema === null ? null : m.schema.slice(-96))}`);
+  }
+  line();
+
+  // ───────── P3 成功面逐字节回归锚（现值指纹） ─────────
+  line('=== P3 无 maxBytes 成功面指纹（回归锚：实现后须逐字节不变） ===');
+  const r0 = okOrThrow(runtime.readData([]));
+  const r0b = okOrThrow(runtime.readData([]));
+  const r1 = okOrThrow(runtime.readData([], { depth: 1 }));
+  const r1b = okOrThrow(runtime.readData([], { depth: 1 }));
+  const m0 = measure(r0.value, r0.schema);
+  const m1 = measure(r1.value, r1.schema);
+  line(`same-args determinism: R0 vs R0' -> ${String(m0.valueBytes === measure(r0b.value, r0b.schema).valueBytes && m0.schema === r0b.schema)}`);
+  line(`same-args determinism: R1 vs R1' -> ${String(m1.valueBytes === measure(r1b.value, r1b.schema).valueBytes && m1.schema === r1b.schema)}`);
+  line(`R0 keys=${JSON.stringify(Object.keys(r0))} schema_is_string=${String(typeof r0.schema === 'string')}`);
+  line(`R1 keys=${JSON.stringify(Object.keys(r1))} truncated=${String(r1.truncated)} ✂=${String(r1.schema !== null && r1.schema.includes('✂'))} head=${JSON.stringify(r1.schema?.split('\n')[0] ?? null)}`);
+  line();
+
+  // ───────── P4 负控：既有失败面/生命周期不变 ─────────
+  line('=== P4 负控（HEAD 必须绿） ===');
+  const pathNotAllowed = runtime.readData(['title', 0]);
+  line(`N1 readData([title,0]) 载体不匹配 -> ok=${String(pathNotAllowed.ok)} code=${pathNotAllowed.ok ? '-' : (pathNotAllowed as { code: string }).code}`);
+  const offSchema = runtime.readData(['rogue']);
+  line(`N2 readData([rogue]) 路径偏离 -> ok=${String(offSchema.ok)} schema_null=${String(offSchema.ok && offSchema.schema === null)} value_undefined=${String(offSchema.ok && offSchema.value === undefined)}`);
+  const protoOptions = Object.create({ depth: 1 }) as object;
+  const protoRead = runtime.readData([], protoOptions as NamespaceRuntimeReadDataOptions);
+  line(`N3 继承键 options（{__proto__:{depth:1}}）-> ok=${String(protoRead.ok)} (canonical 等价面无预算段：${String(protoRead.ok && protoRead.schema?.split('\n')[0] === '# readData []')})`);
+  const nonEnumerable = {};
+  Object.defineProperty(nonEnumerable, 'maxBytes', { value: 1, enumerable: false, configurable: true });
+  const nonEnumRead = runtime.readData([], nonEnumerable as NamespaceRuntimeReadDataOptions);
+  line(`N4 非 enumerable maxBytes 键 -> ok=${String(nonEnumRead.ok)} code=${nonEnumRead.ok ? '-' : (nonEnumRead as { code: string }).code}`);
+  const accessor = {};
+  Object.defineProperty(accessor, 'maxBytes', { get: () => 1, enumerable: true, configurable: true });
+  const accessorRead = runtime.readData([], accessor as NamespaceRuntimeReadDataOptions);
+  line(`N5 accessor maxBytes 键（零 getter 执行）-> ok=${String(accessorRead.ok)} code=${accessorRead.ok ? '-' : (accessorRead as { code: string }).code}`);
+  line();
+
+  // ───────── P5 raw 变体：schema null 单侧计量 + 双轴 ✂ 面 ─────────
+  line('=== P5 raw 变体（schema 外数据：仅值侧计量）与双轴面 ===');
+  const { runtime: rawRuntime } = await makeRuntime({ raw: true });
+  const rawRead = rawRuntime.readData(['rogue']);
+  if (rawRead.ok) {
+    const m = measure(rawRead.value, rawRead.schema);
+    line(
+      `R9 readData([rogue]) raw 值（schema null） -> schema_null=${String(rawRead.schema === null)} value_undefined=${String(rawRead.value === undefined)}` +
+        ` valueBytes=${String(m.valueBytes)} schemaBytes=${String(m.schemaBytes)} TOTAL=${String(m.total)}`,
+    );
+  }
+  const rawRoot = rawRuntime.readData([]);
+  if (rawRoot.ok) {
+    const m = measure(rawRoot.value, rawRoot.schema);
+    line(`R10 readData([]) raw ROOT -> valueBytes=${String(m.valueBytes)} schemaBytes=${String(m.schemaBytes)} TOTAL=${String(m.total)}`);
+  }
+  const both = runtime.readData([], { depth: 1, maxChildrenPerNode: 2 });
+  if (both.ok) {
+    const m = measure(both.value, both.schema);
+    line(
+      `R11 readData([], {depth:1,maxChildrenPerNode:2}) -> truncated=${String(both.truncated)} valueBytes=${String(m.valueBytes)} schemaBytes=${String(m.schemaBytes)} TOTAL=${String(m.total)}` +
+        ` head=${JSON.stringify(m.schema?.split('\n')[0] ?? null)} ✂=${String(m.schema !== null && m.schema.includes('✂ 截断事实：'))}`,
+    );
+  }
+  const emptyBudget = runtime.readData([], {});
+  if (emptyBudget.ok) {
+    const m = measure(emptyBudget.value, emptyBudget.schema);
+    line(
+      `R12 readData([], {}) 空预算 options -> TOTAL=${String(m.total)} head=${JSON.stringify(m.schema?.split('\n')[0] ?? null)}` +
+        ` (空预算 ≡ 无预算段；ADR 0031 收/拒参数不塑形头行)`,
+    );
+  }
+
+  // ───────── P6 规模/成本：闸门测量 = 一次序列化遍历（O(交付字节)） ─────────
+  line();
+  line('=== P6 规模/成本基线（large 值通道；仅诊断，无阈值断言） ===');
+  const bigRoot = doc.getMap('ROOT');
+  const big = new Y.Array<number>();
+  const N = 50_000;
+  big.push(Array.from({ length: N }, (_, i) => i % 997));
+  bigRoot.set('big', big); // schema 外路径（['big'] → schema null），值侧单通道
+  const bigRead = runtime.readData(['big']);
+  if (bigRead.ok) {
+    const json = JSON.stringify(bigRead.value);
+    const valueBytes = json === undefined ? 0 : utf8(json);
+    const t0 = performance.now();
+    const r1 = runtime.readData(['big']);
+    const t1 = performance.now();
+    if (r1.ok) {
+      const j = JSON.stringify(r1.value);
+      const t2 = performance.now();
+      const bytes = j === undefined ? 0 : utf8(j);
+      const t3 = performance.now();
+      line(`P6 big(n=${String(N)}) valueBytes=${String(valueBytes)} schema_null=${String(bigRead.schema === null)}`);
+      line(`P6 t(readData)=${(t1 - t0).toFixed(2)}ms  t(JSON.stringify+utf8)≈${(t3 - t2).toFixed(2)}ms  （闸门测量 = 交付后一次序列化遍历）`);
+    }
+  }
+
+  // ───────── P7 窗口面边界（本票 tracer 只治 readData 面） ─────────
+  line();
+  line('=== P7 窗口面边界（tracer 范围：readData 面；窗口面本票不动） ===');
+  const arrMax = runtime.readArray(['tags'], { n: 1, maxBytes: 1 } as never);
+  line(`P7a readArray([tags], {n:1,maxBytes:1}) → ok=${String(arrMax.ok)} code=${arrMax.ok ? '-' : (arrMax as { code: string }).code}`);
+  const mapMax = runtime.readMap(['meta'], { n: 1, maxBytes: 1 } as never);
+  line(`P7b readMap([meta], {n:1,maxBytes:1}) → ok=${String(mapMax.ok)} code=${mapMax.ok ? '-' : (mapMax as { code: string }).code}`);
+  const noBudgetArr = runtime.readArray(['tags'], { n: 1 });
+  line(`P7c readArray([tags], {n:1}) 无预算现状锚 → ok=${String(noBudgetArr.ok)} keys=${JSON.stringify(Object.keys(noBudgetArr))}`);
+
+  // ───────── P8 doc-runtime 边界（ADR 0031 §4：doc-runtime 零改动、下传两键） ─────────
+  line();
+  line('=== P8 doc-runtime 边界（零改动锚：maxBytes 不进 doc-runtime 校验域） ===');
+  const docRead = readLogicalValueAtPath(doc, ['title'], { maxBytes: 1 } as never);
+  line(`P8a docRuntime.readLogicalValueAtPath(doc,[title],{maxBytes:1}) → ok=${String(docRead.ok)} code=${docRead.ok ? '-' : (docRead as { code: string }).code}`);
+  const docRead2 = readLogicalValueAtPath(doc, ['title'], { depth: 1 });
+  line(`P8b docRuntime.readLogicalValueAtPath(doc,[title],{depth:1}) → ok=${String(docRead2.ok)} keys=${JSON.stringify(Object.keys(docRead2))}`);
+
+  // ───────── P9 lifecycle 优先（含 maxBytes 的 options 在 closing/closed 期零读取） ─────────
+  line();
+  line('=== P9 lifecycle gate 优先于 options 读取与预算判定 ===');
+  let trapCalls = 0;
+  const trapOptions = new Proxy(
+    { maxBytes: 1 },
+    {
+      get(t, k, r) {
+        trapCalls += 1;
+        return Reflect.get(t, k, r);
+      },
+      getOwnPropertyDescriptor(t, k) {
+        trapCalls += 1;
+        return Reflect.getOwnPropertyDescriptor(t, k);
+      },
+      ownKeys(t) {
+        trapCalls += 1;
+        return Reflect.ownKeys(t);
+      },
+      has(t, k) {
+        trapCalls += 1;
+        return Reflect.has(t, k);
+      },
+    },
+  );
+  await runtime.close();
+  const closedRead = runtime.readData([], trapOptions as never);
+  line(`P9 closed 期 readData([], Proxy{maxBytes}) → ok=${String(closedRead.ok)} code=${closedRead.ok ? '-' : (closedRead as { code: string }).code} trapCalls=${String(trapCalls)}`);
+
+  process.stdout.write(out.join('\n') + '\n');
+}
+
+main().catch((error: unknown) => {
+  process.stderr.write(`PROBE FAILED: ${String(error)}\n`);
+  process.exitCode = 1;
+});
+
+════════════════════════════════════════════════════════════════
+### FILE: packages/namespace-registry/.sa6-405-probe/probe-gate.ts
+════════════════════════════════════════════════════════════════
+/**
+ * SA6 issue #405 临时闸门/断言判据探针（诊断用；非测试文件、不入 vitest 收集、收尾删除）。
+ *
+ * 内容：
+ *  G0 **参考闸门**（reference gate；只组合公共 API，非生产实现）：按 ADR 0031 §2/§3 语义给
+ *     `readData` 加「总量 ≤ maxBytes 收 / > maxBytes 零交付拒」——证明验收断言**可满足**
+ *     （不是不可能任务），并给出目标实现的预期结果形状。
+ *  A  **验收断言组原型**（契约 §12 判据）：同一断言函数分别对
+ *     (a) HEAD 真实 runtime（期望：目标断言红、失败原因 = 能力缺口）
+ *     (b) 参考闸门（期望：全绿）
+ *     求值——红点归因可判定（READ_OPTIONS_INVALID / 未知键 ≠ 断言装置错误）。
+ *  L  **lease 透传判据**（registry lease ≡ 同 doc 直调 runtime；released 短路优先）。
+ *  X  **敌意 options 负控**（accessor / descriptor trap / 非 enumerable 键）。
+ *
+ * 运行：NODE_OPTIONS=--conditions=nomicore-source pnpm exec tsx packages/namespace-registry/.sa6-405-probe/probe-gate.ts
+ */
+import * as Y from 'yjs';
+import { createMemoryPersistence } from '@nomicore/persistence';
+import type { DocHandle, DocPersistence, PersistenceScheduler, User } from '@nomicore/persistence';
+import type {
+  NamespaceRuntime,
+  NamespaceRuntimeReadDataBudgetResult as BudgetResult,
+} from '@nomicore/namespace-runtime';
+import type { NamespaceLease } from '@nomicore/namespace-registry';
+import { createNamespaceRegistryForTesting, createRegistryTestScheduler } from '@nomicore/namespace-registry/testing';
+import { createNamespaceRuntimeWithSeam } from '../../namespace-runtime/src/runtime.js';
+
+const SCHEDULER: PersistenceScheduler = {
+  setTimeout: (callback, delayMs) => globalThis.setTimeout(callback, delayMs),
+  clearTimeout: (handle) => globalThis.clearTimeout(handle as ReturnType<typeof globalThis.setTimeout>),
+};
+
+const TXT_405 = `
+type Meta = YMap<{
+  /** 备注内容 */
+  content: YLeaf<string>;
+  /** 附加计数 */
+  extra: YLeaf<number>;
+}>;
+type ROOT = YMap<{
+  /** 页面标题 */
+  title: YLeaf<string>;
+  count: YLeaf<number>;
+  /** 元数据 */
+  meta: Meta;
+  /** 标签组 */
+  tags: YLeaf<string>[];
+  /** 可选昵称 */
+  nick?: YLeaf<string>;
+}>;
+`.trim();
+
+const ENV_405 = { lang: 'vfsl', version: 1, id: 'ns-405', text: TXT_405 } as const;
+const OWNER: User = { userId: 'u-405' };
+
+function buildDoc(raw: boolean): Y.Doc {
+  const doc = new Y.Doc();
+  const sc = doc.getMap('SCHEMA');
+  for (const [k, v] of Object.entries(ENV_405)) sc.set(k, v);
+  const meta = doc.getMap('META');
+  meta.set('docId', 'ns-405');
+  meta.set('createdAt', 1_700_000_000_000);
+  const root = doc.getMap('ROOT');
+  root.set('title', '你好，世界');
+  root.set('count', 3);
+  const m = new Y.Map<unknown>();
+  m.set('content', '备注说明');
+  m.set('extra', 7);
+  root.set('meta', m);
+  const tags = new Y.Array<string>();
+  tags.push(['甲', '乙', '丙', '丁', '戊']);
+  root.set('tags', tags);
+  if (raw) root.set('rogue', 'x'.repeat(100));
+  return doc;
+}
+
+const utf8 = (text: string): number => Buffer.byteLength(text, 'utf8');
+
+type AnyRead = BudgetResult | { ok: true; value: unknown; schema: string | null; truncated: boolean };
+interface Budgeted {
+  readonly depth?: number;
+  readonly maxChildrenPerNode?: number;
+}
+type CallFace = (path: readonly (string | number)[], options?: Budgeted & { readonly maxBytes?: number }) => AnyRead;
+
+/** 参考闸门（非生产实现；ADR 0031 §2/§3 语义的组合层模型）。 */
+function withByteBudget(runtime: NamespaceRuntime, path: readonly (string | number)[], options: Budgeted & { readonly maxBytes?: number }): AnyRead {
+  const { maxBytes, ...rest } = options;
+  const twoKeys = rest as Budgeted;
+  const delivered = Object.keys(twoKeys).length === 0 ? runtime.readData(path) : runtime.readData(path, twoKeys);
+  if (delivered.ok !== true) return delivered as BudgetResult;
+  if (maxBytes === undefined) return delivered;
+  const valueJson = JSON.stringify(delivered.value);
+  const valueBytes = valueJson === undefined ? 0 : utf8(valueJson);
+  const schemaBytes = delivered.schema === null ? 0 : utf8(delivered.schema);
+  const measuredBytes = valueBytes + schemaBytes;
+  if (measuredBytes <= maxBytes) return delivered;
+  return {
+    ok: false,
+    code: 'READ_BUDGET_EXCEEDED',
+    path: [...path],
+    measuredBytes,
+    message: `READ_BUDGET_EXCEEDED: 交付总量 ${String(measuredBytes)} 字节 > maxBytes ${String(maxBytes)}`,
+  } as BudgetResult;
+}
+
+interface CheckResult {
+  readonly name: string;
+  readonly ok: boolean;
+  readonly detail: string;
+}
+
+const out: string[] = [];
+const line = (s = ''): void => {
+  out.push(s);
+};
+
+const eq = (a: unknown, b: unknown): boolean => JSON.stringify(a) === JSON.stringify(b);
+const fiveKeys = (keys: readonly string[]): boolean => eq([...keys].sort(), ['code', 'measuredBytes', 'message', 'ok', 'path']);
+
+function oracleTotal(oracleCall: CallFace, path: readonly (string | number)[], options?: Budgeted): number {
+  const r = oracleCall(path, options);
+  if (r.ok !== true) throw new Error(`断言装置前提失败：oracle 读应成功（${JSON.stringify(r)}）`);
+  const json = JSON.stringify(r.value);
+  return (json === undefined ? 0 : utf8(json)) + (r.schema === null ? 0 : utf8(r.schema));
+}
+
+/** 严格档断言组（T1–T9；锚值 = probe-runtime.log P2/P3 实测）。 */
+function strictAssertions(call: CallFace, oracle: CallFace): CheckResult[] {
+  const R: CheckResult[] = [];
+  const push = (name: string, ok: boolean, detail: string): void => {
+    R.push({ name, ok, detail });
+  };
+  {
+    const anchored = oracle([]);
+    const budgeted = call([], { maxBytes: 358 });
+    push(
+      'T1 恰好等于 maxBytes=358 → 成功且与无 maxBytes 同参读逐字节一致',
+      budgeted.ok === true && eq(budgeted, anchored) && utf8(JSON.stringify(budgeted.value)) === 120 && (budgeted.schema === null ? 0 : utf8(budgeted.schema)) === 238,
+      JSON.stringify(budgeted).slice(0, 110),
+    );
+  }
+  {
+    const r = call([], { maxBytes: 357 });
+    push(
+      'T2 maxBytes=357 → READ_BUDGET_EXCEEDED、measuredBytes=358、恰五键 {ok,code,path,measuredBytes,message}',
+      r.ok === false && r.code === 'READ_BUDGET_EXCEEDED' && r.measuredBytes === 358 && fiveKeys(Object.keys(r)) && r.message.length > 0,
+      JSON.stringify(r).slice(0, 150),
+    );
+  }
+  {
+    const anchored = oracle([]);
+    const wide = call([], { maxBytes: 100000 });
+    push('T3 宽预算 maxBytes=100000 → 成功面与无预算读全等（收/拒不塑形交付）', wide.ok === true && eq(wide, anchored), JSON.stringify(wide).slice(0, 110));
+  }
+  {
+    const anchors: ReadonlyArray<{ name: string; path: readonly (string | number)[]; options?: Budgeted }> = [
+      { name: 'R0 []', path: [] },
+      { name: 'R1 [] depth1', path: [], options: { depth: 1 } },
+      { name: 'R2 [] depth0', path: [], options: { depth: 0 } },
+      { name: 'R3 [] width2', path: [], options: { maxChildrenPerNode: 2 } },
+      { name: 'R4 [title]', path: ['title'] },
+      { name: 'R5 [meta]', path: ['meta'] },
+      { name: 'R6 [tags]', path: ['tags'] },
+      { name: 'R7 [nick] 缺席', path: ['nick'] },
+      { name: 'R11 [] depth1+width2', path: [], options: { depth: 1, maxChildrenPerNode: 2 } },
+    ];
+    const bad: string[] = [];
+    for (const a of anchors) {
+      const total = oracleTotal(oracle, a.path, a.options);
+      const rejected = call(a.path, { ...(a.options ?? {}), maxBytes: total - 1 });
+      const accepted = call(a.path, { ...(a.options ?? {}), maxBytes: total });
+      const rejectedOk = rejected.ok === false && rejected.code === 'READ_BUDGET_EXCEEDED' && rejected.measuredBytes === total;
+      const acceptedOk = accepted.ok === true;
+      if (!rejectedOk || !acceptedOk) bad.push(`${a.name}(total=${String(total)}) rej=${JSON.stringify(rejected).slice(0, 80)} acc=${String(accepted.ok)}`);
+    }
+    push('T4 度量等式 property（9 锚；measuredBytes = utf8(json(value)) + utf8(schema)，含 ✂/头行/缺席）', bad.length === 0, bad.join(' | ') || 'all anchors hold');
+  }
+  {
+    const invalidValues: ReadonlyArray<[string, unknown]> = [
+      ['0', 0],
+      ['-1', -1],
+      ['1.5', 1.5],
+      ['NaN', Number.NaN],
+      ['Infinity', Number.POSITIVE_INFINITY],
+      ['"100"', '100'],
+      ['undefined 值在场', undefined],
+    ];
+    const bad: string[] = [];
+    const messages: Record<string, string> = {};
+    for (const [name, value] of invalidValues) {
+      const r = call([], { maxBytes: value as number });
+      if (r.ok !== false || r.code !== 'READ_OPTIONS_INVALID') bad.push(`${name} → ${JSON.stringify(r).slice(0, 90)}`);
+      else messages[name] = r.message;
+    }
+    const unknownKey = call([], { nope: 1 } as never);
+    const unknownMessage = unknownKey.ok === false && 'message' in unknownKey ? String((unknownKey as { message: string }).message) : '';
+    const mentionMaxBytes = Object.values(messages).every((m) => m.includes('maxBytes'));
+    const distinct = unknownMessage !== '' && Object.values(messages).every((m) => m !== unknownMessage);
+    const validBoundary = call([], { maxBytes: 2 ** 53 - 1 });
+    push(
+      'T5 options 负控（0/-1/1.5/NaN/Inf/"100"/present-undefined → READ_OPTIONS_INVALID，message 标 maxBytes 域；有效域边界 2^53-1 收）',
+      bad.length === 0 && mentionMaxBytes && distinct && validBoundary.ok === true,
+      `bad=[${bad.join('; ')}] mention=${String(mentionMaxBytes)} distinct=${String(distinct)} validBoundary.ok=${String(validBoundary.ok)} msg0=${JSON.stringify(messages['0'] ?? null)} unknown=${JSON.stringify(unknownMessage)}`,
+    );
+  }
+  {
+    const total = oracleTotal(oracle, ['nick']);
+    const rejected = call(['nick'], { maxBytes: total - 1 });
+    const accepted = call(['nick'], { maxBytes: total });
+    push(
+      'T6 缺席目标 [nick]：投影文本照常计量（total=27；26 拒 / 27 收，value undefined 不豁免）',
+      total === 27 && rejected.ok === false && rejected.code === 'READ_BUDGET_EXCEEDED' && rejected.measuredBytes === 27 && accepted.ok === true && accepted.value === undefined && accepted.schema !== null,
+      `total=${String(total)} rej=${JSON.stringify(rejected).slice(0, 80)} acc.value=${String(accepted.value)}`,
+    );
+  }
+  {
+    const anchored = oracle([], { depth: 1 });
+    const budgeted = call([], { depth: 1, maxBytes: 415 });
+    push(
+      'T7 {depth:1,maxBytes:415} → schema 与 {depth:1} 逐字节相同（头行不记 maxBytes、✂ 照常计入）',
+      budgeted.ok === true && anchored.ok === true && budgeted.schema === anchored.schema && budgeted.truncated === true,
+      `head=${JSON.stringify(budgeted.ok ? (budgeted.schema ?? '').split('\n')[0] : null)}`,
+    );
+  }
+  {
+    const r = call(['title', 0], { maxBytes: 1 });
+    push('T8 值通道失败优先：PATH_NOT_ALLOWED 短路（不借预算码）', r.ok === false && r.code === 'PATH_NOT_ALLOWED', JSON.stringify(r).slice(0, 110));
+  }
+  {
+    const r = call(['rogue'], { maxBytes: 1 });
+    push('T9 [rogue] 严格档 total=0（schema null + 值缺席）→ maxBytes=1 成功（零总量 ≠ 超限）', r.ok === true && r.schema === null && r.value === undefined, JSON.stringify(r).slice(0, 110));
+  }
+  return R;
+}
+
+/** raw 档断言组（schema:null × 值侧单通道）。 */
+function rawAssertions(call: CallFace, oracle: CallFace): CheckResult[] {
+  const R: CheckResult[] = [];
+  const total = oracleTotal(oracle, ['rogue']);
+  const rejected = call(['rogue'], { maxBytes: total - 1 });
+  const accepted = call(['rogue'], { maxBytes: total });
+  R.push({
+    name: `T10 schema:null × 值侧单通道（raw [rogue] total=${String(total)}）：${String(total - 1)} 拒 / ${String(total)} 收`,
+    ok: total === 102 && rejected.ok === false && rejected.code === 'READ_BUDGET_EXCEEDED' && rejected.measuredBytes === 102 && accepted.ok === true && accepted.schema === null,
+    detail: `rej=${JSON.stringify(rejected).slice(0, 100)} acc.schema=${String(accepted.schema)}`,
+  });
+  const bad: string[] = [];
+  for (const anchor of [{ name: 'raw []', path: [] as const }, { name: 'raw [title]', path: ['title'] as const }]) {
+    const t = oracleTotal(oracle, anchor.path);
+    const rej = call(anchor.path, { maxBytes: t - 1 });
+    if (!(rej.ok === false && rej.code === 'READ_BUDGET_EXCEEDED' && rej.measuredBytes === t)) bad.push(`${anchor.name}(total=${String(t)})`);
+  }
+  R.push({ name: 'T10b raw 档 property 附加锚（[] / [title]）', ok: bad.length === 0, detail: bad.join(', ') || 'ok' });
+  return R;
+}
+
+function manualClock(): { now: () => number } {
+  return { now: () => 1_700_000_123_456 };
+}
+
+let randomCounter = 0;
+function deterministicRandomBytes(length: number): Uint8Array {
+  randomCounter += 1;
+  const hex = randomCounter.toString(16).padStart(32, '0');
+  const outBytes = new Uint8Array(length);
+  for (let i = 0; i < length; i += 1) outBytes[i] = Number.parseInt(hex.slice((i % 16) * 2, (i % 16) * 2 + 2), 16);
+  return outBytes;
+}
+
+class StubHandle implements DocHandle {
+  constructor(readonly owner: User, readonly docId: string, readonly doc: Y.Doc) {}
+  getStatus(): 'ready' {
+    return 'ready';
+  }
+  release(): Promise<void> {
+    return Promise.resolve();
+  }
+}
+
+class StubPersistence implements DocPersistence {
+  constructor(private readonly handle: DocHandle) {}
+  async createDoc(): Promise<DocHandle> {
+    return this.handle;
+  }
+  async loadDoc(): Promise<DocHandle | null> {
+    return this.handle;
+  }
+  async saveDoc(): Promise<void> {}
+}
+
+async function waitReady(runtime: NamespaceRuntime): Promise<void> {
+  const deadline = Date.now() + 5_000;
+  while (runtime.getStatus().schema.state !== 'ready') {
+    if (Date.now() > deadline) throw new Error('装置前提失败：schema 未在 5s 内 ready');
+    await new Promise((resolve) => setTimeout(resolve, 10));
+  }
+}
+
+async function makeRuntime(raw: boolean): Promise<NamespaceRuntime> {
+  const persistence = createMemoryPersistence({ scheduler: SCHEDULER });
+  const handle = await persistence.createDoc(OWNER, 'ns-405', buildDoc(raw));
+  const runtime = createNamespaceRuntimeWithSeam({ handle });
+  await waitReady(runtime);
+  return runtime;
+}
+
+async function main(): Promise<void> {
+  line(`HEAD=${process.env.SA6_HEAD ?? 'unknown'}`);
+  const runtime = await makeRuntime(false);
+  const rawRuntime = await makeRuntime(true);
+
+  const headCall: CallFace = (p, o) => (o === undefined ? runtime.readData(p) : runtime.readData(p, o as never));
+  const headRawCall: CallFace = (p, o) => (o === undefined ? rawRuntime.readData(p) : rawRuntime.readData(p, o as never));
+  const gateCall: CallFace = (p, o) => (o === undefined ? runtime.readData(p) : withByteBudget(runtime, p, o));
+  const gateRawCall: CallFace = (p, o) => (o === undefined ? rawRuntime.readData(p) : withByteBudget(rawRuntime, p, o));
+  const strictOracle: CallFace = (p, o) => (o === undefined ? runtime.readData(p) : runtime.readData(p, o));
+  const rawOracle: CallFace = (p, o) => (o === undefined ? rawRuntime.readData(p) : rawRuntime.readData(p, o));
+
+  const groups: ReadonlyArray<{ label: string; checks: CheckResult[]; expectation: 'red' | 'green' }> = [
+    { label: 'HEAD 真实 runtime（严格档）→ 期望目标断言红', checks: strictAssertions(headCall, strictOracle), expectation: 'red' },
+    { label: 'HEAD 真实 runtime（raw 档）→ 期望目标断言红', checks: rawAssertions(headRawCall, rawOracle), expectation: 'red' },
+    { label: '参考闸门（严格档；目标语义）→ 期望全绿', checks: strictAssertions(gateCall, strictOracle), expectation: 'green' },
+    { label: '参考闸门（raw 档；目标语义）→ 期望全绿', checks: rawAssertions(gateRawCall, rawOracle), expectation: 'green' },
+  ];
+  for (const g of groups) {
+    line();
+    line(`--- ${g.label} ---`);
+    for (const c of g.checks) line(`  [${c.ok ? 'PASS' : 'FAIL'}] ${c.name}\n        ${c.detail}`);
+  }
+  const headChecks = [...groups[0]!.checks, ...groups[1]!.checks];
+  const gateChecks = [...groups[2]!.checks, ...groups[3]!.checks];
+  line();
+  line(
+    `判读：HEAD 目标断言（期望全红）= 红 ${String(headChecks.filter((c) => !c.ok).length)}/${String(headChecks.length)}；` +
+      `参考闸门（期望全绿）= 绿 ${String(gateChecks.filter((c) => c.ok).length)}/${String(gateChecks.length)}。`,
+  );
+
+  // ───────── L lease 透传 ─────────
+  line();
+  line('=== L registry lease 透传判据 ===');
+  const registry = createNamespaceRegistryForTesting(new StubPersistence(new StubHandle(OWNER, 'ns-405', buildDoc(false))), {
+    clock: manualClock(),
+    scheduler: createRegistryTestScheduler(),
+    randomBytes: deterministicRandomBytes,
+  });
+  const opened = await registry.open({ userId: OWNER.userId }, 'ns-405');
+  if (!opened.ok) throw new Error(`装置前提失败：registry.open 应成功（${JSON.stringify(opened)}）`);
+  const lease: NamespaceLease = opened.lease;
+  const deadline = Date.now() + 5_000;
+  while (!(lease.getStatus().lease === 'active' && lease.getStatus().runtime.schema.state === 'ready')) {
+    if (Date.now() > deadline) throw new Error('装置前提失败：lease 未 ready');
+    await new Promise((resolve) => setTimeout(resolve, 10));
+  }
+  const leaseNoBudget = lease.readData([]);
+  const mirror = runtime.readData([]);
+  line(`L0 lease.readData([]) ≡ 同参直调 runtime.readData([])（无预算现状锚）：${String(eq(leaseNoBudget, mirror))}`);
+  const leaseMaxBytes = lease.readData([], { maxBytes: 1 } as never);
+  line(`L1 lease.readData([], {maxBytes:1}) @HEAD → ok=${String(leaseMaxBytes.ok)} code=${leaseMaxBytes.ok ? '-' : (leaseMaxBytes as { code: string }).code}（目标：READ_BUDGET_EXCEEDED measuredBytes=358）`);
+  let releasedRead: AnyRead | undefined;
+  await lease.release();
+  try {
+    releasedRead = lease.readData([], { maxBytes: 1 } as never);
+  } catch {
+    line('L2 released 短路：escaped throw（违反）');
+  }
+  line(`L2 released 短路优先于预算校验：code=${releasedRead?.ok === false ? (releasedRead as { code: string }).code : String(releasedRead?.ok)}`);
+
+  // ───────── X 敌意 options 负控 ─────────
+  line();
+  line('=== X 敌意 options 负控（HEAD 与目标实现同判：响亮不抛、零 getter 执行、键空间纪律） ===');
+  let getterCalls = 0;
+  const accessor: Record<string, unknown> = {};
+  Object.defineProperty(accessor, 'maxBytes', {
+    get: () => {
+      getterCalls += 1;
+      return 1;
+    },
+    enumerable: true,
+    configurable: true,
+  });
+  const x1 = runtime.readData([], accessor as never);
+  line(`X1 accessor maxBytes → ok=${String(x1.ok)} code=${x1.ok ? '-' : (x1 as { code: string }).code} getterCalls=${String(getterCalls)}（目标：拒绝 + getter 零执行）`);
+  let escaped = false;
+  let x2: AnyRead | undefined;
+  const stateful = new Proxy(
+    { maxBytes: 1 },
+    {
+      getOwnPropertyDescriptor(target, key) {
+        if (key === 'maxBytes') throw new Error('probe: descriptor trap');
+        return Reflect.getOwnPropertyDescriptor(target, key);
+      },
+    },
+  );
+  try {
+    x2 = runtime.readData([], stateful as never);
+  } catch {
+    escaped = true;
+  }
+  line(`X2 descriptor trap maxBytes → escapedThrow=${String(escaped)} ok=${String(x2?.ok)} code=${x2 === undefined || x2.ok ? '-' : (x2 as { code: string }).code}`);
+  const hidden: Record<string, unknown> = {};
+  Object.defineProperty(hidden, 'maxBytes', { value: 1, enumerable: false, configurable: true });
+  const x3 = runtime.readData([], hidden as never);
+  line(`X3 非 enumerable maxBytes（键空间外 ≡ 无预算）→ ok=${String(x3.ok)}${x3.ok ? '（成功；实现若用 `in`/直接属性读会误判为超限）' : ` code=${(x3 as { code: string }).code}`}`);
+
+  process.stdout.write(out.join('\n') + '\n');
+}
+
+main().catch((error: unknown) => {
+  process.stderr.write(`PROBE FAILED: ${String(error)}\n`);
+  process.exitCode = 1;
+});
+
+════════════════════════════════════════════════════════════════
+### FILE: packages/namespace-registry/.sa6-405-probe/probe-types.ts
+════════════════════════════════════════════════════════════════
+/**
+ * SA6 issue #405 临时类型面探针（诊断用；非测试文件、不入 vitest 收集、收尾删除）。
+ *
+ * 期望 @HEAD 的 tsc 诊断（能力缺口）：
+ *   G1/G2/G3  maxBytes 不在闭合 options 形状 → TS2353（对象字面量多余属性）
+ *   G4        READ_BUDGET_EXCEEDED 不在预算联合 → TS2322（不可赋给判别码联合）
+ *   G5        判别码无重叠 → TS2367
+ * 期望恒绿控制（HEAD 与实现后都必须编译干净）：
+ *   C1 既有两键合法；C2 未知键保持编译红（@ts-expect-error 必须被"使用"）；
+ *   C3 doc-runtime options 仍恰两键（ADR 0031「doc-runtime 零改动、下传两键」）；
+ *   C4 既有四键成功成员类型不变；C5 复合 options（三键）在实现后合法。
+ *
+ * 运行：pnpm exec tsc -p packages/namespace-registry/.sa6-405-probe/tsconfig.probe.json
+ */
+import type {
+  NamespaceRuntime,
+  NamespaceRuntimeReadDataOptions,
+  NamespaceRuntimeReadDataBudgetResult,
+} from '@nomicore/namespace-runtime';
+import type { ReadLogicalValueAtPathOptions } from '@nomicore/doc-runtime';
+import type { NamespaceLease } from '@nomicore/namespace-registry';
+
+type Equal<A, B> = (<T>() => T extends A ? 1 : 2) extends <T>() => T extends B ? 1 : 2 ? true : false;
+type AssertTrue<T extends true> = T;
+
+// ───────── 能力缺口（HEAD 期望报错；实现后须干净） ─────────
+
+// G1: 目标 options 闭合形状含 maxBytes
+export const g1: NamespaceRuntimeReadDataOptions = { maxBytes: 1024 };
+
+// G2: runtime 调用点（字面量 options）
+declare const runtime: NamespaceRuntime;
+export const g2 = runtime.readData([], { maxBytes: 1024 });
+
+// G3: registry lease 调用点（租约 options 别名跟随）
+declare const lease: NamespaceLease;
+export const g3 = lease.readData([], { maxBytes: 1024 });
+
+// G4: 结果联合的失败分支判别码
+export const g4: Extract<NamespaceRuntimeReadDataBudgetResult, { ok: false }>['code'] = 'READ_BUDGET_EXCEEDED';
+
+// G5: 失败分支载荷窄化（measuredBytes 只在 READ_BUDGET_EXCEEDED 成员上在场）
+export function g5(r: NamespaceRuntimeReadDataBudgetResult): number | null {
+  if (!r.ok && r.code === 'READ_BUDGET_EXCEEDED') return r.measuredBytes;
+  return null;
+}
+
+// ───────── 恒绿控制（负控/回归锁） ─────────
+
+// C1: 既有两键在闭合形状内（恒绿）
+export const c1: NamespaceRuntimeReadDataOptions = { depth: 1, maxChildrenPerNode: 2 };
+
+// C2: 未知键保持编译红（@ts-expect-error 必须被使用，否则 TS2578）
+// @ts-expect-error 未知键不在闭合形状内
+export const c2: NamespaceRuntimeReadDataOptions = { nope: 1 };
+
+// C3: doc-runtime options 仍恰两键（ADR 0031 §4：doc-runtime 零改动、下传两键）
+type _docRuntimeTwoKeys = AssertTrue<Equal<keyof ReadLogicalValueAtPathOptions, 'depth' | 'maxChildrenPerNode'>>;
+
+// C4: 既有成功成员四键形状不变（回归锚）
+type _okShape = AssertTrue<
+  Equal<
+    Extract<NamespaceRuntimeReadDataBudgetResult, { ok: true }>,
+    { ok: true; value: unknown; schema: string | null; truncated: boolean }
+  >
+>;
+
+// C5: 三键复合 options（实现后合法；HEAD 因 maxBytes 报 TS2353）
+export const c5: NamespaceRuntimeReadDataOptions = { depth: 1, maxChildrenPerNode: 2, maxBytes: 358 };
+
+════════════════════════════════════════════════════════════════
+### FILE: packages/namespace-registry/.sa6-405-probe/tsconfig.probe.json
+════════════════════════════════════════════════════════════════
+{
+  "extends": "../../../tsconfig.base.json",
+  "include": ["./**/*.ts"]
+}

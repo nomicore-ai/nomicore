@@ -1,0 +1,8 @@
+packages/namespace-registry/.sa6-405-probe/probe-types.ts(29,54): error TS2353: Object literal may only specify known properties, and 'maxBytes' does not exist in type 'ReadLogicalValueAtPathOptions'.
+packages/namespace-registry/.sa6-405-probe/probe-types.ts(33,42): error TS2353: Object literal may only specify known properties, and 'maxBytes' does not exist in type 'ReadLogicalValueAtPathOptions'.
+packages/namespace-registry/.sa6-405-probe/probe-types.ts(37,40): error TS2353: Object literal may only specify known properties, and 'maxBytes' does not exist in type 'ReadLogicalValueAtPathOptions'.
+packages/namespace-registry/.sa6-405-probe/probe-types.ts(40,14): error TS2322: Type '"READ_BUDGET_EXCEEDED"' is not assignable to type '"PATH_NOT_ALLOWED" | "READ_OPTIONS_INVALID" | "RUNTIME_READ_DISABLED"'.
+packages/namespace-registry/.sa6-405-probe/probe-types.ts(44,16): error TS2367: This comparison appears to be unintentional because the types '"PATH_NOT_ALLOWED" | "READ_OPTIONS_INVALID" | "RUNTIME_READ_DISABLED"' and '"READ_BUDGET_EXCEEDED"' have no overlap.
+packages/namespace-registry/.sa6-405-probe/probe-types.ts(44,60): error TS2339: Property 'measuredBytes' does not exist on type 'never'.
+packages/namespace-registry/.sa6-405-probe/probe-types.ts(69,87): error TS2353: Object literal may only specify known properties, and 'maxBytes' does not exist in type 'ReadLogicalValueAtPathOptions'.
+TSC_EXIT=2
