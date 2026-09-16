@@ -26,6 +26,15 @@
  * （原为已退役 truncations 键的命名面而设；值通道类型的消费方直依 `@nomicore/doc-runtime`）。
  * 类型导出面其余键集不变。
  *
+ * #405 增量（ADR 0031 决策 1–4，破坏性 minor）：readData options 闭合形状两键 → **三键**
+ * （`{ depth?, maxChildrenPerNode?, maxBytes? }`——`maxBytes` = 交付总量收/拒闸，≥1 的有限
+ * 整数 ≤ 2^53−1，缺席 ≡ 不设预算）；预算结果联合 `NamespaceRuntimeReadDataBudgetResult`
+ * 追加 `READ_BUDGET_EXCEEDED` 失败分支（超限**零交付**恰五键
+ * `{ ok:false, code, path, measuredBytes, message }`；成功面恒四键零变化、账本不进公共面）；
+ * legacy 联合与 `ReturnType` 末签名锚零变化（注册入口按名单源别名自动跟随）。
+ * **导出键集零变化**（新失败成员为包内名，经 `Extract<…, { code:'READ_BUDGET_EXCEEDED' }>`
+ * 结构可达；本入口仅注释增量——值导出面仍恰 `RuntimeWriteFatalError` 一键）。
+ *
  * #132 增量：Runtime 十二键（+enableReplication/bumpReplicationEpoch 复制管理操作键）；
  * getStatus 八键（+replication 复制域）；type-only 追加五个复制管理类型（值导出面仍
  * 恰一键——REPLICATION_ID_PATTERN 等值导出不进本入口）。
