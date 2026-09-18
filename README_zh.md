@@ -2,7 +2,7 @@
 
 [English](README.md) | 中文
 
-[![CI](https://github.com/welltop-jim-wang/nomicore/actions/workflows/ci.yml/badge.svg)](https://github.com/welltop-jim-wang/nomicore/actions/workflows/ci.yml)
+[![CI](https://github.com/nomicore-ai/nomicore/actions/workflows/ci.yml/badge.svg)](https://github.com/nomicore-ai/nomicore/actions/workflows/ci.yml)
 
 > **面向 Agent 的数据库**
 

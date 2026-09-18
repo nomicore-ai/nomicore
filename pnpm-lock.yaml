@@ -35,6 +35,9 @@ importers:
       '@nomicore/instance':
         specifier: workspace:*
         version: link:../../packages/instance
+      '@nomicore/namespace-api':
+        specifier: workspace:*
+        version: link:../../packages/namespace-api
       '@nomicore/namespace-diagnostic-log':
         specifier: workspace:*
         version: link:../../packages/namespace-diagnostic-log
@@ -157,6 +160,28 @@ importers:
         specifier: ^4.0.1
         version: 4.0.1
     devDependencies:
+      '@types/node':
+        specifier: ^20
+        version: 20.19.43
+      typescript:
+        specifier: ^5.9.3
+        version: 5.9.3
+      vitest:
+        specifier: ^3.2.4
+        version: 3.2.7(@types/node@20.19.43)(tsx@4.23.12)
+
+  packages/namespace-api:
+    dependencies:
+      '@nomicore/namespace-registry':
+        specifier: workspace:*
+        version: link:../namespace-registry
+      '@nomicore/vfsl':
+        specifier: workspace:*
+        version: link:../vfsl
+    devDependencies:
+      '@nomicore/persistence':
+        specifier: workspace:*
+        version: link:../persistence
       '@types/node':
         specifier: ^20
         version: 20.19.43

@@ -1,6 +1,6 @@
 {
   "name": "@nomicore/yjs-server",
-  "version": "0.1.4",
+  "version": "0.2.0",
   "type": "module",
   "exports": {
     ".": {
@@ -19,6 +19,7 @@
     "@nomicore/clock": "workspace:*",
     "@nomicore/doc-runtime": "workspace:*",
     "@nomicore/instance": "workspace:*",
+    "@nomicore/namespace-api": "workspace:*",
     "@nomicore/namespace-diagnostic-log": "workspace:*",
     "@nomicore/namespace-registry": "workspace:*",
     "@nomicore/persistence": "workspace:*",
@@ -42,12 +43,12 @@
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/welltop-jim-wang/nomicore.git",
+    "url": "git+https://github.com/nomicore-ai/nomicore.git",
     "directory": "apps/yjs-server"
   },
-  "homepage": "https://github.com/welltop-jim-wang/nomicore",
+  "homepage": "https://github.com/nomicore-ai/nomicore",
   "bugs": {
-    "url": "https://github.com/welltop-jim-wang/nomicore/issues"
+    "url": "https://github.com/nomicore-ai/nomicore/issues"
   },
   "publishConfig": {
     "access": "public",

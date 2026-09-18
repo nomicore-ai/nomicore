@@ -2,7 +2,7 @@
 
 English | [中文](README_zh.md)
 
-[![CI](https://github.com/welltop-jim-wang/nomicore/actions/workflows/ci.yml/badge.svg)](https://github.com/welltop-jim-wang/nomicore/actions/workflows/ci.yml)
+[![CI](https://github.com/nomicore-ai/nomicore/actions/workflows/ci.yml/badge.svg)](https://github.com/nomicore-ai/nomicore/actions/workflows/ci.yml)
 
 > **The database built for agents.**
 >

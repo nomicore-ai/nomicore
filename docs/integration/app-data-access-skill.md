@@ -10,7 +10,7 @@ Nomicore 的设计思想是 **schema 与数据严格绑定**：VFSL schema 不�
 
 | 层 | 内容 | 信源 | 演进节奏 |
 |---|---|---|---|
-| 机制 | API 语义、访问形态、纪律、坑 | nomicore skill——GitHub 仓库 [`.agents/skills/nomicore/`](https://github.com/welltop-jim-wang/nomicore/tree/main/.agents/skills/nomicore) 随时取最新；应用端 skill 内联**基本面速查**（见五件套第 1 件） | 随 Nomicore 版本 |
+| 机制 | API 语义、访问形态、纪律、坑 | nomicore skill——GitHub 仓库 [`.agents/skills/nomicore/`](https://github.com/nomicore-ai/nomicore/tree/main/.agents/skills/nomicore) 随时取最新；应用端 skill 内联**基本面速查**（见五件套第 1 件） | 随 Nomicore 版本 |
 | 形状 + 口径 | 字段类型、业务含义、选窗依据、状态机 | 本项目 `schema.vfsl`（JSDoc 即口径），随读随行投影文本 | 随数据模型 |
 | 纪律 + 版本 + 指针 | 写入红线、依赖版本事实、namespace 清单、故障速查 | 应用端 skill（本指南的产出） | 很少变 |
 
@@ -83,7 +83,7 @@ Nomicore 的设计思想是 **schema 与数据严格绑定**：VFSL schema 不�
 ```markdown
 ## 依赖版本
 
-- 来源：npm registry；`@nomicore/namespace-runtime@0.1.12` 等见 `package.json`（lockfile 为准）
+- 来源：npm registry；`@nomicore/namespace-runtime@0.2.0` 等见 `package.json`（lockfile 为准）
 - （开发期例外）本地联调 tarball：`/path/to/nomicore/artifacts/local-packages/`，构建于 <日期>，对应 commit <hash>
 ```
 
@@ -94,7 +94,7 @@ Nomicore 的设计思想是 **schema 与数据严格绑定**：VFSL schema 不�
 ```markdown
 ## 机制参考（随时取最新）
 
-- nomicore skill 全文: https://github.com/welltop-jim-wang/nomicore/tree/main/.agents/skills/nomicore
+- nomicore skill 全文: https://github.com/nomicore-ai/nomicore/tree/main/.agents/skills/nomicore
   （typed-access = 读/写/窗口/订阅——含 watchMap 消费协议模板；schema = 建模与口径；cordis-host / replication = 组装与复制）
 - 应用端 skill 构建指南: docs/integration/app-data-access-skill.md（同仓库）
 
@@ -130,7 +130,7 @@ agent 读到 value + 投影文本
 
 ## 反模式清单
 
-- **复制机制深水区**——机制细节分两级：基本面调用形态（获取 schema / 读 / 写）可内联且必须版本锚定（五件套第 1 件）；深水区（✂ 段解读、预算/窗口完整纪律、边界行为、mutation policy）指向 [GitHub 的 nomicore skill](https://github.com/welltop-jim-wang/nomicore/tree/main/.agents/skills/nomicore) 随时取最新，复制一份即制造漂移面。
+- **复制机制深水区**——机制细节分两级：基本面调用形态（获取 schema / 读 / 写）可内联且必须版本锚定（五件套第 1 件）；深水区（✂ 段解读、预算/窗口完整纪律、边界行为、mutation policy）指向 [GitHub 的 nomicore skill](https://github.com/nomicore-ai/nomicore/tree/main/.agents/skills/nomicore) 随时取最新，复制一份即制造漂移面。
 - **建"访问模式目录"**——"哪个路径适合哪种模式"的判断依据本身是口径（字段是不是时间戳、数组是不是追加日志），归属 schema JSDoc；口径驱动选窗是上游既有设计（[nomicore schema skill](../../.agents/skills/nomicore/schema.md)「a field meant to drive newest / top-K selection is exactly one whose 口径 a future window consumer will rely on」）。
 - **复述 schema**——字段清单、类型、例子全部从投影文本读；skill 里只留路径指针。
 - **教 API 签名细节**——`generated.ts` / `.d.ts` 是环境事实源；基本面速查给的是调用**形态**，不是签名抄写。
@@ -161,7 +161,7 @@ agent 读到 value + 投影文本
 - <来源与版本事实；开发期例外写 tarball 路径与构建日期>
 
 ## 机制参考（随时取最新）
-- https://github.com/welltop-jim-wang/nomicore/tree/main/.agents/skills/nomicore
+- https://github.com/nomicore-ai/nomicore/tree/main/.agents/skills/nomicore
 - 版本错位时以锁定版本的运行时行为为准
 
 ## 错误码速查

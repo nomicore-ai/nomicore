@@ -112,7 +112,11 @@ _Avoid_: validateSnapshot（容易误解为可校验 live Yjs 文档）
 封闭四键 schema 信封 `{ lang, version, id, text }` 的身份；任一键变化都会改变，用于观察 namespace 当前信封是否变化。
 
 **语义指纹（semantic fingerprint）**:
-`lang + version +` 解析后规范 IR 的语义身份；忽略空白与普通注释，保留 JSDoc、声明顺序及其他 VFSL 语义，并排除仅作谱系标签的 `id`。用于共享编译语义产物。
+`lang + version +` 解析后规范 IR 的语义身份；忽略空白与普通注释，保留 JSDoc、声明顺序及其他 VFSL 语义，并排除信封字段 `id`。用于共享编译语义产物。
+
+**内容寻址 schema ID（content-addressed schema ID）**:
+新 REST create 从 semantic fingerprint 的完整 256-bit SHA-256 digest 确定性派生的 schema 内容身份；v1 canonical 形式为 `sc1-` + 52 位小写 RFC 4648 Base32（无 padding）。空白与普通注释不改变 ID，JSDoc 与其他 VFSL 语义变化会改变 ID；不承担业务名称或独立谱系职责，业务含义写入 VFSL JSDoc。旧式 SCHEMA id 继续兼容，但任何 `sc1-` id 都必须与同信封 text 的 semantic fingerprint 精确匹配。
+_Avoid_: schema 业务名称、手工版本标签、截断 digest、把 namespaceId 或 replicationId 当作 schema ID
 
 **载体投影读取（readLogicalValueAtPath）**:
 从 live Y.Doc 的固定 ROOT 按实际 Yjs/plain 载体和路径同步投影普通逻辑值；不依赖 VFSL/派生 schema，也不重复执行结构或逻辑校验。创建与受控写入负责建立并维持数据不变量——ordinary 写以 issue #237 phase-1 前置假设为条件归纳维持（mutation 前 committed ROOT 合法（logical values + carrier topology）+ 本次写保持其触达边界合法 ⇒ 写后全局合法；mutation 路径/边界之外的既存数据不被 ordinary 写扫描、复制或校验，见 ADR-0007 issue #237 修订节）；持久化文件被其他程序错误修改不在运行时读取契约范围内。
@@ -247,3 +251,15 @@ _Avoid_: attempt-started、result `'unknown'`、跨 stream genesis
 
 **authority 规则**:
 旧系统的 `__authority__` manifest（enum / range / conditional / state-machine 等不变式）。**本仓库范围外**（ADR-0002）。
+
+**problem shape**:
+REST 错误 response 的固定 JSON 形状：恒为 object，键集 ⊆ `{code, message, issues?, issuesTruncated?}`；`code` 为稳定 UPPER_SNAKE（客户端只按 code 分支），`message` 为人读文案（不保证逐字稳定），`issues` 仅 422 携带，`issuesTruncated` 仅在确实截断时出现（不输出 `false`），403/405 与 4xx/422 共用同一形状。未映射结局（body 读取 abort、Registry fatal、503/500 族）不产生 problem，仍以 rejection 结算。
+_Avoid_: RFC 7807/9457 `application/problem+json` 的 `status`/`title`/`detail` 键、未评审的额外顶层键、以 message 文本承担客户端分支
+
+**REST issue**:
+422 problem 的 `issues[]` 元素——底层 VFSL/Registry 诊断逐字段 verbatim 投影出的受控、可 JSON 序列化对象：键集 ⊆ `{code, message, line, column, path}`，`code` 为稳定 UPPER_SNAKE（schema 族 `SCHEMA_ISSUE` / ROOT 族 `ROOT_ISSUE`），`message` 非空且受 UTF-8 byte 上限约束，定位为成对正整数 `line`/`column` 或 `(string | number)[]` `path`（两者互斥），不返回 schema/root 片段。
+_Avoid_: 透传 parser 源码位置或源码 excerpt、按 message 文本反推 code、深克隆或改写底层诊断
+
+**issuesTruncated**:
+problem shape 的可选布尔键，`true` 表示 `issues` 因数量或总 byte 预算被截断；仅在确实截断时出现（未截断时省略该键，不输出 `false`），且 `true` 必伴随 `issues` 数组。
+_Avoid_: `issuesTruncated: false`、用被截断的 issues 数组长度暗示截断事实

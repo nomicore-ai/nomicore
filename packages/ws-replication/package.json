@@ -1,6 +1,6 @@
 {
   "name": "@nomicore/ws-replication",
-  "version": "0.1.5",
+  "version": "0.2.0",
   "type": "module",
   "exports": {
     ".": {
@@ -41,12 +41,12 @@
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/welltop-jim-wang/nomicore.git",
+    "url": "git+https://github.com/nomicore-ai/nomicore.git",
     "directory": "packages/ws-replication"
   },
-  "homepage": "https://github.com/welltop-jim-wang/nomicore",
+  "homepage": "https://github.com/nomicore-ai/nomicore",
   "bugs": {
-    "url": "https://github.com/welltop-jim-wang/nomicore/issues"
+    "url": "https://github.com/nomicore-ai/nomicore/issues"
   },
   "publishConfig": {
     "access": "public",
