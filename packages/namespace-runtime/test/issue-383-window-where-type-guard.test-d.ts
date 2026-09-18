@@ -39,9 +39,11 @@ type AssertTrue<T extends true> = T;
 type ReadArrayOk = Extract<NamespaceRuntimeReadArrayResult, { ok: true }>;
 type ReadMapOk = Extract<NamespaceRuntimeReadMapResult, { ok: true }>;
 
-// —— Y1 options 单源别名（doc-runtime type-only；零复制第二份） ——
-type _arrayOptionsSingleSource = AssertTrue<Equal<NamespaceRuntimeReadArrayOptions, ReadArrayWindowOptions>>;
-type _mapOptionsSingleSource = AssertTrue<Equal<NamespaceRuntimeReadMapOptions, ReadMapWindowOptions>>;
+// —— Y1 options 单源中继（#406 / ADR 0031 §4 延伸）：runtime 自持六键（+`maxBytes`），
+//    doc-runtime 五键载体面经 `Omit` 中继锁保持零改动——若 `maxBytes` 被倒灌进 doc-runtime
+//    类型（或在 runtime 面丢失），本锁即编译红；原「纯别名 Equal」断言据此原位改写 ——
+type _arrayOptionsRelay = AssertTrue<Equal<Omit<NamespaceRuntimeReadArrayOptions, 'maxBytes'>, ReadArrayWindowOptions>>;
+type _mapOptionsRelay = AssertTrue<Equal<Omit<NamespaceRuntimeReadMapOptions, 'maxBytes'>, ReadMapWindowOptions>>;
 type _arrayWhereAxis = AssertTrue<Equal<NamespaceRuntimeReadArrayOptions['where'], readonly WhereTerm[] | undefined>>;
 type _mapWhereAxis = AssertTrue<Equal<NamespaceRuntimeReadMapOptions['where'], readonly WhereTerm[] | undefined>>;
 // WhereTerm v1 形状（ADR 0029 §2；string | number(finite 由运行时判) | boolean | null）——
@@ -57,8 +59,8 @@ type _failureCodes = AssertTrue<
 type _readDisabledKeys = AssertTrue<Equal<keyof RuntimeReadDisabledResult, 'ok' | 'code' | 'path' | 'message'>>;
 
 export type WindowWhereTypeGuardAssertions = {
-  readonly arrayOptionsSingleSource: _arrayOptionsSingleSource;
-  readonly mapOptionsSingleSource: _mapOptionsSingleSource;
+  readonly arrayOptionsRelay: _arrayOptionsRelay;
+  readonly mapOptionsRelay: _mapOptionsRelay;
   readonly arrayWhereAxis: _arrayWhereAxis;
   readonly mapWhereAxis: _mapWhereAxis;
   readonly whereTermShape: _whereTermShape;
