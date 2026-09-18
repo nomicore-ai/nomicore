@@ -18,6 +18,9 @@ import type {
   NamespaceRuntimeReadMapOptions,
 } from '../src/index.js';
 import { expectReadDataOkKeys } from './helpers/readdata-ok-shape.js';
+// #406（ADR 0031 窗口面同轴）落地后，G11 窗口面断言按父票 SA8 RA-I1 原位改写为预算分支：
+// 零交付五键集经 #406 契约 fixture 单源常量表达（不复制第二份字面键集——形状集中化纪律）。
+import { BUDGET_FAILURE_KEYS } from './issue-406-window-maxbytes-fixture.js';
 import {
   ENV_405,
   TXT_405,
@@ -193,15 +196,21 @@ describe('G8 形状/文法零漂移（ADR 0027 决策 1/3 零变化清单）', (
 
 // ═════════════════════════════ G11：作用域负控（tracer 边界） ═════════════════════════════
 
-describe('G11 范围守卫：窗口面 / doc-runtime 面携 maxBytes 各走其码（D6 本票不动）', () => {
-  it('G11 窗口面：readArray/readMap 携 maxBytes → WINDOW_OPTIONS_INVALID（恰四键）；无预算窗口读现状不变', async () => {
+describe('G11 范围守卫：窗口面 / doc-runtime 面携 maxBytes 各走其码（#406 落地后窗口面移交）', () => {
+  it('G11 窗口面（#406 / 父票 SA8 RA-I1 原位改写）：maxBytes 已成窗口面预算轴 → 域内值走 READ_BUDGET_EXCEEDED（恰五键零交付）；无预算窗口读现状不变', async () => {
+    // 原位改写记录（本节原文断言 = 本票 #405 HEAD 事实「窗口面携 maxBytes → WINDOW_OPTIONS_INVALID
+    // （未知键）」）：issue #406（ADR 0031 窗口面同轴）落地后该事实被**设计性取代**——窗口面
+    // options 追加同形 `maxBytes`（域内值为合法预算），超限走共享 `READ_BUDGET_EXCEEDED`
+    // 零交付分支（恰五键）。父票实现门禁 RA-I1 明记「G11 前两条断言届时原位改写并送门禁复核」，
+    // 本行即该改写点；#406 预算语义的完整验收由 #406 契约族（G1–G10 / T1–T5 / C1–C10）承担，
+    // 本行只保留 tracer 的**作用域边界**断言：窗口面不再把 `maxBytes` 当未知键。
     const runtime = await makeRuntime405();
     const arrBad = failure(runtime.readArray(['tags'], asArrayOptions({ n: 1, maxBytes: 1 })), 'G11/readArray');
-    expect(arrBad.code).toBe('WINDOW_OPTIONS_INVALID');
-    expect(Object.keys(arrBad).sort()).toStrictEqual([...FAILURE_KEYS]);
+    expect(arrBad.code).toBe('READ_BUDGET_EXCEEDED');
+    expect(Object.keys(arrBad).sort()).toStrictEqual([...BUDGET_FAILURE_KEYS]);
     const mapBad = failure(runtime.readMap(['meta'], asMapOptions({ n: 1, maxBytes: 1 })), 'G11/readMap');
-    expect(mapBad.code).toBe('WINDOW_OPTIONS_INVALID');
-    expect(Object.keys(mapBad).sort()).toStrictEqual([...FAILURE_KEYS]);
+    expect(mapBad.code).toBe('READ_BUDGET_EXCEEDED');
+    expect(Object.keys(mapBad).sort()).toStrictEqual([...BUDGET_FAILURE_KEYS]);
     // 无预算窗口读：现状零回归（恒四键 + 条目列表）。
     const arrOk = ok(runtime.readArray(['tags'], { n: 2 }), 'G11/readArray-ok');
     expectReadDataOkKeys(arrOk);
