@@ -43,8 +43,8 @@ import { readArrayWindowAtPath, readLogicalValueAtPath, readMapWindowAtPath } fr
 import type {
   MutationEnvelope,
   ReadLogicalValueAtPathBudgetResult,
-  ReadLogicalValueAtPathOptions,
   ReadLogicalValueResult,
+  WindowReadFailure,
 } from '@nomicore/doc-runtime';
 import { compileSchemaEnvelope } from '@nomicore/vfsl';
 import type {
@@ -61,6 +61,8 @@ import {
 } from './errors.js';
 import { runP0 } from './p0.js';
 import type { ActiveSchemaInfo, P0Env, RuntimeState } from './p0.js';
+import { deliveryBytes, echoReadPath, readBudgetExceeded } from './read-budget.js';
+import type { ReadDataBudgetExceededResult } from './read-budget.js';
 import { projectReadDataSchema } from './read-schema-projection.js';
 import { composeArrayWindowRead, composeMapWindowRead } from './window-read.js';
 import type {
@@ -150,8 +152,26 @@ type ReadLogicalValueFailure = Extract<ReadLogicalValueResult, { ok: false }>;
  *  （形状漂移编译锁：T1 为该成员加必填键即在此编译红）。 */
 type ReadLogicalValueBudgetFailure = Extract<ReadLogicalValueAtPathBudgetResult, { ok: false }>;
 
-/** readData options（ADR-0024 决策 1）：doc-runtime 单源类型别名（零复制）。 */
-export type NamespaceRuntimeReadDataOptions = ReadLogicalValueAtPathOptions;
+/** readData options（ADR-0024 决策 1 经 **ADR-0031 决策 1 再修订**）：runtime 自持**三键
+ *  闭合形状** `{ depth?, maxChildrenPerNode?, maxBytes? }`。
+ *
+ *  #336 时为 doc-runtime 两键单源类型别名（零复制）；ADR-0031 把 `maxBytes` 的**校验与
+ *  度量**收回本组合层（唯一同时见到值/schema 两通道的层），而 doc-runtime 面**零改动**
+ *  （下传 options 仍 `depth`/`maxChildrenPerNode` 两键——目标类型 `ReadLogicalValueAtPathOptions`
+ *  保持两键，组合层在中继/净化处剥离 `maxBytes`）。故此宿主形态必须自持（别名形态不再
+ *  成立）；doc-runtime 两键面由独立类型锁锚定（`keyof ReadLogicalValueAtPathOptions` 恰两键）。
+ *
+ *  - `maxBytes` 域（ADR-0031 决策 1）：**≥1 的有限整数（≤ 2^53−1）**——等价
+ *    `Number.isSafeInteger(v) && v >= 1`；`0`/负数/非整数/非有限数/域外值/未知键 →
+ *    `READ_OPTIONS_INVALID`（复用既有校验码，不新增）；缺席 ≡ 不设预算（现行为逐字节不变，
+ *    无魔法默认）；
+ *  - EOPT 语义与两轴一致：显式 `undefined` 字面量对 TS 调用者是编译错误；运行时「键在场、
+ *    值 undefined ≡ 缺席」（D1，沿两轴 R1 纪律）。 */
+export interface NamespaceRuntimeReadDataOptions {
+  depth?: number;
+  maxChildrenPerNode?: number;
+  maxBytes?: number;
+}
 
 /** readData 成功分支（**单一四键形**；ADR-0027 决策 1/4——#364 破坏性修订，两联合共用
  *  同一成功成员类型、双成功形态坍缩）：value 为 doc-runtime 值透传（值缺席显式
@@ -178,13 +198,25 @@ export type NamespaceRuntimeReadDataResult =
   | ReadLogicalValueFailure
   | RuntimeReadDisabledResult;
 
+/** 预算超限失败成员（ADR-0031 决策 3；#405 readData 面 / #406 窗口面**共享**）：交付总量 >
+ *  `maxBytes` 时的**零交付**同步失败分支——恰五键
+ *  `{ ok:false, code:'READ_BUDGET_EXCEEDED', path, measuredBytes, message }`。
+ *
+ *  #406（ADR 0031 窗口面同轴）：接口本体迁往包内共享件 `read-budget.ts`（三面同码同文同载荷
+ *  单源——message 模板 / 构造器 / 度量 / path 回显同址）；本模块面名字**不变**（原位
+ *  re-export——`Extract<…, { code:'READ_BUDGET_EXCEEDED' }>` 消费方零感知）。命名沿
+ *  `RuntimeReadDisabledResult` 先例（runtime 自持失败成员，不新增公共导出名）。 */
+export type { ReadDataBudgetExceededResult } from './read-budget.js';
+
 /** 预算 read 结果联合（#336 ADR-0024 决策 1/4/6；#364 ADR-0027 决策 1/4 成功成员与
- *  legacy 同型）：成功面 = 同一 `ReadDataOkResult`（投影文本 + 截断布尔）；失败面追加
- *  READ_OPTIONS_INVALID（doc-runtime 预算联合 Extract 单源派生；含未知键、同步不抛、
- *  不借路径/生命周期码）。 */
+ *  legacy 同型；#405 ADR-0031 决策 3 追加 `READ_BUDGET_EXCEEDED`）：成功面 = 同一
+ *  `ReadDataOkResult`（投影文本 + 截断布尔，恒四键——账本不进公共面）；失败面 =
+ *  READ_OPTIONS_INVALID（doc-runtime 预算联合 Extract 单源派生；含未知键与 `maxBytes`
+ *  域/accessor 违约）+ 新增预算超限成员 + lifecycle 停接纳。 */
 export type NamespaceRuntimeReadDataBudgetResult =
   | ReadDataOkResult
   | ReadLogicalValueBudgetFailure
+  | ReadDataBudgetExceededResult
   | RuntimeReadDisabledResult;
 
 /** Runtime 公共形状（D2 十键协议 + close + 复制管理两键 + 窗口读两键 = 十四键；
@@ -212,19 +244,33 @@ export interface NamespaceRuntime {
    *  schema 照常返回（路径键控）；空路径 [] 返回 ROOT 值投影文本。预算参数不是 schema
    *  开关。**已知限制（ADR-0027 已知限制 2，诚实形态）**：`schema:null` × 预算读发生
    *  截断时，键级消歧不可用——只剩 `truncated === true` 布尔，文本载体不可达。
-   *  形状预算（ADR-0024 决策 1/6；#364 options 闭合形状零变化）：第二参 `options`
-   *  （`{ depth?, maxChildrenPerNode? }` 封闭形状）在一次读内以**同一预算**贯通值通道
-   *  （doc-runtime 三参）与投影通道（vfsl resolver 三参），两通道截断位置一一对应
-   *  （ADR-0024 L81，错位即契约违约）；不传 options = 完整投影文本（头行省略预算段）。
+   *  形状预算 + 字节预算（ADR-0024 决策 1/6 经 **ADR-0031 决策 1/3/4 再修订**）：第二参
+   *  `options`（**三键闭合形状** `{ depth?, maxChildrenPerNode?, maxBytes? }`）中两轴在一次
+   *  读内以**同一预算**贯通值通道（doc-runtime 三参）与投影通道（vfsl resolver 三参），
+   *  两通道截断位置一一对应（ADR-0024 L81，错位即契约违约）；不传 options = 完整投影文本
+   *  （头行省略预算段）。
+   *  `maxBytes` = **交付总量**收/拒闸（≥1 的有限整数 ≤ 2^53−1；`0`/负数/非整数/非有限数/
+   *  域外值/未知键 → `READ_OPTIONS_INVALID`，不新增校验码；缺席 ≡ 不设预算、无魔法默认）：
+   *  总量 = 值通道 `utf8(JSON.stringify(value))`（紧凑、键序 = 交付序、`value === undefined`
+   *  计 0）+ schema 通道投影文本 UTF-8（头行与 ✂ 段在文本内自然计入、`schema: null` 计 0）。
+   *  `≤` → 原样成功（交付物与同参无 `maxBytes` 读**逐字节相同**——不裁剪、不降深度、不拟合）；
+   *  `>` → **零交付**失败分支 `{ ok:false, code:'READ_BUDGET_EXCEEDED', path, measuredBytes,
+   *  message }`（恰五键；`measuredBytes` 只报合计）。校验与度量住本组合层（唯一同时见到两
+   *  通道的层，ADR-0031 决策 4）；头行**不记** `maxBytes`（`maxBytes` 在下传前剥离——头行是
+   *  塑形实参锚，收/拒参数不塑形成功交付）。
    *  options 是 schema 无关的投影概念：`depth` 自路径终点向下限定可展开容器层数、
    *  `maxChildrenPerNode` 限定每容器保留子项数（width 对投影正文无操作——只体现为
-   *  ✂ 段条目）。合法性以 doc-runtime 校验器为**单一权威**：非法 options（负数/非整数/
-   *  非有限数/非对象/含未知多余键/accessor 键）响亮拒绝为稳定失败码
-   *  `READ_OPTIONS_INVALID`（同步、不抛；不借用 PATH_NOT_ALLOWED / RUNTIME_READ_DISABLED
-   *  ——预算缺陷不是路径缺陷，亦非生命周期缺陷）；depth 耗尽处被折容器键以折叠空壳在场，
+   *  ✂ 段条目）。合法性以 doc-runtime 校验器为**单一权威**（两轴域/未知键/宿主/accessor：
+   *  非法 options 响亮拒绝为稳定失败码 `READ_OPTIONS_INVALID`（同步、不抛；不借用
+   *  PATH_NOT_ALLOWED / RUNTIME_READ_DISABLED——预算缺陷不是路径缺陷，亦非生命周期缺陷）；
+   *  `maxBytes` 域与 accessor 违约在 T1 两键视野内结构性不可观测，由本组合层以同款判据
+   *  响亮拒绝，同码同形）；depth 耗尽处被折容器键以折叠空壳在场，
    *  depth 条目 path 尾段 = 被折容器键名（「空壳 = 被裁」的辨识——ADR-0024 #359
    *  amendment；width 超限才是键省略）。敌意 options（Proxy/descriptor-视图不稳定）同样
    *  收敛 `READ_OPTIONS_INVALID`，绝不外抛、绝不静默为 `schema:null`。
+   *  失败优先级阶梯（ADR-0031 实现序）：lifecycle 停接纳 > 非数组 path 的 G0 单源拒绝 >
+   *  options 校验（`maxBytes` 域/两轴域/未知键） > 值通道失败（PATH_NOT_ALLOWED） >
+   *  预算判定（READ_BUDGET_EXCEEDED）；度量对象是**塑形后**的交付物。
    *  头行事实性（ADR-0027 决策 3）：`# readData [<实参 path 点分>]` + 有效预算段
    *  `{depth:N[,maxChildrenPerNode:K]}`（无有效预算则省略）；段呈现与 ✂ 段同规则
    *  （换行折叠为空格），头行恒不含换行。
@@ -260,12 +306,26 @@ export interface NamespaceRuntime {
    * - 组合式 depth 等价锚（决策 4）：每条目物化 ≡ 同预算 `readData([...path, index])`；
    *   未入选子项零物化（O(N) 标识枚举计数 + 只物化入选项）；
    * - options：`n` 必填 ≥1 有限整数（`n:0` 非法）；`orderBy` 仅收 `{by:'index',dir?}`；
-   *   第二参必填、无重载；合法性以 doc-runtime W1 校验器为单一权威；
+   *   第二参必填、无重载；合法性以 doc-runtime W1 校验器为单一权威（五键面零改动）；
+   * - **`maxBytes` 交付总量收/拒闸**（#406 / ADR 0031 决策 2/3；与 `readData` 面同轴）：
+   *   ≥1 的有限整数（≤ 2^53−1；`0`/负数/非整数/非有限数/域外值 → `WINDOW_OPTIONS_INVALID`，
+   *   面属 message，复用既有校验码、不新增）；缺席 ≡ 不设预算（无魔法默认）；
+   *   总量 = 条目列表（含 key/index 包装）紧凑 JSON UTF-8 + **元素口径投影文本** UTF-8
+   *   （✂ 窗口事实块 / `‡` 折叠页脚自然计入、不豁免；`schema: null` 计 0）；`≤` → 原样成功
+   *   （交付物与同参无预算读**逐字节相同**——不裁剪、不降深度、不拟合）；`>` → **零交付**
+   *   失败分支 `{ ok:false, code:'READ_BUDGET_EXCEEDED', path, measuredBytes, message }`
+   *   （恰五键，与 `readData` 面同码同文同载荷形；`measuredBytes` 只报合计）；闸门在
+   *   S6 结算**之后**只读不写——`truncated` 双语义与「`where` 时 ✂ 永不装配」不受预算影响，
+   *   无任何静默条目丢弃；
    * - 失败面（响亮不抛、同步结果联合）：W1 三码 `WINDOW_TARGET_ABSENT` /
    *   `WINDOW_CARRIER_MISMATCH` / `WINDOW_OPTIONS_INVALID` + `PATH_NOT_ALLOWED`
    *   原样透传（缺席**不吸收**、无半窗）；敌意 options 视图不稳定经接缝收编
-   *   `WINDOW_OPTIONS_INVALID`；lifecycle≠ready（closing/closed）→
-   *   `RuntimeReadDisabledResult`（零 options 读取、零 doc 触碰）。
+   *   `WINDOW_OPTIONS_INVALID`；`maxBytes` 域/accessor/探测期违约同码（窗口面措辞）；
+   *   lifecycle≠ready（closing/closed）→ `RuntimeReadDisabledResult`（零 options 读取、
+   *   零 doc 触碰）。
+   *   失败优先级阶梯（ADR 0031 实现序，G10）：lifecycle 停接纳 > 非数组 path 的 G0 单源
+   *   拒绝 > options 校验（`maxBytes` 域 / 五键域 / 未知键）> W1 目标缺席/载体不符 >
+   *   S3 接缝 > 预算判定（最后；度量对象是**塑形后**的交付物）。
    */
   readonly readArray: (
     path: readonly (string | number)[],
@@ -281,6 +341,8 @@ export interface NamespaceRuntime {
    * - 元素口径锚链（B-6）：`[...path, '<key>']`（Record 形：值树含动态键槽）→ 不可解析
    *   时回退 `[...path]` 容器口径（封闭对象形：容器类型块静态枚举全部条目键与值类型；
    *   该口径下 `depth` 自容器起算——已知限制，`depth ≥ 1` 得完整字段口径）。
+   * `maxBytes` 语义与失败阶梯同 `readArray`（#406：同构度量 / 同码同文同载荷 / where ×
+   * 预算三语义一致）。
    */
   readonly readMap: (
     path: readonly (string | number)[],
@@ -696,17 +758,23 @@ export function createNamespaceRuntimeWithSeam(input: NamespaceRuntimeSeamInput)
   const owner = Object.freeze({ userId });
 
   /**
-   * readData 组合体（#336 ADR-0024 决策 4/6；#364 ADR-0027 决策 1/2/3/4；函数声明 +
+   * readData 组合体（#336 ADR-0024 决策 4/6；#364 ADR-0027 决策 1/2/3/4；#405 ADR-0031
+   *  决策 1–4：`maxBytes` 交付总量收/拒闸；函数声明 +
    * 双重载——无 cast 落地重载属性的唯一常规形态：返回联合的实现闭包不可赋给重载属性，
    * 带重载声明的函数类型即重载签名集）。
    *
-   * 编排（B-1/B-2）：S1 lifecycle gate 先行（closing/closed → RUNTIME_READ_DISABLED，
-   * 零 options 读取、零 doc 触碰）→ S2a 无 options（两参值读 + 两参投影文本，头行无
-   * 预算段；无截断布尔恒 false——结构上无截断）→ S2b 预算（三参值读；T1 权威校验的
-   * G0 → options → N0 定序原样生效；失败成员原样透传）→ C 接缝净化 canonicalReadOptions
-   * （T1 同款读纪律，零 [[Get]]）→ P 投影文本四参（canonical 恒过 resolver 第二道门 +
-   * 值通道截断清单喂渲染器 ✂ 段）→ **恒四键组装**（truncated 逐字段透传，零合成——
-   * 清单源 = 值通道载体计数；结构化 truncations 键退役）。
+   * 编排（B-1/B-2；#405 失败优先级阶梯见接口 JSDoc）：S1 lifecycle gate 先行（closing/
+   * closed → RUNTIME_READ_DISABLED，零 options 读取、零 doc 触碰）→ S2a 无 options（两参
+   * 值读 + 两参投影文本，头行无预算段；无截断布尔恒 false——结构上无截断）→ S2b-0 非数组
+   * path 的 G0 前置分支（保「G0 先于 options 校验」定序——`maxBytes` 域拒不得越过路径拒）→
+   * S2b-1 拆分读 `splitReadDataOptions`（以 T1 逐字同款读纪律读 raw 一次，把 `maxBytes`
+   * 从 T1 视野剥离、域违约前置响亮拒绝；两轴/未知键/宿主判据仍全归 T1）→ S2b-2 T1 权威
+   * 校验（中继 relay；G0 → options → N0 定序原样生效；失败成员原样透传）→ C 接缝净化
+   * canonicalReadOptions（三键白名单 + `maxBytes` 剥离与回传；T1 同款读纪律，零 [[Get]]）→
+   * P 投影文本四参（canonical 恒过 resolver 第二道门 + 值通道截断清单喂渲染器 ✂ 段）→
+   * S2b-5 预算闸门（`measuredBytes = utf8(JSON.stringify(value)) + utf8(投影文本)`；`>` 预算
+   * → 零交付 `READ_BUDGET_EXCEEDED`；`≤` 收）→ **恒四键组装**（truncated 逐字段透传，零合成——
+   * 清单源 = 值通道载体计数；结构化 truncations 键退役；成功面不新增 bytes 键）。
    */
   function readData(path: readonly (string | number)[]): NamespaceRuntimeReadDataResult;
   function readData(
@@ -735,46 +803,79 @@ export function createNamespaceRuntimeWithSeam(input: NamespaceRuntimeSeamInput)
         truncated: false, // 无预算读结构上无截断（ADR-0024 决策 2）
       };
     }
-    // 三参：T1 权威校验（G0 → options → N0 → N1 → P1）；PATH_NOT_ALLOWED |
+    // S2b-0 G0 前置分支（#405）：非数组 path 由 doc-runtime G0 守卫**单源**拒绝，且
+    // options 零读取（保 F6 定序：path 与 options 双非法 → PATH_NOT_ALLOWED；`maxBytes`
+    // 域拒不得越过路径拒）。G0 对非数组 path 恒拒 ⟹ 成功分支结构不可达（类型系统不感知
+    // 该运行时事实，故以 fail-loud 不变式守卫收口——正常路径不变量缺失即响亮）。
+    if (!Array.isArray(path)) {
+      const g0 = readLogicalValueAtPath(doc, path);
+      if (!g0.ok) return g0;
+      throw new Error('readData: 非数组 path 未被 doc-runtime G0 守卫拒绝（不变式破坏）');
+    }
+    // S2b-1 拆分读（#405）：raw 第一读者（读纪律与 T1 逐字同构——既有 F-x5/F-x6
+    // descriptor 计数锚 4/5 逐点保持）；`maxBytes` 域/accessor 违约在此前置响亮拒绝
+    // （零 doc 触碰），其余键（两轴/未知键/accessor/present-undefined/非法值）原样中继给
+    // T1 作单一权威。
+    const split = splitReadDataOptions(options);
+    if (!split.ok) return budgetAxisInvalid(path, split.msg);
+    // S2b-2 三参：T1 权威校验（G0 → options → N0 → N1 → P1）；PATH_NOT_ALLOWED |
     // READ_OPTIONS_INVALID 原样透传（零形状复制——D1 单源纪律）。
-    const result = readLogicalValueAtPath(doc, path, options);
+    const result = readLogicalValueAtPath(doc, path, split.relay);
     if (!result.ok) return result;
     // C 接缝净化（仅值通道成功后；读纪律与 T1 validateReadOptions 逐字对齐：
     // Object.keys 键空间 + descriptor data-property 取值 + try 收编 + present-undefined
-    // 剥离/-0 归一；零 [[Get]]——get trap 从不执行）。
+    // 剥离/-0 归一；零 [[Get]]——get trap 从不执行）。`maxBytes` 在下传 resolver 之前
+    // 剥离并回传（头行/✂ 结构上不可能记录它——ADR-0031 决策 4 由构造保证）。
     const canonical = canonicalReadOptions(options);
     if (!canonical.ok) {
       // A-2b：视图不稳定（敌意 descriptor/Proxy 在读间漂移或抛异常）→ 响亮失败。
-      // 出口①：重派发——T1 权威再校验（状态化 trap 复掷由 T1 内层 try 单源收编为
-      // READ_OPTIONS_INVALID；options 失败于 N0 前短路、零 doc 触碰；重派发全程顶层
-      // try，不可能外抛）。
-      const reDispatch = readLogicalValueAtPath(doc, path, options);
+      // 出口①：重派发——再拆分 + T1 权威再校验（状态化 trap 复掷由 split/T1 各自内层
+      // try 单源收编为 READ_OPTIONS_INVALID；options 失败于 N0 前短路、零 doc 触碰；
+      // 重派发全程顶层 try，不可能外抛）。
+      const reSplit = splitReadDataOptions(options);
+      if (!reSplit.ok) return budgetAxisInvalid(path, reSplit.msg);
+      const reDispatch = readLogicalValueAtPath(doc, path, reSplit.relay);
       if (!reDispatch.ok) return reDispatch;
       // 出口②：交替视图终态（T1 竟又接受——两通道同预算在该输入上不可判定，唯一诚实
       // 出路是响亮失败；A-2c D1 登记豁免：由 runtime 构造成员，形状由 Extract 单源
       // 类型注解锁死）。
       return seamReadOptionsInvalid(path);
     }
+    // P 投影文本（canonical 预算段 + 正文 + ✂ 段）——预算闸门的度量对象是**塑形后**交付物。
+    const schemaText = projectReadDataSchema(state, path, canonical.options, result.truncations);
+    // S2b-5 预算闸门（#405 ADR-0031 决策 2/3）：预算权威 = canonical 后读值（与投影通道
+    // 消费 canonical.options 同源——组合层接缝单源事实）；`≤` 收（含恰好等于、零总量），
+    // `>` 零交付（不裁剪、不降深度、不拟合）。
+    if (canonical.maxBytes !== undefined) {
+      const measuredBytes = deliveryBytes(result.value, schemaText);
+      if (measuredBytes > canonical.maxBytes) {
+        return readBudgetExceeded(path, measuredBytes, canonical.maxBytes);
+      }
+    }
     return {
       ok: true,
       value: result.value,
-      schema: projectReadDataSchema(state, path, canonical.options, result.truncations), // 投影文本：头行（canonical 预算段）+ 正文 + ✂ 段
+      schema: schemaText, // 投影文本：头行（canonical 预算段）+ 正文 + ✂ 段
       truncated: result.truncated, // B14 透传：本次读发生过截断（=== 值通道截断）
     };
   }
 
   /**
-   * 窗口读组合体（ADR 0028 决策 9 第三层；issue #369 W2；函数体 = S1 → S2 → S3–S6）。
+   * 窗口读组合体（ADR 0028 决策 9 第三层；issue #369 W2；#406 ADR 0031 预算轴；
+   * 函数体 = S1 → S2-G0 → S2-split → S2-W1(relay) → S3–S6.5）。
    *
    * S1 lifecycle gate 先行（closing/closed → RUNTIME_READ_DISABLED，零 options 读取、
-   * 零 doc 触碰——镜像 readData B-1）；S2 W1 载体原语**直通**（raw 引用；失败成员原样
-   * 返回，绝不吸收、无半窗——options 合法性由 W1 单权威裁定，非法 options 零 doc 触碰）；
-   * W1 成功后把成功成员（`value` 条目列表 + `total` 候选/匹配计数双形态）交
-   * `window-read.ts` 组合（S3 canonical 接缝五键镜像 → S5 锚链投影正文 → S6 四键结算；
-   * `truncated` 双语义见 ADR 0029 §5：无 `where` = `kept < total` + ✂ 窗口事实块，
-   * 有 `where` = 装满判定 `kept === n` 且 ✂ 永不装配）；`total` 消费自 W1 单源
-   * （ADR 0029 §8 下沉），组合层零重算、零谓词求值。全方法同步、零 sequencer、
-   * 零状态写入。
+   * 零 doc 触碰——镜像 readData B-1）；S2-G0 非数组 path 由 W1 G0 守卫**单源**拒绝且
+   * options 零读取（保「G0 先于 options 校验」定序——`maxBytes` 域拒不得越过路径拒）；
+   * S2-split 拆分读（以 W1 逐字同款读纪律读 raw 一次，把 `maxBytes` 从 W1 视野剥离、域/
+   * accessor 违约前置响亮拒绝；五键/未知键/宿主判据仍全归 W1）→ S2-W1 载体原语权威
+   * （relay；失败成员原样返回，绝不吸收、无半窗）；W1 成功后把成功成员（`value` 条目列表 +
+   * `total` 候选/匹配计数双形态）交 `window-read.ts` 组合（S3 canonical 接缝六键镜像 →
+   * S5 锚链投影正文 → S6 四键结算 → S6.5 预算闸；`truncated` 双语义见 ADR 0029 §5：
+   * 无 `where` = `kept < total` + ✂ 窗口事实块，有 `where` = 装满判定 `kept === n` 且 ✂
+   * 永不装配）；`total` 消费自 W1 单源（ADR 0029 §8 下沉），组合层零重算、零谓词求值。
+   * 重派发闭包（S3 出口①）= re-split（raw 现场）+ re-W1(relay₂)——探针计数锚 parity 的
+   * 结构前提（raw 上不再发生第二次 W1 直读）。全方法同步、零 sequencer、零状态写入。
    */
   function readArray(
     path: readonly (string | number)[],
@@ -782,9 +883,23 @@ export function createNamespaceRuntimeWithSeam(input: NamespaceRuntimeSeamInput)
   ): NamespaceRuntimeReadArrayResult {
     const lifecycle = state.lifecycle;
     if (lifecycle !== 'ready') return readDisabled(lifecycle, path);
-    const windowResult = readArrayWindowAtPath(doc, path, options);
+    // S2-G0（#406）：非数组 path 的 W1 单源拒绝（reject 先于 options 校验；C3/N2）。
+    if (!Array.isArray(path)) {
+      const g0 = readArrayWindowAtPath(doc, path, options);
+      if (!g0.ok) return g0;
+      throw new Error('readArray: 非数组 path 未被 doc-runtime G0 守卫拒绝（不变式破坏）');
+    }
+    // S2-split（#406）：`maxBytes` 域/accessor/探测期违约前置响亮拒绝（零 doc 触碰）。
+    const split = splitWindowOptions(options);
+    if (!split.ok) return windowBudgetAxisInvalid(path, split.msg);
+    // S2-W1：五键权威校验 + 载体/导航/物化（失败三码 + PATH_NOT_ALLOWED 原样透传）。
+    const windowResult = readArrayWindowAtPath(doc, path, split.relay);
     if (!windowResult.ok) return windowResult; // S2：三码 + PATH_NOT_ALLOWED 原样透传
-    return composeArrayWindowRead(state, doc, path, options, windowResult.value, windowResult.total);
+    return composeArrayWindowRead(state, path, options, windowResult.value, windowResult.total, () => {
+      const reSplit = splitWindowOptions(options);
+      if (!reSplit.ok) return windowBudgetAxisInvalid(path, reSplit.msg);
+      return readArrayWindowAtPath(doc, path, reSplit.relay);
+    });
   }
 
   /** 键面容窗口读组合体（同 readArray 骨架；面符换 map、锚链两级见 window-read.ts）。 */
@@ -794,9 +909,20 @@ export function createNamespaceRuntimeWithSeam(input: NamespaceRuntimeSeamInput)
   ): NamespaceRuntimeReadMapResult {
     const lifecycle = state.lifecycle;
     if (lifecycle !== 'ready') return readDisabled(lifecycle, path);
-    const windowResult = readMapWindowAtPath(doc, path, options);
+    if (!Array.isArray(path)) {
+      const g0 = readMapWindowAtPath(doc, path, options);
+      if (!g0.ok) return g0;
+      throw new Error('readMap: 非数组 path 未被 doc-runtime G0 守卫拒绝（不变式破坏）');
+    }
+    const split = splitWindowOptions(options);
+    if (!split.ok) return windowBudgetAxisInvalid(path, split.msg);
+    const windowResult = readMapWindowAtPath(doc, path, split.relay);
     if (!windowResult.ok) return windowResult;
-    return composeMapWindowRead(state, doc, path, options, windowResult.value, windowResult.total);
+    return composeMapWindowRead(state, path, options, windowResult.value, windowResult.total, () => {
+      const reSplit = splitWindowOptions(options);
+      if (!reSplit.ok) return windowBudgetAxisInvalid(path, reSplit.msg);
+      return readMapWindowAtPath(doc, path, reSplit.relay);
+    });
   }
 
   const runtime: NamespaceRuntime = {
@@ -1010,40 +1136,33 @@ function readDisabled(lifecycle: 'closing' | 'closed', path: unknown): RuntimeRe
   };
 }
 
-/** 包内 path 回显 helper（不导出；readDisabled 既有纪律提取为共用——#336 A-2c）：
- *  非数组 → []；Array.isArray 守卫 + try/catch spread，敌意 Proxy 数组坍缩 []（沿
- *  doc-runtime safeSpreadPath 纪律）；恒返回新鲜副本（不别名调用方数组）。 */
-function echoReadPath(path: unknown): readonly (string | number)[] {
-  if (!Array.isArray(path)) return [];
-  try {
-    return [...path];
-  } catch {
-    return []; // 敌意 Proxy 数组防御（沿 read.ts safeSpreadPath 纪律）
-  }
-}
-
 /**
- * #336 接缝净化（包内，不导出）：仅在 `readLogicalValueAtPath` 三参调用**成功后**执行。
- * 读纪律与 T1 权威（doc-runtime `validateReadOptions`，read.ts L326–361）逐字对齐：
+ * #336 接缝净化 + #405 三键扩宽（包内，不导出）：仅在 `readLogicalValueAtPath` 三参调用
+ * **成功后**执行。读纪律与 T1 权威（doc-runtime `validateReadOptions`，read.ts L326–361）
+ * 逐字对齐：
  *  (a) 键空间 = `Object.keys(raw)`（own enumerable string 键——与非 enumerable/继承键双盲）；
  *  (b) 轴值 = `Object.getOwnPropertyDescriptor(raw, key)` 的 data-property `value`——全程零
  *      `[[Get]]`（零 get trap 执行、零继承链查找），accessor 显形即视图已变；
  *  (c) 整体 try 收编探测期 trap 异常（与 T1 同一收编面减 getPrototypeOf——canonical 的轴
  *      只依赖 own-enumerable 键视图，原型视图漂移不可能改变任何轴值；省去即少一次 trap 触达）；
- *  (d) 仅「键在场（descriptor 存在且非 accessor）∧ 值为 ≥0 有限整数」才写入 canonical
+ *  (d) 仅「键在场（descriptor 存在且非 accessor）∧ 值合法」才写入 canonical
  *      （present-undefined/ownKeys 谎报键/非 enumerable 一律不写）；-0 归一 0（镜像 T1 H10）。
+ *  (e) #405：`maxBytes` 纳入**三键白名单**（ADR-0031 决策 1 域：`Number.isSafeInteger(v) && v >= 1`），
+ *      但**不进** `options` 产物——它在下传 resolver/值通道之前被剥离并单独回传（头行/✂ 与
+ *      doc-runtime 下传 options 结构上恒两键：ADR-0031 决策 4 由构造保证）。
  *
  * T1 已成功 ⟹ 其第一次读到的视图满足接受判据。本函数以同一纪律重读：凡与该判据不一致
  * （键集漂移 / accessor 显形 / 值非法化 / trap 抛异常）⟹ 对象在两次读之间不稳定（非确定性
  * 敌意体）→ 返回 ok:false 交组合层响亮失败（A-2b），绝不静默、绝不外抛。净化器**不比权威
  * 看得更多**（SA2 F1 修订核心）；T1 演进时本 helper 是唯一需同步复查点（注释互指锚定）。
  */
-function canonicalReadOptions(raw: ReadLogicalValueAtPathOptions): CanonicalReadOptions {
+function canonicalReadOptions(raw: NamespaceRuntimeReadDataOptions): CanonicalReadOptions {
   try {
     const out: { depth?: number; maxChildrenPerNode?: number } = {};
+    let maxBytes: number | undefined;
     for (const key of Object.keys(raw)) {
-      // (a) 与 T1 同一键空间
-      if (key !== 'depth' && key !== 'maxChildrenPerNode') {
+      // (a) 与 T1 同一键空间（#405：白名单三键——`maxBytes` 由拆分读消费、此处复读为闸门权威）
+      if (key !== 'depth' && key !== 'maxChildrenPerNode' && key !== 'maxBytes') {
         return { ok: false }; // 键集漂移：T1 视角本应拒绝 → 视图不稳定
       }
       const desc = Object.getOwnPropertyDescriptor(raw, key); // (b) 与 T1 同一取值通道（零 [[Get]]）
@@ -1052,7 +1171,15 @@ function canonicalReadOptions(raw: ReadLogicalValueAtPathOptions): CanonicalRead
         return { ok: false }; // accessor 显形（T1 已拒、如今在场）→ 视图不稳定
       }
       const value = desc.value;
-      if (value === undefined) continue; // (d) present-undefined ≡ 缺席（R1）——剥离
+      if (value === undefined) continue; // (d) present-undefined ≡ 缺席（R1/D1）——剥离
+      if (key === 'maxBytes') {
+        // (e) 预算域复读（与 split 同判据）：非法值 = 视图已变异 → 响亮失败（出口①/②）。
+        if (typeof value !== 'number' || !Number.isSafeInteger(value) || value < 1) {
+          return { ok: false };
+        }
+        maxBytes = value;
+        continue;
+      }
       if (
         typeof value !== 'number' || !Number.isInteger(value) || !Number.isFinite(value) || value < 0
       ) {
@@ -1061,7 +1188,8 @@ function canonicalReadOptions(raw: ReadLogicalValueAtPathOptions): CanonicalRead
       if (key === 'depth') out.depth = value === 0 ? 0 : value; // H10：-0 归一（镜像 T1 L353）
       else out.maxChildrenPerNode = value === 0 ? 0 : value;
     }
-    return { ok: true, options: out }; // 全新 plain 字面量；键集 ⊆ 两轴、值全合法
+    // 全新 plain 字面量；`options` 键集 ⊆ 两轴（`maxBytes` 已剥离）、值全合法。
+    return { ok: true, options: out, maxBytes };
   } catch {
     return { ok: false }; // (c) 探测期 trap 异常——收编，绝不外抛
   }
@@ -1072,7 +1200,13 @@ function canonicalReadOptions(raw: ReadLogicalValueAtPathOptions): CanonicalRead
  * `{ok:false,msg}` 同款）。
  */
 type CanonicalReadOptions =
-  | { readonly ok: true; readonly options: ResolveSchemaBudgetOptions }
+  | {
+      readonly ok: true;
+      /** 恒两键（`maxBytes` 已剥离——下传 resolver/值通道的 options 面零变化）。 */
+      readonly options: ResolveSchemaBudgetOptions;
+      /** #405 预算权威（ADR-0031 决策 2）：canonical 后读值；缺席 ≡ 不设预算。 */
+      readonly maxBytes: number | undefined;
+    }
   | { readonly ok: false };
 
 /**
@@ -1093,6 +1227,198 @@ function seamReadOptionsInvalid(path: readonly (string | number)[]): ReadLogical
     message:
       'READ_OPTIONS_INVALID: options 视图在读取期间不稳定（敌意 descriptor/Proxy）——接缝拒绝组合同预算读',
   };
+}
+
+// ── #405（ADR-0031）：`maxBytes` 拆分读 / 域拒 / 交付总量度量 / 超限零交付 ──────────────
+
+/** `maxBytes` 域违约 message（含域标识 `maxBytes`——契约只要求域可区分，非钉死文案）。
+ *  **镜像义务边界**（SA2 §5 pin D5）：三面同文义务只覆盖**超限分支文案**（共享件
+ *  `read-budget.ts` 唯一模板）；各面 options 域违约走各面既有措辞族——窗口面用 W1 无码
+ *  前缀族（`window options.maxBytes …`，见下方 `#406` 段），不得把本条的
+ *  `READ_OPTIONS_INVALID:` 前缀带进窗口面（面属错位）。 */
+const READ_MAXBYTES_DOMAIN_MESSAGE =
+  'READ_OPTIONS_INVALID: options.maxBytes 必须是 ≥1 的有限整数（≤ 2^53−1）';
+/** `maxBytes` accessor 违约 message（零 accessor 执行纪律；与 T1 同款措辞域）。 */
+const READ_MAXBYTES_ACCESSOR_MESSAGE =
+  'READ_OPTIONS_INVALID: options.maxBytes 不得为 accessor（零 accessor 执行纪律）';
+/** 拆分读探测期异常 message（镜像 T1 V3 策略 A 的收编措辞）。 */
+const READ_SPLIT_PROBE_MESSAGE =
+  'READ_OPTIONS_INVALID: options 探测期异常（敌意对象）——已收编为 READ_OPTIONS_INVALID';
+
+/**
+ * #405 拆分读（包内，不导出）：raw 的**第一读者**，把 `maxBytes` 从 T1（doc-runtime
+ * `validateReadOptions`，两键键空间）视野中剥离，同时保持 T1 的**单一权威**不被复制。
+ *
+ * 读纪律与 T1 **逐字同构**（读次序 parity 是既有敌意面断言的结构前提，RA-D1）：
+ *  - 宿主门：非对象/数组/`null`/非 `Object.prototype|null` 原型 → **relay = raw 原样直传**
+ *    （宿主判据与 message 单源保留在 T1；本函数对 raw 零 descriptor 读，只耗一次
+ *    `getPrototypeOf`，与 T1 现次序一致）；
+ *  - plain 宿主：逐 own-enumerable string 键（`Object.keys` 枚举过滤 = 每键 1 次
+ *    `getOwnPropertyDescriptor`）→ 逐键**显式** descriptor 读（每键再 1 次；与 T1 的
+ *    每键 2 次完全一致——F-x5/F-x6 计数锚 4/5 保持）。全程零 `[[Get]]`（getter 零执行）。
+ *  - `maxBytes` 键：accessor → 拒（getter 零执行）；present-undefined → 剥离（D1 ≡ 缺席）；
+ *    域外（`Number.isSafeInteger(v) && v >= 1` 之外）→ 拒（ADR-0031 决策 1；SA8 RA-1 钉死
+ *    `2^53` 及以上拒绝）；合法 → **消费**（不进 relay——T1 继续权威校验两轴/未知键）；
+ *  - 其余键（两轴 / 未知键 / accessor / present-undefined / 非法值）：`defineProperty`
+ *    **原样复制**（保留 accessor 性与 data 值，不判域）——T1 对 relay 继续作两轴域与未知键
+ *    的单一权威，message 单源不漂移（`{maxBytes:1, nope:1}` 仍以「未知键：nope」被拒）；
+ *  - `Object.keys` 谎报键（`desc === undefined`）→ 跳过（镜像 T1/canonical 处置）；
+ *  - 探测期异常（trap 抛出）→ 收编为 `{ok:false}`（镜像 T1 策略 A；绝不外抛）。
+ *
+ * 本函数**不提取** `maxBytes` 值供闸门消费（闸门权威 = canonical 复读值——组合层接缝单源
+ * 事实）；其域判定只为**前置拒绝定序**服务（非法 `maxBytes` 在 doc 触碰前短路，先于导航失败
+ * ——与 T1「非法 options 在 N0 前短路」同序）。
+ */
+function splitReadDataOptions(
+  raw: NamespaceRuntimeReadDataOptions,
+): { readonly ok: true; readonly relay: NamespaceRuntimeReadDataOptions } | { readonly ok: false; readonly msg: string } {
+  try {
+    if (typeof raw !== 'object' || raw === null || Array.isArray(raw)) {
+      return { ok: true, relay: raw }; // 宿主门：T1 单源拒绝（含 message），raw 零 descriptor 读
+    }
+    const proto = Object.getPrototypeOf(raw);
+    if (proto !== Object.prototype && proto !== null) {
+      return { ok: true, relay: raw }; // 同上：继承键宿主由 T1 单源拒绝（N3）
+    }
+    const relay: NamespaceRuntimeReadDataOptions = {};
+    for (const key of Object.keys(raw)) {
+      const desc = Object.getOwnPropertyDescriptor(raw, key);
+      if (desc === undefined) continue; // ownKeys 谎报键 ≡ 非 own（镜像 T1）
+      if (key === 'maxBytes') {
+        if (desc.get !== undefined || desc.set !== undefined) {
+          return { ok: false, msg: READ_MAXBYTES_ACCESSOR_MESSAGE }; // accessor：getter 零执行
+        }
+        const value = desc.value;
+        if (value === undefined) continue; // D1：键在场、值 undefined ≡ 缺席（剥离）
+        if (typeof value !== 'number' || !Number.isSafeInteger(value) || value < 1) {
+          return { ok: false, msg: READ_MAXBYTES_DOMAIN_MESSAGE }; // D2 域：1..2^53−1
+        }
+        continue; // 合法：消费（不进 relay——T1 两键视野）
+      }
+      // 两轴 / 未知键 / accessor / present-undefined / 非法值：原样复制（判据与 message 归 T1）
+      Object.defineProperty(relay, key, desc);
+    }
+    return { ok: true, relay };
+  } catch {
+    return { ok: false, msg: READ_SPLIT_PROBE_MESSAGE }; // 探测期 trap 异常——收编，绝不外抛
+  }
+}
+
+/**
+ * #405 `maxBytes` 域/accessor/探测期违约的失败成员构造（包内，不导出）。
+ *
+ * 豁免登记（对 D1「失败形状以 doc-runtime 为准，不复制第二份」；沿 `seamReadOptionsInvalid`
+ * 先例）：`maxBytes` 域违约在 T1 的**两键视野内结构性不可观测**，T1 无法作为该分支的拒绝
+ * 权威；形状漂移风险以返回类型注解锁死——类型 `ReadLogicalValueBudgetFailure` 即
+ * `Extract<T1 预算联合, {ok:false}>`（类型仍单源）：T1 未来为该成员加必填键时，本对象字面量
+ * 在此编译红。path 回显复用 `echoReadPath`（同纪律、非新形状）；message 恒非空。
+ */
+function budgetAxisInvalid(
+  path: readonly (string | number)[],
+  message: string,
+): ReadLogicalValueBudgetFailure {
+  return { ok: false, code: 'READ_OPTIONS_INVALID', path: echoReadPath(path), message };
+}
+
+/**
+ * #405 交付总量度量 / 超限零交付分支：**已迁共享件** `read-budget.ts`（#406 三面同文
+ * 单源——message 模板 / `readBudgetExceeded` 构造器 / `deliveryBytes` 度量 / `echoReadPath`
+ * 回显同址；readData 面行为与文案逐字节不变，C8 锚）。本模块按名 import 消费（上方
+ * `import { deliveryBytes, echoReadPath, readBudgetExceeded }`），不再保留第二份实现。
+ */
+
+// ── #406（ADR-0031 窗口面同轴）：窗口面 `maxBytes` 拆分读 / 域拒 ────────────────────────
+
+/** 窗口面 `maxBytes` 域违约 message（W1 `validateWindowOptions` **无码前缀措辞族**——
+ *  与 `window.ts` 的 `window options.n 必须…` / `window options.<key> 不得为 accessor…`
+ *  同族句式；含域标识 `maxBytes`（G5：域可区分）且 ≠ 未知键 message）。 */
+const WINDOW_MAXBYTES_DOMAIN_MESSAGE =
+  'window options.maxBytes 必须是 ≥1 的有限整数（≤ 2^53−1）';
+/** 窗口面 `maxBytes` accessor 违约 message（零 accessor 执行纪律；W1 同族句式）。 */
+const WINDOW_MAXBYTES_ACCESSOR_MESSAGE =
+  'window options.maxBytes 不得为 accessor（零 accessor 执行纪律）';
+/** 窗口面拆分读探测期异常 message——与 W1 `validateWindowOptions` 收编条**逐字相同**
+ *  （状态化 trap 下出口①的 message 文本与 HEAD 零漂移，R-7）。 */
+const WINDOW_SPLIT_PROBE_MESSAGE =
+  'window options 探测期异常（敌意对象）——已收编为 WINDOW_OPTIONS_INVALID';
+
+/**
+ * #406 窗口面拆分读（包内，不导出）：raw 的**第一读者**，把 `maxBytes` 从 W1
+ * （doc-runtime `validateWindowOptions`，五键键空间）视野中剥离，同时保持 W1 的
+ * **单一权威**不被复制（镜像 `#405` `splitReadDataOptions` 逐层同构）。
+ *
+ * 读纪律与 W1 **逐字同构**（读次序 parity 是既有敌意面计数锚 4/5 的结构前提，SA8
+ * RA-406-1）：`Object.keys` 键空间（每键 1 次 `getOwnPropertyDescriptor` 枚举过滤）+
+ * 逐键**显式** descriptor 读（每键再 1 次；与 W1 的每键 2 次完全一致）。全程零 `[[Get]]`
+ * （getter 零执行）。
+ *  - 宿主门：非对象/数组/`null`/非 `Object.prototype|null` 原型 → **relay = raw 原样直传**
+ *    （宿主判据与 message 单源保留在 W1；本函数对 raw 零 descriptor 读，只耗一次
+ *    `getPrototypeOf`，与 W1 现次序一致）；
+ *  - `maxBytes` 键：accessor → 拒（getter 零执行）；present-undefined → 剥离（D1 ≡ 缺席）；
+ *    域外（`Number.isSafeInteger(v) && v >= 1` 之外）→ 拒（ADR-0031 决策 1；SA8 RA-1 钉死
+ *    `2^53` 及以上拒绝）；合法 → **消费**（不进 relay——W1 保持五键视野的单一权威，
+ *    `{n:1, maxBytes:1, nope:1}` 仍以「未知键：nope」被 W1 拒，message 单源不漂移）；
+ *  - 其余键（五键 / 未知键 / accessor / present-undefined / 非法值）：`defineProperty`
+ *    **原样复制** descriptor（保留 accessor 性与 data 值，不判域）——W1 对 relay 继续作
+ *    五键域、未知键、宿主的单一权威；
+ *  - `Object.keys` 谎报键（`desc === undefined`）→ 跳过（镜像 W1/canonical 处置）；
+ *  - 探测期异常（trap 抛出）→ 收编为 `{ok:false}`（镜像 W1 策略 A；绝不外抛）。
+ *
+ * 本函数**不提取** `maxBytes` 值供闸门消费（闸门权威 = S3 canonical 复读值——组合层接缝
+ * 单源事实，与 `#405` 同款声明）；其域判定只为**前置拒绝定序**服务（非法 `maxBytes` 在
+ * W1/doc 触碰前短路，先于目标/载体失败——G10「校验先于度量」）。
+ */
+function splitWindowOptions<
+  O extends NamespaceRuntimeReadArrayOptions | NamespaceRuntimeReadMapOptions,
+>(raw: O): { readonly ok: true; readonly relay: O } | { readonly ok: false; readonly msg: string } {
+  try {
+    if (typeof raw !== 'object' || raw === null || Array.isArray(raw)) {
+      return { ok: true, relay: raw }; // 宿主门：W1 单源拒绝（含 message），raw 零 descriptor 读
+    }
+    const proto = Object.getPrototypeOf(raw);
+    if (proto !== Object.prototype && proto !== null) {
+      return { ok: true, relay: raw }; // 同上：继承键宿主由 W1 单源拒绝
+    }
+    // relay 由 descriptor 原样复制动态构造——静态类型无法从构造过程推导，故单点断言为
+    // 入参宿主类型 O（运行时 = 五键视图：`maxBytes` 恒被消费/剥离，绝不出现）。
+    const relay = {} as O;
+    for (const key of Object.keys(raw)) {
+      const desc = Object.getOwnPropertyDescriptor(raw, key);
+      if (desc === undefined) continue; // ownKeys 谎报键 ≡ 非 own（镜像 W1）
+      if (key === 'maxBytes') {
+        if (desc.get !== undefined || desc.set !== undefined) {
+          return { ok: false, msg: WINDOW_MAXBYTES_ACCESSOR_MESSAGE }; // accessor：getter 零执行
+        }
+        const value = desc.value;
+        if (value === undefined) continue; // D1：键在场、值 undefined ≡ 缺席（剥离）
+        if (typeof value !== 'number' || !Number.isSafeInteger(value) || value < 1) {
+          return { ok: false, msg: WINDOW_MAXBYTES_DOMAIN_MESSAGE }; // 域：1..2^53−1
+        }
+        continue; // 合法：消费（不进 relay——W1 五键视野）
+      }
+      // 五键 / 未知键 / accessor / present-undefined / 非法值：原样复制（判据与 message 归 W1）
+      Object.defineProperty(relay, key, desc);
+    }
+    return { ok: true, relay };
+  } catch {
+    return { ok: false, msg: WINDOW_SPLIT_PROBE_MESSAGE }; // 探测期 trap 异常——收编，绝不外抛
+  }
+}
+
+/**
+ * #406 窗口面 `maxBytes` 域/accessor/探测期违约的失败成员构造（包内，不导出）。
+ *
+ * 豁免登记（对「失败形状以 doc-runtime 为准，不复制第二份」；沿 `seamReadOptionsInvalid` /
+ * `budgetAxisInvalid` 先例）：`maxBytes` 域违约在 W1 的**五键视野内结构性不可观测**，
+ * W1 无法作为该分支的拒绝权威；形状漂移风险以返回类型注解锁死——类型 `WindowReadFailure`
+ * 即 doc-runtime 单源（W1 未来为该成员加必填键时，本对象字面量在此编译红）。path 回显复用
+ * 共享件 `echoReadPath`（同纪律、非新形状）；message 恒非空。
+ */
+function windowBudgetAxisInvalid(
+  path: readonly (string | number)[],
+  message: string,
+): WindowReadFailure {
+  return { ok: false, code: 'WINDOW_OPTIONS_INVALID', path: echoReadPath(path), message };
 }
 
 /** D5.1 包内 helper：lifecycle≠ready 期写接纳拒绝的稳定 reason（不导出）。

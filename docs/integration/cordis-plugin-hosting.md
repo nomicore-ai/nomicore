@@ -357,13 +357,22 @@ console.log(lease.readData(['title']))
 // ✂ 截断事实：
 // - meta · depth · 省略 2 项
 
-// 形状预算（ADR 0024）：第二参 options（封闭形状 { depth?, maxChildrenPerNode? }）
-// 在一次读内以同一预算贯通值与投影文本——未展开分支零物化；depth 耗尽处容器子项
+// 形状预算（ADR 0024）+ 字节预算（ADR 0031）：第二参 options 为三键封闭形状
+// { depth?, maxChildrenPerNode?, maxBytes? }，在一次读内以同一预算贯通值与投影文本——
+// 未展开分支零物化；depth 耗尽处容器子项
 // 折叠为同形空容器（键在场）+ ✂ 段条目，width 超限的超出前缀键省略；标量等终态
 // 子项不耗层、原样物化。文本正文同 depth 裁剪（折叠处以 ‡ 标记），行尾口径注释按
 // 可见性收缩（已渲染宿主的槽位口径随行，被截闭包内部省略——ADR 0024 #359 amendment）。
 // 无预算读省略头行预算段；不传 options = 完整投影文本；非法 options 响亮拒绝
 // READ_OPTIONS_INVALID（同步、不抛）。
+// maxBytes（ADR 0031）是**交付总量**收/拒闸：域 = ≥1 的有限整数（≤ 2^53−1），
+// 0 / 负数 / 非整数 / 非有限数 / 未知键 → READ_OPTIONS_INVALID；总量 = 值通道紧凑 JSON
+// 的 UTF-8 字节 + 投影文本 UTF-8（`schema: null` 计 0、值缺席计 0；头行与 ✂ 段在文本内
+// 自然计入）。≤ 预算原样成功（交付物与同参无预算读逐字节相同，恰好等于亦成功），
+// > 预算**零交付**并返回失败分支
+// { ok: false, code: 'READ_BUDGET_EXCEEDED', path, measuredBytes, message }（恰五键；
+// measuredBytes 只报合计、不裁剪不降深度）。控制形状与物化工作量用
+// depth / maxChildrenPerNode / 窗口读；maxBytes 只治理交付总量（ADR 0031 决策 6）。
 const shallow = lease.readData([], { depth: 1, maxChildrenPerNode: 5 })
 
 const changed = await lease.mutateData({

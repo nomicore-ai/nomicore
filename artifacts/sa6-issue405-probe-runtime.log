@@ -1,0 +1,100 @@
+HEAD=fc6c1d3a4d56453a6c7288519ec7cbfe852f8e1a
+node=v24.13.0 keys=["bumpReplicationEpoch","close","enableReplication","getActiveSchema","getMetadata","getSchema","getStatus","mutateData","namespaceId","owner","readArray","readData","readMap","replaceSchema","watchMap"]
+schema.state=ready
+
+=== P1 能力缺口：readData(path, {maxBytes}) @HEAD（raw cast：类型面缺口见 probe-types.ts） ===
+A1 {maxBytes:1} 紧预算 -> ok=false code=READ_OPTIONS_INVALID keys=["ok","code","path","message"] message="options 含未知键（封闭形状）：maxBytes"
+A2 {maxBytes:100000} 宽预算 -> ok=false code=READ_OPTIONS_INVALID keys=["ok","code","path","message"] message="options 含未知键（封闭形状）：maxBytes"
+A3 {maxBytes:0} 非法 -> ok=false code=READ_OPTIONS_INVALID keys=["ok","code","path","message"] message="options 含未知键（封闭形状）：maxBytes"
+A4 {maxBytes:-1} 非法 -> ok=false code=READ_OPTIONS_INVALID keys=["ok","code","path","message"] message="options 含未知键（封闭形状）：maxBytes"
+A5 {maxBytes:1.5} 非法 -> ok=false code=READ_OPTIONS_INVALID keys=["ok","code","path","message"] message="options 含未知键（封闭形状）：maxBytes"
+A6 {maxBytes:NaN} 非法 -> ok=false code=READ_OPTIONS_INVALID keys=["ok","code","path","message"] message="options 含未知键（封闭形状）：maxBytes"
+A7 {maxBytes:Infinity} 非法 -> ok=false code=READ_OPTIONS_INVALID keys=["ok","code","path","message"] message="options 含未知键（封闭形状）：maxBytes"
+A8 {maxBytes:'100'} 非法 -> ok=false code=READ_OPTIONS_INVALID keys=["ok","code","path","message"] message="options 含未知键（封闭形状）：maxBytes"
+A9 {maxBytes:undefined} 缺席语义 -> ok=false code=READ_OPTIONS_INVALID keys=["ok","code","path","message"] message="options 含未知键（封闭形状）：maxBytes"
+A10 {unknownKey:1} 未知键（既有负控） -> ok=false code=READ_OPTIONS_INVALID keys=["ok","code","path","message"] message="options 含未知键（封闭形状）：unknownKey"
+A11 {maxBytes:1,depth:1} 混合 -> ok=false code=READ_OPTIONS_INVALID keys=["ok","code","path","message"] message="options 含未知键（封闭形状）：maxBytes"
+A12 {depth:1} 已知键（正向负控） -> ok=true code=- keys=["ok","value","schema","truncated"]
+A13 {maxChildrenPerNode:2} 已知键（正向负控） -> ok=true code=- keys=["ok","value","schema","truncated"]
+
+=== P2 规范度量预言机（utf8 字节；供 ≤ 边界锚 total/total±1） ===
+R0 readData([]) 无 options -> truncated=false keys=["ok","value","schema","truncated"]
+    valueBytes=120 schemaBytes=238 TOTAL=358 | utf16 对照 valueChars=92 schemaChars=194 | utf8≠utf16? value:true schema:true
+    head="# readData []" schema_null=false value_undefined=false value_key_present=true
+    sha16(valueJson)=a8215c62fc5b7e65 sha16(schema)=fc0dac807a491fb8 ✂included=false
+    schema_tail="签组\n  nick?: string // 可选昵称\n}\n\ntype Meta = {\n  content: string // 备注内容\n  extra: number // 附加计数\n}\n"
+R1 readData([], {depth:1}) -> truncated=true keys=["ok","value","schema","truncated"]
+    valueBytes=57 schemaBytes=358 TOTAL=415 | utf16 对照 valueChars=47 schemaChars=234 | utf8≠utf16? value:true schema:true
+    head="# readData [] {depth:1}" schema_null=false value_undefined=false value_key_present=true
+    sha16(valueJson)=1e76167b0ed40f90 sha16(schema)=f13c62c57f4c89fd ✂included=true
+    schema_tail=" 截断标记：该类型位因读取预算（depth 耗尽）折叠；对该路径再读可展开。\n\n✂ 截断事实：\n- meta · depth · 省略 2 项\n- tags · depth · 省略 5 项\n"
+R2 readData([], {depth:0}) 折叠 -> truncated=true keys=["ok","value","schema","truncated"]
+    valueBytes=2 schemaBytes=190 TOTAL=192 | utf16 对照 valueChars=2 schemaChars=104 | utf8≠utf16? value:false schema:true
+    head="# readData [] {depth:0}" schema_null=false value_undefined=false value_key_present=true
+    sha16(valueJson)=44136fa355b3678a sha16(schema)=e3f525f0a99c4612 ✂included=true
+    schema_tail="ta [] {depth:0}\n\n[...]‡\n\n‡ 截断标记：该类型位因读取预算（depth 耗尽）折叠；对该路径再读可展开。\n\n✂ 截断事实：\n- [] · depth · 省略 4 项\n"
+R3 readData([], {maxChildrenPerNode:2}) width 截断 -> truncated=true keys=["ok","value","schema","truncated"]
+    valueBytes=37 schemaBytes=312 TOTAL=349 | utf16 对照 valueChars=27 schemaChars=248 | utf8≠utf16? value:true schema:true
+    head="# readData [] {maxChildrenPerNode:2}" schema_null=false value_undefined=false value_key_present=true
+    sha16(valueJson)=da44dc21d4140674 sha16(schema)=d8b2b7a5cf8e3994 ✂included=true
+    schema_tail="ype Meta = {\n  content: string // 备注内容\n  extra: number // 附加计数\n}\n\n✂ 截断事实：\n- [] · width · 省略 2 项\n"
+R4 readData([title]) 标量 -> truncated=false keys=["ok","value","schema","truncated"]
+    valueBytes=17 schemaBytes=27 TOTAL=44 | utf16 对照 valueChars=7 schemaChars=27 | utf8≠utf16? value:true schema:false
+    head="# readData [title]" schema_null=false value_undefined=false value_key_present=true
+    sha16(valueJson)=6822dd73fc6f3572 sha16(schema)=b1ad24fb2621b2a5 ✂included=false
+    schema_tail="# readData [title]\n\nstring\n"
+R5 readData([meta]) ref 容器 -> truncated=false keys=["ok","value","schema","truncated"]
+    valueBytes=36 schemaBytes=107 TOTAL=143 | utf16 对照 valueChars=28 schemaChars=91 | utf8≠utf16? value:true schema:true
+    head="# readData [meta]" schema_null=false value_undefined=false value_key_present=true
+    sha16(valueJson)=6e098795557090b6 sha16(schema)=86114448dc980544 ✂included=false
+    schema_tail="# readData [meta]\n\nMeta\n\ntype Meta = {\n  content: string // 备注内容\n  extra: number // 附加计数\n}\n"
+R6 readData([tags]) 数组 -> truncated=false keys=["ok","value","schema","truncated"]
+    valueBytes=31 schemaBytes=28 TOTAL=59 | utf16 对照 valueChars=21 schemaChars=28 | utf8≠utf16? value:true schema:false
+    head="# readData [tags]" schema_null=false value_undefined=false value_key_present=true
+    sha16(valueJson)=006c100a72f6acf0 sha16(schema)=c933aba22eccf91d ✂included=false
+    schema_tail="# readData [tags]\n\nstring[]\n"
+R7 readData([nick]) 缺席目标（schema 在场） -> truncated=false keys=["ok","value","schema","truncated"]
+    valueBytes=0 schemaBytes=27 TOTAL=27 | utf16 对照 valueChars=0 schemaChars=27 | utf8≠utf16? value:false schema:false
+    head="# readData [nick]" schema_null=false value_undefined=true value_key_present=true
+    sha16(valueJson)=- sha16(schema)=95e2e79811d5b7ef ✂included=false
+    schema_tail="# readData [nick]\n\nstring?\n"
+R8 readData([rogue]) 路径偏离（schema null） -> truncated=false keys=["ok","value","schema","truncated"]
+    valueBytes=0 schemaBytes=0 TOTAL=0 | utf16 对照 valueChars=0 schemaChars=0 | utf8≠utf16? value:false schema:false
+    head=null schema_null=true value_undefined=true value_key_present=true
+    sha16(valueJson)=- sha16(schema)=- ✂included=false
+    schema_tail=null
+
+=== P3 无 maxBytes 成功面指纹（回归锚：实现后须逐字节不变） ===
+same-args determinism: R0 vs R0' -> true
+same-args determinism: R1 vs R1' -> true
+R0 keys=["ok","value","schema","truncated"] schema_is_string=true
+R1 keys=["ok","value","schema","truncated"] truncated=true ✂=true head="# readData [] {depth:1}"
+
+=== P4 负控（HEAD 必须绿） ===
+N1 readData([title,0]) 载体不匹配 -> ok=false code=PATH_NOT_ALLOWED
+N2 readData([rogue]) 路径偏离 -> ok=true schema_null=true value_undefined=true
+N3 继承键 options（{__proto__:{depth:1}}）-> ok=false (canonical 等价面无预算段：false)
+N4 非 enumerable maxBytes 键 -> ok=true code=-
+N5 accessor maxBytes 键（零 getter 执行）-> ok=false code=READ_OPTIONS_INVALID
+
+=== P5 raw 变体（schema 外数据：仅值侧计量）与双轴面 ===
+R9 readData([rogue]) raw 值（schema null） -> schema_null=true value_undefined=false valueBytes=102 schemaBytes=0 TOTAL=102
+R10 readData([]) raw ROOT -> valueBytes=231 schemaBytes=238 TOTAL=469
+R11 readData([], {depth:1,maxChildrenPerNode:2}) -> truncated=true valueBytes=37 schemaBytes=345 TOTAL=382 head="# readData [] {depth:1,maxChildrenPerNode:2}" ✂=true
+R12 readData([], {}) 空预算 options -> TOTAL=358 head="# readData []" (空预算 ≡ 无预算段；ADR 0031 收/拒参数不塑形头行)
+
+=== P6 规模/成本基线（large 值通道；仅诊断，无阈值断言） ===
+P6 big(n=50000) valueBytes=194391 schema_null=true
+P6 t(readData)=2.18ms  t(JSON.stringify+utf8)≈0.06ms  （闸门测量 = 交付后一次序列化遍历）
+
+=== P7 窗口面边界（tracer 范围：readData 面；窗口面本票不动） ===
+P7a readArray([tags], {n:1,maxBytes:1}) → ok=false code=WINDOW_OPTIONS_INVALID
+P7b readMap([meta], {n:1,maxBytes:1}) → ok=false code=WINDOW_OPTIONS_INVALID
+P7c readArray([tags], {n:1}) 无预算现状锚 → ok=true keys=["ok","value","schema","truncated"]
+
+=== P8 doc-runtime 边界（零改动锚：maxBytes 不进 doc-runtime 校验域） ===
+P8a docRuntime.readLogicalValueAtPath(doc,[title],{maxBytes:1}) → ok=false code=READ_OPTIONS_INVALID
+P8b docRuntime.readLogicalValueAtPath(doc,[title],{depth:1}) → ok=true keys=["ok","value","truncated","truncations"]
+
+=== P9 lifecycle gate 优先于 options 读取与预算判定 ===
+P9 closed 期 readData([], Proxy{maxBytes}) → ok=false code=RUNTIME_READ_DISABLED trapCalls=0

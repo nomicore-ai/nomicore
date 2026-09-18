@@ -1,0 +1,100 @@
+=== SA3 #405 verification evidence ===
+dispatch: sa-12c7e175-4493-40b2-9fbe-3357add1b9ba (role mabf-sa3, phase implementation, iteration 2)
+date: 2026-09-16T00:29:48+08:00
+worktree: /home/wangjian/nomicore-fix-issue-405   branch mabf/issue-405   HEAD fc6c1d3a4d56453a6c7288519ec7cbfe852f8e1a
+source under test (identical before and after every command below):
+  packages/namespace-runtime/src/runtime.ts  md5 706d44a26fd50d90b729f23f9b3fc1f5
+  packages/namespace-runtime/src/index.ts   md5 362d7c9afadef8cef1babf514a5339ba
+
+--- [1] red baseline reproduction (this dispatch, independent) ---
+production reverted to HEAD via `git show HEAD:<path> > <path>` (index untouched); backup restored by EXIT trap.
+command: NODE_OPTIONS=--conditions=nomicore-source pnpm exec vitest run \
+           packages/namespace-runtime/test/issue-405-maxbytes-red.test.ts \
+           packages/namespace-runtime/test/issue-405-maxbytes-control.test.ts \
+           packages/namespace-registry/test/issue-405-lease-maxbytes-passthrough-red.test.ts
+result: exit 1 — Test Files 2 failed | 1 passed (3); Tests 14 failed | 14 passed (28); Type Errors: no errors
+per file:
+  ❯ issue-405-maxbytes-red.test.ts              14 tests | 12 failed   (G1×2, G2, G3×2, G4, G5, G6, G8, G10×3)
+  ✓ issue-405-maxbytes-control.test.ts           8 tests            (SA6 §12.4: G7/G8-no-budget/G11 green on HEAD)
+  ❯ issue-405-lease-maxbytes-passthrough-red.ts  6 tests |  2 failed   (G9 收侧/拒侧; 透传/released/lifecycle/legacy green)
+root cause (single): 12× READ_OPTIONS_INVALID "options 含未知键（封闭形状）：maxBytes"
+  ⇒ red is the capability gap (maxBytes ≡ unknown key), not a fixture/device defect.
+restore verified: md5 706d44a2… / 362d7c9a…; `git status -- packages/namespace-runtime/src` back to ' M' (unstaged).
+
+--- [2] designated contract family (implementation in place) ---
+command: NODE_OPTIONS=--conditions=nomicore-source pnpm exec vitest run --typecheck <9 files: 5 issue-405 + 2 runtime shape-budget + 2 registry passthrough>
+result: exit 0 — Test Files 9 passed (9); Tests 70 passed (70); Type Errors: no errors
+  ✓ issue-405-maxbytes-red.test.ts (14)      ✓ issue-405-maxbytes-control.test.ts (8)
+  ✓ issue-405-lease-maxbytes-passthrough-red.test.ts (6)
+  ✓ runtime-readdata-shape-budget-red.test.ts (27, incl. F-x5 descriptorCalls()===4 / F-x6 ===5 parity anchors)
+  ✓ TS issue-405-maxbytes.test-d.ts (3)      ✓ TS runtime-readdata-shape-budget.test-d.ts (2)
+  ✓ TS issue-405-lease-maxbytes-surface.test-d.ts (3)  ✓ TS registry-readdata-budget-passthrough.test-d.ts (2)
+  ✓ registry-readdata-budget-passthrough.test.ts (5)
+3-key hostile face parity (G10): stateful descriptor trap count === 4, alternating === 5 (mirrors T1 discipline).
+
+--- [3] package gates ---
+vitest run --typecheck packages/namespace-runtime/test packages/namespace-registry/test : exit 0 — 130 files / 1258 tests / no type errors
+pnpm exec tsc -p packages/namespace-runtime/tsconfig.json                      : exit 0
+pnpm exec tsc -p packages/namespace-registry/tsconfig.json                     : exit 0
+vitest run readdata-docs-adr0016-sync-{control,red}.test.ts (OBL-DOC-1 gate)   : exit 0 — 43 tests
+
+--- [4] root gates (AC⑩ / SA6 §12.8) ---
+pnpm typecheck (root, 14 tsc projects) : exit 0
+NODE_OPTIONS=--conditions=nomicore-source pnpm test (root, full, --typecheck)
+  : exit 0 — 417 files / 5055 tests passed / Type Errors: no errors (610.34s)
+  baseline artifacts/sa6-issue405-baseline-fulltest.log = 412 files / 5021 tests → +5 files / +34 tests
+  (= the 5 new contract/fixture files; zero skip/only/todo)
+
+--- [5] scope discipline ---
+git diff --check                                                              : exit 0
+DENY surfaces diff (packages/doc-runtime, packages/vfsl*, read-schema-projection.ts, window-read.ts,
+  packages/namespace-registry/src, CONTEXT.md, docs/adr, vitest.config.ts, tsconfig*.json, apps, package.json) : empty
+ALLOW implementation paths changed (excluding wiki/raw/** and artifacts/**)   : 13 = exactly SA1 §11 Phase A/B rows
+skip/only/todo/env-override/source-string assertions in #405 contract files    : none
+
+--- [6] carried-over evidence (iteration 1, same source md5 706d44a2…) ---
+Mutation-sensitivity probes (source restored to md5 706d44a2… after each; see iteration-1 raw output below):
+ M1 gate comparison `>` -> `>=`            : issue-405-maxbytes-red.test.ts  6 failed | 8 passed
+ M2 deliveryBytes drops schema channel     : issue-405-maxbytes-red.test.ts  7 failed | 7 passed
+ M3 split maxBytes domain check disabled   : issue-405-maxbytes-red.test.ts  1 failed | 13 passed
+   failure: G5/0：message 域标识（maxBytes 域可区分）
+   note: with the pre-navigation domain check disabled, domain-case *codes* still stay READ_OPTIONS_INVALID
+         via the canonical seam exit (②); the message-domain assertion is the load-bearing guard that the
+         DD-2/G5 pre-navigation rejection actually ran. Registered as an observable design fact, not a defect
+         (see SA3 implementation report, Deviations item 4).
+
+=== raw output, iteration 1 (dispatch sa-f1c25552; retained for audit) ===
+--- [1] red baseline: production reverted to HEAD (git checkout HEAD -- src/runtime.ts src/index.ts) ---
+command: vitest run issue-405-maxbytes-red.test.ts issue-405-maxbytes-control.test.ts
+result: Test Files 1 failed | 1 passed (2); Tests 12 failed | 10 passed (22)
+root cause (single): READ_OPTIONS_INVALID 'options 含未知键（封闭形状）：maxBytes'
+
+--- [2] contract family (implementation restored, md5 706d44a2 / 362d7c9a) ---
+ RUN  v3.2.7 /home/wangjian/nomicore-fix-issue-405
+ ✓ packages/namespace-runtime/test/issue-405-maxbytes-red.test.ts (14 tests) 61ms
+ ✓ packages/namespace-runtime/test/runtime-readdata-shape-budget-red.test.ts (27 tests) 112ms
+ ✓ packages/namespace-runtime/test/issue-405-maxbytes-control.test.ts (8 tests) 47ms
+ ✓ packages/namespace-registry/test/issue-405-lease-maxbytes-passthrough-red.test.ts (6 tests) 31ms
+ ✓  TS  packages/namespace-registry/test/issue-405-lease-maxbytes-surface.test-d.ts (3 tests)
+ ✓  TS  packages/namespace-registry/test/registry-readdata-budget-passthrough.test-d.ts (2 tests)
+ ✓  TS  packages/namespace-runtime/test/issue-405-maxbytes.test-d.ts (3 tests)
+ ✓  TS  packages/namespace-runtime/test/runtime-readdata-shape-budget.test-d.ts (2 tests)
+ ✓ packages/namespace-registry/test/registry-readdata-budget-passthrough.test.ts (5 tests) 17ms
+ Test Files  9 passed (9) / Tests 70 passed (70) / Type Errors  no errors
+
+--- [3] mutation-sensitivity probes (prove contract tests are non-vacuous; src restored to md5 706d44a26fd50d90b729f23f9b3fc1f5 after each) ---
+M1 gate comparison `>` -> `>=`            : Tests 6 failed | 8 passed  => <= boundary genuinely asserted (G1/G2/G4/G8 ...)
+M2 deliveryBytes drops schema channel     : Tests 7 failed | 7 passed  => schema channel measurement genuinely asserted
+M3 split maxBytes domain check disabled   : Tests 1 failed | 13 passed
+   failure: G5/0：message 域标识（maxBytes 域可区分）: expected false to be true
+
+--- [4] gates (all after restore, iteration 1) ---
+pnpm exec tsc -p packages/namespace-runtime/tsconfig.json  : exit 0
+pnpm exec tsc -p packages/namespace-registry/tsconfig.json : exit 0
+pnpm typecheck (root, 14 projects)                          : exit 0
+pnpm test (root, full)                                      : exit 0 — 417 files / 5055 tests / no type errors
+vitest run --typecheck packages/namespace-runtime/test packages/namespace-registry/test : exit 0 — 130 files / 1258 tests
+vitest run readdata-docs-adr0016-sync-{control,red}.test.ts : exit 0 — 43 tests
+git diff --check                                            : exit 0
+DENY-list diff                                              : empty
+skip/only/todo scan on all #405 contract files              : none

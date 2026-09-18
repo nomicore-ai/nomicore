@@ -1,0 +1,163 @@
+# SA6 issue #405 rev2 临时探针源码留档（探针本体已删除；本文件为证据）
+# HEAD: fc6c1d3a4d56453a6c7288519ec7cbfe852f8e1a  branch: mabf/issue-405  date: 2026-09-15T22:56:34+08:00
+# node: v24.13.0  pnpm: 10.28.2
+#
+# 运行命令（复现）:
+#   SA6_HEAD=$(git rev-parse HEAD) NODE_OPTIONS=--conditions=nomicore-source pnpm exec tsx packages/namespace-runtime/.sa6-405-rev2/probe-d2-domain.ts
+# 实跑日志: artifacts/sa6-issue405-probe-d2-domain.log (PROBE_EXIT=0)
+
+════════════════════════════════════════════════════════════════
+### FILE: packages/namespace-runtime/.sa6-405-rev2/probe-d2-domain.ts
+════════════════════════════════════════════════════════════════
+/**
+ * SA6 issue #405 rev2 临时诊断探针（**不是**测试文件——不入 vitest 收集、收尾删除）。
+ *
+ * 目的（回应 SA8 RA-1 / D2 收口）：在 HEAD 上实测 `maxBytes` 域边界两侧
+ *   - 有效域顶 `2^53 − 1`（ADR 0031 决策 1：≥1 的有限整数（≤ 2^53−1））
+ *   - 域外 `2^53` / `2^53 + 2`
+ * 并对照未知键 `{nope:1}` 与既有合法轴 `{depth:1}`，证明：
+ *   (a) HEAD 的拒绝由**键空间**触发，与值域无关 → 域边界两侧结果逐字相同；
+ *   (b) 修订后的硬断言 C-LIMIT（`{maxBytes: 2**53}` → READ_OPTIONS_INVALID）在 HEAD 上
+ *       会「因未知键巧合绿」——必须与有效域接受锚（`{maxBytes: 2**53−1}` 必须成功）同组出现，
+ *       组级判据在 HEAD 上为红（有效域接受红），实现后转绿。
+ *
+ * 运行：SA6_HEAD=$(git rev-parse HEAD) NODE_OPTIONS=--conditions=nomicore-source \
+ *       pnpm exec tsx packages/namespace-runtime/.sa6-405-rev2/probe-d2-domain.ts
+ */
+import * as Y from 'yjs';
+import { createMemoryPersistence } from '@nomicore/persistence';
+import type { PersistenceScheduler, User } from '@nomicore/persistence';
+import { createNamespaceRuntimeWithSeam } from '../src/runtime.js';
+import type { NamespaceRuntime, NamespaceRuntimeReadDataOptions } from '../src/index.js';
+
+const SCHEDULER: PersistenceScheduler = {
+  setTimeout: (callback, delayMs) => globalThis.setTimeout(callback, delayMs),
+  clearTimeout: (handle) => globalThis.clearTimeout(handle as ReturnType<typeof globalThis.setTimeout>),
+};
+
+/** 与 §12.0 冻结 fixture 同文本（仅需 schema 在场 + 已知目标；D2 探针不依赖字节锚）。 */
+const TXT_405 = `
+type Meta = YMap<{
+  /** 备注内容 */
+  content: YLeaf<string>;
+  /** 附加计数 */
+  extra: YLeaf<number>;
+}>;
+type ROOT = YMap<{
+  /** 页面标题 */
+  title: YLeaf<string>;
+  count: YLeaf<number>;
+  /** 元数据 */
+  meta: Meta;
+  /** 标签组 */
+  tags: YLeaf<string>[];
+  /** 可选昵称 */
+  nick?: YLeaf<string>;
+}>;
+`.trim();
+
+const ENV_405 = { lang: 'vfsl', version: 1, id: 'ns-405', text: TXT_405 } as const;
+const OWNER: User = { userId: 'u-405' };
+
+function seedStrictRoot(root: Y.Map<unknown>): void {
+  root.set('title', '你好，世界');
+  root.set('count', 3);
+  const meta = new Y.Map<unknown>();
+  meta.set('content', '备注说明');
+  meta.set('extra', 7);
+  root.set('meta', meta);
+  const tags = new Y.Array<string>();
+  tags.push(['甲', '乙', '丙', '丁', '戊']);
+  root.set('tags', tags);
+}
+
+async function makeRuntime(): Promise<{ runtime: NamespaceRuntime }> {
+  const persistence = createMemoryPersistence({ scheduler: SCHEDULER });
+  const doc = new Y.Doc();
+  const sc = doc.getMap('SCHEMA');
+  for (const [k, v] of Object.entries(ENV_405)) sc.set(k, v);
+  const meta = doc.getMap('META');
+  meta.set('docId', 'ns-405');
+  meta.set('createdAt', 1_700_000_000_000);
+  seedStrictRoot(doc.getMap('ROOT'));
+  const handle = await persistence.createDoc(OWNER, 'ns-405', doc);
+  const runtime = createNamespaceRuntimeWithSeam({ handle });
+  const deadline = Date.now() + 5_000;
+  while (runtime.getStatus().schema.state !== 'ready') {
+    if (Date.now() > deadline) throw new Error('装置前提失败：schema 未在 5s 内 ready');
+    await new Promise((resolve) => setTimeout(resolve, 10));
+  }
+  return { runtime };
+}
+
+const out: string[] = [];
+const line = (s = ''): void => {
+  out.push(s);
+};
+
+/** ADR 0031 决策 1 域：有限整数 1..2^53−1（等价 Number.isSafeInteger(v) && v >= 1）。 */
+const inAdrDomain = (v: number): boolean => Number.isFinite(v) && Number.isSafeInteger(v) && v >= 1;
+
+function describe(r: unknown): string {
+  const rec = r as { ok: boolean; code?: string; message?: string; keys?: string[] };
+  const keys = Object.keys(r as object).sort().join(',');
+  return `ok=${String(rec.ok)} code=${rec.code ?? '-'} keys=[${keys}] message=${JSON.stringify(rec.message ?? null)}`;
+}
+
+async function main(): Promise<void> {
+  const { runtime } = await makeRuntime();
+
+  line(`HEAD=${process.env.SA6_HEAD ?? 'unknown'}`);
+  line(`node=${process.version} date=${new Date().toISOString()}`);
+  line(`schema.state=${runtime.getStatus().schema.state}`);
+  line('');
+
+  const matrix: ReadonlyArray<{ readonly name: string; readonly options: unknown }> = [
+    { name: 'D2-a 有效域顶 2^53−1', options: { maxBytes: 2 ** 53 - 1 } },
+    { name: 'D2-b 域外边界 2^53', options: { maxBytes: 2 ** 53 } },
+    { name: 'D2-c 域外上邻 2^53+2', options: { maxBytes: 2 ** 53 + 2 } },
+    { name: 'D2-d 有效域底 1', options: { maxBytes: 1 } },
+    { name: 'D2-e 0（非法）', options: { maxBytes: 0 } },
+    { name: 'D2-f -1（非法）', options: { maxBytes: -1 } },
+    { name: 'D2-g 1.5（非法）', options: { maxBytes: 1.5 } },
+    { name: 'D2-h NaN（非法）', options: { maxBytes: Number.NaN } },
+    { name: 'D2-i Infinity（非法）', options: { maxBytes: Number.POSITIVE_INFINITY } },
+    { name: 'CTL-1 未知键 nope', options: { nope: 1 } },
+    { name: 'CTL-2 既有合法轴 depth', options: { depth: 1 } },
+  ];
+
+  line('=== P-D2：域边界矩阵 @HEAD（raw cast：类型面缺口见 rev1 probe-types 留档） ===');
+  const observed = new Map<string, string>();
+  for (const c of matrix) {
+    const r = runtime.readData([], c.options as NamespaceRuntimeReadDataOptions);
+    const text = describe(r);
+    observed.set(c.name, text);
+    line(`${c.name.padEnd(26)} domain=${String(inAdrDomain((c.options as { maxBytes?: number }).maxBytes ?? Number.NaN)).padEnd(5)} -> ${text}`);
+  }
+  line('');
+
+  line('=== 判读 ===');
+  const top = observed.get('D2-a 有效域顶 2^53−1') ?? '';
+  const over = observed.get('D2-b 域外边界 2^53') ?? '';
+  const over2 = observed.get('D2-c 域外上邻 2^53+2') ?? '';
+  const unknown = observed.get('CTL-1 未知键 nope') ?? '';
+  const depth = observed.get('CTL-2 既有合法轴 depth') ?? '';
+  line(`1) 有效域顶 vs 域外边界逐字相同: ${String(top === over)}`);
+  line(`2) 域外边界 vs 上邻逐字相同: ${String(over === over2)}`);
+  line(`3) 域外边界 message 与未知键 message(仅键名不同)同类: ${String(over.includes('unknownKeyMessageClassEvidence') ? 'n/a' : '见上（含「未知键」字样 = 同类）')}`);
+  line(`4) 既有合法轴 depth 绿（负控）: ${depth}`);
+  line(`5) 域外边界 HEAD 结果 = READ_OPTIONS_INVALID + 未知键 message → 修订后硬断言 C-LIMIT 单项在 HEAD 上【巧合绿】`);
+  line(`6) 有效域顶 HEAD 结果 = ${top} → 有效域接受锚在 HEAD 上【红】`);
+  line(`7) 组级判据（拒绝锚 ∧ 接受锚）@HEAD = 红（接受锚红）→ 修订后契约不伪绿`);
+  line(`8) 未知键 message: ${unknown}`);
+  line('');
+  line('ADR 域语义对照（node 内联计算，非被测结果）：Number.isSafeInteger 语义 ⟺ 有限整数 1..2^53−1。');
+  line(`   2^53=${2 ** 53}（isSafeInteger=${String(Number.isSafeInteger(2 ** 53))}）→ 域外；2^53−1=${2 ** 53 - 1}（isSafeInteger=${String(Number.isSafeInteger(2 ** 53 - 1))}）→ 域内。`);
+
+  process.stdout.write(out.join('\n') + '\n');
+}
+
+main().catch((error: unknown) => {
+  process.stderr.write(`PROBE-FAIL: ${error instanceof Error ? error.stack ?? error.message : String(error)}\n`);
+  process.exitCode = 1;
+});

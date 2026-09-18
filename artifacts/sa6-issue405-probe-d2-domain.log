@@ -1,0 +1,29 @@
+HEAD=fc6c1d3a4d56453a6c7288519ec7cbfe852f8e1a
+node=v24.13.0 date=2026-09-15T14:55:53.565Z
+schema.state=ready
+
+=== P-D2：域边界矩阵 @HEAD（raw cast：类型面缺口见 rev1 probe-types 留档） ===
+D2-a 有效域顶 2^53−1           domain=true  -> ok=false code=READ_OPTIONS_INVALID keys=[code,message,ok,path] message="options 含未知键（封闭形状）：maxBytes"
+D2-b 域外边界 2^53             domain=false -> ok=false code=READ_OPTIONS_INVALID keys=[code,message,ok,path] message="options 含未知键（封闭形状）：maxBytes"
+D2-c 域外上邻 2^53+2           domain=false -> ok=false code=READ_OPTIONS_INVALID keys=[code,message,ok,path] message="options 含未知键（封闭形状）：maxBytes"
+D2-d 有效域底 1                domain=true  -> ok=false code=READ_OPTIONS_INVALID keys=[code,message,ok,path] message="options 含未知键（封闭形状）：maxBytes"
+D2-e 0（非法）                 domain=false -> ok=false code=READ_OPTIONS_INVALID keys=[code,message,ok,path] message="options 含未知键（封闭形状）：maxBytes"
+D2-f -1（非法）                domain=false -> ok=false code=READ_OPTIONS_INVALID keys=[code,message,ok,path] message="options 含未知键（封闭形状）：maxBytes"
+D2-g 1.5（非法）               domain=false -> ok=false code=READ_OPTIONS_INVALID keys=[code,message,ok,path] message="options 含未知键（封闭形状）：maxBytes"
+D2-h NaN（非法）               domain=false -> ok=false code=READ_OPTIONS_INVALID keys=[code,message,ok,path] message="options 含未知键（封闭形状）：maxBytes"
+D2-i Infinity（非法）          domain=false -> ok=false code=READ_OPTIONS_INVALID keys=[code,message,ok,path] message="options 含未知键（封闭形状）：maxBytes"
+CTL-1 未知键 nope             domain=false -> ok=false code=READ_OPTIONS_INVALID keys=[code,message,ok,path] message="options 含未知键（封闭形状）：nope"
+CTL-2 既有合法轴 depth          domain=false -> ok=true code=- keys=[ok,schema,truncated,value] message=null
+
+=== 判读 ===
+1) 有效域顶 vs 域外边界逐字相同: true
+2) 域外边界 vs 上邻逐字相同: true
+3) 域外边界 message 与未知键 message(仅键名不同)同类: 见上（含「未知键」字样 = 同类）
+4) 既有合法轴 depth 绿（负控）: ok=true code=- keys=[ok,schema,truncated,value] message=null
+5) 域外边界 HEAD 结果 = READ_OPTIONS_INVALID + 未知键 message → 修订后硬断言 C-LIMIT 单项在 HEAD 上【巧合绿】
+6) 有效域顶 HEAD 结果 = ok=false code=READ_OPTIONS_INVALID keys=[code,message,ok,path] message="options 含未知键（封闭形状）：maxBytes" → 有效域接受锚在 HEAD 上【红】
+7) 组级判据（拒绝锚 ∧ 接受锚）@HEAD = 红（接受锚红）→ 修订后契约不伪绿
+8) 未知键 message: ok=false code=READ_OPTIONS_INVALID keys=[code,message,ok,path] message="options 含未知键（封闭形状）：nope"
+
+ADR 域语义对照（node 内联计算，非被测结果）：Number.isSafeInteger 语义 ⟺ 有限整数 1..2^53−1。
+   2^53=9007199254740992（isSafeInteger=false）→ 域外；2^53−1=9007199254740991（isSafeInteger=true）→ 域内。

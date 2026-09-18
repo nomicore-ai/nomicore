@@ -39,9 +39,11 @@ type ReadMapOk = Extract<NamespaceRuntimeReadMapResult, { ok: true }>;
 type LeaseReadArrayOk = Extract<NamespaceLeaseReadArrayResult, { ok: true }>;
 type LeaseReadMapOk = Extract<NamespaceLeaseReadMapResult, { ok: true }>;
 
-// —— options 单源（doc-runtime type-only 别名；决策 1/2）——
-type _runtimeArrayOptionsSingleSource = AssertTrue<Equal<NamespaceRuntimeReadArrayOptions, ReadArrayWindowOptions>>;
-type _runtimeMapOptionsSingleSource = AssertTrue<Equal<NamespaceRuntimeReadMapOptions, ReadMapWindowOptions>>;
+// —— options 单源中继（#406 / ADR 0031 §4 延伸）：runtime 自持六键（+`maxBytes`），
+//    doc-runtime 五键载体面经 `Omit` 中继锁保持零改动（原「纯别名 Equal」原位改写）；
+//    lease 面继续经 runtime 单源别名跟随（下方 lease 锁）——
+type _runtimeArrayOptionsRelay = AssertTrue<Equal<Omit<NamespaceRuntimeReadArrayOptions, 'maxBytes'>, ReadArrayWindowOptions>>;
+type _runtimeMapOptionsRelay = AssertTrue<Equal<Omit<NamespaceRuntimeReadMapOptions, 'maxBytes'>, ReadMapWindowOptions>>;
 type _leaseArrayOptionsSingleSource = AssertTrue<Equal<NamespaceLeaseReadArrayOptions, NamespaceRuntimeReadArrayOptions>>;
 type _leaseMapOptionsSingleSource = AssertTrue<Equal<NamespaceLeaseReadMapOptions, NamespaceRuntimeReadMapOptions>>;
 
@@ -79,8 +81,8 @@ type _leaseArrayArity = AssertTrue<
 >;
 
 export type WindowReadSurfaceAssertions = {
-  readonly runtimeArrayOptionsSingleSource: _runtimeArrayOptionsSingleSource;
-  readonly runtimeMapOptionsSingleSource: _runtimeMapOptionsSingleSource;
+  readonly runtimeArrayOptionsRelay: _runtimeArrayOptionsRelay;
+  readonly runtimeMapOptionsRelay: _runtimeMapOptionsRelay;
   readonly leaseArrayOptionsSingleSource: _leaseArrayOptionsSingleSource;
   readonly leaseMapOptionsSingleSource: _leaseMapOptionsSingleSource;
   readonly runtimeArraySuccessKeys: _runtimeArraySuccessKeys;

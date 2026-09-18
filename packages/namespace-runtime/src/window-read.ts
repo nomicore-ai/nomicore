@@ -8,10 +8,12 @@
  * 无 `where` = `kept < total`（`total` 消费自 W1 成功结算单源）；有 `where` = 装满判定
  * `kept === n`（`n` = S3 canonical 预算；匹配总数恒不承诺、✂ 段永不装配）。
  *
- * 组合顺序（S3/S5/S6；S1 lifecycle gate 与 S2 W1 直通在 runtime.ts 公共方法层）：
- * - S3 `canonicalWindowBudget`：以 descriptor 纪律重读 options 五键空间
- *   （`{n, orderBy, depth, maxChildrenPerNode, where}`，零 `[[Get]]`）产新鲜预算对象、
- *   归一化排序项与 canonical `n`；`where` 只做**判据镜像**（数组形态 / length descriptor /
+ * 组合顺序（S3/S5/S6/S6.5；S1 lifecycle gate 与 S2 W1 直通在 runtime.ts 公共方法层）：
+ * - S3 `canonicalWindowBudget`：以 descriptor 纪律重读 options 六键空间
+ *   （`{n, orderBy, depth, maxChildrenPerNode, where, maxBytes}`，零 `[[Get]]`）产新鲜预算对象、
+ *   归一化排序项与 canonical `n`；`maxBytes` 只做**域镜像**并原样回传（闸门权威 = canonical
+ *   复读值，与 `#405` readData 面同构——`{maxBytes: undefined}` ≡ 缺席；域外 / accessor /
+ *   探测期异常 → `{ok:false}` 两出口）；`where` 只做**判据镜像**（数组形态 / length descriptor /
  *   非空 / ≤16 / 逐下标 descriptor 无空洞 / 零 accessor / plain 原型链 / 恰 `field`·`equals`
  *   两键 / field 字符串 / equals 标量闭集 finite number），既不产出归一化值也不参与过滤
  *   语义（合法性单权威在 W1；S3 是接缝净化镜像而非第三套校验权威）；视图不稳定
@@ -48,28 +50,61 @@
  * 折叠规则镜像仓内既有行注入防御纪律（B-8 ②）；其出处是 `read-schema-projection.ts`
  * （非 W1 冻结面，保留）。
  */
-import * as Y from 'yjs';
 import { renderProjectionText, resolveSchemaAtPath } from '@nomicore/vfsl';
 import type { ResolveSchemaBudgetOptions } from '@nomicore/vfsl';
-import { readArrayWindowAtPath, readMapWindowAtPath } from '@nomicore/doc-runtime';
 import type {
   ArrayWindowEntry,
+  FieldWindowTerm,
+  IndexWindowTerm,
+  KeyWindowTerm,
   MapWindowEntry,
-  ReadArrayWindowOptions,
-  ReadMapWindowOptions,
+  WhereTerm,
   WindowFailureCode,
   WindowReadFailure,
 } from '@nomicore/doc-runtime';
-import type { RuntimeReadDisabledResult } from './runtime.js';
+import type { ReadDataBudgetExceededResult, RuntimeReadDisabledResult } from './runtime.js';
 import type { RuntimeState } from './p0.js';
+import { deliveryBytes, readBudgetExceeded } from './read-budget.js';
 import { normalizeReadPath, projectSchemaTextBody } from './read-schema-projection.js';
 
 // ── 公共类型面（设计 §8.1；verbatimModuleSyntax 下经 `export type` 导出）──────────────
 
-/** 数组面窗口 options（doc-runtime 单源 type-only 别名；`n` 必填 ≥1 由 W1 单权威校验）。 */
-export type NamespaceRuntimeReadArrayOptions = ReadArrayWindowOptions;
-/** 键面窗口 options（同上）。 */
-export type NamespaceRuntimeReadMapOptions = ReadMapWindowOptions;
+/**
+ * 数组面窗口 options（ADR 0031 决策 1/4 经 **#406 修订**）：runtime 自持**六键闭合形状**
+ * `{ n, orderBy?, depth?, maxChildrenPerNode?, where?, maxBytes? }`。
+ *
+ * #369 时曾为 doc-runtime 五键单源**纯别名**（零复制）；ADR 0031 把 `maxBytes` 的
+ * **校验与度量**收回本组合层（唯一同时见到条目列表与元素口径投影文本两通道的层），而
+ * doc-runtime 面**零改动**（下传 options 仍五键——`splitWindowOptions` 在拆分读处剥离
+ * `maxBytes`）。故此宿主形态必须自持（纯别名形态不再成立）；doc-runtime 五键面由
+ * `Omit<…,'maxBytes'>` 中继锁与 `keyof` 硬锁独立锚定。
+ *
+ *  - `maxBytes` 域（ADR-0031 决策 1）：**≥1 的有限整数（≤ 2^53−1）**——等价
+ *    `Number.isSafeInteger(v) && v >= 1`；`0`/负数/非整数/非有限数/域外值 → 窗口面既有
+ *    校验码 `WINDOW_OPTIONS_INVALID`（不新增校验码）；缺席 ≡ 不设预算（现行为逐字节不变，
+ *    无魔法默认）；
+ *  - EOPT 语义与五键一致：显式 `undefined` 字面量对 TS 调用者是编译错误；运行时「键在场、
+ *    值 undefined ≡ 缺席」（D1，沿五键 R1 纪律）；
+ *  - `n` 必填 ≥1 及其余五键判据由 W1（doc-runtime `validateWindowOptions`）单权威校验。
+ */
+export interface NamespaceRuntimeReadArrayOptions {
+  n: number;
+  orderBy?: IndexWindowTerm;
+  depth?: number;
+  maxChildrenPerNode?: number;
+  where?: readonly WhereTerm[];
+  maxBytes?: number;
+}
+
+/** 键面窗口 options（同上；`orderBy` 为 `by:'key'` 或单段 `field`）。 */
+export interface NamespaceRuntimeReadMapOptions {
+  n: number;
+  orderBy?: KeyWindowTerm | FieldWindowTerm;
+  depth?: number;
+  maxChildrenPerNode?: number;
+  where?: readonly WhereTerm[];
+  maxBytes?: number;
+}
 
 /** 窗口读成功成员：恒四键（ADR 0028 决策 7）；`value` = 条目列表（W1 原样直通）。 */
 export interface NamespaceRuntimeWindowReadOk<Entry> {
@@ -85,22 +120,36 @@ export interface NamespaceRuntimeWindowReadOk<Entry> {
   readonly truncated: boolean;
 }
 
-/** 数组面窗口读结果联合：成功四键 | W1 失败成员 | lifecycle 停接纳成员。 */
+/**
+ * 数组面窗口读结果联合：成功四键 | W1 失败成员 | **预算超限零交付成员**（#406 共享，
+ * 与 `readData` 面同形——`Extract<…, {code:'READ_BUDGET_EXCEEDED'}>` 双面相等） |
+ * lifecycle 停接纳成员。
+ */
 export type NamespaceRuntimeReadArrayResult =
   | NamespaceRuntimeWindowReadOk<ArrayWindowEntry>
   | WindowReadFailure
+  | ReadDataBudgetExceededResult
   | RuntimeReadDisabledResult;
 
 /** 键面窗口读结果联合：同款（条目身份为 key）。 */
 export type NamespaceRuntimeReadMapResult =
   | NamespaceRuntimeWindowReadOk<MapWindowEntry>
   | WindowReadFailure
+  | ReadDataBudgetExceededResult
   | RuntimeReadDisabledResult;
 
 // ── 组合入口（runtime.ts 公共方法层消费；S3/S5/S6）───────────────────────────────────
 
 /** 窗口面符（面符决定锚链与条目身份字段）。 */
 export type WindowFace = 'array' | 'map';
+
+/**
+ * S3 出口①重派发闭包（W1 权威再校验；零 doc 触碰先于 N0）——由 `runtime.ts` 构造
+ * （#406 DD-5/DD-9：**re-split（raw 现场）+ re-W1(relay₂)**；探针计数锚 parity 的结构
+ * 前提——重派发只读 relay，raw 上不再发生第二次 W1 直读）。失败成员为 W1 单源
+ * `WindowReadFailure`（含 split 前置拒成员——同为窗口面 options 码单源类型）。
+ */
+type WindowRedispatch = () => { readonly ok: true; readonly value: unknown[] } | WindowReadFailure;
 
 /** ✂ 窗口事实块头行（与渲染器 ✂ 段同款文法；ADR-0027 决策 1 唯一事实载体的窗口对偶）。 */
 const WINDOW_TRUNCATION_HEADER = '✂ 截断事实：';
@@ -120,20 +169,25 @@ interface WindowComposeInput<Entry> {
    * `kept === canonical.n`（本值恒不参与），无 `where` 走精确 `kept < total`。
    */
   readonly total: number | undefined;
-  /** S3 出口①重派发（W1 权威再校验；零 doc 触碰先于 N0）。 */
-  readonly redispatch: () => { readonly ok: true; readonly value: unknown[] } | WindowReadFailure;
+  /**
+   * S3 出口①重派发（W1 权威再校验；零 doc 触碰先于 N0）——由 `runtime.ts` 提供
+   * （#406 DD-5/DD-9：**re-split（raw 现场）+ re-W1(relay₂)**；探针计数锚 parity 的
+   * 结构前提——重派发只读 relay，raw 上不再发生第二次 W1 直读）。
+   */
+  readonly redispatch: WindowRedispatch;
 }
 
 /**
- * 数组面组合入口：W1 成功后的 S3/S5/S6（runtime.ts 在 S1/S2 之后调用）。
+ * 数组面组合入口：W1 成功后的 S3/S5/S6/S6.5（runtime.ts 在 S1/S2 之后调用；
+ * 重派发闭包由 runtime.ts 提供——本模块不触碰 doc/W1）。
  */
 export function composeArrayWindowRead(
   state: RuntimeState,
-  doc: Y.Doc,
   path: readonly (string | number)[],
   options: NamespaceRuntimeReadArrayOptions,
   entries: ArrayWindowEntry[],
   total: number | undefined,
+  redispatch: WindowRedispatch,
 ): NamespaceRuntimeReadArrayResult {
   return composeWindowRead<ArrayWindowEntry>({
     state,
@@ -142,20 +196,20 @@ export function composeArrayWindowRead(
     face: 'array',
     entries,
     total,
-    redispatch: () => readArrayWindowAtPath(doc, path, options),
+    redispatch,
   });
 }
 
 /**
- * 键面组合入口：W1 成功后的 S3/S5/S6（锚链为 `'<key>'` → 容器口径两级）。
+ * 键面组合入口：W1 成功后的 S3/S5/S6/S6.5（锚链为 `'<key>'` → 容器口径两级）。
  */
 export function composeMapWindowRead(
   state: RuntimeState,
-  doc: Y.Doc,
   path: readonly (string | number)[],
   options: NamespaceRuntimeReadMapOptions,
   entries: MapWindowEntry[],
   total: number | undefined,
+  redispatch: WindowRedispatch,
 ): NamespaceRuntimeReadMapResult {
   return composeWindowRead<MapWindowEntry>({
     state,
@@ -164,14 +218,14 @@ export function composeMapWindowRead(
     face: 'map',
     entries,
     total,
-    redispatch: () => readMapWindowAtPath(doc, path, options),
+    redispatch,
   });
 }
 
-/** 两面共用骨架（S3 → S5 → S6；顺序不可换——options 合法性由 W1 单权威裁定）。 */
+/** 两面共用骨架（S3 → S5 → S6 → S6.5；顺序不可换——options 合法性由 W1 单权威裁定）。 */
 function composeWindowRead<Entry>(
   input: WindowComposeInput<Entry>,
-): NamespaceRuntimeWindowReadOk<Entry> | WindowReadFailure {
+): NamespaceRuntimeWindowReadOk<Entry> | WindowReadFailure | ReadDataBudgetExceededResult {
   const { state, path, options, face, entries, redispatch } = input;
   const total = input.total;
 
@@ -207,6 +261,19 @@ function composeWindowRead<Entry>(
     : truncated && anchor !== null && segments !== null
       ? appendWindowFacts(anchor, windowFactsBlock(segments, canonical.term, kept, total))
       : anchor;
+
+  // S6.5 预算闸（#406 / ADR 0031 决策 2/3；闸门权威 = canonical 复读值——组合层接缝单源
+  // 事实）：值通道 = 条目列表（含 key/index 包装）紧凑 JSON UTF-8（`entries` 恒数组，
+  // undefined 分支结构不可达）；schema 通道 = **最终装配文本**（✂ 窗口事实块 / `‡` 折叠
+  // 页脚自然计入；`schema:null` 计 0）。`≤` 收（含恰等、零总量），`>` 零交付（不裁剪、
+  // 不降深度、不拟合）。闸门只读不写：`truncated` 双语义与「`where` 时 ✂ 永不装配」的
+  // 分支结构**已先行结算**（ADR 0029 §5/§8；预算不驱动截断信号、不产生静默条目丢弃）。
+  if (canonical.maxBytes !== undefined) {
+    const measuredBytes = deliveryBytes(entries, schema);
+    if (measuredBytes > canonical.maxBytes) {
+      return readBudgetExceeded(path, measuredBytes, canonical.maxBytes);
+    }
+  }
   return { ok: true, value: entries, schema, truncated };
 }
 
@@ -236,16 +303,24 @@ type CanonicalWindowBudget =
       readonly term: CanonicalTerm;
       /** S3 判定通过的 canonical `n`（原样携带、零新判据；S6 装满判定 `kept === n` 的承载）。 */
       readonly n: number;
+      /** #406 闸门权威（ADR-0031 决策 2）：canonical 复读的 `maxBytes`（缺席 ≡ 不设预算）。 */
+      readonly maxBytes: number | undefined;
     }
   | { readonly ok: false };
 
 /**
- * options 五键空间重读（W1 `validateWindowOptions`/`validateOrderBy`/`validateWhere` 判据镜像）：
+ * options 六键空间重读（W1 `validateWindowOptions`/`validateOrderBy`/`validateWhere` 判据镜像
+ * + #406 `maxBytes` 域镜像）：
  * `Object.keys` 键空间 + `Object.getOwnPropertyDescriptor` 取值（全程零 `[[Get]]`，
  * 零 accessor 执行）+ 整体 try 收编 trap 异常；任何判据不一致 → `{ok:false}`
  * （交出口①/②响亮处置），绝不静默、绝不外抛。预算对象为**新鲜 plain 字面量**
  * （present-undefined 剥离、-0 归一）；`where` 只做判据镜像（`canonicalWhere`），不产出
- * 归一化值、不参与过滤语义（合法性单权威在 W1）。
+ * 归一化值、不参与过滤语义（合法性单权威在 W1）；`maxBytes` **不进** `budget`（下传
+ * resolver 的 options 面恒两轴），只单独回传为闸门权威。
+ *
+ * `maxBytes` 判据与 `splitWindowOptions`（runtime.ts）**双点同判据**（镜像 `#405`
+ * `canonicalReadOptions` × `splitReadDataOptions` 的既定形态）：非法/accessor/present-undefined
+ * 处置逐字一致——`split` 演进的唯一需同步复查点即此处（注释互指锚定）。
  */
 function canonicalWindowBudget(raw: unknown, face: WindowFace): CanonicalWindowBudget {
   try {
@@ -255,18 +330,21 @@ function canonicalWindowBudget(raw: unknown, face: WindowFace): CanonicalWindowB
     let n: number | undefined;
     let depth: number | undefined;
     let maxChildrenPerNode: number | undefined;
+    let maxBytes: number | undefined;
     let rawOrderBy: unknown;
     let hasOrderBy = false;
     let rawWhere: unknown;
     let hasWhere = false;
     for (const key of Object.keys(raw)) {
-      // W-1 键集门镜像：白名单恰五键（ADR 0029 §1 加法；未知键在场即拒，含 present-undefined）。
+      // W-1 键集门镜像：白名单恰六键（ADR 0029 §1 + ADR 0031 决策 1 `maxBytes` 加法；
+      // 未知键在场即拒，含 present-undefined）。
       if (
         key !== 'n'
         && key !== 'orderBy'
         && key !== 'depth'
         && key !== 'maxChildrenPerNode'
         && key !== 'where'
+        && key !== 'maxBytes'
       ) {
         return { ok: false }; // 键集漂移：W1 视角本应拒绝 → 视图不稳定
       }
@@ -289,6 +367,12 @@ function canonicalWindowBudget(raw: unknown, face: WindowFace): CanonicalWindowB
       } else if (key === 'where') {
         rawWhere = value;
         hasWhere = true;
+      } else if (key === 'maxBytes') {
+        // #406 预算域复读（与 split 同判据）：非法值 = 视图已变异 → 响亮失败（出口①/②）。
+        if (typeof value !== 'number' || !Number.isSafeInteger(value) || value < 1) {
+          return { ok: false };
+        }
+        maxBytes = value;
       } else {
         rawOrderBy = value;
         hasOrderBy = true;
@@ -303,7 +387,7 @@ function canonicalWindowBudget(raw: unknown, face: WindowFace): CanonicalWindowB
     const budget: { depth?: number; maxChildrenPerNode?: number } = {};
     if (depth !== undefined) budget.depth = depth;
     if (maxChildrenPerNode !== undefined) budget.maxChildrenPerNode = maxChildrenPerNode;
-    return { ok: true, budget, term: term.term, n };
+    return { ok: true, budget, term: term.term, n, maxBytes };
   } catch {
     return { ok: false }; // 探测期 trap 异常——收编，绝不外抛
   }

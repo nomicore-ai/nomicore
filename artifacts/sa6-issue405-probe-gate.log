@@ -1,0 +1,65 @@
+HEAD=fc6c1d3a4d56453a6c7288519ec7cbfe852f8e1a
+
+--- HEAD 真实 runtime（严格档）→ 期望目标断言红 ---
+  [FAIL] T1 恰好等于 maxBytes=358 → 成功且与无 maxBytes 同参读逐字节一致
+        {"ok":false,"code":"READ_OPTIONS_INVALID","path":[],"message":"options 含未知键（封闭形状）：maxBytes"}
+  [FAIL] T2 maxBytes=357 → READ_BUDGET_EXCEEDED、measuredBytes=358、恰五键 {ok,code,path,measuredBytes,message}
+        {"ok":false,"code":"READ_OPTIONS_INVALID","path":[],"message":"options 含未知键（封闭形状）：maxBytes"}
+  [FAIL] T3 宽预算 maxBytes=100000 → 成功面与无预算读全等（收/拒不塑形交付）
+        {"ok":false,"code":"READ_OPTIONS_INVALID","path":[],"message":"options 含未知键（封闭形状）：maxBytes"}
+  [FAIL] T4 度量等式 property（9 锚；measuredBytes = utf8(json(value)) + utf8(schema)，含 ✂/头行/缺席）
+        R0 [](total=358) rej={"ok":false,"code":"READ_OPTIONS_INVALID","path":[],"message":"options 含未知键（封闭形状 acc=false | R1 [] depth1(total=415) rej={"ok":false,"code":"READ_OPTIONS_INVALID","path":[],"message":"options 含未知键（封闭形状 acc=false | R2 [] depth0(total=192) rej={"ok":false,"code":"READ_OPTIONS_INVALID","path":[],"message":"options 含未知键（封闭形状 acc=false | R3 [] width2(total=349) rej={"ok":false,"code":"READ_OPTIONS_INVALID","path":[],"message":"options 含未知键（封闭形状 acc=false | R4 [title](total=44) rej={"ok":false,"code":"READ_OPTIONS_INVALID","path":["title"],"message":"options 含未 acc=false | R5 [meta](total=143) rej={"ok":false,"code":"READ_OPTIONS_INVALID","path":["meta"],"message":"options 含未知 acc=false | R6 [tags](total=59) rej={"ok":false,"code":"READ_OPTIONS_INVALID","path":["tags"],"message":"options 含未知 acc=false | R7 [nick] 缺席(total=27) rej={"ok":false,"code":"READ_OPTIONS_INVALID","path":["nick"],"message":"options 含未知 acc=false | R11 [] depth1+width2(total=382) rej={"ok":false,"code":"READ_OPTIONS_INVALID","path":[],"message":"options 含未知键（封闭形状 acc=false
+  [FAIL] T5 options 负控（0/-1/1.5/NaN/Inf/"100"/present-undefined → READ_OPTIONS_INVALID，message 标 maxBytes 域；有效域边界 2^53-1 收）
+        bad=[] mention=true distinct=true validBoundary.ok=false msg0="options 含未知键（封闭形状）：maxBytes" unknown="options 含未知键（封闭形状）：nope"
+  [FAIL] T6 缺席目标 [nick]：投影文本照常计量（total=27；26 拒 / 27 收，value undefined 不豁免）
+        total=27 rej={"ok":false,"code":"READ_OPTIONS_INVALID","path":["nick"],"message":"options 含未知 acc.value=undefined
+  [FAIL] T7 {depth:1,maxBytes:415} → schema 与 {depth:1} 逐字节相同（头行不记 maxBytes、✂ 照常计入）
+        head=null
+  [FAIL] T8 值通道失败优先：PATH_NOT_ALLOWED 短路（不借预算码）
+        {"ok":false,"code":"READ_OPTIONS_INVALID","path":["title",0],"message":"options 含未知键（封闭形状）：maxBytes"}
+  [FAIL] T9 [rogue] 严格档 total=0（schema null + 值缺席）→ maxBytes=1 成功（零总量 ≠ 超限）
+        {"ok":false,"code":"READ_OPTIONS_INVALID","path":["rogue"],"message":"options 含未知键（封闭形状）：maxBytes"}
+
+--- HEAD 真实 runtime（raw 档）→ 期望目标断言红 ---
+  [FAIL] T10 schema:null × 值侧单通道（raw [rogue] total=102）：101 拒 / 102 收
+        rej={"ok":false,"code":"READ_OPTIONS_INVALID","path":["rogue"],"message":"options 含未知键（封闭形状）：maxBytes"} acc.schema=undefined
+  [FAIL] T10b raw 档 property 附加锚（[] / [title]）
+        raw [](total=469), raw [title](total=44)
+
+--- 参考闸门（严格档；目标语义）→ 期望全绿 ---
+  [PASS] T1 恰好等于 maxBytes=358 → 成功且与无 maxBytes 同参读逐字节一致
+        {"ok":true,"value":{"title":"你好，世界","count":3,"meta":{"content":"备注说明","extra":7},"tags":["甲","乙","丙","丁","戊"]
+  [PASS] T2 maxBytes=357 → READ_BUDGET_EXCEEDED、measuredBytes=358、恰五键 {ok,code,path,measuredBytes,message}
+        {"ok":false,"code":"READ_BUDGET_EXCEEDED","path":[],"measuredBytes":358,"message":"READ_BUDGET_EXCEEDED: 交付总量 358 字节 > maxBytes 357"}
+  [PASS] T3 宽预算 maxBytes=100000 → 成功面与无预算读全等（收/拒不塑形交付）
+        {"ok":true,"value":{"title":"你好，世界","count":3,"meta":{"content":"备注说明","extra":7},"tags":["甲","乙","丙","丁","戊"]
+  [PASS] T4 度量等式 property（9 锚；measuredBytes = utf8(json(value)) + utf8(schema)，含 ✂/头行/缺席）
+        all anchors hold
+  [FAIL] T5 options 负控（0/-1/1.5/NaN/Inf/"100"/present-undefined → READ_OPTIONS_INVALID，message 标 maxBytes 域；有效域边界 2^53-1 收）
+        bad=[0 → {"ok":false,"code":"READ_BUDGET_EXCEEDED","path":[],"measuredBytes":358,"message":"READ_BU; -1 → {"ok":false,"code":"READ_BUDGET_EXCEEDED","path":[],"measuredBytes":358,"message":"READ_BU; 1.5 → {"ok":false,"code":"READ_BUDGET_EXCEEDED","path":[],"measuredBytes":358,"message":"READ_BU; NaN → {"ok":false,"code":"READ_BUDGET_EXCEEDED","path":[],"measuredBytes":358,"message":"READ_BU; Infinity → {"ok":true,"value":{"title":"你好，世界","count":3,"meta":{"content":"备注说明","extra":7},"tags":[; "100" → {"ok":false,"code":"READ_BUDGET_EXCEEDED","path":[],"measuredBytes":358,"message":"READ_BU; undefined 值在场 → {"ok":true,"value":{"title":"你好，世界","count":3,"meta":{"content":"备注说明","extra":7},"tags":[] mention=true distinct=true validBoundary.ok=true msg0=null unknown="options 含未知键（封闭形状）：nope"
+  [PASS] T6 缺席目标 [nick]：投影文本照常计量（total=27；26 拒 / 27 收，value undefined 不豁免）
+        total=27 rej={"ok":false,"code":"READ_BUDGET_EXCEEDED","path":["nick"],"measuredBytes":27,"me acc.value=undefined
+  [PASS] T7 {depth:1,maxBytes:415} → schema 与 {depth:1} 逐字节相同（头行不记 maxBytes、✂ 照常计入）
+        head="# readData [] {depth:1}"
+  [PASS] T8 值通道失败优先：PATH_NOT_ALLOWED 短路（不借预算码）
+        {"ok":false,"code":"PATH_NOT_ALLOWED","path":["title",0],"message":"标量不可作为容器"}
+  [PASS] T9 [rogue] 严格档 total=0（schema null + 值缺席）→ maxBytes=1 成功（零总量 ≠ 超限）
+        {"ok":true,"schema":null,"truncated":false}
+
+--- 参考闸门（raw 档；目标语义）→ 期望全绿 ---
+  [PASS] T10 schema:null × 值侧单通道（raw [rogue] total=102）：101 拒 / 102 收
+        rej={"ok":false,"code":"READ_BUDGET_EXCEEDED","path":["rogue"],"measuredBytes":102,"message":"READ_BUDGE acc.schema=null
+  [PASS] T10b raw 档 property 附加锚（[] / [title]）
+        ok
+
+判读：HEAD 目标断言（期望全红）= 红 11/11；参考闸门（期望全绿）= 绿 10/11。
+
+=== L registry lease 透传判据 ===
+L0 lease.readData([]) ≡ 同参直调 runtime.readData([])（无预算现状锚）：true
+L1 lease.readData([], {maxBytes:1}) @HEAD → ok=false code=READ_OPTIONS_INVALID（目标：READ_BUDGET_EXCEEDED measuredBytes=358）
+L2 released 短路优先于预算校验：code=NAMESPACE_LEASE_RELEASED
+
+=== X 敌意 options 负控（HEAD 与目标实现同判：响亮不抛、零 getter 执行、键空间纪律） ===
+X1 accessor maxBytes → ok=false code=READ_OPTIONS_INVALID getterCalls=0（目标：拒绝 + getter 零执行）
+X2 descriptor trap maxBytes → escapedThrow=false ok=false code=READ_OPTIONS_INVALID
+X3 非 enumerable maxBytes（键空间外 ≡ 无预算）→ ok=true（成功；实现若用 `in`/直接属性读会误判为超限）

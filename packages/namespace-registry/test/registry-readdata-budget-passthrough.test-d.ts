@@ -20,7 +20,10 @@ import type {
   NamespaceLeaseReadDataResult,
   NamespaceLeaseReleasedIssue,
 } from '@nomicore/namespace-registry';
-import type { NamespaceRuntimeReadDataBudgetResult } from '@nomicore/namespace-runtime';
+import type {
+  NamespaceRuntimeReadDataBudgetResult,
+  NamespaceRuntimeReadDataOptions,
+} from '@nomicore/namespace-runtime';
 
 type Equal<A, B> = (<T>() => T extends A ? 1 : 2) extends (<T>() => T extends B ? 1 : 2) ? true : false;
 type AssertTrue<T extends true> = T;
@@ -87,6 +90,37 @@ type _legacyReturnType = AssertTrue<
   Equal<ReturnType<NamespaceLease['readData']>, NamespaceLeaseReadDataResult>
 >;
 
+// —— issue #405（ADR 0031）：预算 options 三键跟随（runtime 单源宿主）+ 新失败分支别名跟随 ——
+// options 跟随锁：runtime 单源 options 闭合形状含 `maxBytes`（lease 预算重载第二参按名
+// 引用该类型——调用点锁见下方 `lease.readData([], { maxBytes })`）。
+type _runtimeOptionsClosedShape = AssertTrue<
+  Equal<
+    NamespaceRuntimeReadDataOptions,
+    { depth?: number; maxChildrenPerNode?: number; maxBytes?: number }
+  >
+>;
+type _budgetExceededAliasFollow = AssertTrue<
+  Equal<
+    Extract<NamespaceLeaseReadDataBudgetResult, { code: 'READ_BUDGET_EXCEEDED' }>,
+    Extract<NamespaceRuntimeReadDataBudgetResult, { code: 'READ_BUDGET_EXCEEDED' }>
+  >
+>;
+type _budgetExceededShape = AssertTrue<
+  Equal<
+    Extract<NamespaceLeaseReadDataBudgetResult, { code: 'READ_BUDGET_EXCEEDED' }>,
+    {
+      readonly ok: false;
+      readonly code: 'READ_BUDGET_EXCEEDED';
+      readonly path: readonly (string | number)[];
+      readonly measuredBytes: number;
+      readonly message: string;
+    }
+  >
+>;
+type _budgetExceededNoSuccessKeys = AssertTrue<
+  Equal<Extract<NamespaceLeaseReadDataBudgetResult, { code: 'READ_BUDGET_EXCEEDED'; value: unknown }>, never>
+>;
+
 // 声明期证明（仅 typecheck 用，零运行时值）。
 export type LeaseReadDataBudgetAssertions = {
   readonly budgetAlias: _budgetAlias;
@@ -107,6 +141,10 @@ export type LeaseReadDataBudgetAssertions = {
   readonly legacyFailureNoNewKeys: _legacyFailureNoNewKeys;
   readonly budgetFailureNoNewKeys: _budgetFailureNoNewKeys;
   readonly legacyReturnType: _legacyReturnType;
+  readonly runtimeOptionsClosedShape: _runtimeOptionsClosedShape;
+  readonly budgetExceededAliasFollow: _budgetExceededAliasFollow;
+  readonly budgetExceededShape: _budgetExceededShape;
+  readonly budgetExceededNoSuccessKeys: _budgetExceededNoSuccessKeys;
 };
 
 declare const lease: NamespaceLease;
@@ -115,8 +153,13 @@ describe('类型面：lease.readData 双重载（单参 → legacy 别名；双�
   it('单参命中 legacy 别名、双参命中预算别名；预算别名不得赋给 legacy 别名（反向零泄漏锁）', () => {
     const legacyCall: NamespaceLeaseReadDataResult = lease.readData([]);
     const budgetCall: NamespaceLeaseReadDataBudgetResult = lease.readData([], { depth: 1 });
+    // issue #405（ADR 0031）：options 三键跟随——lease 预算重载接受含 maxBytes 的 runtime 单源 options。
+    const maxBytesCall: NamespaceLeaseReadDataBudgetResult = lease.readData([], { maxBytes: 1 });
     void legacyCall;
     void budgetCall;
+    void maxBytesCall;
+    // @ts-expect-error 闭合形状：未知第四键（excess property）编译红
+    lease.readData([], { maxBytes: 1, nope: 2 });
     // @ts-expect-error 预算别名含 READ_OPTIONS_INVALID 成员——不得赋给 legacy 别名（零泄漏反向锁）
     const leak: NamespaceLeaseReadDataResult = lease.readData([], { depth: 1 });
     void leak;
