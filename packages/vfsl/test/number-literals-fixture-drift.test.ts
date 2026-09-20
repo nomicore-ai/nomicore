@@ -22,7 +22,9 @@ const repoRoot = fileURLToPath(new URL('../../..', import.meta.url));
 /** SA6 §4 HEAD 基线（逐字节钉死值）。 */
 const ENVELOPE_FINGERPRINT = 'sha256:v1:7b6c19cbac93cbf104c055c320b5e4a5ba72e0db87342de0853c68bedff53f39';
 const SEMANTIC_FINGERPRINT = 'sha256:v1:b71be76e3d3579670236b14a36373716db6238d86a15da440f44aecbb9b0631c';
-const GENERATED_SHA256 = '342d8c1fe0814409f682852c13748260b9d6cbda125afe0e815a8de3298e6707';
+// 重新钉定（issue #412 codegen-freshness 修复）：重生成唯一差异 = 生成器身份横幅 0.1.3→0.2.0；
+// envelope/semantic 指纹与生成物 Source hash 未变 ⟹ 语义零漂移（哨兵继续对后续改写生效）。
+const GENERATED_SHA256 = 'a934f62d4e5ec287e604b109e85454eefbf5e042756479f216a878deb7c3d65b';
 
 describe('C5 — 既有 fixture 指纹零漂移（sha256:v1: 前缀保持）', () => {
   it('FileSchemaSource.list() 恰为 [vfs3-assets@1]', async () => {

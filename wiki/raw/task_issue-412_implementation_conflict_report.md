@@ -1,144 +1,119 @@
-# SA8 实现后冲突复审 — issue #412（persistence 公开完成式排空 `drain()` + `retryDelayMs` 解耦 + 停机硬契约；implementation）
+# SA8 实现后冲突复审 — issue #412（codegen-freshness CI 修复轮；implementation）
 
-- 复查对象：**implementation**——工作区当前未提交变更集（13 个已修改文件 + 2 个新增测试文件，`git status`/`git diff` 全量核对），对照 ADR 全集、CONTEXT.md、规范协议/集成文档、模块 AGENTS 与已批准设计（design iteration 2）
-- 仓库 / worktree：`/home/wangjian/nomicore-fix-issue-412`（分支 `mabf/issue-412`，HEAD `c3f7bd9`）
-- SA8 dispatch：`sa-939d6e66-ab98-4634-912e-45e1824d90ff`（phase: conflict-gate，iteration 0；本任务无前置门禁产物，SA8 产物链 = 设计后复查报告（iteration 2，clear）→ 本实现后复审）
-- 本报告为该任务首个 implementation 复审报告（无同类既有报告需原位更新）；只反映当前被审对象（当前 diff），不堆叠历史结论
+- 复审对象：**implementation**——工作区当前未提交的 **CI-repair 变更集**（3 个代码文件 + 1 个 SA3 报告更新，`git status`/`git diff` 全量核对），对照 ADR 全集、CONTEXT.md、规范指南/协议文档、模块 AGENTS、CI 门禁定义与已批准设计（design iteration 2）
+- 仓库 / worktree：`/home/wangjian/nomicore-fix-issue-412`（分支 `mabf/issue-412`，HEAD = `75bd0ab feat(persistence): add completion drain lifecycle`，#412 主体实现已提交且逐字节保持）
+- SA8 dispatch：`sa-f5e09dd6-d636-452c-bbd2-0d7378b73672`（phase: conflict-gate，iteration 1）；dispatch 问题域 = 「CI-repair changes for codegen-freshness against repository generation contracts and normative constraints」+ 确认与 issue #412 硬契约（Owner comment 5751613018）零冲突
+- **原位更新说明**：本文件前一身（iteration 0，dispatch `sa-939d6e66…`）复审的 #412 主体实现变更集（13 修改 + 2 新增测试）已由 Controller 提交为 `75bd0ab`，该轮 verdict **clear**、requiresConflictRecheck **false**，结论已闭合不在此堆叠；本报告只裁决**当前被审对象** = 本轮 codegen-freshness 修复增量 diff
 
 ---
 
 ## 1. Reviewed subject
 
-**implementation**——issue #412 已实施变更集，覆盖：
+**implementation**——修复 CI `codegen-freshness` job 失败的最小变更集（当前未提交 diff，恰 4 文件）：
 
-1. **公开完成式排空**：`PersistenceLifecycle.drain(targets?)`（lifecycle.ts 状态机单点）+ `DocPersistence.drain?` optional 成员（contract.ts，含完整语义 doc-comment）+ Memory/File 具体类方法（File 入口 targets `validateIdentity`）+ barrel 导出 `PersistenceDrainTarget`；
-2. **`retryDelayMs` 解耦**：`PersistenceSchedule.retryDelayMs?` + `resolvePersistenceSchedule` 条件展开（键形状不变）+ `retryBaseMs` getter 单源（createEntry/flush 回落两落点改引）+ DSH 探针退避镜像锁步；
-3. **停机硬契约（Owner comment 5751613018）**：yjs-server 停机第 3 步固定睡眠 → **file/memory 统一**的有界完成式排空（`awaitDrainWithBudget(adapter.drain(), maxDirtyMs + 边距)` + 预算尽 `persistence-drain-budget-exceeded{budgetMs}` 诚实事件 + 有损继续）；plugin 句柄两 kind 统一保留；config.ts/main.ts 注释与拒绝文案 parenthetical 刷新（行为零变化）；
-4. **规范文档同变更集**：ADR 0006 增量修订节（7 条：接口契约 / drain 语义 / 停机硬契约（无条件 + 适用面）/ dispose 对齐（修订并扩展 :86）/ retryDelayMs 解析形状 / 排空通知面不变量 / 非 live cell 排除存档）+ CONTEXT.md 词条「完成式排空（drain）」（含 `_Avoid_`）+ hub-peer-deployment.md（词表 + 条件性注记 + 停机序 file/memory 统一句含 memory 缺省预算括注——SA2-13 兑现）+ cordis-plugin-hosting.md（:64 停机句硬契约 + 清单第 5 步统一指引 + 示例代码块有界 drain 步——SA2-9 兑现）；
-5. **liveness 完备化（DD-5b）**：`releaseSettleWaiters` 统一释放 + 四处 live-entry 移除点（dispose / delete 驱逐腿 / archive 干净驱逐腿 / maybeEvict）调用；`archiveWaiters` 字段注释更新（SA2-4）；
-6. **新增验收锚**：`persistence-issue-412-drain-semantics.test.ts`（S-1~S-4）+ `persistence-drain-shutdown.test.ts`（S-5a/S-5b/S-5c——含 memory 停机链 drain 恰一次且严格先于 `persistence-disposed` 的硬契约时序锚）。
+1. `domains/vfs3-assets/generated.ts`：经 `pnpm generate` 全量重生成刷新生成器身份横幅 `@nomicore/vfsl-codegen@0.1.3 → 0.2.0`——**唯一一行 diff**；`Source hash: sha256:82e98fa1…b93c69` 与头注以下全部投影类型字节不变（`git diff` 1 insertion/1 deletion 核对）；
+2. `packages/vfsl/test/number-literals-fixture-drift.test.ts`（issue #314 哨兵）：`GENERATED_SHA256` 重钉 `342d8c1f…e6707 → a934f62d…d65b` + 2 行重钉原因注释；`ENVELOPE_FINGERPRINT`/`SEMANTIC_FINGERPRINT` 常量与全部断言零改动；
+3. `packages/vfsl/test/int-range-fixture-drift.test.ts`（issue #315 哨兵）：同值重钉 + 2 行注释；语义指纹常量、新 fixture 断言零改动；
+4. `wiki/raw/task_issue-412_sa3_impl.md`：SA3 自身产物本轮更新（诊断/根因/修复/验证记录）——wiki/raw 为证据层（docs/AGENTS.md Authority），非决策面。
 
-SA8 职责边界：只裁决与既有决策集的冲突、演进义务兑现与冻结面保持；不判断测试充分性/实现质量（SA4/SA7 面，含 SA3 报告的运行期验证声明——本报告仅将其作为申报证据记录，不独立复跑）。
+SA8 职责边界：只裁决与既有决策集的冲突、演进义务与冻结面保持；不判断测试充分性/实现质量（SA4/SA7 面）；不运行测试或生成器——所有事实以只读方式独立核对（sha256 谱系、git 历史、字节 diff、源码阅读）。
 
 ## 2. Inputs and decision set
 
 | 输入 | 状态 | 说明 |
 | --- | --- | --- |
-| 当前 diff（被审对象） | 已全量读取 | `git diff`（13 文件，+345/−52）+ 4 个未跟踪测试文件读取；`git status` 核对无越界触碰 |
-| `wiki/raw/task_issue-412_design.md`（iteration 2） | 已读（全 558 行） | 实现的裁决依据（SA2 iteration 2 verdict **approve**）；DD-1~DD-8、§11 ALLOW/DENY、§12 验收映射逐条对照 |
-| `wiki/raw/task_issue-412_design_conflict_report.md`（SA8 设计后复查，iteration 2，clear） | 已读 | 本复审的核对清单来源：§5 冻结面 12 项、§8 行动 1–7（行动 7 = 本报告） |
-| `wiki/raw/task_issue-412_sa3_impl.md` | 已读 | 实现记录（文件范围/验证/偏离申报）；其声明经 diff 独立核对 |
-| `wiki/raw/task_issue-412_sa2_review.md` | 已读（§13–§15） | iteration 2 verdict **approve**（0 BLOCKER/0 MAJOR；SA2-8~SA2-13 落实核对输入）；SA2-12/SA2-13 为 MINOR 非阻断 |
-| `wiki/raw/task_issue-412_sa6_contract.md` + 两份契约测试文件 | 存在性/形状核对 | `drain(targets?: readonly PersistenceDrainTarget[]): Promise<void>` 与实现逐字段一致（DD-4）；文件保持未跟踪零触碰（SA2-6） |
-| SA4 / SA9 产物 | **不存在** | 本任务无 SA4/SA9 报告；实现复查触发条件 = 设计 §15 明示需要（非 SA4/SA9 新决策面） |
-| **Issue comment 5751613018**（MEMBER，2026-09-20T18:03:36Z） | 已独立拉取核对（`gh api`） | 与 dispatch 转述一致：①硬契约「宿主优雅停机必须先 await drain() 再 dispose」（非参考建议）；②同步修订 ADR 0006 :86 dispose 定义（否则契约与实现继续脱节）；③dispose 保持 abortive 时保留分层公开 drain；④确认三击穿窗口（含 degraded retry 回退窗）；⑤支持 retryDelayMs 解耦（缺省保持现行为） |
-| ADR 全集（0001–0030） | 已读（相关节） | 全部 accepted、无 superseded；相关：0006（normative for persistence，含新修订节）、0009、0010、0012、0023 |
-| `CONTEXT.md` | 已读 | 新词条「完成式排空（drain）」与既有词条格式一致（`**术语**: 定义 + _Avoid_`）；无冲突既有词条 |
-| `docs/protocols/instance-replication-v1.md` | 已读（相关节） | wire 契约零触碰（DENY 遵守） |
-| `docs/integration/hub-peer-deployment.md`、`cordis-plugin-hosting.md` | 已读（diff + 现状） | 两文档均按 DD-8(3)/(4) 落地（见 §3 I18/I19） |
-| 模块 AGENTS（root/docs/persistence/dsh-persistence/apps/apps-yjs-server） | 已读 | 决策集合组成部分（skill 规则）；边界逐条对照（§3 I9/I13/I14） |
-| 源码 | 用于事实确认 | drain 状态机/`startFlush` 双门/`flush` generation 守卫/`releaseSettleWaiters` 四移除点/app 停机链事件序均直接读源核对 |
+| 当前 diff（被审对象） | 已全量读取 | `git diff HEAD`（4 文件）+ 两哨兵测试全文阅读 + `git status --porcelain`（恰 4 修改、零未跟踪、零越界） |
+| `wiki/raw/task_issue-412_design.md`（iteration 2） | 已读（§11 文件范围两表） | 本轮 3 个代码文件**不在** ALLOW/DENY 两表内（设计未预见仓库级 codegen 漂移）；DENY 逐项对照零触碰 |
+| `wiki/raw/task_issue-412_sa3_impl.md`（本轮更新版） | 已读 | 诊断（根因 = 发布提交 `abbb89a` 版本 bump 未重生成）、修复动作、范围申报与验证记录；其声明经本报告独立复核 |
+| `wiki/raw/task_issue-314_sa6_contract.md`、`task_issue-315_sa6_contract.md` | 已读（§4 基线/§12.6 C5/§15 触发矩阵） | 两哨兵的契约来源：`generated.ts` sha256 钉值 `342d8c1f…e6707` 为 **#314/#315 变更集范围的验收基线**（`9742a28` 闭合）；C5 触发矩阵明示「重新生成 generated.ts → 此处先红」为设计的绊线行为 |
+| ADR 0005 §4（生成物入仓 + CI regen-diff） | 已读（全文） | 本修复的规范依据：`generate --check` 全量重生成 → diff 为空；源漂移与生成器漂移双抓 |
+| ADR 0020 决策 5/7 | 已读 | 既有 fixture 语义指纹逐字节不变；Int/Range codegen「生成物形状不胀、`generate --check` 字节稳定性基线不变」 |
+| ADR 0017 | 已读（相关节） | 指纹域（envelope/semantic、`sha256:v1:` 不透明字符串）——本轮零触碰 |
+| ADR 0006（含 issue #412 修订节） | 已读（:242-282 现状） | #412 硬契约面在 HEAD 的成文状态（Owner comment 5751613018 要求的落点），本轮 diff 零触碰 |
+| ADR 全集（0001–0030） | 状态核对 | 全部 accepted、无 superseded（0008/0010 为 0017 增补式修订）；无 ADR 钉死 `generated.ts` 字节或生成器横幅版本 |
+| CONTEXT.md / `docs/vfsl/schema-authoring-guide.md` | 已读（相关节） | 指南 :286-304 生成工作流（regenerate → 审 diff → `--check` 逐字节比较；「不直接维护生成文件」）；CONTEXT 无被抵触词条 |
+| 模块 AGENTS（domains / packages/vfsl / packages/vfsl-codegen / docs） | 已读 | 决策集合组成部分：生成物刷新规定动作、生成器确定性/`--check` 检出义务、指纹输入为兼容行为 |
+| `.github/workflows/ci.yml`（codegen-freshness job） | 已读 | job 唯一步骤 = `pnpm generate --check`；注释明示 AC4（ADR 0005 §4）；工作流文件零触碰 |
+| **Issue #412 + Owner comment 5751613018** | 已独立拉取（`gh api`；id/时间戳/作者核对一致：created=updated=2026-09-20T18:03:36Z，welltop-jim-wang） | 硬契约要求三件套：①「宿主优雅停机必须先 await drain() 再 dispose」为硬性契约；②同步修订 ADR-0006 :86 dispose 定义；③dispose 保持 abortive 时保留分层公开 drain——全部由 `75bd0ab` 落地，本轮只需确认未被修复轮破坏 |
+| 源码/历史事实 | 只读核对 | `header.ts` 版本自同步设计；`packages/vfsl-codegen/package.json` 版本谱系（2fdac1b=0.1.3 → abbb89a=0.2.0）；sha256 谱系（现文件=`a934f62d…d65b`＝新钉值；HEAD 文件=`342d8c1f…e6707`＝旧钉值）；`75bd0ab`/`abbb89a` 对 `domains/**`、`packages/vfsl*` 的触碰统计 |
 
 ## 3. Decision analysis
 
 | # | Decision | Clause | Subject behavior（实际 diff） | Classification | Evidence | Required action |
 | --- | --- | --- | --- | --- | --- | --- |
-| O1 | **Owner 评论 5751613018（要求权威）** | 「把『宿主优雅停机必须先 await drain() 再 dispose』写为硬性契约而非参考建议」 | 三落点全部落地：①**结构性强制**——app.ts `performStop` 第 3 步（:601-625）对 `persistencePlugin?.instance` 统一执行 `awaitDrainWithBudget(adapter.drain(), budgetMs)`，dispose（3b 步 :628-630）只在此 await 之后可达，唯一两出口 = drain 完成或预算耗尽且 `persistence-drain-budget-exceeded` 已 sink（:623，先于 `persistence-disposed` :632——源码序核对）；**file/memory 无 kind 特判**（SA2-7 路径 (b) 兑现：原 `kind === 'file'` 守卫删除，plugin 句柄两分支统一赋值 :297-311）；②**成文硬契约**——ADR 0006 修订节第 3 条（:270）「**宿主优雅停机在调用 dispose() 之前必须先 await drain()**……预算尽后继续走 dispose() 有损路径是硬契约的**显式可观察退出**，不是违约；未经任何 drain 直接 dispose 的宿主接受（静默地）丢失已 ACK 未写入 store 的状态」——成文可观察条款，未降格为建议措辞（设计后报告行动 3 保真）；③**适用面申明**——不以 adapter 类型特判、契约边界 = 配置的 store 面（:272）；S-5b（预算 520ms 收口 + 事件先于 dispose + 旧 committed 快照可观察）与 S-5c（memory 原型 spy：drain 恰一次、调用时刻 `persistence-disposed` 未发射、`stop()` 二次调用不触发第二次 drain）为验收锚 | implements-existing-decision | app.ts :601-632；ADR 0006:270-274；`persistence-drain-shutdown.test.ts:112-210`；owner 评论原文（gh 独立拉取） | 无（已闭合） |
-| O2 | **Owner 评论 5751613018（要求权威）** | 「同步修订 ADR 0006 :86 对 dispose 的现有定义——否则契约与实现继续脱节」 | ADR 0006 修订节第 4 条（:276）以**约束性修订语气**「本节**修订并扩展** :86 的 dispose 定义边界」（SA2-10 措辞）落地：:86 所列释放资源之外显式声明 dispose 语义**不变且保持 abortive/有损**（§228-5 重申）、「它从来不是持久性屏障」、「dispose 之前的持久性」唯一经分层公开 drain 表达、两者不合并（附「dispose 内部先 drain」否决论证）；:86 原文未改动、以引用式修订扩展（issue #79 修订节同款惯例） | implements-existing-decision | ADR 0006:276；:86 原文核对；设计 §7 DD-8(1) | 无（已闭合） |
-| O3 | **Owner 评论 5751613018（要求权威）** | 「可以接受分层方案（公开 drain()，dispose 保持 abort 式）」＋确认 degraded retry 回退窗为第三击穿窗口＋支持 retryDelayMs 解耦（缺省保持现行为） | 分层保持：drain = `DocPersistence` optional 独立成员，dispose 未吸收 drain（diff 中 dispose 段唯一变化 = 内联 waiter 通知抽为 `releaseSettleWaiters` 私有方法，splice+同步 call 逐字节等价）；回退窗被动等待落地（lifecycle.drain 首分支 `retryTimer !== undefined \|\| flushing` → 仅注册 waiter，零热循环）；retryDelayMs 缺省动态回退（`retryBaseMs` getter，两落点改引） | no-conflict | lifecycle.ts drain/`retryBaseMs`；contract.ts:513-521；owner 评论原文 | 无 |
-| I1 | ADR 0006（设计后报告 D1，evolution-required） | :34「不设外部 flush/cron 协调器……retry 以退避策略重试直到成功或插件停止」 | 演进已按计划执行且同变更集落地：修订节第 2 条固化 drain 语义（一次性完成式排空、非周期协调器、库级无预算、store 失败面永不 reject + File 校验例外申明）；第 3 条「与 :34 的关系（不冲突申明）」：drain = 归档 settle 范式（:37/:213）一次性公开化、「插件停止」的宿主侧映像 = 宿主预算——SA2-2 静息观察点措辞与并发写者边界入 doc-comment（contract.ts:149-176）与 ADR 第 2 条 | implements-existing-decision | ADR 0006:261-274；contract.ts:149-176；设计后报告行动 1 | 无（演进闭合） |
-| I2 | ADR 0006（设计后报告 D8，evolution-required） | :34「默认值可由插件配置覆写」+ `PersistenceSchedule` 契约形状 + 冻结审计 | `retryDelayMs?` 可选键 + 条件展开（`config.retryDelayMs !== undefined ? {…} : {}`——键缺席时 resolved 形状不变）；`persistence-contract.test.ts:32-37` 等四组冻结审计零改动（git status 证实未触碰）；DSH 记录头（record.ts）零触碰；修订节第 5 条收录解析形状裁决为实现红线（「不物化进 resolved schedule」） | implements-existing-decision | contract.ts:542-556；ADR 0006:278；设计后报告行动 2（红线遵守） | 无 |
-| I3 | ADR 0006 §228-5 + :86（dispose 冻结面） | 「dispose() 语义不变」（abort + clearTimers + 通知 waiters + handles.clear + doc.destroy + cells.clear + allSettled） | dispose 段唯一 diff = 通知点 2 内联代码 → `releaseSettleWaiters(entry)`（`splice(0)` + 同步 call，行为逐字节等价）；abort/destroy/cells.clear/allSettled 顺序与成员零变化；Memory.dispose drain-then-clear mirror 语义零触碰（memory.ts diff 仅增 drain 方法） | no-conflict | lifecycle.ts:815-838（diff）；memory.ts diff | 无 |
-| I4 | ADR 0006 :195（设计后报告 D2） | 「降级等待期内 retry 退避即该 entry 的唯一 flush 调度源」 | drain 对 `retryTimer` 武装期只注册 waiter 被动等待（不强制重试、不热循环）；宿主预算在 entry 调度面之外（app 层 race）；`scheduleRetry`/`scheduleFlush` 本体零改动 | no-conflict | lifecycle.ts drain 首分支；:1089-1096 未触碰 | 无 |
-| I5 | ADR 0006 :157-159 + persistence AGENTS「Memory and file adapters must satisfy the same contract」 | lifecycle core 共享、两 Adapter 不得复制状态机 | drain 状态机单点落 `PersistenceLifecycle`；Memory/File 纯委派 `this.core.drain(targets)`；File 侧仅增入口 `validateIdentity`（输入校验通道，与其余公开入口同款）；SA6 契约 C14 双 adapter 等价由两份契约测试矩阵承载 | no-conflict | lifecycle.ts:840-872；file.ts:149-158；memory.ts:189-195 | 无 |
-| I6 | ADR 0006 :52/:55（提交语义/无 fsync） | temp→rename 提交点、rename 成功即完成一次 flush | drain 复用既有 `startFlush`/`flush`/`io.write`，零 I/O 路径改动；无 fsync 承诺扩张 | no-conflict | lifecycle.ts flush 段（仅 retryDelayMs 落点两行改引）；file.ts 写路径零触碰 | 无 |
-| I7 | ADR 0006 :221-232（optional/派生面放置先例，设计后报告 D6） | DocPersistence optional / ReplicaPersistence required 放置纪律 | `drain` = `DocPersistence` optional readonly 属性签名（doc-comment 完整）；`ReplicaPersistence` 零触碰（grep 证实）；两 adapter 具体类方法满足 SA6 `HasDrain<…>` 类型锚；barrel `type PersistenceDrainTarget` 导出（persistence AGENTS「Add public exports through src/index.ts」遵守） | implements-existing-decision | contract.ts:68-74/:149-176；index.ts:37；file.ts/memory.ts | 无 |
-| I8 | `packages/dsh-persistence/AGENTS.md`（设计后报告 D9） | 「Preserve machine-readable event and record shapes」 | `record.ts`/`events.ts`/`profile.ts`/`cli.ts` 零触碰（git status）；probe.ts 仅退避基准镜像一行 `(schedule.retryDelayMs ?? schedule.debounceMs) \|\| 1`——键缺席时与旧式逐字节同值 ⟹ 默认探针时间线零漂移；配置 retryDelayMs 的探针时间线变化 = 新配置的预期可观察行为（事件 `t=` 值），非 shape 变化 | no-conflict | probe.ts:444-447（diff）；record.ts 未触碰 | 无 |
-| I9 | `apps/yjs-server/AGENTS.md` + hub-peer-deployment :276-279（设计后报告 D10） | 「Single disposal chain…Never trigger a second concurrent teardown chain」；四事件序 | drain（含预算 race）位于同一拆卸链原睡眠位（diagnostics-closed 之后、fiber dispose 之前）——是**等待**不是拆卸；memory 路径同位置新增同一等待步（同为链内等待）；预算尽发事件后继续同一链 3b dispose；`stop()` single-flight 幂等未触碰；四事件序保持（`persistence-disposed` :632 / `app-stopped` :635 发射位未变；新事件仅插入 registry-stopped 与 persistence-disposed 之间且仅预算耗尽时） | no-conflict | app.ts:601-637；ordered-shutdown-red.test.ts 未触碰；hub-peer-deployment.md:277-290（diff） | 无 |
-| I10 | ADR 0012:37 + 根 AGENTS（设计后报告 D11） | 插件所有权/composition root 释放序；不假设动态 pluginId | file/memory 两分支统一保留 plugin 公共句柄（`createFilePersistencePlugin`/`createMemoryPersistencePlugin` 均返回既有 `{apply, get instance()}`——file.ts:284、memory.ts:243 源码核实），经 `get instance()` 取 adapter；未触碰 instanceId/role、未假设 cordis 动态 pluginId；drain 位于 :37「Persistence 释放」段内的前置等待，释放次序一致 | no-conflict | app.ts:180-188/:297-311；file.ts:284；memory.ts:243 | 无 |
-| I11 | ADR 0009:99（设计后报告 D12） | Registry shutdown 语义 | `packages/namespace-registry/**` 零触碰（git status）；drain 在 registry shutdown 之后由宿主调用（链路前置条件成立） | no-conflict | git status；app.ts 停机序 | 无 |
-| I12 | ADR 0010 + instance-replication-v1.md（设计后报告 D13） | wire 契约/复制状态机/:685 watchdog 纪律 | `docs/protocols/**`、`packages/ws-replication/**` 零触碰（git status）；wire 零变化；app 自有预算（file ≤ 30.5s / memory 5.5s）< 60s watchdog，「库级无条件排空 + 宿主侧有界退出」模式以更严形状兑现 | no-conflict | git status；app.ts 预算推导 | 无 |
-| I13 | `docs/AGENTS.md` + 词汇纪律（设计后报告 D14） | 行为变更同步规范文档；新域词条入 CONTEXT.md；ADR 显式增量修订 | 四文件全部落地且与代码同变更集：①ADR 0006 修订节（7 条全量，见 O1/O2/I1/I2/I15/I16）；②CONTEXT.md「完成式排空（drain）」词条含 `_Avoid_` 行（SA2-5 兑现，含「把 drain 并进 dispose」禁令——与分层保持一致）；③hub-peer-deployment.md 词表 + 条件性注记（SA2-8 兑现：「仅在停机排空预算耗尽时发射……不是每次停机的必发阶段事件」）；④cordis-plugin-hosting.md :64 停机句硬契约 + 第 5 步统一指引 + 示例代码块有界 drain 步（SA2-9 兑现——原示例 `await persistenceFiber.dispose()` 无 drain 恰是硬契约禁止形状，已更新）；另装配示例改为保留 `persistencePlugin` 句柄并说明原因 | implements-existing-decision | 四文档 diff 全量核对；设计 §7 DD-8 | 无 |
-| I14 | hub-peer-deployment.md 事件词表 + `apps/yjs-server/AGENTS.md`「stdout is a strict NDJSON lifecycle-event channel」（设计后报告 D18） | NDJSON 形状、脱敏、冻结事件序锚 | 新事件 `persistence-drain-budget-exceeded` 载荷 `{event, budgetMs}`（纯数值，脱敏合规）；发射位 = 预算尽分支（:623），先于 `persistence-disposed`（:632）——S-5b 断言 `budgetIndex < indexOf('persistence-disposed')`；三组既有锚（ordered-shutdown-red / issue270 / on-fatal-error-issue288）零触碰，对词表新增免疫；词表文档同步带条件性注记 | implements-existing-decision | app.ts:623-632；hub-peer-deployment.md:36-44（diff）；`persistence-drain-shutdown.test.ts:147-149` | 无 |
-| I15 | ADR 0006 :213（设计后报告 D15） | 「archiveDoc……先排空既有 dirty 状态」的 liveness 完备化 | `releaseSettleWaiters` 统一释放；四处 live-entry 移除点全部调用（源码逐一核对：dispose :829、settleEntryForDelete 驱逐腿 :677-681、settleEntryForArchive 干净驱逐腿 :707-711、maybeEvict :1193-1197）；无等待者时 splice 空数组零观测差异；不变量句入 ADR 修订节第 6 条；`archiveWaiters` 字段注释更新（SA2-4 兑现：「settle 排空路径（archive/delete/drain）填充；驱逐/dispose 路径释放」） | implements-existing-decision | lifecycle.ts:94-101/:677/:707/:829/:1193-1197/:1218-1231；ADR 0006:280 | 无 |
-| I16 | ADR 0006 issue-#79 修订节 :187 + ADR 0023（设计后报告 D16/D17） | 状态词冻结 / 服务构造纪律 | `getStatus` 词表零触碰、drain 零新状态；drain 为 class 原型方法（0023 合规）；无新对象字面量服务 | no-conflict | git diff（词表/服务面零触碰） | 无 |
-| I17 | **已批准设计（iteration 2）整体保真** | DD-1~DD-8、§11 ALLOW/DENY、§12 验收映射 | 实际 diff 与设计 ALLOW 逐行对应（13 修改文件 + 2 建议新增测试文件，无越界）；DENY 全部零触碰（service.ts/testing.ts/namespace-registry/dsh record·events·profile·cli/既有 persistence 测试四组冻结审计/apps 既有测试/docs/protocols/ws-replication/SA6 两契约文件）；drain 骨架与设计 §8 伪码逐行同构（scope 集/closed vacuous/live-only/回退窗与在途被动等待/idle-dirty 强制 `startFlush`/干净跳过/静息观察点返回/屏障后重扫）；`startFlush` 双门（flushing/closed）与 `flush` generation/干净守卫既有语义未动——「跳过 debounce」由直调 `startFlush`（不经 `scheduleFlush`）结构性达成；SA2-7 路径 (b) 三项保真全部核实（守卫删除/句柄统一/S-5c 锚）；SA2-13 memory 缺省预算括注已写入 hub-peer-deployment 停机序句 | implements-existing-decision | git diff 全量；lifecycle.ts:1138-1141/:1143-1148；设计 §11/§12/§14.2 | 无 |
-| I18 | **ADR 修订节内部引用精确性（本轮新发现 F1）** | 修订节第 2/3 条中三处「第 4 条」交叉引用（:264「本条与第 4 条『退避即唯一 flush 调度源』一致」、:267「见第 4 条『重试直到成功或插件停止』」、:273「唯一调度源（第 4 条）」） | 被引短语在本 ADR 的实际位置：**「重试直到成功或插件停止」= :34**（「## 决策」节 bullet「持久层内部调度」，无编号）；**「退避即该 entry 的唯一 flush 调度源」= :195**（issue #79 修订节第 **2** 条末 bullet）。ADR 全文不存在任何「第 4 条」条款包含这两个短语（各修订节第 4 条分别为：#64「supersede 裁决撤销」、#133「committed-identity probe」、#228「状态机与复活向量封堵」、#412「dispose() 对齐条款」）——数字引用悬空。**规范影响为零**：两短语逐字唯一可定位（grep 单命中），修订节对它们的语义转述（被动等待一致 /「插件停止」宿主侧映像）与原文一致，不产生歧义裁决或语义漂移 | no-conflict（编辑性精确度缺口，非决策冲突） | ADR 0006:264/:267/:273 vs :34/:195；全节条款编号 grep 枚举 | **F1（非阻断）**：后续文档变更集将三处「第 4 条」改为可解析引用（「:34」「#79 修订节第 2 条」或逐字短语直引）——纯文本修正，不触碰任何决策语义/冻结面，无需新 SA8 门禁 |
-| I19 | `packages/persistence/AGENTS.md` 验证门 | 「Run root `pnpm typecheck` and `pnpm test` for contract or lifecycle changes」 | SA3 申报：root typecheck exit 0；root test 5242 中 2 failed——**既有失败**（`packages/vfsl-codegen/test/generate-union-member-docs.test.ts` 的 `pnpm generate --check` 版本横幅新鲜度断言，HEAD `abbb89a` 发布提交遗留；本 diff 零触碰 `domains/**`、`packages/vfsl*`，git status 证实）。SA8 裁决范围外注记：失败面与本题决策/冻结面零交集，其归因与修复属 SA4/SA7 动态验证面；本 diff 相关三包切片（persistence 242 / yjs-server 182 tests）申报全绿 | no-conflict | SA3 报告 Verification 表；git status（domains/vfsl* 零触碰） | 无（SA8 不复跑测试；交 SA4/SA7 裁断） |
+| R1 | **ADR 0005 §4（生成管线保鲜）** | 「CI `generate --check`：全量重新生成 → diff 为空；**源漂移与生成器逻辑漂移双抓**……schema 改动与重新生成同一原子提交」 | 修复兑现被违反的保鲜义务：发布提交 `abbb89a` 把 `packages/vfsl-codegen/package.json` 0.1.3→0.2.0 但未重生成（`generated.ts` 最后重生成于 `2fdac1b`，时点版本 0.1.3——banner/Source hash 与该版生成器输出一致），此后仓库在**任何**提交上 `--check` 恒红；本轮全量重生成使 regen-diff 复空。确定性闭环独立验证：现文件与最后一次生成器产物（`2fdac1b`）逐字节差异**恰为版本派生的 Generator 横幅一行**，新值 `@0.2.0` 与现行包版本一致，schema 未动 ⟹ 现文件 = (schema, 0.2.0) 的确定性输出，`--check` 按构造通过（SA8 未运行生成器，以字节谱系+确定性条款推导） | **implements-existing-decision**（兑现既有决策明确要求、因历史发布提交未履行而落空的义务） | ADR 0005:49-55；`git show abbb89a -- packages/vfsl-codegen/package.json`（+0.2.0，domains/ 零触碰）；`git log -- generated.ts`（2fdac1b）；`git show 2fdac1b:…package.json`（0.1.3）；`git diff`（唯一 1 行）；header.ts:4-8 | 无（义务已恢复） |
+| R2 | ADR 0005 §4（头注契约） | 「生成文件入仓（纯类型文本……），头注 `GENERATED … DO NOT EDIT` + 源文本哈希」 | 头注四行结构完整保持；`Source hash: sha256:82e98fa1…b93c69` 未变（schema.vfsl 自 `526ee4f` 零改动，其文本哈希自然不变）；横幅如实反映生成器身份 0.2.0 | no-conflict | `git diff HEAD -- domains/vfs3-assets/generated.ts`（1 行）；`git log -- schema.vfsl` | 无 |
+| R3 | ADR 0005 §4「生成器漂移双抓」+ `header.ts` 设计意图 | 「Generator 行版本 = 运行时自同步……版本 bump 后头注自动随之变化，regen-diff 自动报警，消除『手工同步常量』的漏报失败模式」 | 报警能力完整保留：本轮以重生成应答报警（规定动作），而非削弱报警——被否备选（改 `header.ts` 钉死/移除版本横幅）会恰好灭掉 ADR 0005 §4 的生成器漂移警报并越权触碰 `packages/vfsl-codegen/**`，未采纳是正确的；生成器源码零触碰 | no-conflict | header.ts:4-8（doc-comment 明文）；`git status`（packages/vfsl-codegen/** 零改动） | 无 |
+| R4 | `domains/AGENTS.md` §Workflow/§Boundaries | 「Run root `pnpm generate` to refresh generated projections」「change generator code rather than hand-editing generated output」「Treat generated files as artifacts…must not fork their projected types」 | 按规定命令刷新生成物，未手改生成文本（字节变化为生成器发射：与 `2fdac1b` 生成器产物仅横幅一行之差，该行由包版本派生）；头注以下投影类型逐字节未分叉 | no-conflict | domains/AGENTS.md:10-18；`git diff`；R1 确定性闭环 | 无 |
+| R5 | ADR 0020 决策 5/7 | 「无 Int/Range 的 schema，IR 紧凑 JSON 逐字节不变」「生成物形状不胀、`generate --check` 字节稳定性基线不变」 | 其治理的语义层全部保持：envelope/semantic 指纹钉值不变（`sha256:v1:7b6c19…`/`sha256:v1:b71b…`，两哨兵常量零改动且仍被断言）；投影类型零变化。唯一字节差异是生成器身份横幅——在 ADR 0020（Int/Range 码生成不得改变既有输出）范围之外，其随包版本变化是 ADR 0005/header.ts 的**设计机制**，非 0020 基线所指的语义漂移 | no-conflict | ADR 0020:125-151；两哨兵文件 diff（指纹常量与断言零改动） | 无 |
+| R6 | issue #314/#315 SA6 绿→保持绿契约（字节哨兵） | 哨兵 doc-comment：「任何 IR 键序变化、指纹前缀升版（v2）、`domains/vfs3-assets/**` 改写都会在这里先红」；测试名自述「重新生成即此处先红」；#314/#315 SA6 §4/§12.6 将 `342d8c1f…e6707` 钉为**该两变更集的** HEAD 验收基线（C5 触发矩阵：重新生成 → C5 先红） | 重钉走的是哨兵自述的设计路径：有意的语义中性重生成使字节钉**先红**（绊线按设计工作），人工/代理确认后重钉 `GENERATED_SHA256` = 现文件实测 sha256（`a934f62d…d65b`，本报告独立复算一致）；语义锚（双指纹常量）与全部断言、断言纪律（不 skip/不软化）零改动——哨兵对未来任何 `domains/vfs3-assets/**` 改写继续 fail loud。裁决依据：SA6 §4 的逐字节钉值是 #314/#315 **变更集范围**的验收基线（已于 `9742a28` 闭合），不是常设冻结决策；wiki/raw 为证据非规范（docs/AGENTS.md Authority），已提交测试是绊线不是冻结面 | no-conflict | 两哨兵全文（:25-30 重钉+注释、指纹断言 :41-45/:60-63 不变）；`sha256sum` 现文件/HEAD 文件复核；task_issue-314_sa6_contract.md §4/§15、task_issue-315_sa6_contract.md §4/§12.6 | 无 |
+| R7 | `packages/vfsl-codegen/AGENTS.md` | 「Keep output deterministic and byte-stable. `pnpm generate --check` must detect every stale generated file without rewriting accepted source state」 | 生成器包零触碰；确定性保持（同 (输入, 包版本) → 逐字节同输出，header.ts:4 条款）；修复前的红 = 检出义务正常工作，修复后 = 新鲜态——恰是该条款要求的终态 | no-conflict | git status；header.ts:4；AGENTS 全文 | 无 |
+| R8 | `packages/vfsl/AGENTS.md` | 「Stable error codes, issue ordering, path reporting, envelope strictness, and **fingerprint inputs** are compatibility behavior」 | vfsl 包源码零触碰（仅两测试文件的 fixture 常量重钉——测试钉值不是 fingerprint inputs）；双指纹逐字节不变、`sha256:v1:` 前缀未升版 | no-conflict | git status；哨兵指纹断言 | 无 |
+| R9 | `docs/vfsl/schema-authoring-guide.md`（生成工作流） | 「1. `pnpm generate`……3. `pnpm generate --check`：重新生成到内存并逐字节比较」「`generated.ts` 是生成物……不直接维护生成文件」 | 修复严格循此工作流：重生成 → 审 diff（唯一横幅行）→ 新鲜度恢复；未直接维护生成文件 | no-conflict | 指南 :286-304 | 无 |
+| R10 | CI `codegen-freshness` job（ADR 0005 §4 AC4 执行器） | job 唯一步骤 = `pnpm generate --check`（.github/workflows/ci.yml，注释「源漂移与生成器漂移双抓……必须全量重生成再 diff」） | 修复恰指向该 job 的失败步骤，工作流定义零改动；失败根因（`abbb89a` 遗留）先于 #412 变更集存在——`75bd0ab` 对 `domains/**`、`packages/vfsl*` 零触碰（`git show --stat` 核对），非 #412 引入 | no-conflict | ci.yml（codegen-freshness job）；`git show 75bd0ab --stat`、`git show abbb89a --stat` | 无 |
+| R11 | **Owner comment 5751613018（要求权威）+ ADR 0006 修订节（#412 硬契约面）** | ①「宿主优雅停机必须先 await drain() 再 dispose」为**硬性契约**（非参考建议）；②同步修订 ADR-0006 :86 dispose 定义（「修订并扩展」，分层保持：公开 `drain()` + dispose 保持 abortive）；③retryDelayMs 解耦缺省保持现行为 | **零交集、零破坏**：本轮 diff 对全部 #412 契约面逐字节未触——`git diff HEAD` 作用于 `packages/persistence/**`、`apps/yjs-server/**`、`docs/adr/0006-*.md`、`CONTEXT.md`、`docs/integration/**`、`packages/dsh-persistence/**`、`packages/namespace-registry/**`、`docs/protocols/**`、`packages/ws-replication/**` 的输出为**空**；`75bd0ab` 提交态完整保持（ADR 0006 修订节 :242-282 现存于 HEAD，含硬契约条款/:86 修订扩展/分层 drain/retryDelayMs 解析形状；app.ts 统一排空链与两份 SA6 契约文件均在提交内未动）。codegen 修复与持久层生命周期正交 | no-conflict | `git diff HEAD --stat`（上述路径全空）；ADR 0006:242-282（HEAD 现读）；`gh api` owner 评论原文 | 无 |
+| R12 | #412 设计 §11 ALLOW/DENY（文件范围纪律） | ALLOW/DENY 两表（DENY 含：persistence service/testing、namespace-registry、dsh 四件、persistence 既有测试、**SA6 两契约文件**、apps 既有测试、docs/protocols、ws-replication、Host/SA6/SA2/SA8 wiki 产物） | 本轮 3 个代码文件不在两表任何一列（设计未预见仓库级 codegen 漂移——SA3 已如实申报）；**DENY 逐项零触碰**（git status 核对）；越界权属 = 本轮 dispatch 明示修复指令（「以最小安全改动修复失败的 codegen-freshness CI 检查」）+ `domains/AGENTS.md` §Workflow 规定动作。范围授权认定属 Controller 职权，非 SA8 冲突事项——无任何决策文本被抵触 | no-conflict（范围申报事项，交 Controller 认定） | 设计 §11 两表；`git status --porcelain`（恰 4 文件） | 无（范围认定交 Controller；SA3 申报已透明） |
+| R13 | 根 AGENTS.md（Typed Namespace writes / schema 授权纪律） | 「When creating or editing `domains/*/schema.vfsl`, follow `docs/vfsl/schema-authoring-guide.md`」；typed-writes 三件套义务 | `schema.vfsl` 零触碰（最后改动 `526ee4f`）；无 schema/投影类型/变异路径变化——typed-access 义务面未被触及 | no-conflict | `git log -- schema.vfsl`；`git diff`（仅生成物横幅） | 无 |
 
-裁决分布：**no-conflict 12（O3、I3–I6、I8–I12、I16、I18、I19）/ implements-existing-decision 7（O1、O2、I1、I2、I7、I13–I15 合并计 4 项：I7/I13/I14/I15）/ hard-conflict 0 / evolution-required 0（设计后报告的三项 evolution-required——D1/D8/D19——修订计划已在本变更集内全部执行完毕，闭环为 implements）**（共 19 行对照；设计后报告的 22 行决议/义务经本表 O1–O3 + I1–I17 逐项承接核对，无遗漏行）。
+裁决分布：**no-conflict 12（R2–R13）/ implements-existing-decision 1（R1）/ evolution-required 0 / hard-conflict 0**（共 13 行对照）。
 
 ## 4. Overrides
 
 | Old decision | Override authority | Scope | New obligation |
 | --- | --- | --- | --- |
 
-**无。** 实现未主张、也未需要任何 override：全部变更经 ADR 0006 增量修订节（正式演进路径）+ 四份规范文档同步落地；Owner 评论 5751613018 依设计后复审结论为**要求权威**而非 override 权威（其要求 = 硬契约条款 + :86 修订 + 分层保持，全部经演进兑现）；:86 原文以引用式「修订并扩展」处理（#79 惯例），非推翻。无新 ADR supersede、无协议版本升级、override 面较设计批复未扩大。
+**无。** 本修复未主张、也未需要任何 override：
+
+- 旧字节钉值 `342d8c1f…e6707` **不是决策文本**（#314/#315 SA6 契约为 wiki/raw 证据层 + 变更集范围验收基线；已提交哨兵是绊线非冻结面）；其更新是哨兵自述设计路径（「重新生成即此处先红」→ 确认 → 重钉）的执行，不是对任何 ADR/协议/Owner 决策的推翻。
+- 生成器横幅 0.1.3→0.2.0 是 `header.ts` 版本自同步机制的**设计内行为**（ADR 0005 §4 生成器漂移警报的载体），非契约变更。
+- 无 ADR supersede、无协议版本升级、无 Owner override 需求或主张；被否备选（削弱横幅/改生成器）若被采纳反而构成对 ADR 0005 §4 警报能力的削弱——未发生。
 
 ## 5. Frozen surfaces
 
-（设计后报告 §5 的 12 项冻结面，逐项对实际 diff 核对）
-
 | Surface | Must remain unchanged | Evidence | Actual result（实际 diff 核对） |
 | --- | --- | --- | --- |
-| `dispose()` 语义（lifecycle + 两壳） | abort + clearTimers + 通知 waiters + handles.clear + doc.destroy + cells.clear + allSettled；Memory 壳 drain-then-clear mirror | ADR 0006 §228-5 + :86；Owner 评论再确认 | **保持**——dispose 段唯一变化 = 通知点 2 抽为 `releaseSettleWaiters`（逐字节等价）；Memory.dispose 零触碰 |
-| `DEFAULT_PERSISTENCE_SCHEDULE` 与未配置解析键形状 | 冻结 500/5000；未配置 resolved 恰两键 | contract.ts:478-481/:542-556 | **保持**——常量零触碰；条件展开使缺省不物化 `retryDelayMs`（红线遵守） |
-| 既有冻结审计四组 | `persistence-contract.test.ts:32-37` 等零改动即绿 | 设计 B12 | **保持**——四文件零触碰（git status） |
-| yjs-server 停机事件序与在场性锚 | 四事件严格递增；五事件 countOf 恰一次 | ordered-shutdown-red.test.ts:77-91 | **保持**——锚文件零触碰；新事件 additive 且仅预算耗尽发射（发射位 :623 在 `persistence-disposed` :632 之前） |
-| yjs-server 配置 schedule 词表 | 两键闭集 + 未知键拒绝 + `MAX_MAX_DIRTY_MS` 上界 | config.ts | **保持**——仅注释与 :275-278 拒绝文案 parenthetical 刷新（仍含 `persistence.schedule.maxDirtyMs` 路径段，两锚测试断言面不变）；`retryDelayMs` 未上 app 配置面、零新增预算键 |
-| DSH 记录头与事件行 | record.ts:20 两键渲染；事件行含 `t=` | dsh AGENTS | **保持**——record.ts/events.ts 零触碰；probe 默认时间线零漂移（镜像表达式缺省同值） |
-| getStatus 状态词与优先级 | `'ready' \| 'persistence-degraded' \| 'released' \| 'disposed'` | ADR 0006 #79 修订节 :187 | **保持**——零触碰、drain 零新状态 |
-| 提交语义与存储格式 | temp→rename；`.tmp` 忽略；无 fsync；布局不变 | ADR 0006:52/:55 | **保持**——I/O 路径零改动 |
-| Registry shutdown / lease 语义 | ADR 0009 全部条款 | namespace-registry/** DENY | **保持**——零触碰 |
-| Wire / 复制状态机 | instance-replication-v1.md 全部 | docs/protocols/**、ws-replication/** DENY | **保持**——零触碰 |
-| `PersistenceIO` seam | 既有成员面不变 | ADR 0006:230-232 | **保持**——drain 只消费既有 io.write |
-| SA6 契约测试两文件 | 零触碰（验收证据不可变） | 设计 §11 DENY（SA2-6） | **保持**——未跟踪状态未变；调用形状与实现逐字段一致 |
+| `domains/vfs3-assets/schema.vfsl`（schema 唯一真相源） | 逐字节不变 | `git log`（最后改动 526ee4f）；`git diff`（未列） | **保持** |
+| 生成物头注 `Source hash` | `sha256:82e98fa1…b93c69`（= 未动 schema 文本的哈希） | diff 上下文行 | **保持** |
+| 生成物投影类型（头注以下全部字节） | 与 `2fdac1b` 生成器产物逐字节一致 | `git diff`（1 file / 1 insertion / 1 deletion，唯一行 = Generator 横幅） | **保持** |
+| 哨兵语义锚：`ENVELOPE_FINGERPRINT`/`SEMANTIC_FINGERPRINT`（`sha256:v1:7b6c19…`/`sha256:v1:b71b…`）+ 两文件全部断言与断言纪律 | 逐字节保持、不 skip/不软化 | 两哨兵 diff（仅 GENERATED_SHA256 值 + 2 行注释） | **保持**（新钉值经独立 sha256 复算与现文件一致） |
+| 指纹前缀 `sha256:v1:`（ADR 0017/0020 域） | 未升版 | 哨兵常量与前缀断言零改动 | **保持** |
+| `packages/vfsl-codegen/**`（生成器源码；包版本 0.2.0 系 `abbb89a` 既有事实，非本轮改动） | 零触碰 | `git status` | **保持** |
+| CI 工作流定义（codegen-freshness 及全部 job） | 零触碰 | `git status` | **保持** |
+| **#412 硬契约面**：app.ts 统一有界排空停机链、ADR 0006 修订节（硬契约/:86 修订扩展/分层 drain/retryDelayMs 形状）、CONTEXT.md「完成式排空」词条、两份集成文档、SA6 两契约测试文件、persistence/yjs-server 全部源与既有测试 | 与 `75bd0ab` 提交态逐字节一致（Owner comment 5751613018 三要求的成文与实现载体） | `git diff HEAD`（上述全部路径输出为空）；ADR 0006:242-282 HEAD 现读 | **保持** |
 
 ## 6. Evolution requirements
 
-设计后报告的三项 `evolution-required`（D1 公开 drain、D8 schedule 新键、D19 集成文档宿主契约演进）与 O1/O2 的 ADR 义务，其修订计划**已全部在本变更集内执行**——按 skill 清单逐项复核实现闭环：
+**无。** 本修复不改任何决策文本、协议、公共 API、schema、持久化格式、状态机或失败语义——不存在需要修订计划的事项。
 
-| 检查项 | 计划（设计 DD-8 / SA8 行动 1） | 实现闭环核对 |
-| --- | --- | --- |
-| 修订文件 | ADR 0006 修订节 + CONTEXT.md 词条 + hub-peer-deployment.md + cordis-plugin-hosting.md（四文件一个不可缺） | **全部落地**（四文件均在当前 diff；ADR 修订节 7 条覆盖行动 1 的 a–e 全部子项） |
-| 新旧语义 | 接口片段 / drain 语义 / 硬契约（无条件 + 适用面 + 预算可观察出口 + 代价申明）/ dispose 对齐（修订并扩展 :86）/ 解析形状 / 不变量 / 非 live 存档 | **逐条落地**（ADR :246-282 与 contract.ts doc-comment 一致；语义与代码行为同变更集一致——见 §3 各行） |
-| 兼容与迁移 | 全 additive；第三方 stub 零编译红；冻结审计零迁移 | **成立**（optional 成员/键；SA3 申报 tsc 零错误 + 既有审计零改动即绿） |
-| 失败语义 | store 失败面永不 reject；RangeError 词表扩展；File 校验例外；预算尽诚实事件 + 有损继续；同步 throw → `app-stop-failed` | **落地**（drain 无 reject 路径——`await Promise.all(pending)` 的 waiter 只 resolve；app 预算分支 sink 事件后继续；catch 链既有） |
-| 版本 | 无 wire/持久化格式/schema 版本面 | **确认**（存储布局、DSH 记录格式、协议全部未触碰，无隐含版本面漂移） |
-| 验证 | §12 矩阵 + Runner 门 | **已执行**（SA3 申报：三包切片全绿 + root typecheck 0 + root test 仅 2 既有无关失败；SA8 不复跑，交 SA4/SA7） |
-| 保持不变的冻结面 | §5 表 12 项 | **全部保持**（§5 核对） |
-
-**结论：三项演进全部闭环，无遗留演进义务。**
+- ADR 0005 §4「schema 改动与重新生成同一原子提交」：本轮**无 schema 改动**；生成器身份刷新跟随 `header.ts` 自同步机制。理想形态是版本 bump 的发布变更集自带重生成（原子性精神），`abbb89a` 未做到而留下设计内的红色报警态，本轮修复即该报警的规定清除动作——**不产生决策文本缺口**，仅记流程观察（见 §8 行动 1）。
 
 ## 7. Hard conflicts
 
-**无。** 未发现任何与既有决策不兼容且无演进路径的实现点。特别核对：
+**无。** 特别核对：
 
-- **Owner 两项最低要求的落地保真**（设计后报告行动 3/4）：硬契约以成文可观察条款进入 ADR（「显式可观察退出，不是违约」原文核对）；预算事件在代码序上先于 `persistence-disposed`（:623 < :632）且被 S-5b 断言锚定；:86 以约束性「修订并扩展」语气对齐——无降格、无信息性重申冒充修订；
-- **SA2-7 路径 (b) 实现保真**（行动 7 专项）：`kind === 'file'` 守卫确认删除（diff 删除行核对）、`persistencePlugin` 句柄两分支统一赋值（:297-311）、memory 停机链 drain 经公共原型面被 S-5c 锚定（恰一次 + 调用时刻 `persistence-disposed` 未发射 + 二次 `stop()` 无第二次 drain）；ADR 硬契约条款与 cordis-plugin-hosting 指引对 memory 路径与 app 实现同答案——「契约与实现脱节」在规范、指引、实现、验收四方闭合；
-- **drain 状态机与既有调度面的相容性**：直调 `startFlush` 的「跳过 debounce」不触碰 `scheduleFlush`/`scheduleRetry` 语义（:195 退避唯一调度源仅约束降级等待期，drain 对该期被动等待）；扫描段同步完成 waiter 注册（错过通知窗为零）；`closed` 早退 + 通知点 2 + DD-5b 三驱逐点共同保证终止性；
-- **唯一新发现 F1（I18）为编辑性交叉引用悬空**，无规范歧义后果（被引短语逐字唯一），不构成任何冲突等级的实质事项。
+- **重钉 vs 哨兵契约**：绊线语义完整保留（语义指纹常量 + 全部断言 + fail-loud 行为），重钉是哨兵测试名自述的预期路径（「重新生成即此处先红」）；不重钉则 `codegen-freshness`（ADR 0005 §4）与字节钉**在同一提交上逻辑不可兼得**——该不可兼得态由 `abbb89a` 遗留造成，本轮以规定动作（重生成）+ 设计路径（重钉）同时恢复两者，消解的是**既有不一致**而非制造新冲突；
+- **#412 硬契约零破坏**：修复与持久层生命周期/停机链/ADR 0006/集成文档零交集（§5 末行），Owner 三要求（硬契约成文、:86 修订对齐、分层 drain 保留）的载体全部保持 `75bd0ab` 提交态；
+- **最小性**：备选路径（改 `header.ts` 钉死版本/移除横幅、或回滚重生成）分别会削弱 ADR 0005 §4 警报能力或使 CI 永久红——均被正确否决；未触碰生成器源码、schema、#412 SA6 契约与全部 DENY 面。
 
 ## 8. Required actions
 
-1. **（非阻断，文档精确性 follow-up）** ADR 0006 修订节三处悬空的「第 4 条」交叉引用（:264/:267/:273）改为可解析引用（`:34` /「issue #79 修订节第 2 条」/逐字短语直引）——纯文本修正，无决策语义变化，随任一后续 docs 变更集顺带处理，无需新门禁。
-2. **（非阻断，文档债 follow-up——SA3 已如实记录）** `apps/yjs-server/AGENTS.md` 单一拆卸链摘要行未列举新增的链内排空等待步（不矛盾——drain 是同一链内的等待，非第二条拆卸链；该文件不在设计 ALLOW，SA3 不越界触碰正确）；随后续文档变更集补一行。
-3. **（非阻断，SA1 产物遗留——SA2-12）** 设计文档对 SA8 设计后报告的三处计数/traceability 描述滞后，属 SA1 产物修订，留待 Controller/SA1 顺带修正（零行为影响）。
-4. **（交 SA4/SA7 裁断面）** root `pnpm test` 的 2 个既有失败（vfsl-codegen 版本横幅新鲜度）与本题零交集（本 diff 未触碰相关面）；其归因修复与 SA3 申报的全绿切片由 SA4/SA7 动态验证复核，不属冲突门禁事项。
-5. 实现侧无阻断行动：本变更集可在通过 SA4/SA7 质量门后合并（ADR/文档/代码同变更集的演进义务已闭合）。
+1. **（非阻断，流程观察）** 后续凡 bump `@nomicore/vfsl-codegen` 版本的发布变更集，应同变更集执行 `pnpm generate`（ADR 0005 §4 原子性精神 + `header.ts` 自同步设计），避免重造仓库级红色报警态——纯流程提醒，无决策文本需要修订。
+2. **（非阻断，交 Controller 认定）** 本轮 3 个代码文件不在 #412 设计 §11 ALLOW/DENY 两表内；扩权依据 = 本轮 dispatch 明示修复指令 + `domains/AGENTS.md` §Workflow 规定动作，SA3 已透明申报。SA8 裁决无决策抵触；范围认定属 Controller 职权。
+3. **（交 SA4/SA7 裁断面）** SA3 申报的动态验证结果（`pnpm generate --check` exit 0、root typecheck/test 全绿等）由 SA4/SA7 复核，不属冲突门禁事项；本报告以只读字节谱系独立确认了其可推证基础（确定性闭环，见 R1）。
+4. 冲突门禁侧无阻断行动：本变更集可在通过动态质量门后随 #412 一并提交。
 
 ## 9. Verdict
 
 **clear**
 
-- 19 项对照：12 no-conflict + 7 implements-existing-decision + 0 evolution-required（设计后三项演进已闭环执行）+ 0 hard-conflict；
-- 设计后报告 §8 行动 1–6 逐条核对**全部兑现**，行动 7（本实现后复审）由本报告执行完毕；§5 冻结面 12 项对实际 diff 全部保持；
-- Owner 评论 5751613018 的硬 drain-before-dispose 契约与 ADR-0006（:86 修订并扩展 + :34/:195/§228-5 关系申明）对齐要求，在规范条款、对外指引、自家实现（file/memory 统一）、验收证据四方一致落地；
-- 唯一新发现 F1 为 ADR 修订节内部引用数字悬空（编辑性、零规范后果），列为非阻断 follow-up。
+- 13 项对照：12 no-conflict + 1 implements-existing-decision（ADR 0005 §4 保鲜义务恢复）+ 0 evolution-required + 0 hard-conflict；
+- 修复走的是仓库既有决策自铺的路径：`domains/AGENTS.md` §Workflow 规定动作 + `header.ts` 版本自同步设计内行为 + 哨兵「先红→确认→重钉」设计路径，三者的规范依据互相咬合，无一处需要新决策或 override；
+- **dispatch 两问均获肯定答案**：①CI-repair 变更与仓库生成契约（ADR 0005 §4 / ADR 0020 决策 5/7 / ADR 0017 指纹域 / 模块 AGENTS / 授权指南 / CI 门禁）及规范约束零冲突，且恢复了被 `abbb89a` 遗留违反的保鲜义务；②与 issue #412 硬 graceful-shutdown drain-before-dispose 契约及 Owner comment 5751613018 要求的 ADR 对齐**零冲突零触碰**——`75bd0ab` 提交态（硬契约成文、:86 修订并扩展、分层 drain、file/memory 统一停机链）逐字节保持。
 
 ## 10. requiresConflictRecheck
 
 **false**
 
-- 设计后报告标记的全部待核对面——公共 API（`DocPersistence.drain?` + `PersistenceDrainTarget` 导出）、生命周期/状态机新入口语义（vacuous-after-dispose/无预算/并发重入/静息观察点）、驱逐通知面补全、持久化配置语义（`retryDelayMs?` + 解析形状）、公共事件面（`persistence-drain-budget-exceeded`）、消费方停机语义（预算组合/常量/注释）、memory 统一路径保真、四份规范文档修订——**均已由本报告对实际 diff 逐项核对闭合**；
-- 无公共 API/wire/schema/持久化格式/状态机/生命周期/失败语义/正式 override 面尚待实现核对；§8 所列 follow-up 均为纯文本精确性/文档债事项，不开新决策面，无需再门禁。
+- 本修复未开任何新决策面：无公共 API/wire/schema/持久化格式/状态机/生命周期/失败语义变化，无正式 override；
+- 全部核对均针对当前实际 diff 完成（字节谱系、指纹常量、冻结面、#412 契约面完整性），无「尚待实现核对」的遗留项；
+- 前一 iteration（#412 主体实现）的复审已闭合（clear / requiresConflictRecheck false），其对象已提交为 `75bd0ab` 且本轮确认未被触碰——无需重开。
