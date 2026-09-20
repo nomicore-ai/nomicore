@@ -238,3 +238,45 @@ removeKey?(key: string, signal: AbortSignal): Promise<void>
 **4. 状态机与复活向量封堵**：lifecycle per-key cell 状态联合新增 `'deleting'`（claim 排他，镜像 `'archiving'` 放置——settle 后置位、op 段持守、成败双路 identity 守卫清理）；既有全部 cell 消费方（createDoc/importDoc claim 环、loadDoc resolve 环、archiveDoc claim 环、`seedForTest` 拒绝清单）同变更集消费新态（漏一处即 busy-loop 或错误分类）。settle-for-delete 与归档 settle 的关键差异 = **被删除的 doc 不需要 flush 持久化**：零-handle 时取消全部定时器（debounce/maxDirty/retry——含失败 flush 新武装的 retryTimer）并驱逐 cell（`entry.doc.destroy()` 镜像 settle 先例）；`flushing === true`（在途 flush 已越过入口门）必须等待其结算（`archiveWaiters` 通知面），结算后重入重读再 cancel-then-evict（次序倒置 = 定时器在已驱逐 entry 上点火写回 = 复活）。复活向量封堵证明：(i) pending debounce flush——settle 取消定时器（未点火）或等待（已点火 in-flight）后 removeKey，此后无任何定时器/句柄能再写该 key；(ii) 新 saveDoc——cell 已驱逐，`assertOwnedHandle` 拒绝；(iii) 新 loadDoc/createDoc——删除后 key 缺席 → loadDoc null；createDoc 是新 namespace 的合法重建（与归档后重建同构）。
 
 **5. capability 门与实施注记**：lifecycle 入口同步段 `assertDeleteIo`（`typeof io.removeKey !== 'function'` → bare loud Error，镜像 `assertArchiveIo`）；Memory 侧 loud 配置门与 remove 同款（readSnapshot 接线而 deleteSnapshot 缺席 → loud 拒绝，绝不对外部 read 权威谎报删除）；`dispose()` 语义不变（abort → removeKey 拒绝经 `remove-aborted` 收口，inFlight allSettled 覆盖删除全程）；删除槽内只含异步 I/O（`fsp.rm` promise 面），无同步 fs 段。
+
+### 完成式排空 drain、retryDelayMs 与停机硬契约修订（2026-09，issue #412；owner 要求 comment 5751613018）
+
+本节为**增量演进**，新增 `DocPersistence` 可选成员 `drain(targets?)`、`PersistenceSchedule` 可选键 `retryDelayMs` 与公开目标词汇 `PersistenceDrainTarget`。除下列明示条款外，所有既有条款（owner 分区、`saveDoc` dirty notification、全量 snapshot、主 snapshot temp→rename、`META.docId`、import/archive/probe/delete 的 optional/required 放置、§228-5 `dispose()` 语义）维持效力。owner 要求（comment 5751613018）：优雅停机必须有 dispose 前 await drain 的**硬契约**；dispose 语义/契约必须与本 ADR 对齐；dispose 保持 abortive 时保留**分层公开 drain** 方式。
+
+**1. 接口契约（在既有接口面追加）**：
+
+```ts
+// 公开目标词汇（issue #412）：内部 `${userId}\u0000${docId}` 复合键保持私有
+export interface PersistenceDrainTarget {
+  readonly owner: User
+  readonly docId: string
+}
+// DocPersistence（optional——三成员字面量与既有 stub 绿守卫不因 required 面变红；
+// 具体 adapter 类面（MemoryPersistence/FilePersistence）为必然可达的 required 实现）
+readonly drain?: (targets?: readonly PersistenceDrainTarget[]) => Promise<void>
+// PersistenceSchedule（optional 键——与 debounceMs 正交）
+readonly retryDelayMs?: number
+```
+
+**2. `drain()` 语义 = 完成式排空**（不是 flush-all 便捷方法，也不是定时排空窗）：
+
+- **范围**：`targets` 给定 → 仅这些 `(owner, docId)`；未提供 → 全部。仅 **live** 持久化 entry 参与；非 live cell（reading/creating/archiving/deleting）不在范围（其完成语义归各自调用方）；无对应 live cell 的 target 与 `targets: []` 均为 no-op（缺席即完成）。
+- **每 entry**：degraded 回退窗（retry 定时器武装）→ **被动等待**（不强制即时重试、不热循环——本条与第 4 条「退避即唯一 flush 调度源」一致）；在途 flush → 等待其结算（key 内 single-flight，零重复发起）；idle 且脏（含有 handle 与零 handle）→ 立即强制 flush（跳过 debounce/max-dirty 定时器）；干净 → 跳过（零 write、不清定时器、不驱逐）。
+- **返回语义 = 静息观察点结算**：resolve ⟺ **最后一轮扫描观察时**范围内无「脏且可推进」「在途」「回退窗等待」的 live entry。终扫观察之后才 ACK 的 `saveDoc` **不属**本次调用覆盖范围；优雅停机链中该边界由链路前置条件关闭（`registry.shutdown()` 已释放全部 lease、接纳已停，无并发写者）。
+- **非破坏性**：不 abort、不 destroy、不清调度面、不驱逐、不改 epoch/`closed` 与 `getStatus` 词表。drain 返回后 `dispose()` 可安全立即执行；`dispose()` 之后再调用 drain 为 **vacuous 完成**（立即 resolve——dispose 后无 live 脏状态可排空）。drain 是幂等可重入的：多次调用各自独立成环、各自以自己的静息观察点结算。
+- **无时间预算（库级）**：持续失败的 store 下 drain **不 resolve**——这是完成式语义的诚实代价（见第 4 条「重试直到成功或插件停止」）；总界属宿主策略（第 3 条），不进本 API。
+- **失败面**：store 失败面**永不 reject**（写失败沿既有 degraded + 内部退避吸收，drain 不引入新 typed 错误）。例外：File adapter 对不安全 target 沿既有 `validateIdentity`（`SAFE_PATH_SEGMENT` 双段）以 bare Error loud 拒绝——输入校验通道，非 store 失败面。
+
+**3. 停机硬契约（无条件；owner 要求 comment 5751613018）**：**宿主优雅停机在调用 `dispose()` 之前必须先 await `drain()`**——至 drain 完成，或至宿主显式预算耗尽且该事实可观察（yjs-server 的实现 = `persistence-drain-budget-exceeded{budgetMs}` stdout NDJSON 事件，发射位在 registry shutdown 之后、persistence dispose 之前）。预算尽后继续走 `dispose()` 有损路径是硬契约的**显式可观察退出**，不是违约；未经任何 drain 直接 dispose 的宿主接受（静默地）丢失已 ACK 未写入 store 的状态。
+
+- **适用面（不以 adapter 类型特判）**：契约边界是**配置的 store 面**而非 adapter 类名。`MemoryPersistence` 可经 `writeSnapshot` hook 接线外部 store（hook store 为该实例唯一读权威），此类 memory 实例与 file 实例具有同质的「已 ACK 写需 drain 兑现进 store」保护对象；yjs-server 对 file 与 memory 两种配置执行**同一**停机排空步（`adapter.drain()` + 宿主预算 race）。未接线外部 store 的 memory dev 配置不因 drain 获得跨实例耐久事实（`dispose` 清 mirror 的语义不变），但「dispose 前 in-flight/脏状态 settle」的契约形状与耐久配置完全一致。
+- **与 :34 的关系（不冲突申明）**：drain 是归档 settle 范式（:37/:213 内在先例）的**一次性公开化**，不是周期性外部 flush/cron 协调器；降级等待期内 retry 退避仍是唯一调度源（第 4 条）。「重试直到成功或插件停止」中**「插件停止」的宿主侧映像 = 宿主预算**：预算尽 → 事件 + 有损 dispose；库级 drain 本体不设超时参数。
+- **实施注记（yjs-server）**：预算 = `maxDirtyMs + DRAIN_MARGIN_MS`（file 配置；memory 配置无 schedule 键 → `DEFAULT_MAX_DIRTY_MS + DRAIN_MARGIN_MS` 缺省推导），由 `MAX_MAX_DIRTY_MS` 立法保证 < 60s 停机 watchdog；预算覆盖**正常路径**最坏等待（强制即时 flush + max-dirty 级退避节奏 + I/O 边距），**不得**表述为「drain 恒有界」。
+
+**4. `dispose()` 对齐条款（owner 要求 comment 5751613018；本节修订并扩展 :86 的 dispose 定义边界）**：:86 所列「释放文件句柄、后台任务和 Y.Doc 缓存」之外，本节显式声明——`dispose()` 语义**不变且保持 abortive/有损**（abort → clearTimers → doc.destroy → cells.clear → `allSettled(inFlight)`；§228-5 重申），**它从来不是持久性屏障**；「dispose 之前的持久性」唯一经**分层公开 drain** 表达：drain = 完成式排空层，dispose = abortive 拆卸层，两者不合并（否决「dispose 内部先 drain 再 abort」：击穿 §228-5 冻结面、degraded store 下把挂起从宿主层搬进库层更糟、剥夺宿主预算控制权）。drain 与 dispose 的交错语义：dispose 同步段释放 settle waiters → drain 续体重扫见 `closed` → vacuous resolve（不二次报告已发生的丢失）。
+
+**5. `retryDelayMs` 与解析形状（DD-2 裁决，实现红线）**：显式配置时重试**首基准** = `retryDelayMs`（与 `debounceMs` 正交），其后退避增长 ×2、上限 `maxDirtyMs` 不变。**键缺席时解析结果的键形状不变**：缺省回退在 lifecycle 内**动态**取解析后的 `debounceMs`（不是固定默认值，也不物化进 resolved schedule）——既有 `toEqual` 冻结审计与 DSH 探针记录头零迁移。显式 `0` 与 `debounceMs: 0` 同款折叠为 1（防 0ms 热重试）；非法值沿既有逐键校验环 → `RangeError`。
+
+**6. 排空通知面不变量（liveness 完备化）**：`archiveWaiters` 是 archive/delete/drain settle 排空路径共用的通知面；**任何移除 live entry 的路径必须释放其 settle waiters**（dispose 通知点、delete 的 cancel-then-evict 腿、archive 的干净驱逐腿、`maybeEvict`）——否则等待者在该 entry 被驱逐后永不结算。
+
+**7. 归档裁决存档**：drain 不参与非 live cell 的完成语义（reading/creating/archiving/deleting 由各自调用方持有完成语义）；drain 不驱逐、不清理调度面，drain 后仍被武装的陈旧 debounce/max-dirty 定时器到点由既有 generation/干净守卫早退（零 write），后续 `saveDoc` 的 `scheduleFlush` 自然覆盖重武装。

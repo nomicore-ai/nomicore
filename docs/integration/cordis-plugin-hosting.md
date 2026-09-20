@@ -61,7 +61,7 @@ Persistence、Registry 和 replication plugin 启动时会检查依赖；缺少�
 - 基础设施按 Instance → Clock → Timer → Persistence → Registry → role-specific replication plugin 的依赖顺序启动；
 - namespace lease 的 create/open 与 Hub `enableReplication()` 在依赖该 namespace 的业务消费者启动前完成；
 - 服务通过公开 `require*` helper 获取；
-- 停机时先停止并排空业务消费者、释放 lease，再排空 replication，最后关闭 Registry、释放 Persistence；
+- 停机时先停止并排空业务消费者、释放 lease，再排空 replication，最后关闭 Registry、释放 Persistence；Persistence 的 adapter 在 `dispose()` 之前必须先 `await drain()`（完成式排空——见「停止与重载」第 5 步）；
 - 配置由各 `create*Plugin()` 工厂的公开 options 类型校验。
 
 ## 最小生产装配
@@ -97,13 +97,14 @@ await clockFiber.await()
 // 独立 composition root 只构造一次；嵌入已有 Host 时复用 Host 的 timer，跳过此行。
 new TimerService(ctx)
 
-const persistenceFiber = ctx.plugin(createFilePersistencePlugin({
+const persistencePlugin = createFilePersistencePlugin({
   rootDir: '/var/lib/my-service/nomicore',
   schedule: {
     debounceMs: 500,
     maxDirtyMs: 5_000,
   },
-}))
+})
+const persistenceFiber = ctx.plugin(persistencePlugin)
 await persistenceFiber.await()
 
 const registryFiber = ctx.plugin(createNamespaceRegistryPlugin({
@@ -119,13 +120,16 @@ Instance plugin 的 `apply(ctx, hostConfig)` 必须收到宿主配置；factory 
 ```ts
 import { createMemoryPersistencePlugin } from '@nomicore/persistence'
 
-const persistenceFiber = ctx.plugin(createMemoryPersistencePlugin({
+const persistencePlugin = createMemoryPersistencePlugin({
   schedule: { debounceMs: 500, maxDirtyMs: 5_000 },
-}))
+})
+const persistenceFiber = ctx.plugin(persistencePlugin)
 await persistenceFiber.await()
 ```
 
 Memory adapter 的快照仅属于当前 adapter 实例；实例销毁后不可用于重启恢复。需要跨进程或跨实例恢复时使用 File adapter 或实现 `DocPersistence` 的第三方 adapter。
+
+两种工厂都返回公开的 `{ apply, get instance() }` 句柄：宿主要保留该句柄，因为停机硬契约要求在 dispose 之前对 `get instance()` 取的 adapter 执行有界完成式排空（见「停止与重载」第 5 步）。不要依赖包路径扫描或动态 pluginId 反查 adapter。
 
 ## 配置
 
@@ -451,12 +455,26 @@ console.log(recent.value, recent.schema)
 2. 释放业务持有的全部 namespace lease；不得让 scanner 在 lease release 后继续读写。
 3. dispose 角色专用 replication Fiber；它停止 listener/dial、drain/close controller 与 channel，并撤销自身 service，但不会 shutdown Registry。
 4. 若宿主显式拥有 Registry 生命周期，调用并等待 `registry.shutdown()`。
-5. 释放 Persistence Fiber。它撤销 persistence service 后会等待依赖它的 Registry Fiber 完成卸载，再 dispose adapter。
+5. 释放 Persistence Fiber 之前，先对 adapter 执行**有界完成式排空**：`await adapter.drain()`（file 与 memory adapter 统一适用——接线外部 store（`writeSnapshot` hook）的 memory 实例与 file 实例同质受保护；未接线 hook 的 memory dev 配置不因 drain 获得跨实例耐久，但「dispose 前 in-flight/脏状态 settle」的契约形状一致）。宿主以自有预算对 drain 有界等待——如 `maxDirtyMs + 边距` + `Promise.race`——预算尽则诚实记录（如 stdout NDJSON 事件）后继续有损 dispose；持续写失败的 degraded store 的退避等待主要发生在耐久 adapter（memory adapter 的 drain 通常即时完成，预算 race 仍是同款结构性上界）。**硬契约：`dispose()` 之前必须先 await `drain()`**（至完成，或至预算耗尽且该事实可观察）——未经 drain 直接 dispose 的宿主接受静默丢失已 ACK 未写入 store 的状态；`dispose()` 本身保持 abortive/有损，从来不是持久性屏障（ADR 0006 修订节）。随后释放 Persistence Fiber：它撤销 persistence service 后会等待依赖它的 Registry Fiber 完成卸载，再 dispose adapter。
 6. 最后释放承载 Instance、Clock/Timer 的根 Context/Fiber。
 
 ```ts
 await replicationFiber.dispose()
 await registry.shutdown()
+// 停机硬契约：dispose 前先完成式排空（宿主预算有界等待；预算尽记录后继续有损 dispose）
+const adapter = persistencePlugin.instance
+if (adapter !== undefined) {
+  const budgetMs = 5_500 // 例：maxDirtyMs + 边距（memory 配置走缺省推导）
+  const drained = await Promise.race([
+    adapter.drain().then(() => true),
+    new Promise<boolean>((resolve) => setTimeout(() => resolve(false), budgetMs)),
+  ])
+  if (!drained) {
+    // 诚实降级：宿主自行记录（yjs-server 发 persistence-drain-budget-exceeded NDJSON 事件）
+    // 后继续有损 dispose——不要静默吞掉预算耗尽事实，也不要 abort drain。
+    logDrainBudgetExceeded(budgetMs)
+  }
+}
 await persistenceFiber.dispose()
 await ctx.fiber.dispose()
 ```

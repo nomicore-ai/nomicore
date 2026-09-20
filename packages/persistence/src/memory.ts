@@ -5,6 +5,7 @@ import {
   type DocHandle,
   type DocPersistence,
   type PersistedIdentityProbeResult,
+  type PersistenceDrainTarget,
   type PersistenceSchedule,
   type PersistenceScheduler,
   type ReplicationIdentityRef,
@@ -183,6 +184,13 @@ export class MemoryPersistence implements DocPersistence {
 
   saveDoc(handle: DocHandle): Promise<void> {
     return this.core.saveDoc(handle)
+  }
+
+  /** issue #412（ADR 0006 修订节）：完成式排空委托（语义见 `DocPersistence.drain`）——
+   *  对所有 live 脏 entry 立即强制 flush 并 await settle；不 abort/destroy/清调度面。
+   *  宿主优雅停机硬契约：`dispose()` 之前必须先 await 本方法。 */
+  drain(targets?: readonly PersistenceDrainTarget[]): Promise<void> {
+    return this.core.drain(targets)
   }
 
   /** Ordered Cordis lifecycle (rev1 问题 3): service revocation → dependent-fiber settle → adapter dispose. */

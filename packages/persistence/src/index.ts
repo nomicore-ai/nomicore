@@ -34,6 +34,7 @@ export {
   type DocHandleStatus,
   type DocPersistence,
   type PersistedIdentityProbeResult,
+  type PersistenceDrainTarget,
   type PersistenceSchedule,
   type PersistenceScheduler,
   type ReplicaPersistence,

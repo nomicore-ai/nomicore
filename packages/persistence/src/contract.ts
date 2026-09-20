@@ -66,6 +66,15 @@ export type PersistedIdentityProbeResult =
   | Readonly<{ kind: 'missing' }>
 
 /**
+ * 完成式排空的公开目标词汇（issue #412，ADR 0006 修订节）：一个 `(owner, docId)`
+ * 持久化条目。内部 `${userId}\u0000${docId}` 复合键是私有实现细节，不是公开词汇。
+ */
+export interface PersistenceDrainTarget {
+  readonly owner: User
+  readonly docId: string
+}
+
+/**
  * The persistence seam shared by all adapters.
  *
  * The Cordis service name exposed by this interface is `nomicorePersistence`
@@ -137,6 +146,34 @@ export interface DocPersistence {
    *   DocDeleteFatalError（重试在 lifecycle 新代际上收敛）。
    */
   readonly deleteDoc?: (owner: User, docId: string) => Promise<Readonly<{ ok: true }>>
+  /**
+   * issue #412（ADR 0006 修订节）：**完成式排空**——把「所有 live 脏 entry 落完盘」
+   * 表达为可 await 的完成事件。宿主优雅停机硬契约：调用 `dispose()` 之前必须先
+   * await `drain()`（至 drain 完成，或至宿主显式预算耗尽且该事实可观察）。
+   *
+   * - 范围：`targets` 给定 → 仅这些 `(owner, docId)`；否则全部 live cells。
+   *   非 live cell（reading/creating/archiving/deleting）不在范围；无对应 live cell
+   *   的 target 是 no-op（缺席即完成）；`targets: []` 亦为 no-op。
+   * - 每 entry：degraded 回退窗（retry 定时器武装）→ 被动等待（不热循环——ADR 0006
+   *   「退避即该 entry 的唯一 flush 调度源」）；在途 flush → 等待其结算（不重复发起）；
+   *   idle 且脏（含有 handle 与零 handle）→ 立即强制 flush（跳过 debounce/maxDirty）；
+   *   干净 → 跳过（零 write、不清定时器、不驱逐）。
+   * - 返回语义（静息观察点结算）：resolve ⟺ 最后一轮扫描观察时范围内无「脏且可推进」
+   *   「在途」「回退窗等待」的 live entry。终扫观察之后才 ACK 的 `saveDoc` 不属本次
+   *   drain 的覆盖范围（停机上下文由链路前置条件关闭：lease 已全部释放、接纳已停）。
+   * - 非破坏性：不 abort、不 destroy、不清定时器、不驱逐、不改 epoch/closed 与
+   *   `getStatus` 词表。drain 返回后 `dispose()` 可安全立即执行；dispose 之后再调用
+   *   drain 为 vacuous 完成（立即 resolve——dispose 后无 live 脏状态可排空）。
+   * - 无时间预算（库级语义）：持续失败的 store 下 drain 不 resolve（ADR 0006
+   *   「重试直到成功或插件停止」——宿主侧总界 = 宿主自有预算，非本 API 参数）。
+   * - 失败面：**store 失败面永不 reject**（写失败沿既有 degraded + 内部退避吸收）。
+   *   例外：File adapter 对不安全 target 沿既有 `validateIdentity` loud 拒绝（输入校验
+   *   通道，非 store 失败面）。
+   *
+   * Optional 成员建模（与 importDoc/archiveDoc/probe/deleteDoc 同款放置先例）：第三方
+   * Adapter 可不具备；消费方持具体 adapter 类型或 `typeof` 窄化后调用。
+   */
+  readonly drain?: (targets?: readonly PersistenceDrainTarget[]) => Promise<void>
 }
 
 /** 具备复制生命周期能力的 Persistence 面（required 形态）：Memory/File 实现；
@@ -473,6 +510,17 @@ export const NOMICORE_PERSISTENCE_SERVICE = 'nomicorePersistence' as const
 export interface PersistenceSchedule {
   readonly debounceMs: number
   readonly maxDirtyMs: number
+  /**
+   * issue #412：重试**首基准**（可选；与 `debounceMs` 正交）。重试节奏与防抖节奏是
+   * 两个独立关注点：`debounceMs` 调长（I/O 减压）不应把一次瞬时写失败的重试推到
+   * 一个 debounce 周期之后。
+   *
+   * 缺省（键缺席）= **动态**回退到解析后的 `debounceMs`（保持既有行为；不是固定默认
+   * 值）——缺省时解析结果的键形状不变（既有冻结审计零迁移）。显式 `0` 与
+   * `debounceMs: 0` 同款折叠为 1（防 0ms 热重试）。退避增长 ×2、上限 `maxDirtyMs`
+   * 不变。
+   */
+  readonly retryDelayMs?: number
 }
 
 export const DEFAULT_PERSISTENCE_SCHEDULE: Readonly<PersistenceSchedule> = Object.freeze({
@@ -494,9 +542,13 @@ export interface PersistenceScheduler {
 export function resolvePersistenceSchedule(
   config: Partial<PersistenceSchedule> = {},
 ): PersistenceSchedule {
+  // issue #412（ADR 0006 修订节，DD-2）：`retryDelayMs` 仅在**显式配置**时携带——
+  // 缺省不物化进 resolved schedule（键形状不变 ⟹ 既有 toEqual 冻结审计与 DSH 记录头
+  // 零改动），缺省回退在 lifecycle 内动态取 debounceMs。
   const schedule: PersistenceSchedule = {
     debounceMs: config.debounceMs ?? DEFAULT_PERSISTENCE_SCHEDULE.debounceMs,
     maxDirtyMs: config.maxDirtyMs ?? DEFAULT_PERSISTENCE_SCHEDULE.maxDirtyMs,
+    ...(config.retryDelayMs !== undefined ? { retryDelayMs: config.retryDelayMs } : {}),
   }
 
   for (const [name, value] of Object.entries(schedule)) {
