@@ -1,0 +1,34 @@
+Testing types with tsc and vue-tsc is an experimental feature.
+Breaking changes might not follow SemVer, please pin Vitest's version when using it.
+
+ RUN  v3.2.7 /home/wangjian/nomicore-fix-issue-412
+
+ ✓ packages/persistence/test/doc-delete-sa7-realtime.test.ts (2 tests) 355ms
+ ✓ packages/persistence/test/file-persistence.test.ts (22 tests) 202ms
+ ✓ packages/persistence/test/memory-persistence.test.ts (42 tests) 89ms
+ ✓ packages/persistence/test/persistence-phase5-archive-red.test.ts (23 tests) 127ms
+ ✓ packages/persistence/test/persistence-issue-412-drain-red.test.ts (27 tests) 96ms
+ ✓ packages/persistence/test/persistence-sa7-phase5-bootstrap-dynamic.test.ts (14 tests) 109ms
+ ✓  TS  packages/persistence/test/persistence-issue-412-drain-surface.test-d.ts (5 tests)
+ ✓  TS  packages/persistence/test/persistence-phase5-archive-surface.test-d.ts (5 tests)
+ ✓ packages/persistence/test/file-persistence-sa7-dynamic.test.ts (4 tests) 38ms
+ ✓ packages/persistence/test/persistence-phase5-import-red.test.ts (14 tests) 38ms
+ ✓ packages/persistence/test/issue-79-file-entry-status.test.ts (2 tests) 29ms
+ ✓ packages/persistence/test/persistence-issue-412-drain-semantics.test.ts (9 tests) 33ms
+ ✓ packages/persistence/test/persistence-phase5-bootstrap-reset-r2.test.ts (11 tests) 25ms
+ ✓ packages/persistence/test/doc-delete-storage.test.ts (8 tests) 57ms
+ ✓ packages/persistence/test/issue-79-entry-status.test.ts (6 tests) 26ms
+ ✓ packages/persistence/test/doc-delete-semantics.test.ts (7 tests) 21ms
+ ✓ packages/persistence/test/persistence-encode-fatal.test.ts (1 test) 16ms
+ ✓ packages/persistence/test/sa7-supplementary.test.ts (3 tests) 9ms
+ ✓ packages/persistence/test/core-dsh-boundary.test.ts (6 tests) 8ms
+ ✓ packages/persistence/test/persistence-contract.test.ts (6 tests) 7ms
+ ✓ packages/persistence/test/module-graph-regression.test.ts (4 tests) 6ms
+
+ Test Files  21 passed (21)
+      Tests  221 passed (221)
+Type Errors  no errors
+   Start at  04:09:17
+   Duration  7.32s (transform 566ms, setup 0ms, collect 1.89s, tests 1.29s, environment 4ms, prepare 1.44s, typecheck 4.14s)
+
+EXIT=0

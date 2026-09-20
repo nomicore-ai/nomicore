@@ -1,0 +1,15 @@
+Testing types with tsc and vue-tsc is an experimental feature.
+Breaking changes might not follow SemVer, please pin Vitest's version when using it.
+
+ RUN  v3.2.7 /home/wangjian/nomicore-fix-issue-412
+
+ ✓ apps/yjs-server/test/persistence-drain-shutdown.test.ts (3 tests) 606ms
+   ✓ issue #412 S-5b：degraded store（file）停机链 = 预算内收口 + 诚实降级 + 有损可观察 > 持续写失败 → stop() 预算内返回、persistence-drain-budget-exceeded 先于 dispose、四事件序完整、旧快照可见  549ms
+
+ Test Files  1 passed (1)
+      Tests  3 passed (3)
+Type Errors  no errors
+   Start at  04:09:37
+   Duration  2.26s (transform 1.06s, setup 0ms, collect 1.44s, tests 606ms, environment 0ms, prepare 57ms)
+
+EXIT=0
