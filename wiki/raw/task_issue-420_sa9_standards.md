@@ -1,13 +1,10 @@
-# SA9 Standards Review — issue #420：SessionHost 公共工厂 + 内存管道完整协议回合（**第二段 rebase 后最终交付**轮）
+# SA9 Standards Review — issue #420：SessionHost 公共工厂 + 内存管道完整协议回合（**CI 修复终审**轮）
 
-- Dispatch：`sa-b90a6cb6-bb34-476b-9644-b74a5b13b834`（mabf-sa9 / standards-review / iteration 1）
-- 审查对象：worktree `/home/wangjian/nomicore-fix-issue-420`（分支 `mabf/issue-420`）的 **rebased 最终交付谱系**（父基 = 派工指定权威 Parent PR #416 head `25c51cd45a3e4ec1cf8bcdbdcb33ff1f13d1b0df` = PR #428 merge，issue #423）：
-  - `4e5ff0ab20d610aec14ecef85b6615590a0386e5`（`feat(ws-replication): expose session host factory`，父 = `25c51cd…`）——`9d2500d` 的第二段重放（SA8 iteration 5 授权 `git rebase --onto 25c51cd 1f5809b`，预期零冲突零手工消解）
-  - `eb5ec096742762b9b1b5e6d9c037e163c1b21174`（`chore: archive issue 420 verification evidence`，20 路径证据归档 = `52a9e56` 重放）
-  - `aff4bc0bceb15e6b1cc7638e73a68fd58138606b`（`chore: archive issue 420 rebase verification`，5 路径追加归档 = SA8 iteration 5 报告 + SA9/SA10 第一轮 rebase 复审 + SA3 iteration 3 报告 + rebase-prep 日志）
-- Owner requirements：派工明文 none；REST Issue comments = `[]`（base check 重读）；简报 `## Comments` 空 ⇒ 无 owner 追加要求
-- **Verdict：`approve`**（0 BLOCKER / 0 MAJOR；9 条非阻断 MINOR 见 §8——7 条前轮已登记项原样存续、2 条状态更新；`requiresConflictRecheck: true`，理由见 §9）
-- 审查范围声明：本报告只判断仓库与工程标准（AGENTS/ADR/模块责任/既有架构惯例/单一事实源/生命周期对称性/文件范围/测试质量标准）；Issue 需求是否完整实现属 SA10（其 iteration 1 报告本轮在工作区在册，approve）；rebase 后五门重取的形式闭合属 SA8 RA2'（Controller + SA4/SA7 证据链）——本报告对二者只做状态登记与事实核验，不越权裁决。
+- Dispatch：`sa-a1108e19-53b2-4891-943a-3602b29e3267`（mabf-sa9 / standards-review / iteration 2）
+- 审查对象：worktree `/home/wangjian/nomicore-fix-issue-420` 的**最终已提交 CI 修复** commit `2c87b3b7a69bbc1a727ed6497e7b260181ce6283`（`test(ws-replication): update internal splice imports`，父 = PR #429 前 head `3f470fb`，谱系 = 二段 rebase 交付 `4e5ff0a` + 双归档 `eb5ec09`/`aff4bc0` + 终审归档 `3f470fb`；权威父基 = Parent PR #416 stable head `25c51cd45a3e4ec1cf8bcdbdcb33ff1f13d1b0df`，派工明文逐位一致）
+- Owner requirements：派工明文 none；REST comment snapshot = `[]`（本轮简报 `## Comments` 空存续）⇒ 无 owner 追加要求
+- **Verdict：`approve`**（0 BLOCKER / 0 MAJOR；6 条非阻断 MINOR 见 §8；`requiresConflictRecheck: false`，理由见 §9）
+- 审查范围声明：本报告只判断仓库与工程标准（AGENTS/ADR/模块责任/既有架构惯例/单一事实源/生命周期对称性/文件范围/测试质量标准）；Issue 需求完整实现属 SA10；新 head 上 CI 复跑绿 = Controller 执行形式（SA8 RA1''/RA2''），本报告只做状态登记与事实核验，不越权裁决。本报告原位覆盖前轮（iteration 1，rebase 轮）报告。
 
 ---
 
@@ -15,185 +12,155 @@
 
 | 输入 | 状态 |
 | --- | --- |
-| `wiki/raw/task_issue-420.md`（简报；AC1–AC5） | 读取 |
-| `wiki/raw/task_issue-420_design.md`（SA1 iteration 1：D1–D10、ALLOW/DENY、§12 验收映射） | 全文读取 |
-| `wiki/raw/task_issue-420_implementation_conflict_report.md`（SA8 iteration 5：**clear**；二段 rebase 路线终认；双层 merge-tree RC=0（`7b5c1cbc…`/`2cee6d03…`）；`index.ts` 并集 blob `08fa49a1…` 原样过继；RA1'–RA6'；窄域 `requiresConflictRecheck: true`） | 全文读取 |
-| `wiki/raw/task_issue-420_sa3_impl.md`（iteration 3：脏面裁定 × `25c51cd` 零冲突复认 × 5 条可提交面） | 全文读取 |
-| `wiki/raw/task_issue-420_sa4_review.md`（iteration 1：approve；O8–O13） | 全文读取 |
-| `wiki/raw/task_issue-420_sa7_report.md`（approve；载体提交 A/B 逐字节相等动态证据） | 全文读取 |
-| `wiki/raw/task_issue-420_sa10_spec.md`（工作区版 = iteration 1：二段 rebase 后 spec 复审 **approve**；归档口径 25 路径在册） | 全文读取（工作区活文档，见 §2.7） |
-| 前轮 SA9 报告（`1f5809b` 基 rebase 轮，approve，9 MINOR） | 全文在册（HEAD `aff4bc0` 携带）；本轮逐轴复核其结论在新基树上的存续性 |
-| SA6 契约 / SA2 / SA8 三阶段报告 / relevant_decisions | 前轮已全文审；本轮按需复核引用面 |
-| 规范面 | 根 `AGENTS.md`、`packages/ws-replication/AGENTS.md`（本轮 Host 提示重读）、`docs/AGENTS.md`、ADR 0032（#420 澄清附录 :32–51 × #423 决策 5 注记 :68 并存） |
-| 本轮独立 git/源码核验 | 见 §2/§3/§5 全部命令级事实（父 OID、树 OID、blob hash、逐路径逐字节比对、交付侧/父侧双向 diff、DENY 面、whitespace 门、归档纯度、缝签名交互 grep） |
+| `wiki/raw/task_issue-420.md`（简报；AC1–AC5；Comments 空） | 读取 |
+| `wiki/raw/task_issue-420_design.md`（SA1 iteration 1：D1–D10、§11 ALLOW/DENY、§12 验收映射） | 全文读取 |
+| `wiki/raw/task_issue-420_sa3_impl.md`（iteration 4：定证 §4.1 / 根因 §4.2 / 修复 §4.3 / V29–V35 §4.4 / 冻结态锚 / Deviations #6（范围扩展 + recheck 请求）/#7 / 建议提交信息 / 10 条 staging 清单） | 全文读取 |
+| `wiki/raw/task_issue-420_sa4_review.md`（Part C：CI 修复轮 **approve**，O14–O16） | 全文读取 |
+| `wiki/raw/task_issue-420_implementation_conflict_report.md`（HEAD 版 = SA8 CI 修复轮复查：**clear**，6 no-conflict + 4 implements-existing-decision / 0 hard-conflict / 0 override；§3-1 收编 SA4 Deviation #6 复认请求；`requiresConflictRecheck: false` 窄域闭合；RA1''–RA5''） | 全文读取 |
+| 前轮 SA9 报告（iteration 1，rebase 轮 approve，9 MINOR） | 已被本报告原位覆盖；其结论所依附的交付字节（`4e5ff0a`）在本轮修复 commit 中**零 diff**（§2.2 亲验），实质判定存续 |
+| SA6 契约 §12.6/U1、SA2 评审、SA8 历轮报告、relevant_decisions | 历轮已全文审；本轮按需复核引用面（§12.6 授权编辑边界、D9 重命名冻结、#423 父侧 U4 从属条款） |
+| 规范面 | 根 `AGENTS.md`、`packages/ws-replication/AGENTS.md`（本轮 Host 提示重读并逐条对照 §4）、`docs/AGENTS.md`、ADR 0032（#420 澄清附录 × #423 决策 5 注记并存） |
+| 本轮独立 git/源码核验 | 见 §2/§3/§5 全部命令级事实（commit 文件集、逐行 diff census、blob/sha256 锚、stale 消费方 grep、冻结锚、whitespace 门、证据日志内容抽查） |
 
 SA9 未修改任何生产代码、设计或测试；未运行测试/服务；唯一产物为本文件（原位覆盖前轮报告）。
 
-## 2. Rebase 保真性核验（本轮核心新增面，全部独立重取，不采信自述）
+## 2. CI 修复 commit（`2c87b3b`）独立核验（全部亲取，不采信自述）
 
-### 2.1 谱系与零冲突落地的逐位核验
+### 2.1 文件集与改动 census
 
-| 判据 | 期望（SA8 iteration 5 RA1'） | 本轮实测 | 结论 |
-| --- | --- | --- | --- |
-| 重放交付父基 | `25c51cd45a3e4ec1cf8bcdbdcb33ff1f13d1b0df`（全 OID） | `git log`：`4e5ff0a` 父 = `25c51cd45a3e4ec1cf8bcdbdcb33ff1f13d1b0df` 逐位相同 | ✅ |
-| 零冲突零手工消解 | 双层 merge-tree RC=0 预演（交付级树 `7b5c1cbc…`、全 tip 树 `2cee6d03…`） | `git rev-parse 4e5ff0a^{tree}` = **`7b5c1cbc3bb77ea98e7b8669f09896624fde76c4`**；`eb5ec09^{tree}` = **`2cee6d03f05fb61f12a37c2a9a41170e60fbef86`**——与预演树**逐位相同** ⇒ 落地树 = 纯机械 auto-merge 结果，**零手工内容的铁证**（树同一性排除一切手工编辑/顺手改动空间） | ✅ |
-| `index.ts` 并集原样过继 | blob = `08fa49a1fb84321b92a4cae2da7ee401afdc7ce1`（旧「手工写并集」配方作废，零重算零手工） | `git rev-parse 4e5ff0a:…/index.ts` = `08fa49a1fb84321b92a4cae2da7ee401afdc7ce1` 逐位相同 | ✅ |
-| 重放集 | 恰 `9d2500d`+`52a9e56` 两 commit | 谱系 = `4e5ff0a`（52 路径，与 `9d2500d` 路径集 `diff` 逐名相同）+ `eb5ec09`（20 路径，与 `52a9e56` 逐名相同）+ `aff4bc0`（5 路径追加归档，与 SA3 iteration 3 staging 清单逐名相同） | ✅ |
-| 反方位交错/改名/重排/顺手改动 | 禁止 | 树 OID 逐位 = 预演 ⇒ 无任何偏离空间 | ✅ |
-| 父 head 前移即停 | 前移须先复认 | 父 = 授权 OID 未前移（`25c51cd` 与派工明文逐位相同） | ✅ |
+`git show --name-only` 全集 = **恰 12 路径**：
 
-### 2.2 交付路径逐字节矩阵（第一段 rebase 后 `9d2500d` vs 第二段 rebase 后 `4e5ff0a`）
-
-| 类别 | 路径 | 结论 |
+| 类别 | 路径 | 授权/惯例核对 |
 | --- | --- | --- |
-| 逐字节同一（10） | `hub-session-host.ts`（公共工厂 263 行）、`index.ts`（并集 blob）、`hub-connection.ts`、`issue420-shim-hub.ts`（夹具）、#420 test-d / round / shim-matrix 三测试、#418 两冻结锚测试、`CONTEXT.md` | 前轮 approve 的实质分析面**逐字节存续**，无需重审即成立 |
-| auto-merge（3，hunk 不交叠） | ADR 0032、`hub-session.ts`、`hub-split.ts` | 本轮双向 diff 核验两侧内容俱在、零丢失（§2.3） |
+| 测试修复（2） | `packages/ws-replication/test/ws-replication-issue423-{sa7-dynamic,observer-emission-split}.test.ts` | SA3 Deviation #6 显式登记的范围扩展；SA8 §3-1 裁 **implements-existing-decision**（D9/U1 重命名义务在新基树浮现的 stale 消费方上的兑现；父侧 #423 U4 明文从属 T3）——许可性已由冲突门禁终认，非静默越界 |
+| 证据日志（7） | `artifacts/sa3-issue420-{ci-fail-evidence,ci-typecheck-fail,local-typecheck-pre-fix,local-prefix-wsrep-excerpt,ci-fix-typecheck,ci-fix-tests,ci-fix-contract-anchors}.log` | SA8 RA1'' 逐名枚举同一集合；SA3 证据归档惯例（iteration 1–3 同款） |
+| 评审报告（3） | `wiki/raw/task_issue-420_{sa3_impl,sa4_review,implementation_conflict_report}.md` | SA3 报告 = SA8 RA1'' 明文项；SA8 报告 = RA1'' 明文项（原位更新职责）；SA4 报告 = SA4-O13 归档先例（#418/#419/#421 同款「评审产物随交付归档」） |
 
-### 2.3 三个 auto-merge 路径的双向内容核验（本轮亲验）
+与 SA3 staging 清单（10 条）的关系：实际 commit = 清单 10 条 + SA8/SA4 两报告——后者均为各自 SA 明示的归档义务，**零越界路径**。`git diff --stat 3f470fb 2c87b3b -- packages/ws-replication/src docs CONTEXT.md .github scripts package.json vitest.config.ts` **空**（生产/docs/CONTEXT/CI 配置零字节）。`git diff --check 3f470fb 2c87b3b` RC=0。
 
-交付侧增量（`git diff 25c51cd 4e5ff0a`）= **恰为授权的 #420 改动**：
+### 2.2 逐行 diff census（两测试文件，`git show` 亲验）
 
-- **ADR 0032**：+23 行澄清附录（A1 信号词汇公共面映射 / A2 决策 3 三载体调和 α/β/γ / A3 决策 5 dormant 降级 + U8 登记），决策 1–5 与否决备选原文零改动——append-only 修订形态正确。
-- **`hub-session.ts`**：纯机械重命名（`createHubSessionHost`→`createHubSessionSink`、`HubSessionHostConfig`→`HubSessionSinkConfig`、删 `HubSessionHost = HubSessionSink` 别名、`HubSessionSinkImpl`、头注补公共工厂指引）——零行为。
-- **`hub-split.ts`**：仅头注（三工厂现状陈述；成员/类型零变化）。
+每文件改动 = **+5 行头注 + 2 行导入 + 1 行类型标注 + 1 行工厂调用**（合计 +18/−8）：
 
-父侧增量（`git diff 9d2500d 4e5ff0a`，应恰为 #423 内容）= **逐行确认**：
+- 头注：登记「#420 D9 机械跟随（父基前移后的符号名跟随）…用例体、断言与选择器逐字不变」——与 diff 事实一致。
+- 导入：`import { createHubSessionHost, type HubSessionHost } from '../src/hub-session.js'` → `import { createHubSessionSink } from '../src/hub-session.js'`；`HubSessionEdgePort` 行并入 `import type { HubSessionEdgePort, HubSessionSink } from '../src/hub-split.js'`。
+- 类型标注 `readonly host: HubSessionHost` → `HubSessionSink`；工厂调用 `createHubSessionHost({` → `createHubSessionSink({`。
+- **断言/`it`/`describe` 名/选择器/阈值/EM 金标零字节变化**：对 commit 测试 diff 以 `expect|assert|it(|describe(|toBe|toEqual|threshold` 过滤 changed lines = **0 命中**（rc=1）。
+- 第三份 #423 文件 `…issue423-update-offset-guard.test.ts` 对 `hub-session` **0 命中**（亲验）⇒ 未被触碰，与「根因唯一 = 两文件 stale 深路径导入」自洽。
 
-- **`hub-session.ts`**：#423 记账透传（:61–63 三参箭头 `sendData(namespaceId, bytes, accounting)`；:207–222 `sendData` 可选参与 `port.sendDataFrame(frame, accounting)` 传递）俱在。
-- **`hub-split.ts`**：#423 `HubSendAccounting`（纯 JSON `{sendQueueMs?}`，:53–70 文档块）与 `sendDataFrame(frame, accounting?)` append-only 可选参（:91–95）俱在；「不进 `src/index.ts`/`src/testing.ts`」声明与公共面一致（§2.4 导出 13 名无该型）。
-- **ADR 0032**：#423 决策 5 观测面落地注记（:68，明文「决策 1–5 与否决备选原文零改动」）追加于 #420 附录之后——双注册并存、无互斥文本。
+### 2.3 符号映射正确性（本轮亲验）
 
-### 2.4 rebased 树上的 DENY 面 / 卫生门（本轮独立执行）
+- 父基 `25c51cd` 的 `hub-session.ts` 导出面 = `HubSessionHostConfig`(:30) + `export type HubSessionHost = HubSessionSink`(:42) + `createHubSessionHost`(:300)（`git show` 亲取）⇒ 两文件旧导入在父树合法、在 D9 后树必破——根因归因成立。
+- 当前树 `hub-session.ts` 运行时导出 = 恰 `createHubSessionSink`（:299；`HubSessionSinkConfig` 接口 :32）；`HubSessionSink` 接口在 `hub-split.ts:126`——与修复后导入切分逐形一致。
+- 导入形态与仓内权威消费方同源：`src/hub-connection.ts:18`（值自 `hub-session.js`）、`test/…issue418-…-structure.test.ts`（类型 `HubSessionSink` 自 `hub-split.js`）、`test/issue420-shim-hub.ts:66/:69` 同款。
+- fixture 传参形态不变（`port: stub.port` 等七字段，:195/:466 亲验）⇒ **仍直驱内部 splice**，未被改道公共工厂（其 config 不同形）——被测面与测试意图存续。
+- 残留 stale 消费方 grep（`createHubSessionHost|HubSessionHostConfig` 于 src/test/apps/tests，排除 `hub-session-host` 与 test-d）：命中项全部合法——`src/index.ts:92`（公共面类型自 `./hub-session-host.js` 导出，正确）、`issue420-shim-hub.ts`/round 测试（公共工厂正确用法）、#418 契约测试 :153（`FROZEN_PRODUCTION_EXPORTS` 冻结条目）、两文件头注散文。**编译/运行 include 面零 stale 深路径引用**。
 
-- `git diff --stat 25c51cd 4e5ff0a --` 对以下全部为空：`hub-namespace.ts`、`hub-edge.ts`、`hub-edge-host.ts`（#421 模块本体）、`hub-upgrade-admission.ts`、`src/testing.ts`、`frame-io/backpressure/round-engine/update-channel/update-transfer/bulk-transfer/liveness/observer/validate/defaults/types/plugin/error-mapping/fence-watchdog/lifecycle-queue/peer-connection/peer-namespace.ts`、`docs/protocols/**`、`packages/replication-protocol/**`、`packages/namespace-registry/**`、`apps/**`、`domains/**`、`packages/ws-replication/package.json`、7 个 listen 矩阵文件 + `ws-replication-periodic-reconcile.test.ts`、全部 `test/*issue421*`/`test/*issue423*` 文件。
-- 交付 commit 路径集 = `9d2500d` 逐名同一（§2.1）；归档 commit `eb5ec09` 20 路径 = RA6 口径；`aff4bc0` 5 路径 = SA3 iteration 3 清单——**零越界**。
-- `git diff --check 25c51cd 4e5ff0a`、`4e5ff0a eb5ec09`、`eb5ec09 aff4bc0` 三串 RC=0。
-- 归档 commit 业务面纯度：`eb5ec09` 与 `aff4bc0` 仅触 `wiki/raw/` + `artifacts/`（stat 亲验）⇒ 纯证据归档。
+### 2.4 冻结面与卫生门（本轮亲验）
 
-### 2.5 冻结面与公共导出（本轮亲验）
+- `HEAD:packages/ws-replication/src/index.ts` blob = `08fa49a1fb84321b92a4cae2da7ee401afdc7ce1` = SA8 iteration 5 钉死的并集 blob——公共面（13 值导出、双工厂同列）逐位过继，本修复零触碰。
+- #418 结构锚 `…structure.test.ts:618` `toEqual(['createHubSessionSink'])` 在场；`FROZEN_PRODUCTION_EXPORTS` 13 名（含公共 `'createHubSessionHost'`）字母序零删除零重排。两锚文件均不在 diff。
+- 生产侧替代（恢复别名/再导出）被该 exact-equality 锚决定性封死——消费方跟随是唯一自洽最小修复（SA3 §4.3 / SA4 §C-4 / SA8 §3-3 三方同结论，本轮独立复核成立）。
+- sha256 冻结锚逐位相符（本轮亲算）：`…sa7-dynamic.test.ts` = `778d2461f0421027c25c17bd817327dcccf14b3a53b4f92efa2e728852e0183c`；`…observer-emission-split.test.ts` = `160565873bf980c0ee1042d699fc9da890ee74743222139097e095a60395681e`；7 条证据日志 sha256 与 SA3 §4.4 登记值**逐一相同** ⇒ 提交字节 = V29–V35 验证所跑字节（树绑定闭合）。
+- 两修复文件 `it/describe/test.(skip|only|todo)|xit|xdescribe` = **0 命中**。
 
-- `FROZEN_PRODUCTION_EXPORTS` = 13 项（:144–158），`createHubReplicationEdge` 与 `createHubSessionHost` 同列且字母序位正确，既有 11 名零删除零重排。
-- 并集 `index.ts`（95 行亲读）：值导出 13 = 基线 11 + `createHubSessionHost` + `createHubReplicationEdge`；类型面 = types.js 31 + plugin 15 + edge 8 + session 7；零逻辑、零改名零删除；`HubSendAccounting` 等内部缝类型**不在**公共面（#423 守约）。
-- `hub-split.ts` 头注「三工厂现状」陈述与 rebased 树现实一致（edge 模块级 / sink 模块级 / 公共工厂经 `src/index.ts`）。
+### 2.5 红→绿证据链（日志内容抽查）
 
-### 2.6 测试质量与缝纯度结构门（本轮 grep 重取）
+- 红（定证）：`sa3-issue420-ci-fail-evidence.log` §A = CI run `35663498235` 失败作业 5（typecheck + test (20|24, 1|6)）与其余 11 作业全绿对照，job URL 齐全；§B = 4 条 TS2724/TS2305 逐字指向两文件旧导入；§C = 3+5 用例同 `TypeError: (0 , createHubSessionHost) is not a function`。本地独立复现日志（pre-fix typecheck EXIT=2 + 8 红）在册。
+- 绿（V29–V35）：`ci-fix-typecheck.log`（`PACKAGE_TSC_EXIT=0` / `ROOT_TYPECHECK_EXIT=0`）；`ci-fix-tests.log`（两文件 2/2・26/26；包全量 90 文件/785 用例；`--typecheck.only` 49/270；CI 分片 1/6 = 63 文件/820、6/6 = 67 文件/831，全部 EXIT=0）；`ci-fix-contract-anchors.log`（契约锚 5 文件/89 用例 + contract-gates 四步 EXIT=0）。
+- 内部一致性：26 = 修复前 8 红 + 18 绿（用例数守恒）；分片文件数 63/67 与 CI 失败态逐位吻合；包文件数 90 = SA8 RA2' 预期 87 + #423 三文件。SA4 已亲验 V30/V33/V34 与 `.github/workflows/ci.yml` 命令逐字相同，本轮抽查日志形态一致。
 
-- 三新测试文件 + 夹具：`it/describe/test.(skip|only|todo)` = **0**。
-- `hub-session-host.ts`：`expectedSequence` = **0**（C5c 结构门存续）。
-- `src/**` + `package.json`：`worker_threads|MessageChannel|MessagePort` = **0**（AC4/C4a 存续）。
-- #420 测试与夹具：`sendQueueMs` = **0**、`update-sent` 断言 = **0** ⇒ #423 发射点迁移与记账投影对 #420 断言面零结构性冲突（行为面归 RA2' 重跑，见 §8-M9）。
-- test-d 负控 `@ts-expect-error` ×6（denied 投影 / authorize / transport / port / `namespaceFrame` / `onFrame` 无 number）字节存续。
-- 夹具仅深路径 import（`../src/{hub-edge,hub-namespace,hub-session-host,hub-session,hub-split,defaults,validate,types}.js` + 外部包），**零包入口引用**——D8 mock 安全纪律存续。
-
-### 2.7 工作区现状（本轮亲验）
-
-- HEAD = `aff4bc0`；工作区唯 1 条 tracked-modified = `wiki/raw/task_issue-420_sa10_spec.md`（SA10 iteration 1 报告：二段 rebase 后 spec 复审 approve——归档 commit 之后的活性编辑，与前轮 SA9/SA10 同款「活报告待 Controller 追加归档」形态，RA6' 账目延续，非缺陷）；零未跟踪、零暂存、业务面零 diff。
-- 本报告写盘后将与该 SA10 活报告一并成为下轮归档对象（同 #418/#419/#421 先例）。
-
-## 3. 标准符合性总账（rebased 树）
+## 3. 标准符合性总账（`2c87b3b`）
 
 | 标准轴 | 结论 | 依据 |
 | --- | --- | --- |
 | 根 AGENTS + `packages/ws-replication/AGENTS.md` | ✅ 符合 | §4 |
-| `docs/AGENTS.md`（显式修订/CONTEXT 同步/不复制规则/diff-check） | ✅ 符合 | §4.3 |
-| ADR 0032 决策 1–5 + #420 澄清附录 × #423 决策 5 注记 + 关联 ADR/协议冻结面 | ✅ 符合 | §5 |
-| 模块责任 | ✅ 符合 | §6.1 |
-| 既有架构惯例 | ✅ 符合 | §6.2 |
-| 单一事实源 | ✅ 符合 | §6.3 |
-| 生命周期对称性 | ✅ 符合 | §6.4 |
-| 文件范围（ALLOW/DENY/授权编辑/零冲突过继纪律） | ✅ 符合（本轮逐字节核验） | §2/§7 |
-| 测试质量标准 | ✅ 符合 | §2.6/§7.3 |
+| `docs/AGENTS.md`（显式修订/diff-check） | ✅ 符合（本轮 docs 零触碰；`git diff --check` RC=0） | §2.1 |
+| ADR 0032（决策 1–5 + 双注册附录）与关联协议冻结面 | ✅ 符合（零决策文本/协议字节；公共面 blob 逐位过继） | §2.4/§5 |
+| 模块责任 | ✅ 符合（测试-only 修复；无生产面改动） | §6.1 |
+| 既有架构惯例（导入形态/头注登记/commit 风格/归档先例） | ✅ 符合 | §6.2 |
+| 单一事实源 | ✅ 符合（未恢复别名 ⇒ 包内无双名同物；内部/公共双轨边界保持） | §6.3 |
+| 生命周期对称性 | ✅ 不适用面零触碰（零生产/零资源生命周期字节） | §6.4 |
+| 文件范围（ALLOW/DENY/授权编辑/范围扩展纪律） | ✅ 符合（扩展经 Deviation #6 登记 + SA8 §3-1 终认收编） | §2.1/§7.1 |
+| 测试质量标准 | ✅ 符合（零断言变化/零 skip/用例数守恒/红绿链 sha256 绑定） | §2.2/§2.5/§7.2 |
 
-说明：10/13 交付路径与前轮 approve 面**逐字节同一**（§2.2），前轮 SA9 §3–§9 的实质判定在 rebased 树上不因其承载字节而变化；本轮对全部「与父增量相交」的面（ADR 0032、`hub-session.ts`、`hub-split.ts`）、全部流程面（二段 rebase 零冲突落地、双归档、卫生门）与全部 **#420×#423 交互面**（§5）做了独立重取。
-
-## 4. AGENTS 规约核验（rebased 树）
+## 4. AGENTS 规约核验（本轮修复面）
 
 ### 4.1 根 AGENTS.md
 
 | 条款 | 核验 | 结论 |
 | --- | --- | --- |
-| Domain docs（root CONTEXT + docs/adr） | SessionHost 词条（公共工厂轨形态 + `_Avoid_`）字节存续；ADR 0032 附录字节存续 × #423 注记并存 | ✅ |
-| Module guidance（改 `packages/` 前读嵌套 AGENTS） | 全流水线援引 `packages/ws-replication/AGENTS.md`；本轮 Host 提示重读并逐条对照 §4.2 | ✅ |
-| Instance replication（ADR 0010 + 协议 v1 为规范） | 本交付零 wire/错误码/事件变化（协议文本对父零 diff）；#423 的协议 §17/§23.1 注册为父侧 append-only 演进（字段集零变化），本路线只承接不修订 | ✅ |
-| Git worktrees（`.worktrees/`） | SA3 干跑 scratch worktree 先例合规（用后移除）；本轮零新 worktree | ✅ |
+| Module guidance（改 `packages/` 前读嵌套 AGENTS） | 修复面在 `packages/ws-replication/test/`；全流水线（SA3/SA4/SA8）均援引包级 AGENTS；本轮 Host 提示重读并逐条对照 §4.2 | ✅ |
+| Instance replication（ADR 0010 + 协议 v1 为规范） | 本轮零 wire/认证/生命周期/背压/对账字节；协议文本零 diff | ✅ |
+| Git worktrees（`.worktrees/`） | 本轮零新 worktree；工作树 clean（`git status --porcelain -uall` 空） | ✅ |
 
-### 4.2 `packages/ws-replication/AGENTS.md`（本轮 Host 提示重读）
+### 4.2 `packages/ws-replication/AGENTS.md`
 
-| 条款 | rebased 树核验 | 结论 |
+| 条款 | 核验 | 结论 |
 | --- | --- | --- |
-| 「Export production APIs through `src/index.ts`…」 | 并集 `index.ts` 13 值导出、零逻辑；内部缝类型（含 #423 `HubSendAccounting`）不进公共面；夹具仍只落 `test/` | ✅ |
-| 「Keep admission bounded…」 | 夹具 pending 界 ≤16 + `CONNECTION_POLICY_VIOLATION`(1008) 字节存续（:93–94/:503）；先例符号本体在 `hub-upgrade-admission.ts:26`（值 16 不变——#421 守约面，父侧零 diff） | ✅（头注指针滞后 → §8-M8） |
-| 「Preserve protocol ordering and FSM invariants」 | `hub-namespace.ts` 对父零 diff（§2.4）；session 侧 `expectedSequence` grep = 0；出站占位 0 + edge mux 盖章单点不动 | ✅ |
-| 「Route namespace ownership…through public Registry leases」 | 公共工厂只组装既有 splice，不接 Runtime/Persistence/Y.Doc（字节存续） | ✅ |
-| 「Preserve shutdown safety…§21」 | `close()` 幂等单 promise 等对称面字节存续（前轮 §8 逐项） | ✅ |
-| 「Bind Hub connections to the trusted identity…」 | `remoteInstanceId` = edge 认证后身份（夹具 `verifyToken` 结算面字节存续） | ✅ |
-| 「Verification」：聚焦 + 包 typecheck + 根 typecheck/test | 已归档门证据绑定 `1f5809b` 基树（包 87 files/749 tests 等），对 `25c51cd` 基树不构成形式闭合——RA2' 重取门挂 Controller + SA4/SA7（§8-M9）；本票各轮全量/聚焦证据链完整在册 | ✅（形式闭环见 M9） |
+| 「Export production APIs through `src/index.ts`…」 | 零新增导出；`index.ts` blob 逐位 = 登记并集；两文件维持**内部深路径消费内部缝**的既有测试实践（#418 结构测试同款），未改道公共面 | ✅ |
+| 「Preserve protocol ordering and FSM invariants」 | 零状态机路径改动；`hub-namespace.ts`/`hub-edge.ts` 对父零 diff 存续 | ✅ |
+| 「Keep admission bounded…」 | 无并发/簿记面改动 | ✅（不适用面零触碰） |
+| 「Verification」：聚焦 + 包 typecheck + 根 typecheck/test | 修复虽为测试-only（非 wire/lifecycle 变化），实际执行**超出**条款要求：包 tsc + 根 typecheck（15 tsconfig）+ 聚焦两文件 + 包全量 90/785 + `--typecheck.only` + 两失败分片逐字 + contract-gates 四步（V29–V35 全绿） | ✅（根 `pnpm test` 全仓与线上 CI 复跑 = Controller 执行面，见 §8-N3） |
 
-### 4.3 `docs/AGENTS.md`
+## 5. ADR / 协议符合性（本轮修复面）
 
-显式修订（#420 附录 + #423 注记均 append-only 追加，非静默改文）、CONTEXT 同步（词条字节存续）、不复制规则（援引 ADR/源码锚）、`git diff --check`（三 commit 串均 RC=0）——全部符合。
-
-## 5. ADR / 协议符合性（rebased 树，含 #420×#423 交互专项）
-
-- **决策 1（FSM 单份/沿内缝拆分）**：`hub-namespace.ts`/`hub-edge.ts` 对父零 diff；公共工厂复用 `createHubSessionSink` 单份组装——字节存续。✅
-- **决策 2（缝只过 Uint8Array/纯 JSON、零 worker）**：worker 面 grep = 0（§2.6）；#423 记账投影为纯 JSON `{sendQueueMs?}`（缝纯度不变）；test-d/夹具字节存续。✅
-- **决策 3（authorize 在 edge、投影传递）**：描述子/闭包回放面字节存续；test-d 负控字节存续。✅
-- **决策 4（路由键契约）**：#419 守卫零触碰（DENY 空）。✅
-- **决策 5（dormant 降级/事件 append-only/发射点 = 事实所有者）**：adapterPort 面字节存续；**#420×#423 发射归属一致性本轮亲验**——`hub-namespace.ts` 通道经注入 host 的 `emitObserver` 发 namespace 域事件（公共缝拓扑下 = adapterPort → `dispatchReplicationObserver` 单点，session 侧）；`hub-edge.ts:262–269` `update-sent` 唯一发射点 = 连接级 data 帧出面（edge 侧），与 #423 归属表「连接域在 edge、namespace 域在 session」在两种拓扑下均一致。✅
-- **#420×#423 缝签名交互**：`HubSessionEdgePort.sendDataFrame(frame, accounting?)`（父侧 append-only 可选参）× #420 单参实现（`hub-session-host.ts:184`、夹具 `:440`）——少参实现恒可赋值，结构化合法；accounting 在公共 byte 缝整键缺席 ⇒ `update-sent` 不带 `sendQueueMs` = **#423 ADR 注记明文注册的合法 dormant 形态**（「工厂/宿主直驱 data 帧无 session 记账 ⇒ 该键整键缺席」），且 #420 断言面零 `sendQueueMs`/`update-sent` 依赖（§2.6）。✅
-- **后果节（公开面 append-only 冻结）**：并集 = 两侧 append-only 追加的字面机械应用；冻结表 13 项与导出 13 名逐名一致；二段 rebase 零手工（树 OID 逐位 = 预演）。✅
-- **附录/注记文本**：#420 附录 A1/A2/A3 字节存续 × #423 决策 5 注记并存；实现面字节存续 ⇒ 一致性存续。✅
-- **关联面（ADR 0010/0012、协议 §4/§7.1/§13/§14/§17/§19/§23.1）**：本路线零触碰；#423 的 §17/§23.1 append-only 注册为父侧自有权威链（经其 SA8 闭合），按 `25c51cd` 形态原样承接。✅
+- **ADR 0032 决策 1（FSM 单份）**：零生产 diff ⇒ 通道/edge 字节不动。✅
+- **决策 2/3（缝形态/授权传递）**：修复不触缝面；#423 测试被测对象仍为内部 splice session（符号改名后同一工厂），未迁移至公共 byte-seam 工厂——**内部缝 × 公共缝双轨边界保持**（SA8 §3-8 同结论）。✅
+- **后果节（公开面 append-only）**：`index.ts` 不在 diff；blob 逐位过继。✅
+- **#423 父侧演进（ADR 0032 :68 注记 / 协议 §17/§23.1–23.4）**：零触碰；父侧冻结面（§23.1 36 型字段表、EM-C7 金标）字节不变。✅
+- **SA6 §12.6 授权编辑边界**：被编文件属父增量（契约基线树 `7039f6d` 快照时不存在），非「既有测试文件」枚举对象；编辑类 = §12.6 编辑 2 授权的同一类（机械符号名跟随、断言逐字不变）——SA8 §3-1 裁 implements-existing-decision 并收编 SA4 的复认请求，许可性终认。✅
 
 ## 6. 模块责任 / 架构惯例 / 单一事实源 / 生命周期
 
 ### 6.1 模块责任
-生产侧新增面仍只有 `hub-session-host.ts`；一切协议判定仍由零 diff 通道产出；桥只落 `test/` 且字节存续；#421/#423 模块（`hub-edge-host.ts`/`hub-upgrade-admission.ts`/`update-channel.ts` 等）属父增量、非本交付触碰面（§2.4）。✅
+本轮新增改动面 = 两测试文件 + 证据/报告；协议判定、wire 行为、状态机全部零触碰；测试继续以 stub port 直驱内部 splice（缝另一侧打桩的既有测试责任划分不变）。✅
 
 ### 6.2 既有架构惯例
-工厂命名/配置注入惯例、内部重命名让出公共名、测试族命名布局、有界窗口先例（值 16 不动）、commit 信息风格（feat/chore 双轨与 #418/#419/#421 同口径）、wiki/artifacts 入档先例（两归档 commit 合计 25 路径 = RA6/RA6' 口径）——全部符合。✅
+- 导入切分形态与 `hub-connection.ts:18`、#418 structure 测试、shim-hub 逐形一致——未引入第二种写法。✅
+- 头注登记惯例（改动理由 + 授权出处 + 「断言逐字不变」声明）与 #418 §12.6 编辑 2 同款。✅（括注精确度见 §8-N1）
+- commit 信息 `test(ws-replication): update internal splice imports`：type/scope 形态与仓内先例（`test(replication-protocol): …`、`chore: archive …`、`feat(ws-replication): …`）同轨；Controller 对建议文案的压缩定稿属其职责面。✅
+- 归档口径：7 证据日志 + 三报告随修复同 commit 入档，与 RA1'' 枚举及 #418/#419/#421 先例一致；commit 后工作树 clean。✅
 
 ### 6.3 单一事实源
-协议 FSM 单份、wire 序单点（edge mux）、codec 单份、observer 分发/时钟折叠单点（`dispatchReplicationObserver`/`safeNow`，#423 的 `cidField` 亦单点在 `observer.ts:113`）、admission 台账单点、错误码映射单点、`MAX_EARLY_FRAMES` 常量单点（`hub-upgrade-admission.ts:26`）——权威源全部零 diff 或字节存续；并集未复制任何规则成第二份文本。✅
+未恢复别名/再导出 ⇒ 内部 splice 单名 `createHubSessionSink` 单点；公共 `createHubSessionHost` 只在 `hub-session-host.ts`/`index.ts`；类型 `HubSessionSink` 单点在 `hub-split.ts`。无第二事实源引入。✅
 
 ### 6.4 生命周期对称性
-open/close/terminate/onFrame/onSignal/pending/terminateWaiters/桥 close 的对称释放与响亮失败路径全部字节存续（前轮 §8 逐行判定）；二段 rebase 未触碰任何生命周期代码（零手工落地）。✅
+零生产/零资源生命周期字节；fixture 构造点替换不改变 acquire/release 配对（stub port/节点 fixture 面不变）。✅
 
 ## 7. 文件范围与测试质量
 
-### 7.1 ALLOW
-rebased 交付的 13 个业务路径 = 设计 §11 ALLOW 清单逐名同一（§2.1/§2.2 核验）；授权编辑两处（contract 测试冻结表插入 + structure 测试机械跟随）在 rebased 树上形态正确（§2.5）。
+### 7.1 文件范围
+- ALLOW/DENY 基树口径：13 条 ALLOW 路径在本 commit **零触碰**（交付字节 `4e5ff0a` 原样存续）；DENY 面（`hub-namespace.ts`/`hub-edge.ts`/`testing.ts`/协议文本/7 listen 矩阵/上游包/`package.json`/其余测试）全空。
+- 范围扩展（两 #423 文件）：基树前移引入的 stale 消费方；SA3 Deviation #6 显式登记 + `requiresConflictRecheck: true` 提请复认；SA8 §3-1 终认许可并收编（无需扩枚举、无需 override）；SA8 RA4''② 设「实际 diff 超出 26 行机械集即回 SA8」守卫——本轮 census 确认实际 diff = 恰该 26 行机械集（每文件 +9/−4）。**记录义务闭合**：SA9 前轮 §2.4 的「`test/*issue423*` 零 diff」卫生记录按新树口径更新为——交付 commit `4e5ff0a` 对其零 diff；CI 修复 commit `2c87b3b` 仅含该两文件的 D9 符号名跟随（本行即更新落账，SA3/SA8 建议的精确口径逐字兑现）。
 
-### 7.2 DENY
-§2.4 全空；协议文本零 diff；7 listen 矩阵、7 个 #421 测试、3 个 #423 测试全部零 diff。
-
-### 7.3 测试质量标准
-零 skip/only/todo、session 侧零 `expectedSequence`、零 worker 依赖/类型（§2.6）；test-d 双面发现与 6 负控字节存续；红/绿证据链与变异敏感性证据随 RA6 全量入档（前轮 M3 闭合态存续）；夹具 mock 安全（仅深路径 import）与反空跑锚字节存续。✅
+### 7.2 测试质量标准
+- 零 skip/only/todo/xit；零断言/用例体/选择器/阈值/金标字节变化（changed-lines 过滤 0 命中）；用例数守恒（26 = 8 红 + 18 绿）；fixture 未改指向公共工厂（测试意图存续）。
+- 红→绿链：CI 定证（run `35663498235`）+ 本地独立复现（红）→ V29–V35（绿），全部绑定 sha256 冻结字节（§2.4）；CI 失败命令逐字重跑（分片脚本 `scripts/ci-test-shard.mjs` 同源枚举）。
+- 失败响亮（编译错 + ESM 链接期 `TypeError`），无吞错/降级/try-catch 包裹/env override/fallback 引入。
+- 反软化旁证：修复使既有 #423 断言**恢复执行**（8 红转绿），非删除/弱化断言。
 
 ## 8. 非阻断 MINOR 观察（不阻断 approve）
 
 | # | 观察 | 现状/处置 | 来源 |
 | --- | --- | --- | --- |
-| M1 | 设计 wiki §7 D7 `namespaceFrame` 行字面滞后于载体提交机制 | SA8 RA1'' 登记 wiki 内务（三重登记在场）；沿用前轮 | 前轮 M1 |
-| M2 | ADR 0032 附录 A2 β「按准入结局」措辞未覆盖「按帧到达形态」第三判据 | SA8 已裁非冲突；措辞对齐随 RA1'' 落 | 前轮 M2 |
-| M4 | SA6 三个诊断探针 `.mts` import 旧名 `createHubSessionHost`（重跑前需改 `createHubSessionSink`） | 转交 SA6/Controller；探针不在任何 gate include 面 | 前轮 M4 |
-| M5 | 夹具探针 `handles` 以 namespaceId 为键（多连接同 ns 覆盖） | SA4 O3 登记：多连接断言使用前改复合键 | 前轮 M5 |
-| M6 | 公共 host `sessions` Map 无删除路径 | 冻结语义字面兑现；后续宿主接线票定生命周期约定 | 前轮 M6 |
-| M7 | M1-a12 变异日志缺命令行回显 | SA4 O7 登记证据卫生 | 前轮 M7 |
-| M8 | RA3 卫生项在二段 rebased 交付中仍未落：夹具头注 :93「镜像 `hub-connection.ts` 的 `MAX_EARLY_FRAMES` 先例」指向未随 #421 拆分改指 `hub-upgrade-admission.ts`（符号本体 :26，值 16 未动——守约面完好；夹具字节 = 前轮授权字节，两段 rebase 均零手工、未也不得顺手改） | SA8 RA3 明文**非门禁**；登记留待后续卫生票 | 前轮 M8 存续（本轮复核） |
-| M9 | **RA2' 形式闭环未落树（状态更新）**：`25c51cd` 基树上的五门重取（#418 契约 13/13 + #420 三契约、双 test-d、包全量预期 90 files、根 typecheck 覆盖 #423 缝签名 × `hub-session-host.ts`/夹具编译面、AC3 矩阵于 #423 拆分后 src 上逐字重跑）之 SA4/SA7 证据日志尚未入档（本轮 grep `4e5ff0a`/`eb5ec09`/`aff4bc0` 于 artifacts+wiki 零命中；已归档全部门证据绑定 `1f5809b` 基树）。#420×#423 交互的结构面本轮已静态核验合法（§5），行为决定性证据属该重跑 | 属 SA8 RA2'/Controller + SA4/SA7 流程门（阻断交付合并，非本交付标准违例）；本报告 `requiresConflictRecheck: true` 与此联动（§9） | 本轮核验 |
-| M10（新，流程登记） | SA10 iteration 1 报告为归档 commit `aff4bc0` 之后的活性编辑（工作区 1 条 tracked-modified），与本报告同为下轮归档对象 | RA6' 账目延续（同前轮 SA9/SA10 活报告形态）；非缺陷 | 本轮核验 |
+| N1 | 两文件头注把重命名授权出处括注为「SA6 §12.6 授权编辑 2」——严格说 §12.6 编辑 2 授权的是对 **#418 structure 测试**的跟随；重命名本身授权 = 设计 §7 D9 / SA6 U1，括注易被误读 | 散文级精度问题，非规范违例；SA8 §3-1 已以正确口径终认 | SA4-O14（本轮复核存续） |
+| N2 | `src/hub-session.ts:49` 构造函数花括号与首语句同行（合法 TS，非仓内格式惯例）——已提交交付的既有态，非本修复面（本轮生产零 diff） | 后续触该文件的票顺手归一 | SA4-O15（既有态登记） |
+| N3 | **新 head CI 复跑未落（流程登记）**：SA8 RA1''/RA2'' 的形式闭合凭证 = `2c87b3b` push 后 CI 5 作业转绿 + 根 `pnpm test` 全仓重跑；属 Controller 执行形式（SA3/SA4 禁 commit/push），**阻断交付合并而非本交付标准违例**。本地等价门已全绿且字节绑定（§2.4/§2.5） | Controller 待办；RA4''① 触发条件（新根因）在册 | 本轮核验 |
+| N4 | 首次类型导入尝试（`HubSessionSink` 自 `hub-session.js`，被 tsc TS2459 拒绝）的中间态未归档为证据——SA3 已如实披露 | 终态正确性已由 tsc 绿 + 权威形态比对闭合，无需补证 | SA4-O16 |
+| N5 | `artifacts/sa6-issue420-*-probe.mts` 三探针仍 import 重命名前旧名 | 不在任何编译/运行 include 面（本轮 grep 0 复证）；SA8 RA3 维持非门禁登记；SA6/Controller 重跑探针时改名 | 前轮 M4 存续 |
+| N6 | 夹具头注 `MAX_EARLY_FRAMES` 先例指针仍指 `hub-connection.ts`（符号本体在 `hub-upgrade-admission.ts:26`，值 16 未动） | SA8 RA3 明文非门禁；夹具字节 = 授权交付字节，修复轮正确地未顺手改 | 前轮 M8 存续 |
 
-（前轮 M3「证据集未完整入档」已于 `52a9e56`/`eb5ec09` + `aff4bc0` 双归档闭合，不再列示。）
+（前轮 M1/M2/M5/M6/M7 与 M9/M10 的对象均为 `4e5ff0a` 交付字节或历轮证据形态，本修复 commit 对其零 diff，原登记状态存续，不再重复列示；前轮 M3 归档闭合态存续——本轮修复证据已随 `2c87b3b` 全量入档。）
 
 ## 9. 结论
 
-**`approve`**。第二段 rebased 最终交付在全部标准轴上符合仓库与工程标准：
+**`approve`**。最终已提交 CI 修复（`2c87b3b`）在全部标准轴上符合仓库与工程标准：
 
-1. **Rebase 保真性（RA1' 全要素成立）**：父基逐位 = 授权 OID `25c51cd…`；交付树 `7b5c1cbc…` 与全 tip 树 `2cee6d03…` 同 SA8 iteration 5 / SA3 iteration 3 双方独立零冲突预演树**逐位相同** ⇒ 纯机械重放、零手工消解、零顺手改动的铁证；`index.ts` 并集 blob `08fa49a1…` 零重算原样过继（旧手工配方按 SA8 裁决作废且确未使用）。
-2. **实质面存续与并集正确**：10/13 交付路径与前轮 approve 面逐字节同一；3 个 auto-merge 路径双向核验——交付侧增量恰为授权 #420 改动（ADR 附录 / 机械重命名 / 头注），父侧 #423 内容（`HubSendAccounting`、记账透传、决策 5 注记）俱在，零丢失零互斥。
-3. **#420×#423 交互面**：缝签名 append-only 可选参 × 单参实现结构化合法；`sendQueueMs` 整键缺席 = #423 注册的合法 dormant；observer 发射归属（namespace 域在 session 经 `dispatchReplicationObserver` 单点、`update-sent` 唯一漏斗在 edge）两拓扑一致；#420 断言面对两字段零依赖。
-4. **冻结面与范围**：DENY 面（含 #421/#423 模块本体、7 listen 矩阵、7+3 个邻票测试、协议文本、上游包）对父零 diff；交付 commit 零越界；双归档纯证据；三 commit 串 `git diff --check` 均净；公开面 append-only（13 值导出与冻结表逐名一致）。
-5. **流程面**：前轮 M3 闭合态存续（25 路径双归档在册）；RA3 卫生项（M8）与 RA2' 五门形式闭环（M9）登记——均非门禁、均非本交付代码正确性或标准符合性问题；SA10 iteration 1 活报告（M10）与本报告并待 Controller 追加归档。
+1. **正确性（亲证）**：根因归因唯一（两 #423 文件 stale 深路径导入）；符号映射与仓内权威形态逐形一致；类型映射 = 旧别名到底层接口（同一类型，非语义改写）；生产侧替代被 #418 exact-equality 冻结锚决定性封死，消费方跟随是唯一自洽最小路线。
+2. **冻结面全部保持（亲证）**：公共导出 blob `08fa49a1…` 逐位过继；`hub-session.ts` 运行时面 exact-equality 锚、SA6 §12.1 签名、#418 双锚、协议/ADR/CONTEXT 文本、DENY 面——全部零 diff；内部缝 × 公共缝双轨边界保持（未改道公共工厂）。
+3. **测试质量标准（亲证）**：断言/用例体/选择器/金标零字节变化；零 skip/only/todo；用例数守恒；fixture 测试意图存续；红（CI 定证 + 本地复现）→ 绿（V29–V35 含 CI 逐字命令）链完整且 sha256 绑定到提交字节。
+4. **文件范围纪律（亲证）**：commit 文件集 = SA3 清单 10 条 + SA8/SA4 两报告（各自明示归档义务）；范围扩展经 Deviation #6 显式登记并由 SA8 §3-1 终认收编——无静默越界；`git diff --check` RC=0；commit 后工作树 clean。
+5. **流程面**：SA9 前轮 §2.4 卫生记录已按 SA8/SA3 建议口径在本报告 §7.1 落账更新；残余项（新 head CI 复跑 = RA2'' 形式闭合、根全仓重跑）为 Controller 执行门，登记为 §8-N3。
 
-**requiresConflictRecheck: true**——依据：SA8 iteration 5 武装的窄域 recheck 触发条件（「五门（含 `index.ts` 并集公共面、#420×#423 缝交互的行为证据）在 `25c51cd` 基树的重放谱系上落地并核对」= RA1'+RA2'）中，RA1'（零冲突落地 + blob 机核）已由本轮核验**事实成立**，RA2'（五门真实树重取的 SA4/SA7 证据落档 + SA8 形式核对）尚未落盘（§8-M9）。本标志驱动该形式闭环的调度，不表示本轮发现新的决策冲突面（本轮裁决面：0 hard-conflict、0 evolution-required）。
+**requiresConflictRecheck: false**——依据：本轮被审 diff 的全部决策面（公共 API、wire、schema、持久化、状态机、生命周期、失败语义、override）已经 SA8 CI 修复轮复查逐项裁决闭合（6 no-conflict + 4 implements-existing-decision / 0 hard-conflict / 0 evolution-required），本轮标准复核未发现任何新决策面；前轮 SA9 的 recheck 触发条件（RA2' 五门在 `25c51cd` 基树重取）已实质兑现（V29–V35 在 sha256 绑定字节上全绿，SA8 §3-9 裁 implements-existing-decision），其残余（新 head CI 绿）经 SA8 §10 定性为**执行形式**而非决策重查。若 SA8 RA4'' 任一条件触发（新根因 / diff 超集 / 父 head 再前移未复认 / 决策面提案），按该触发条件进入新一轮 SA8，不由本报告预裁。
