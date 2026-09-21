@@ -1,0 +1,33 @@
+# SA3 targeted guard run ×2 (discovery + determinism) — issue #419
+# 2026-09-21T14:55:44Z
+## run 1
+$ NODE_OPTIONS=--conditions=nomicore-source pnpm exec vitest run packages/replication-protocol/test/codec-route-key-guard.test.ts
+ ✓ packages/replication-protocol/test/codec-route-key-guard.test.ts (19 tests) 20ms
+
+ Test Files  1 passed (1)
+      Tests  19 passed (19)
+Type Errors  no errors
+   Start at  22:55:44
+   Duration  290ms (transform 103ms, setup 0ms, collect 121ms, tests 20ms, environment 0ms, prepare 48ms)
+
+EXIT=0
+## run 2
+$ NODE_OPTIONS=--conditions=nomicore-source pnpm exec vitest run packages/replication-protocol/test/codec-route-key-guard.test.ts
+ ✓ packages/replication-protocol/test/codec-route-key-guard.test.ts (19 tests) 19ms
+
+ Test Files  1 passed (1)
+      Tests  19 passed (19)
+Type Errors  no errors
+   Start at  22:55:45
+   Duration  291ms (transform 103ms, setup 0ms, collect 123ms, tests 19ms, environment 0ms, prepare 47ms)
+
+EXIT=0
+
+# SA6 read-only asset integrity check (sha256 prefix vs SA6 §17)
+b340dcd37681d9a5499d82647e9536de637addb1994baca0a874165d843e1407  wiki/raw/task_issue-419_sa6_route_key_probe.mts
+3631b43f29f3471bac6a8ea34cd74cfecd70af14e2a54b535b160132f4da0e19  wiki/raw/task_issue-419_sa6_route_key_mutation_driver.mts
+b054b3c022cd7c5383c59980ab1a0fa93262e863459ed71c9b3b96edab63a175  artifacts/sa6-issue419-capability-gap.log
+c8f67f9bdf7d59211be5264950452713ca4844a111a7f9d0a6952089678accc8  artifacts/sa6-issue419-mutation-sensitivity.log
+1f23a7a0ed185aeb2df7f0ac660dcc430854e38ceaa9d9d68eecba038a5b24a4  artifacts/sa6-issue419-package-tsc-baseline.log
+1960c24a7011331f24f5c9ebb5f6951b17d2787b9dd3bddcb1edd5ffb5a1560a  artifacts/sa6-issue419-probe-green.log
+96abbb72ecefdc3ad2b37bc8cfcdbb011e7c43b409c0b5f130c7a3e7a1b2e06c  artifacts/sa6-issue419-runner-trigger.log
