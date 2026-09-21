@@ -32,6 +32,11 @@
  * 另一侧）；**唯一真实时间使用** = D-SEAM1/D-BURST1 的真实时钟注入（SA4 §11 点名的观测
  * 面）与 D-SEAM1 的 120ms 有界驻留（观测仪器，非时序依赖——断言用宽界防 flake）；
  * 零源码 grep 断言；无 skip/only/todo/env override；生产代码零改动。
+ *
+ * #420 D9 机械跟随（父基前移后的符号名跟随）：内部 splice 由 `HubSessionHost` /
+ * `createHubSessionHost` 重命名为 `HubSessionSink` / `createHubSessionSink`
+ * （`src/hub-session.ts`，SA6 §12.6 授权编辑 2；零行为）。本文件仅有符号名跟随，
+ * 用例体、断言与选择器逐字不变。
  */
 import { describe, expect, it } from 'vitest';
 import { decodeMessage, encodeMessage } from '@nomicore/replication-protocol';
@@ -49,8 +54,8 @@ import type {
   ReplicationTimer,
 } from '@nomicore/ws-replication';
 import { createMemoryDuplexTransport } from '@nomicore/ws-replication/testing';
-import { createHubSessionHost, type HubSessionHost } from '../src/hub-session.js';
-import type { HubSessionEdgePort } from '../src/hub-split.js';
+import { createHubSessionSink } from '../src/hub-session.js';
+import type { HubSessionEdgePort, HubSessionSink } from '../src/hub-split.js';
 import { resolveLimits, resolveTimeouts } from '../src/defaults.js';
 import { boot } from './driver.js';
 import { HUB_INSTANCE, PEER_INSTANCE, makeHubNamespace, makeNode, settle, settleUntil } from './harness.js';
@@ -168,7 +173,7 @@ function makeRecordingStub(
 }
 
 interface SeamFixture {
-  readonly host: HubSessionHost;
+  readonly host: HubSessionSink;
   readonly stub: RecordingStub;
   readonly namespaceId: string;
   /** 业务写（入队；不驱动出站——驻留窗口由调用方控制）。 */
@@ -186,7 +191,7 @@ async function makeSeamFixture(
   const node = makeNode('hub');
   const fixture = await makeHubNamespace(node);
   const stub = makeRecordingStub(facets, gate);
-  const host = createHubSessionHost({
+  const host = createHubSessionSink({
     port: stub.port,
     registry: node.registry,
     instanceId: HUB_INSTANCE,

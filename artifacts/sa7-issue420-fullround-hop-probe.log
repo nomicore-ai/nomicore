@@ -1,0 +1,32 @@
+PASS R3.descriptor.observed {"connectionKey":"hub-omega-conn-0","remoteInstanceId":"peer-alpha","namespaceId":"ns-00000000000000000000000000000001","authorization":{"ok":true,"localOwner":{"userId":"hub-owner-9f38"},"permissions":{"read":true,"submit":true}},"selectedCapabilities":0,"connectionId":"hub-omega-conn-0"}
+PASS R3.authorize.exactlyOnce [{"instanceIdentity":"peer-alpha","namespaceId":"ns-00000000000000000000000000000001"}]
+PASS R3.openOk.exactlyOne 1
+PASS R3.publicSession.exactlyOne 1
+PASS R1.inbound.seamMirrorsWire {"seamInKinds":["OPEN_NAMESPACE#0","BOOTSTRAP_ACK#3","SYNC_STEP1#4","SYNC_STEP2#5","SYNC_APPLIED#6"],"wireP2HKinds":["HELLO#1","OPEN_NAMESPACE#2","BOOTSTRAP_ACK#3","SYNC_STEP1#4","SYNC_STEP2#5","SYNC_APPLIED#6"]}
+PASS R1.inbound.openRelaySyntheticZero [0]
+PASS R2.outbound.placeholderZero {"frames":5,"lanes":["control","control","control","control","control"]}
+PASS R2.returnPath.sinkReturnsMatchWireSequences {"sinkReturns":[2,3,4,5,6],"sessionOriginatedWireSeqs":[2,3,4,5,6]}
+PASS R2.returnPath.allPositive [2,3,4,5,6]
+PASS FSM.edges.liveReached ["opening→bootstrapping","bootstrapping→reconciling","reconciling→live"]
+PASS FSM.noResyncNoFatal 0
+PASS live.peerToHub.ackedWireSequence {"peerUpdateSeq":7,"hubAckAcked":[7,9]}
+PASS live.hubToPeer.ackedWireSequence {"hubUpdateSeq":8,"peerAckAcked":[8]}
+PASS live.updateAckedEvent.present 1
+PASS R4.closeOk.acksInboundWireSequence {"closeReqSeq":10,"closeOkAcked":10}
+PASS R4.settled.exactlyOnce [{"type":"settled","namespaceId":"ns-00000000000000000000000000000001"}]
+PASS R4.terminalEdge.observed ["opening→bootstrapping","bootstrapping→reconciling","reconciling→live","live→closing","closing→closed"]
+PASS R5.close.idempotentSamePromise true
+PASS R5.close.resolves undefined
+PASS R5.wire.closed1001 {"code":1001,"reason":"hub-shutdown"}
+PASS R5.scheduler.noTimerGrowth {"before":1,"after":0}
+PASS R5.noResidualTimerFrames {"before":10,"after":10}
+PASS R5.unhandled.empty []
+── hop dump ──
+seamFramesIn  = ["OPEN_NAMESPACE#0","BOOTSTRAP_ACK#3","SYNC_STEP1#4","SYNC_STEP2#5","SYNC_APPLIED#6"]
+seamFramesOut = 9 帧（lane: control,control,control,control,control,control,data,control,control)
+sinkReturns   = [2,3,4,5,6,7,8,9,10]
+sessionWireSeq= [2,3,4,5,6]
+hubWireSeqs   = ["HELLO_ACK#1","OPEN_OK#2","BOOTSTRAP_SNAPSHOT#3","SYNC_STEP1#4","SYNC_STEP2#5","SYNC_APPLIED#6","UPDATE_ACK#7","UPDATE#8","UPDATE_ACK#9","CLOSE_OK#10"]
+channelEdges  = ["opening→bootstrapping","bootstrapping→reconciling","reconciling→live","live→closing","closing→closed"]
+signals       = [{"type":"settled","namespaceId":"ns-00000000000000000000000000000001"}]
+PROBE_RESULT 23/23 passed; full-round hops ALL OBSERVED AS DESIGNED

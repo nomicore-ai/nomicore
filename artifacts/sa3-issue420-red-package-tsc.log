@@ -1,0 +1,34 @@
+packages/ws-replication/test/issue420-shim-hub.ts(54,8): error TS2307: Cannot find module '../src/hub-session-host.js' or its corresponding type declarations.
+packages/ws-replication/test/issue420-shim-hub.ts(55,10): error TS2724: '"../src/hub-session.js"' has no exported member named 'createHubSessionSink'. Did you mean 'createHubSessionHost'?
+packages/ws-replication/test/issue420-shim-hub.ts(55,37): error TS2459: Module '"../src/hub-session.js"' declares 'HubSessionSink' locally, but it is not exported.
+packages/ws-replication/test/issue420-shim-hub.ts(337,25): error TS7006: Parameter 'frame' implicitly has an 'any' type.
+packages/ws-replication/test/issue420-shim-hub.ts(337,32): error TS7006: Parameter 'lane' implicitly has an 'any' type.
+packages/ws-replication/test/issue420-shim-hub.ts(338,26): error TS7006: Parameter 'signal' implicitly has an 'any' type.
+packages/ws-replication/test/ws-replication-issue420-session-host-api.test-d.ts(17,3): error TS2305: Module '"@nomicore/ws-replication"' has no exported member 'createHubSessionHost'.
+packages/ws-replication/test/ws-replication-issue420-session-host-api.test-d.ts(18,8): error TS2305: Module '"@nomicore/ws-replication"' has no exported member 'HubSessionFrameLane'.
+packages/ws-replication/test/ws-replication-issue420-session-host-api.test-d.ts(19,8): error TS2305: Module '"@nomicore/ws-replication"' has no exported member 'HubSessionFrameListener'.
+packages/ws-replication/test/ws-replication-issue420-session-host-api.test-d.ts(20,8): error TS2305: Module '"@nomicore/ws-replication"' has no exported member 'HubSessionHandle'.
+packages/ws-replication/test/ws-replication-issue420-session-host-api.test-d.ts(21,8): error TS2305: Module '"@nomicore/ws-replication"' has no exported member 'HubSessionHost'.
+packages/ws-replication/test/ws-replication-issue420-session-host-api.test-d.ts(22,8): error TS2305: Module '"@nomicore/ws-replication"' has no exported member 'HubSessionHostConfig'.
+packages/ws-replication/test/ws-replication-issue420-session-host-api.test-d.ts(23,8): error TS2305: Module '"@nomicore/ws-replication"' has no exported member 'HubSessionOpenInput'.
+packages/ws-replication/test/ws-replication-issue420-session-host-api.test-d.ts(24,8): error TS2305: Module '"@nomicore/ws-replication"' has no exported member 'HubSessionSignal'.
+packages/ws-replication/test/ws-replication-issue420-session-host-api.test-d.ts(35,76): error TS2344: Type 'Uint8Array<ArrayBufferLike>' does not satisfy the constraint '"Expected: ..., Actual: unknown"'.
+packages/ws-replication/test/ws-replication-issue420-session-host-api.test-d.ts(36,71): error TS2344: Type 'void' does not satisfy the constraint '"Expected: ..., Actual: unknown"'.
+packages/ws-replication/test/ws-replication-issue420-session-host-api.test-d.ts(38,67): error TS2344: Type '() => void' does not satisfy the constraint '"Expected: function, Actual: unknown"'.
+packages/ws-replication/test/ws-replication-issue420-session-host-api.test-d.ts(41,18): error TS2344: Type '(signal: HubSessionSignal) => void' does not satisfy the constraint '"Expected: function, Actual: unknown"'.
+packages/ws-replication/test/ws-replication-issue420-session-host-api.test-d.ts(42,68): error TS2344: Type '() => void' does not satisfy the constraint '"Expected: function, Actual: unknown"'.
+packages/ws-replication/test/ws-replication-issue420-session-host-api.test-d.ts(43,65): error TS2344: Type 'Promise<void>' does not satisfy the constraint '"Expected: ..., Actual: unknown"'.
+packages/ws-replication/test/ws-replication-issue420-session-host-api.test-d.ts(44,81): error TS2344: Type 'Promise<void>' does not satisfy the constraint '"Expected: ..., Actual: unknown"'.
+packages/ws-replication/test/ws-replication-issue420-session-host-api.test-d.ts(46,68): error TS2344: Type 'Uint8Array<ArrayBufferLike>' does not satisfy the constraint '"Expected: ..., Actual: unknown"'.
+packages/ws-replication/test/ws-replication-issue420-session-host-api.test-d.ts(48,63): error TS2344: Type 'number' does not satisfy the constraint '"Expected: number, Actual: unknown"'.
+packages/ws-replication/test/ws-replication-issue420-session-host-api.test-d.ts(81,3): error TS2578: Unused '@ts-expect-error' directive.
+packages/ws-replication/test/ws-replication-issue420-session-host-api.test-d.ts(94,3): error TS2578: Unused '@ts-expect-error' directive.
+packages/ws-replication/test/ws-replication-issue420-session-host-api.test-d.ts(106,3): error TS2578: Unused '@ts-expect-error' directive.
+packages/ws-replication/test/ws-replication-issue420-session-host-api.test-d.ts(118,3): error TS2578: Unused '@ts-expect-error' directive.
+packages/ws-replication/test/ws-replication-issue420-session-host-api.test-d.ts(124,1): error TS2578: Unused '@ts-expect-error' directive.
+packages/ws-replication/test/ws-replication-issue420-session-host-api.test-d.ts(128,1): error TS2578: Unused '@ts-expect-error' directive.
+packages/ws-replication/test/ws-replication-issue420-session-host-round.test.ts(21,3): error TS2305: Module '"@nomicore/ws-replication"' has no exported member 'createHubSessionHost'.
+packages/ws-replication/test/ws-replication-issue420-session-host-round.test.ts(393,7): error TS2345: Argument of type '{ kind: "CLOSE_NAMESPACE"; namespaceId: string; }' is not assignable to parameter of type 'ReplicationMessage'.
+  Property 'reasonCode' is missing in type '{ kind: "CLOSE_NAMESPACE"; namespaceId: string; }' but required in type 'CloseNamespaceMsg'.
+packages/ws-replication/test/ws-replication-issue420-session-host-round.test.ts(420,21): error TS2345: Argument of type '{ kind: "CLOSE_NAMESPACE"; namespaceId: string; }' is not assignable to parameter of type 'ReplicationMessage'.
+  Property 'reasonCode' is missing in type '{ kind: "CLOSE_NAMESPACE"; namespaceId: string; }' but required in type 'CloseNamespaceMsg'.

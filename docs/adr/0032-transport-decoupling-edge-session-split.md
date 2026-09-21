@@ -29,6 +29,29 @@ namespaceId 文法固定 35 字节 ASCII（`ns-`+32 hex）⟹ varString 长度�
 
 worker 侧 transport shim 无 `bufferedAmount`/ping/onPong → 按既有「缺面 = dormant」纪律降级（水位闸门、liveness 休眠，真实活性与连接级总量保护收敛 edge）；`maxConcurrentAssembliesPerConnection` 在分片形态降级为 per-session 计数（聚合上界 = limits 值 × worker 数，listen 模式不变）。observer 发射点 = 拥有事实的一侧（连接域与出站 sequence 事件在 edge，namespace 域事件在 session），事件字段集 append-only 不变。免 listen 表达为显式 `listen: false`；SessionHost 服务（`nomicoreHubSessionHost`）仅免 listen 模式提供。
 
+## 澄清附录（#420 公共 byte-seam 工厂轨；决策文本不变，登记公共面与三载体）
+
+本条不修改决策 1~5 的机制要求，只把**公共面**（issue #420 交付的 `createHubSessionHost` 工厂轨）的载体形态、信号词汇与降级面显式登记，消除决策 2/3 措辞与「进程内内部缝 + 公共字节缝」两种并存形态之间的表述差（#418 SA8 R7''/R8'' 义务）。
+
+### A1 缝词汇：决策 2 四信号的公共面载体映射（信号枚举的公共化登记）
+
+- edge→session：`close` = 句柄 `close(): Promise<void>`（同步前缀 quiesce + 异步尾 cleanup，幂等）；`terminateUnauthorized` = 句柄 `terminateUnauthorized(): Promise<void>`（revoke 链，幂等，无通道 resolve）。
+- session→edge：`settled` = `onSignal` 事件 `{ type: 'settled', namespaceId }`（通道终态恰一次，edge 的 drain 提前完成判据）；`closed` = `close()` 的 promise resolve。
+- **新增公共化信号（append-only 登记）**：`connection-fatal` = `onSignal` 事件 `{ type: 'connection-fatal', code }`。该收口路径自本 ADR 实现起即为通道→连接的既有内部信号（`hub-namespace.ts` 的 `ACK_STATE_VIOLATION` 收口），公共化只把 `code` 过缝，**code→WS close code 映射仍单点留在 edge**（`wsCloseCodeFor`）；不新增 wire 面、不新增错误码、不新增事件型。
+- 同步宿主 pipe 边界（#420 冻结、真 worker 形态另票另裁）：`onFrame(listener: (frame: Uint8Array, lane: 'control' | 'data') => number)` 同步返回**被分配的 wire 序**（0 = 未发送/被拒）——该回执是 session 侧发送记账的承重输入（bootstrap/live ACK 结算；0 值即既有 `resync-required{cause: 'send-failed', reason: 'send-frame-rejected'}` 判据），非被否决的「缝携带接纳信号」；异步 pipe 形态的回传机制留后续票并重新过 SA8。
+
+### A2 决策 3 机制句的三载体调和（R7''/R8'' 本体）
+
+「未授权 OPEN 不过缝，edge 复现 `NAMESPACE_UNAUTHORIZED` wire 行为」按载体分述：
+
+- **α 进程内内部缝（#418 听形态现状）**：OPEN 到达点先建准入台账、再无条件投递；session 以 `openAdmission` **拉取**已发起/已结算的结局（`denied`/`throw` 以值过内部缝），通道在 `registry.open` 之前短路。
+- **β 公共字节缝（#420，`createHubSessionHost`）**：**未授权 OPEN 不过公共字节缝**——`HubSessionOpenInput.authorization` 只接受 edge 已结算的 ok-投影；denied/throw 的 wire 行为由 **edge 侧处置**（宿主桥按准入结局把该 ns 交给生产 sink 承载，拒绝帧/终态/事件/settled 全部由零 diff 生产代码产出）。`open()` 描述子为纯 JSON（`connectionKey`/`remoteInstanceId`/`namespaceId`/投影/`selectedCapabilities`/可选 `connectionId`），authorize 不在 session 侧调用（`openAdmission` 端口以闭包回放投影）。同一 (连接, namespace) 至多一个承载机械、路由相位单调；**重 OPEN**（含准入在途到达的 OPEN）经既有生产机械转发/入队冲刷 ⇒ 每请求收答、authorize 恒恰一次（决策 3 自文「重 OPEN 经 openWaiters 合流不重复 authorize」的公共面保持）。
+- **γ 真 worker 形态**：后续票（入站缝已是字节面；异步序回传与跨线程 pending 仍需按 R4''/R5'' 重新过 SA8）。
+
+### A3 决策 5 降级面的公共登记（U8）
+
+公共 byte-seam 工厂形态下，宿主传输缺面按决策 5 降级并成为**对外可观察契约**：`dataGateOpen` 恒 true（水位闸门休眠；连接级总量保护收敛 edge + 1011 终局）、`bufferedAmount` 恒缺席（`undefined`）、入站 assembly 槽降级为 per-session 计数、namespace 域 observer 事件由工厂配置注入（发射点 = 拥有事实的一侧，隔离单点 `dispatchReplicationObserver` 不分叉）。shim 形态无 listen 的「暂停」可观察面——该语义差已在此登记，不再作为行为差异主张。
+
 ## 否决的备选
 
 - **宿主自实现 edge**（nomicore 只出 SessionHost）：要求宿主重写 HELLO_ACK/capability 交集/sequence/GOAWAY 纪律——fork 协议连接级实现，违反 #414 自身约束。

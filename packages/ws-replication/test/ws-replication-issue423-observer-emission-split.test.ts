@@ -31,6 +31,11 @@
  * 零源码 grep / 字符串断言；零 skip/only/todo/env override；零 mock 被测对象（桩只落在
  * **缝的另一侧**：宿主 sink / seam port）。灯具：真实 Registry/Runtime（session 侧）、
  * 内存管道（工厂/edge 侧）、fake timer（零 real sleep）。
+ *
+ * #420 D9 机械跟随（父基前移后的符号名跟随）：内部 splice 由 `HubSessionHost` /
+ * `createHubSessionHost` 重命名为 `HubSessionSink` / `createHubSessionSink`
+ * （`src/hub-session.ts`，SA6 §12.6 授权编辑 2；零行为）。本文件仅有符号名跟随，
+ * 用例体、断言与选择器逐字不变。
  */
 import { describe, expect, it } from 'vitest';
 import { decodeMessage, encodeMessage } from '@nomicore/replication-protocol';
@@ -51,8 +56,8 @@ import type {
 } from '@nomicore/ws-replication';
 import { createMemoryDuplexTransport } from '@nomicore/ws-replication/testing';
 import { createHubReplicationEdge as createInternalEdge } from '../src/hub-edge.js';
-import { createHubSessionHost, type HubSessionHost } from '../src/hub-session.js';
-import type { HubSessionEdgePort } from '../src/hub-split.js';
+import { createHubSessionSink } from '../src/hub-session.js';
+import type { HubSessionEdgePort, HubSessionSink } from '../src/hub-split.js';
 import { resolveLimits, resolveTimeouts } from '../src/defaults.js';
 import { boot, collectUnhandledRejections } from './driver.js';
 import { HUB_INSTANCE, PEER_INSTANCE, makeHubNamespace, makeNode, settle, settleUntil } from './harness.js';
@@ -439,7 +444,7 @@ function makeStubPort(facets: StubFacets = {}): StubPort {
 }
 
 interface SessionFixture {
-  readonly host: HubSessionHost;
+  readonly host: HubSessionSink;
   readonly stub: StubPort;
   readonly namespaceId: string;
   readonly write: (value: number) => Promise<void>;
@@ -457,7 +462,7 @@ async function makeSessionHostFixture(
     maxUpdateBytes: limitsOverrides.maxUpdateBytes ?? 16,
     maxQueuedUpdateBytes: limitsOverrides.maxQueuedUpdateBytes ?? 64,
   });
-  const host = createHubSessionHost({
+  const host = createHubSessionSink({
     port: stub.port,
     registry: node.registry,
     instanceId: HUB_INSTANCE,

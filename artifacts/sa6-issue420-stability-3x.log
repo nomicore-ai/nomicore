@@ -1,0 +1,15 @@
+run=1 probe=capability-gap-probe rc=0 PROBE_RESULT 10/10 passed; capability gap CONFIRMED (public SessionHost factory absent)
+run=1 probe=causality-probe rc=0 PROBE_RESULT 7/7 passed; seq-return LOAD-BEARING (0-return breaks round loudly; return propagates round)
+run=1 probe=sequence-discipline-probe rc=0 PROBE_RESULT 2/2 passed; sequence discipline = edge single point, session zero re-check CONFIRMED
+run=1 probe=seam-purity-gate-probe rc=0 PROBE_RESULT 4/4 passed; seam purity gate BASELINE GREEN (must remain after #420)
+run=1 probe=bridge-relay-fidelity-probe rc=0 PROBE_RESULT 2/2 passed; decoded→bytes relay BYTE-FAITHFUL for namespace-domain frames (bridge relay premise holds)
+run=2 probe=capability-gap-probe rc=0 PROBE_RESULT 10/10 passed; capability gap CONFIRMED (public SessionHost factory absent)
+run=2 probe=causality-probe rc=0 PROBE_RESULT 7/7 passed; seq-return LOAD-BEARING (0-return breaks round loudly; return propagates round)
+run=2 probe=sequence-discipline-probe rc=0 PROBE_RESULT 2/2 passed; sequence discipline = edge single point, session zero re-check CONFIRMED
+run=2 probe=seam-purity-gate-probe rc=0 PROBE_RESULT 4/4 passed; seam purity gate BASELINE GREEN (must remain after #420)
+run=2 probe=bridge-relay-fidelity-probe rc=0 PROBE_RESULT 2/2 passed; decoded→bytes relay BYTE-FAITHFUL for namespace-domain frames (bridge relay premise holds)
+run=3 probe=capability-gap-probe rc=0 PROBE_RESULT 10/10 passed; capability gap CONFIRMED (public SessionHost factory absent)
+run=3 probe=causality-probe rc=0 PROBE_RESULT 7/7 passed; seq-return LOAD-BEARING (0-return breaks round loudly; return propagates round)
+run=3 probe=sequence-discipline-probe rc=0 PROBE_RESULT 2/2 passed; sequence discipline = edge single point, session zero re-check CONFIRMED
+run=3 probe=seam-purity-gate-probe rc=0 PROBE_RESULT 4/4 passed; seam purity gate BASELINE GREEN (must remain after #420)
+run=3 probe=bridge-relay-fidelity-probe rc=0 PROBE_RESULT 2/2 passed; decoded→bytes relay BYTE-FAITHFUL for namespace-domain frames (bridge relay premise holds)

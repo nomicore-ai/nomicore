@@ -3,6 +3,7 @@
  * protocol §17/§18 + ADR-0010 #161/#172 修订节）。
  */
 export { createHubReplication } from './hub-connection.js';
+export { createHubSessionHost } from './hub-session-host.js';
 export { createPeerReplication } from './peer-connection.js';
 // issue #421（spec #415 T4；ADR 0032:41 后果节）：连接级半边的宿主公共工厂——普通工厂、
 // 非 Cordis 插件、无 Registry 依赖（append-only 新增；既有 11 个运行时导出零改名零删除）。
@@ -83,3 +84,12 @@ export type {
   HubSessionSinkResolver,
   NamespaceAuthorizationGrant,
 } from './hub-edge-host.js';
+export type {
+  HubSessionFrameLane,
+  HubSessionFrameListener,
+  HubSessionHandle,
+  HubSessionHost,
+  HubSessionHostConfig,
+  HubSessionOpenInput,
+  HubSessionSignal,
+} from './hub-session-host.js';

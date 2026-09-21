@@ -1,0 +1,8 @@
+PASS A.placeholderHeaderIsZero {"raw":0}
+PASS A.noStamp.connectionFatalACKStateViolation {"fatal":[{"code":"ACK_STATE_VIOLATION","wsCloseCode":1002}],"reachedReconciling":false}
+PASS B.placeholderHeaderIsZero {"raw":0}
+PASS B.stamp.reconcileReached {"fatal":[],"reachedReconciling":true}
+PASS C.noDataStamp.sendFrameRejectedResync {"updateFrames":1,"resyncFrames":1,"resyncEvents":[{"cause":"send-failed","reason":"send-frame-rejected"}]}
+PASS D.dataStamp.updateSentAndAcked {"updateFrames":1,"placeholderZero":true,"resyncFrames":0}
+PASS D.updateAckMatchesLedger {"assignedSeq":6,"acked":[{"type":"update-acked","side":"hub","connectionId":"stub-conn-0","namespaceId":"ns-00000000000000000000000000000001","bytes":27,"sequence":6,"ackLatencyMs":0}]}
+PROBE_RESULT 7/7 passed; seq-return LOAD-BEARING (0-return breaks round loudly; return propagates round)

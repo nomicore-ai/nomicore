@@ -1,0 +1,3 @@
+PASS relayFidelity.peerToHub {"namespaceDomainFrames":7,"mismatches":0,"kinds":["BOOTSTRAP_ACK","OPEN_NAMESPACE","SYNC_APPLIED","SYNC_STEP1","SYNC_STEP2","UPDATE","UPDATE_ACK"]}
+PASS relayFidelity.hubToPeer {"namespaceDomainFrames":7,"mismatches":0,"kinds":["BOOTSTRAP_SNAPSHOT","OPEN_OK","SYNC_APPLIED","SYNC_STEP1","SYNC_STEP2","UPDATE","UPDATE_ACK"]}
+PROBE_RESULT 2/2 passed; decoded→bytes relay BYTE-FAITHFUL for namespace-domain frames (bridge relay premise holds)

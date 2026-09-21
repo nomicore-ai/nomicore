@@ -1,0 +1,20 @@
+PASS S1.E2a.codecCodePropagates [{"code":"BAD_MAGIC"}]
+PASS S1.E2a.wireLoudClose {"code":1002,"reason":"protocol-error"}
+PASS S1.unhandled.empty.armA []
+PASS S1.E2b.malformedFrameCode [{"code":"MALFORMED_FRAME"}]
+PASS S1.E2b.wireLoudClose {"code":1002,"reason":"protocol-error"}
+PASS S1.unhandled.empty.armB []
+PASS S2.pendingBeforeRelease.noOpenOkYet 0
+PASS S2.routingToAuthorized.flushMergesOpenWaiters {"openOk":2,"pendingFlushed":1,"reopenForwarded":0,"sessionsOpened":1,"authorize":1}
+PASS S2.noInternalErrorSignature []
+PASS S2.unhandled.empty []
+PASS S3.E4.overflowLoudClosure {"pendingOverflow":1,"errors":["CONNECTION_POLICY_VIOLATION"],"closeInfo":{"code":1008,"reason":"protocol-error"}}
+PASS S3.closedGuard.abandonsInFlightRouting {"sessionsOpened":0,"signals":[],"hubFramesAfterRelease":2}
+PASS S3.unhandled.empty []
+PASS S4.E6.protocolUnaffectedByThrowingListener {"listenerThrows":1,"closeOkAcked":7,"closeReqSeq":7,"settledForwarded":true}
+PASS S4.drain.resolvesDespiteThrowingListener undefined
+PASS S4.unhandled.empty []
+PASS S5.authorizedPhase.reopenForwarded {"reopenForwarded":1,"sessionsOpened":1,"openOk":2,"authorize":1}
+PASS S5.noFatal []
+PASS S5.unhandled.empty []
+PROBE_RESULT 19/19 passed; error/cleanup/state-machine ALL AS DESIGNED
