@@ -5,6 +5,7 @@
 - HEAD：`27e012b6606e48797842a79e11e3505819c34cc6`（ADR 0032 改号提交；worktree `nomicore-fix-issue-419`）
 - 结论：`approve`——能力缺口可证据化、契约断言可执行且经变异证明敏感、测试入口真实；一个范围决策（SD-1）留给 SA8 批准
 - 本文件是唯一固定报告；可执行证据 = `task_issue-419_sa6_route_key_probe.mts`、`task_issue-419_sa6_route_key_mutation_driver.mts` 与 `artifacts/sa6-issue419-*.log`
+- **原位修订（iteration 2，2026-09-21，evidence-contract 冲突裁决）**：§17 的登记基准修订为 **C1 规范形**（见 §17 首段），并新增 **§18**——SA3 §F1 恢复后的登记原始字节被 Controller 强制门禁 `git diff --cached --check` 以 `new blank line at EOF` 拒绝时的诊断、根因与合规修复路径。**业务契约（§12 RK-C1–RK-C7、§13、§14）与交付本体零变化**（守卫文件 `32aa83a5…`/743 行不变，`packages/**` 与 `docs/**` 对 HEAD 零 diff）；§1–§16 保留为业务交付的现时契约，其证据资产的登记值以 §17 修订版为准。
 
 ---
 
@@ -250,6 +251,7 @@ Issue 评论 REST 快照为空（`[]`），无评论 id/时间戳可映射；以
 3. **edge 侧 mini-decode 预算**：契约采用实测最坏 46 字节、断言上界 64 字节。若未来 edge 设计选更紧/更宽的预算，需同步 RK-C3 第 6 条（不影响 key 位置事实）。
 4. **协议 §22 资产登记**：可选把新测试文件登记进 §22（当前 §22 已为其他 issue 家族登记资产）。AC1–AC5 未要求；若做，需注意 `codec-issue246-doc-contract.test.ts` D6-1 会校验被引用测试文件名存在。
 5. **未建模**：本 issue 不覆盖 OPEN 全解码路径与「合法无 sink → 合成 NAMESPACE_STATE_VIOLATION」等 edge 运行期路由分支（属 #420 及后续切片），仅覆盖其依赖的 codec 布局事实。
+6. **（iteration 2 新增）证据/门禁契约冲突 = 已裁决、待 Controller 落盘**：§17 旧登记（runner-trigger.log 的原始 70 行字节流）与 Controller 强制门禁 `git diff --cached --check` 互不可满足（§18.7 根因）；合规修复 = C1 重登记（本文件 §17，SA6 职权）+ R1/R2 两处一次性字节规范化的 Controller 动作（§18.11）。SA6 未越界执行 R1/R2（两文件均不在 SA6 写权限清单内），故在 Controller 执行并重新 stage 之前，索引门禁仍为红（§18.12 记录该精确状态）。未证事实：提交期 EOF 规范化器的身份（推断，非证明，§18.14）。
 
 ## 16. Temporary diagnostics cleanup
 
@@ -262,17 +264,30 @@ Issue 评论 REST 快照为空（`[]`），无评论 id/时间戳可映射；以
 | 保留的诊断/契约资产（非临时） | `wiki/raw/task_issue-419_sa6_route_key_probe.mts`（探针）、`wiki/raw/task_issue-419_sa6_route_key_mutation_driver.mts`（变异驱动）、5 个 `artifacts/sa6-issue419-*.log` | 见 §17 清单 |
 | 工作树状态（收尾） | `git status --porcelain` = Host 简报 + 上述 SA6 资产；无其他脏文件 | 收尾实测 |
 
-## 17. 证据与可复现清单
+## 17. 证据与可复现清单（iteration 2 原位修订：登记基准 = C1 规范形）
 
-| 资产 | sha256（截断见括号） | 说明 |
+**C1 规范形（canonical form）——仓库自身已提交的策略即定义**：`.editorconfig [*]`（`end_of_line=lf`、`insert_final_newline=true`、`trim_trailing_whitespace=true`）∩ Controller 强制门禁 `git diff --cached --check` 的默认规则集 `blank-at-eol` + `blank-at-eof`：
+
+1. 任何 LF 之前不得有 `[ \t]`（trim 行尾空白）；
+2. 文件末尾不得有 `[ \t]`；
+3. 文件结尾恰一个 LF。
+
+**本表全部 sha256 均登记 C1 形字节**。非 C1 的原始观测保留在「legacy/superseded」列，仅作历史取证，**不再具有权威性**，亦不再作为恢复目标（旧登记把不可提交的字节流定为权威，正是 §18.7 的根因）。登记哈希与门禁由此不再互相不可满足。
+
+| 资产 | sha256（C1 登记值，截断见括号） | 说明 |
 |---|---|---|
-| `wiki/raw/task_issue-419_sa6_route_key_probe.mts` | `b340dcd37681d9a5…` | 7 项检查（P1–P4/NC1–NC3）最小复现探针；`SA6_CODEC_SRC` 指认被测 codec |
-| `wiki/raw/task_issue-419_sa6_route_key_mutation_driver.mts` | `3631b43f29f3471b…` | 6 变异（M1–M4/NM1/NM2）敏感性驱动，自建副本、自清理 |
-| `artifacts/sa6-issue419-probe-green.log` | `1960c24a7011331f…` | 探针对真实 codec 全绿 7/7 |
-| `artifacts/sa6-issue419-mutation-sensitivity.log` | `c8f67f9bdf7d5921…` | 变异矩阵两轮 6/6 expected + 失败详情 |
-| `artifacts/sa6-issue419-capability-gap.log` | `b054b3c022cd7c53…` | 能力缺口 A–E 证据 |
-| `artifacts/sa6-issue419-runner-trigger.log` | `96abbb72ecefdc3a…` | 发现性 / 占位参与套件 / 洁净基线 |
-| `artifacts/sa6-issue419-package-tsc-baseline.log` | `1f23a7a0ed185aeb…` | 包 tsc 基线 exit 0 |
+| `wiki/raw/task_issue-419_sa6_route_key_probe.mts` | `b340dcd37681d9a5…` | 7 项检查（P1–P4/NC1–NC3）最小复现探针；`SA6_CODEC_SRC` 指认被测 codec（C1 形，重算一致） |
+| `wiki/raw/task_issue-419_sa6_route_key_mutation_driver.mts` | `3631b43f29f3471b…` | 6 变异（M1–M4/NM1/NM2）敏感性驱动，自建副本、自清理（C1 形） |
+| `artifacts/sa6-issue419-probe-green.log` | `1960c24a7011331f…` | 探针对真实 codec 全绿 7/7（C1 形） |
+| `artifacts/sa6-issue419-mutation-sensitivity.log` | `c8f67f9bdf7d5921…` | 变异矩阵两轮 6/6 expected + 失败详情（C1 形） |
+| `artifacts/sa6-issue419-capability-gap.log` | `b054b3c022cd7c53…` | 能力缺口 A–E 证据（C1 形） |
+| `artifacts/sa6-issue419-package-tsc-baseline.log` | `1f23a7a0ed185aeb…` | 包 tsc 基线 exit 0（C1 形） |
+| `artifacts/sa6-issue419-runner-trigger.log` | **`23787bf1a40c183b…`**（C1；blob `46ff267d…`，69 行/4321B，**= HEAD 已提交字节**） | 发现性 / 占位参与套件 / 洁净基线。**legacy/superseded**：`96abbb72ecefdc3a…`（70 行/4322B，blob `c183ba29…`；尾随空行违反 `blank-at-eof`，SA3 §F1 曾按旧登记恢复该字节流） |
+| `artifacts/sa3-issue419-f1-evidence-restore.log` | **`3b861d2dc34eff9268…`**（C1；221 行/15420B，blob `0996a324…`） | SA3 §F1 修复取证日志（本 issue 新增资产，**过渡登记**：SA6 依 §18.3 授权链登记其 C1 形）。**legacy/superseded（历史观测，从未提交）**：`2932f2a7…`（221 行/15421B；第 20 行行尾空格违反 `blank-at-eol` 与 `.editorconfig` trim 规则）——SA3 报告 iteration 1 的该行登记由本行取代 |
+| `wiki/raw/task_issue-419_sa6_whitespace_gate_check.sh` | `b7e2011320efdc5d…`（324 行/20857B） | §18 最小复现 + 验证脚本（`report` / `--log` / `--registry` / `--apply`），自身 C1 形 |
+| `artifacts/sa6-issue419-eof-gate-conflict.log` | `d152aeff053128d5…`（173 行/12258B） | §18 全量复现、规则判别、字节增量、候选/变异对照与私有索引门禁证明的原始输出；**自证 gate-clean**（行尾空白 0、无 EOF 空行、`--no-index --check` 静默、规范化净变换 0 字节） |
+
+**修复路径（权威副本见 §18.11）**：`R1` runner-trigger.log 归一化到 C1（= `git restore --source=HEAD --staged --worktree -- <path>`，写入的正是 HEAD 已提交 blob `46ff267d…`）；`R2` f1 日志第 20 行行尾空格归零（−1 字节 @0-based 1330）；`R3` Controller `git add` 本契约 + 本脚本 + 本日志；`R4` `git diff --cached --check` 期望 rc=0（§18.16 已在私有索引副本上证明）；`R5` 提交后 `git show HEAD:artifacts/sa6-issue419-runner-trigger.log | sha256sum` == `23787bf1…`（**取代** SA3 f1 日志 §8/R1 与 SA8 §7-2 的 `96abbb72…` 期望）；`R6` 可选一次性执行 `bash wiki/raw/task_issue-419_sa6_whitespace_gate_check.sh --apply`。
 
 复现命令（本 worktree，依赖已离线安装）：
 
@@ -285,4 +300,180 @@ NODE_OPTIONS=--conditions=nomicore-source pnpm exec tsx wiki/raw/task_issue-419_
 NODE_OPTIONS=--conditions=nomicore-source pnpm exec vitest run --typecheck packages/replication-protocol
 # 4) 包类型检查
 pnpm exec tsc -p packages/replication-protocol/tsconfig.json
+# 5) 证据/门禁冲突复现 + 修复验证（iteration 2；§18）
+bash wiki/raw/task_issue-419_sa6_whitespace_gate_check.sh               # 只读诊断 + 私有索引门禁证明
+bash wiki/raw/task_issue-419_sa6_whitespace_gate_check.sh --registry    # §17 登记值 vs 实测字节
+bash wiki/raw/task_issue-419_sa6_whitespace_gate_check.sh --log /tmp/gate.log   # 生成 gate-clean 证据日志
+# Controller：R1+R2 一次性规范化并重新 stage 恰好两路径（脚本会自证落盘哈希 = §17 登记值）
+bash wiki/raw/task_issue-419_sa6_whitespace_gate_check.sh --apply
 ```
+
+## 18. Evidence-contract 冲突裁决 — 登记原始字节 vs 强制空白门禁（iteration 2 新增）
+
+### 18.1 Task type and inputs
+
+- **任务类型：Bug（证据/门禁契约冲突；非业务行为缺陷）**。业务测试语义零改动：本裁决不触碰 `packages/**`、`docs/**`、`CONTEXT.md`、测试入口与任何断言（§18.9）。
+- dispatch：本轮 SA6 一次性派发（`sa-d240578d…`，phase acceptance-contract）——"Resolve the evidence-contract conflict for issue #419"；Issue 评论 REST 快照 = 空（`[]`）。
+- 亲读输入：`wiki/raw/task_issue-419.md`（AC1–AC5）；本契约 §17（旧登记）；`wiki/raw/task_issue-419_sa3_impl.md`（iteration 1 §F1 返工）；`wiki/raw/task_issue-419_sa9_standards.md` §3-F1；`wiki/raw/task_issue-419_sa4_review.md`（iteration 1）；`wiki/raw/task_issue-419_design.md` §11（ALLOW/DENY）；`artifacts/sa3-issue419-f1-evidence-restore.log`（全文）；`wiki/raw/task_issue-419_implementation_conflict_report.md`（SA8 §7-2/§8）；`.editorconfig`；`git 2.43.0` 实测。
+- 亲跑命令：`git diff --cached --check`、`git status --porcelain -uall`、`sha256sum`/`git hash-object`/`git cat-file`/`git show HEAD:…`、`wc`、`od`、`grep -cP`、`diff`/`cmp`、`git -c core.whitespace=…`、`git -c core.attributesFile=…`、`git diff --no-index --check`、私有索引副本上的 `git update-index --add --cacheinfo` + `git diff --cached`。全部原始输出 = `artifacts/sa6-issue419-eof-gate-conflict.log`（sha256 `d152aeff…`，173 行）。
+
+### 18.2 Owner comment mapping
+
+REST 快照为空（dispatch 明示）：**无 Owner 评论 override、无评论 ID/时间戳可落实**。Owner 要求仍 = Issue 正文 AC1–AC5；本裁决不新增/不弱化任何 AC（§12 契约条目原样生效）。空快照约束被遵守：本裁决全部材料零评论引用。
+
+### 18.3 授权链与约束（SA8 / SA9 / SA3）
+
+| 来源 | 文本要点 | 对本裁决的效力 |
+|---|---|---|
+| 设计 §11 DENY LIST | `artifacts/sa6-issue419-*.log`、`wiki/raw/task_issue-419*.md\|.mts` = 只读输入（对**实现票**） | SA3 的恢复写属越权面 → SA9 F1 成立 |
+| SA9 §3-F1 | 修复路径 1「在能恢复原字节时恢复原状」；路径 2「重登记 + 书面说明改动内容」 | 路径 1 被门禁否决（§18.7）后，**路径 2 是唯一可行且被明列的合规路径** |
+| SA3 f1 日志 §8（R1/R2） | R1 期望恢复后提交 ≡ `96abbb72…`；R2「若 R1 复发，唯一剩余 SA9 认可路径 = SA6/Controller 在 §17 重登记归一化后哈希并书面说明（DENY 路径，SA6 职权）」 | 本题的预先授权；本 §18 + §17 修订即该路径的执行 |
+| SA8 实现冲突报告 §7-2 / §8 | 同一 fallback 表述；R1 终态复核属 Controller | 与本裁决一致，无 override 需求 |
+| 本 dispatch | 「produce an evidence-contract-compliant repair path … including any necessary updated registry/evidence」「Do not alter business test semantics」 | 写入权限 = 固定报告（本文件）+ 最小复现脚本 + 证据 |
+| SA6 写权限 | 不得改生产实现；本裁决未写 `packages/**`、`docs/**`、`.editorconfig`、`.gitattributes`、`.git/index`、两件被修资产 | R1/R2 交由 Controller（§18.11）——SA6 不越界复制 F1 的越权写 |
+
+### 18.4 环境与基线
+
+| 项 | 值（本轮亲测） |
+|---|---|
+| worktree / HEAD | `/home/wangjian/nomicore-fix-issue-419`（linked worktree：`.git` 为 gitdir 文件） / `02abf662c8ab8689bc3e407921839d509539c802` |
+| git | 2.43.0；`core.whitespace` **未设置**；**无** 已跟踪 `.gitattributes`；`.editorconfig` 已跟踪且 `[*]` = lf + insert_final_newline + trim_trailing_whitespace |
+| 真实索引 | `/home/wangjian/nomicore/.git/worktrees/nomicore-fix-issue-419/index`，sha256 `e9fcd77115076b5a…`（全流程前后不变） |
+| 已 stage 变更集 | 7 路径（2 证据 + 5 wiki 报告；§0 列表） |
+| 门禁基线 | `git diff --cached --check` = **rc 2，恰 2 处**（§18.5） |
+
+### 18.5 Positive reproduction（红灯，稳定复现）
+
+```text
+$ git diff --cached --check
+artifacts/sa3-issue419-f1-evidence-restore.log:20: trailing whitespace.
++<{SP}                                   # 行尾空格（{SP} 为日志内可见化标记，非文件字节）
+artifacts/sa6-issue419-runner-trigger.log:70: new blank line at EOF.
+GATE_RC=2
+```
+
+字节事实（全部亲算，非采信自述）：
+
+| 资产 | 工作树（= 旧登记原始字节） | HEAD 已提交字节 | 增量 |
+|---|---|---|---|
+| `artifacts/sa6-issue419-runner-trigger.log` | sha256 `96abbb72…`，70 行/4322B，blob `c183ba29…`，尾字节 `…2.18s)\n\n` | sha256 `23787bf1…`，69 行/4321B，blob `46ff267d…`，尾字节 `…2.18s)\n` | 恰 1 字节（末尾 LF）；69 行内容逐字节相同；去空白内容 sha256 `d612d99f…` 两侧一致 |
+| `artifacts/sa3-issue419-f1-evidence-restore.log` | sha256 `2932f2a7…`，221 行/15421B，第 20 行 = `<`+SP+LF | 未提交（新资产） | C1 归零后 sha256 `3b861d2d…`，221 行/15420B，0-based 偏移 1330 的 `0x20` 移除；去空白内容 sha256 `97e31914…` 两侧一致 |
+
+复现率：门禁输出本轮 ≥6 次复跑逐字符一致（确定性；索引只读）；无 CR 字节（`grep -c CR` = 0/0）。
+
+### 18.6 Negative control（至少一个相近负控，且全绿）
+
+1. **NC1 未受影响资产保持静默**：`git diff --cached --check -- wiki/` = rc 0；§17 其余 6 份资产实测均 **已是 C1 形**（canonical=YES）→ C1 规则不是「一刀切禁日志」。
+2. **NC2 规范化即最小**：`diff` 显示 runner 恰 `70d69`（空行删除）、f1 恰 `20c20`（`< `→`<`）；行数/字节差 = −1/−1；无第三类 hunk。
+3. **NC3 候选门禁静默**：`git diff --no-index --check /dev/null <C1 候选>` 两侧静默（rc 1 = 仅有差异，无空白缺陷）。
+4. **MC1/MC2 变异敏感性（反证断言敏感）**：C1(runner) 追加 1 个末尾 LF → 重新报 `70: new blank line at EOF`，且哈希回到 `96abbb72…`；C1(f1) 在 0-based 1330 重新插入空格 → 重新报 `20: trailing whitespace`，且哈希回到 `2932f2a7…`。**门禁断言恰对这两处被修字节敏感**，修复不多不少。
+
+**稳定性 / 规模 / 时序**：无竞态与性能面——全部判据为确定性字节、哈希、blob 与退出码（无并发、无超时、无 mock）。规模 = 2 文件 / 2 规则 / 变更集 9 路径；最小输入 = 单个字节（runner 的末尾 LF、f1 的第 20 行空格）。时序条件（本冲突的成因序，非竞态）：旧登记恢复（SA3）先于 Controller stage，stage 先于本裁决；R1（取 HEAD 字节）/R5（以 C1 值为判据）对规范化器再跑幂等（§18.14-1）。
+
+### 18.7 Root-cause chain
+
+| Step | Fact | Evidence | Confidence |
+|---|---|---|---|
+| 症状 | 强制 stage 门禁 rc=2，2 处具名缺陷，提交被阻断 | §18.5 门禁输出（≥6 次复跑一致） | 确定（实测） |
+| 直接故障点 A | runner-trigger.log 的已 stage blob = 旧登记原始字节，末两字节 `\n\n` → 触发 `blank-at-eof` | 尾字节 `od`；`-blank-at-eof` 单独复跑后该条消失 | 确定 |
+| 直接故障点 B | f1 日志第 20 行 `< ` 行尾空格 → 触发 `blank-at-eol`，且违反已提交 `.editorconfig` trim 规则 | `od`；`-blank-at-eol` 单独复跑后该条消失 | 确定 |
+| 触发条件 | SA9 §3-F1 按「修复路径 1」要求恢复旧登记原始字节（SA3 从悬挂 blob `c183ba29…` 逐字节写回）；Controller 将该字节流 stage | f1 日志 §1–§4；`git hash-object` = `c183ba29…`；`git status` = ` M` | 确定 |
+| **最深根因** | **§17 旧登记把「工具原始输出字节」定为权威，未定义可与提交策略共存的规范形（C1）** —— 使「字节精确登记」与「必过空白门禁」对含 EOF 空行的资产**同时不可满足**；F1 的「静默归一化」只是该结构缺陷的表层显影 | §18.4 策略事实；§18.8 规则判别与私有索引对照；§17 旧行 vs HEAD 字节 | 确定（可复算） |
+| 放大因素 | (a) 登记文本在 DENY 钉死的 SA6 文件中，其他 SA 不可修订；(b) 日志转写约定（用 `< ` 表示被删空行）复制了同一违规类；(c) 未修订登记则每次 stage 必然复发 | §18.3 授权链；f1 日志 §2 转写；§18.12 | 确定 |
+| 未证实假设 | 提交期 EOF 规范化器的**身份/触发时机**（只观测到其产物：HEAD blob = 旧登记 −1 LF） | §18.14 | 低（推断，已标注） |
+| 已排除 | 内容损坏、业务/测试漂移、CR/EOL 混用、仓库 config/attributes override、门禁误报（§18.10） | 逐项实测 | 确定 |
+
+### 18.8 Causal experiments（控制变量）
+
+1. **规则判别**（唯一变量 = 被禁规则）：`-blank-at-eof` → 只剩行尾空格条；`-blank-at-eol` → 只剩 EOF 空行条；两者同禁 → rc 0。⇒ 两条缺陷分别由两规则独立触发，非其它规则/误报。
+2. **Path B 反证**：`git -c core.whitespace=-blank-at-eol,-blank-at-eof` 与 `git -c core.attributesFile=<probe: artifacts/** whitespace=-…>` 均使门禁 rc 0 ⇒ 门禁可被策略静默（记录为被否路径，§18.11）。
+3. **规范投影**：C1 规则（`.editorconfig` 三条 ∩ 门禁两规则）作用于两资产 → runner 得 `23787bf1…`（与 HEAD blob `46ff267d…` `cmp` 逐字节相同：**已提交字节本就是 C1 形**）；f1 得 `3b861d2d…`。
+4. **私有索引对照**（真实索引的忠实副本，sha256 相同）：未改副本仍 rc 2（**忠实性对照**）；仅把两路径换成 C1 blob 后 rc **0**，变更集其余 6 路径不变（`--stat` 逐项一致）⇒ 修复因果充分且窄幅。
+5. **非侵入性**：真实索引 sha256 全流程前后均为 `e9fcd771…`；被修资产工作树字节在本次诊断中未被 SA6 改动（仍为 §18.5 左列）。
+
+### 18.9 Impact surface
+
+- 命中面恰 2 文件 / 2 规则；`wiki/` 面 rc 0；`packages/**`、`docs/**`、`CONTEXT.md` 对 HEAD 零 diff；守卫交付 `32aa83a5…`/743 行不变；AC1–AC5 语义零改动。
+- 契约面：§17 登记语义（权威 = C1 形）与 Controller stage 门禁由「互斥」转为「相容」；SA3 f1 日志 §8/R1 与 SA8 §7-2 的 `96abbb72…` 终态期望被 §17/R5 取代。
+- 证据面：runner-trigger.log 的 C1 形恰为 HEAD 已提交字节，故修复后**该文件不再出现在提交变更集里**（无内容损失，无历史改写）。
+
+### 18.10 Ruled-out hypotheses
+
+| 假设 | 反证 |
+|---|---|
+| 证据内容被篡改/损坏 | 69 行内容逐字节相同、去空白哈希一致；f1 仅 1 字节行尾空白 |
+| 业务/测试语义漂移 | `packages/**` 零 diff；守卫哈希不变；AC5 套件结论不重跑即不受影响 |
+| CR/EOL 问题 | 两资产 CR 计数 = 0；`od` 尾字节为 `\n` |
+| 门禁配置被本仓 override | `core.whitespace` 未设置；无已跟踪 `.gitattributes`；`git ls-files .editorconfig` = 1 |
+| 门禁误报/工具缺陷 | `-blank-at-eol,-blank-at-eof` 可使 rc 0；两规则各自独立命中对应缺陷 ⇒ 门禁依策略如实报告 |
+| 「SA3 恢复本身错误」 | 恢复判据 = 旧登记哈希，逐字节成立（blob `c183ba29…`）；错的是**旧登记把不可提交字节流定为权威**，非恢复动作 |
+| 可以只改索引不改工作树蒙混过关 | 工作树非 C1 形 + 归一化器存在（§18.7）⇒ 复发风险；且留下 stage/工作树分叉（§18.12 记录） |
+
+### 18.11 Acceptance contract（修复路径 = 可执行、可复核）
+
+**C1 规范形**定义见 §17 首段（= 仓库自身已提交策略，非本裁决发明）。
+
+| # | 动作 | 期望/断言 | 责任人 |
+|---|---|---|---|
+| R1 | `git restore --source=HEAD --staged --worktree -- artifacts/sa6-issue419-runner-trigger.log` | 工作树+索引 = C1 形 = blobs `46ff267d…` / sha256 `23787bf1…`（69 行/4321B） | Controller（SA6 未执行） |
+| R2 | 对 f1 日志施加 C1 规则（去第 20 行行尾空格，−1 字节）后 `git add -- artifacts/sa3-issue419-f1-evidence-restore.log` | sha256 `3b861d2d…`（221 行/15420B，blob `0996a324…`）；除该字节外逐字节不变 | Controller（SA6 未执行） |
+| R3 | `git add` 本契约 + 本脚本 + `artifacts/sa6-issue419-eof-gate-conflict.log` | 三件均 C1 形（脚本自证：行尾空白 0、无 EOF 空行、`--no-index --check` 静默） | Controller |
+| R4 | `git diff --cached --check` | **rc 0，零输出**（§18.16 已在私有索引副本上证明；真实索引在 R1–R3 后等价） | Controller |
+| R5 | 提交后 `git show HEAD:artifacts/sa6-issue419-runner-trigger.log \| sha256sum` | == `23787bf1…`（取代 SA3 §8/R1、SA8 §7-2 的旧期望） | Controller |
+| R6 | `bash wiki/raw/task_issue-419_sa6_whitespace_gate_check.sh --apply` | 幂等执行 R1+R2 并自证落盘哈希 = §17 登记值 + 门禁 rc 0；哈希不符则 ABORT | Controller（可选一键） |
+
+**被否路径（含反证）**：B1 config 静默 `-blank-at-eol,-blank-at-eof`（§18.8-2）——篡改强制门禁、与已提交 `.editorconfig` 冲突、且让 §17 继续要求不可提交字节；B2 `.gitattributes` 逐路径豁免——同上，且需设计授权、对 `artifacts/**` 形成永久盲区；B3 把 runner-trigger.log 移出提交——丢失已登记证据资产并留脏工作树，且未解 f1 同类缺陷；B4/B5 接受红灯或继续把 `96abbb72…` 定为权威——门禁硬阻断；B6 静默归一化而不重登记——正是 SA9 §3-F1 判定为 MAJOR 的缺陷本身。
+
+**验收断言（本次裁决的完成判据）**：R4 绿 + R5 成立 + §17 全部行 `--registry` MATCH（§18.16）+ 业务语义零 diff（§18.9）。任一不成立 ⇒ 契约不成立，须回到 §18.7 重新归因。
+
+### 18.12 Red/green evidence
+
+- **红（现状，真实索引）**：§18.5 rc 2 / 2 处；私有索引忠实副本同样 rc 2（§18.8-4）。
+- **绿（候选与私有索引）**：C1 候选 `--no-index --check` 静默；私有索引换入两 C1 blob 后 rc **0**（§18.16 记录实跑值）。
+- **待绿（Controller 落盘）**：R1–R3 后真实索引 R4 才转绿——SA6 未越界执行 R1/R2（写权限外），该「待办」在本裁决中显式暴露而非掩盖。
+- **未伪造**：未使用 skip/only/todo/env override/fallback；未用源码字符串断言替代行为观察（本裁决的观察面 = 字节、哈希、blob、门禁退出码与 diff 语义）。
+
+### 18.13 Runner trigger evidence
+
+- 门禁本体：`git diff --cached --check`（Controller 强制入口；本轮 ≥6 次复跑输出逐字符一致）。
+- 复现/验证脚本：`wiki/raw/task_issue-419_sa6_whitespace_gate_check.sh`（sha256 `b7e20113…`）——`report`/`--log`/`--registry`/`--apply` 四模式；`--log` 模式自证日志 C1（本次输出 `LOG_TRAILING_WS_LINES=0`、`LOG_BLANK_LINE_AT_EOF=0`、`LOG_NOINDEX_CHECK_RC=1`、`CANONICALIZATION_NET_CHANGED_BYTES=0`）。
+- 原始日志：`artifacts/sa6-issue419-eof-gate-conflict.log`（sha256 `d152aeff…`，173 行/12258B）。
+- **时序披露（诚实性）**：该日志生成于 §17 修订**之前**，故其 §0 `git status` 快照显示本契约为未修改、脚本为未跟踪——那是冲突现状的真实快照；§17 修订随后落盘（登记本脚本与本日志的哈希）。两份证据互不依赖：日志内容不含本契约任何哈希，其声明值全部为字节/哈希/blob/退出码实测。
+
+### 18.14 Unknowns and blockers
+
+1. **未证**：提交期 EOF 规范化器的身份（观测到的只是其产物：HEAD blob = 旧登记 −1 LF）。若 Controller 能提供该工具的事实，§17 可补注；不影响 R1–R5 的成立（R1 直接取 HEAD 字节，R5 以 C1 值为判据，规范化器再跑一次亦为幂等）。
+2. **待办（非 SA6 权限）**：R1–R3 未执行 ⇒ 真实索引仍红。这是本裁决唯一的未闭合动作，已在 §15-6、§17、§18.11 三处显式登记。
+3. **替代登记的后续一致性**：SA3 报告 iteration 1 中 f1 日志的 `2932f2a7…`/15421B 登记成为历史观测（该日志 §11b 自哈希本已被其 §11c 声明陈旧）——以 §17 修订行为权威。
+4. 无环境缺失：门禁、git 对象库、C1 规则、私有索引实验均可复跑（§17 复现命令 5）。
+
+### 18.15 Temporary diagnostics cleanup
+
+| 临时物 | 处置 | 复核证据 |
+|---|---|---|
+| `.scratch/sa6-419-gate/`（C1 候选、变异副本、索引副本、`attrs.probe`、report.raw） | 脚本收尾 `rm -rf`，并在退出前断言目录已不存在（否则 rc 6） | 每次运行后 `ls -d .scratch/sa6-419-gate` → No such file；`.scratch/` 仅剩仓内既有 `vfsl-v1-parser` |
+| 真实索引 | **从未写入** | 索引 sha256 `e9fcd771…` 全流程前后一致（§18.8-4） |
+| 被修/被读资产工作树 | 本次诊断未写（R1/R2 留给 Controller） | `git status` 仍 ` M` / `A `；§18.5 左列哈希 |
+| git 对象库 | 仅新增内容寻址 blob（幂等，`git hash-object -w` C1 f1 blob `0996a324…`） | §18.8-4；无 ref/index 变更 |
+| 生产源码/文档/配置 | **从未发生** | `git diff HEAD -- packages docs CONTEXT.md .editorconfig` 为空 |
+
+### 18.16 Registry & gate re-verification（本裁决落盘后实跑）
+
+**(1) `--registry` 全行 MATCH**（命令 `bash wiki/raw/task_issue-419_sa6_whitespace_gate_check.sh --registry`，rc=0）：
+
+| 登记行 | 实测 sha256（C1） | §17 登记 | 结论 |
+|---|---|---|---|
+| `probe.mts` | `b340dcd37681d9a5…` | 同 | MATCH |
+| `mutation_driver.mts` | `3631b43f29f3471b…` | 同 | MATCH |
+| `probe-green.log` | `1960c24a7011331f…` | 同 | MATCH |
+| `mutation-sensitivity.log` | `c8f67f9bdf7d5921…` | 同 | MATCH |
+| `capability-gap.log` | `b054b3c022cd7c53…` | 同 | MATCH |
+| `package-tsc-baseline.log` | `1f23a7a0ed185aeb…` | 同 | MATCH |
+| `runner-trigger.log` | C1 `23787bf1a40c183b…`（= HEAD blob `46ff267d…`；工作树 `96abbb72…` = 已取代 raw） | `23787bf1…` | MATCH（C1） |
+| `f1-evidence-restore.log` | C1 `3b861d2dc34eff92…`（工作树 `2932f2a7…` = 已取代 raw） | `3b861d2d…` | MATCH（C1） |
+| 本脚本 | `b7e2011320efdc5d…` | 同 | MATCH |
+| 本日志 | `d152aeff053128d5…` | 同 | MATCH |
+
+**(2) 终局门禁证明**（真实索引私有副本；`cp <真实索引> index.final` → `update-index --add --cacheinfo` 换入 5 个 blob：两资产 C1 + 本契约 + 本脚本 + 本日志 → `GIT_INDEX_FILE=… git diff --cached --check`）：**rc=0，零输出**。变更集 = **9 路径**：原 staged 的 f1 日志（C1 形）与 5 份 wiki 报告，加本裁决 2 个新文件（脚本、日志）；**runner-trigger.log 因 C1 形 = HEAD 已提交字节而退出变更集**（无内容损失）。真实索引 sha256 前后均为 `e9fcd77115076b5a…`（非侵入）。
+
+**(3) 首次终局门禁发现并纠正的自身缺陷（同缺陷类的递归复现）**：本契约 §18 首次落盘版本（含 §18.16 占位段）自身即被门禁点名 `wiki/raw/task_issue-419_sa6_contract.md:461: new blank line at EOF`（该版本行号；与 runner-trigger.log 同一规则）；按 C1 规则归零尾部换行后复跑 rc=0。⇒「登记表自身必须满足 C1」由终局门禁强制而非仅口号；C1 规则对新增/修改文件（含 wiki 报告）一致适用。
