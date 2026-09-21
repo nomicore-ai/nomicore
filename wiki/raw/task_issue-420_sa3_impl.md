@@ -3,12 +3,92 @@
 - 派工（iteration 0，实现）：`sa-21b8addd-f3ef-41b2-a768-c5530fc7c893`（role `mabf-sa3`，phase implementation，iteration 0）
 - 派工（iteration 1，finalization repair）：`sa-ef1c290c-a552-4c83-a1ac-73ad3f806405`（role `mabf-sa3`，phase implementation，iteration 1）——本报告在该轮原位更新
 - 派工（iteration 2，finalization-repair 证据集 × 权威基 rebase 准备）：`sa-3974e1e9-834e-43ad-9cca-08acb5605efe`（role `mabf-sa3`，phase implementation，iteration 2）——本报告在本轮原位更新
+- 派工（iteration 3，rebase 前工作树准备：脏面裁定 × `25c51cd` 零冲突复认 × 派生缓存修复）：`sa-f36d0903-db28-46ce-9bcf-396d3d8ae18f`（role `mabf-sa3`，phase implementation，iteration 3）——本报告在本轮原位更新
 - worktree / branch：`/home/wangjian/nomicore-fix-issue-420`，`mabf/issue-420`
 - iteration 0 基线 HEAD：`7039f6dae8e7d29f0c929492f0ca2119bc63afaa`（= PR #426 merge）；iteration 0 实施期间零 commit / 零 push
 - 交付承载（iteration 1 亲验）：`a315e7077576951cf0330596cdc588afbeca51be`（`feat(ws-replication): expose session host factory`，父 = `7039f6d`）——iteration 0 的 13 个 ALLOW 路径改动已由 Controller 提交；iteration 1 起点 `git diff HEAD -- packages docs CONTEXT.md` 为空
 - 权威基（iteration 2 复认）：`1f5809b001c984e63fac3bafd4c1f3febc76e8a8`（= PR #427 merge，issue #421）；iteration 2 仍未执行 rebase/commit/push（交付分支零触碰）
 - iteration 2 证据日志（新增）：`artifacts/sa3-issue420-finalize-rebase-evidence.log`，sha256 `bd4b5bfd0385916823c26fd6fdf54dbaa7e3ca0d66cd2663875312b6739d64a3`
-- Owner 评论：无（三轮派工均明文 none；REST comments = `[]`）⇒ 无逐条评论映射可建
+- 授权父基（iteration 3 复认，第二段 rebase 目标）：`25c51cd45a3e4ec1cf8bcdbdcb33ff1f13d1b0df`（= PR #416 当前 head / PR #428 merge，issue #423）；iteration 3 起点 HEAD = `52a9e56534d56a75127207b2b9044afa8c3a27b0`（第一段 rebase 落地点）
+- iteration 3 证据日志（新增）：`artifacts/sa3-issue420-rebase-prep-25c51cd.log`，165 行 / 12703 B，sha256 `33411d6313bde44291f31e21d9aa928e2de9040d902bd4da74e6d456de2b5e85`
+- Owner 评论：无（四轮派工均明文 none；REST comments = `[]`）⇒ 无逐条评论映射可建
+
+---
+
+## Iteration 3 — rebase 前工作树准备：脏面裁定 × `25c51cd` 零冲突复认 × 派生缓存修复
+
+- 派工：`sa-f36d0903-db28-46ce-9bcf-396d3d8ae18f`（role `mabf-sa3`，phase implementation，iteration 3）；Owner feedback requirements = none、REST comments = `[]`。
+- 授权目标：把 `mabf/issue-420` 重放到 Parent PR #416 当前 head `25c51cd45a3e4ec1cf8bcdbdcb33ff1f13d1b0df`（**第二段 rebase**；第一段已由 Controller 落地为 `9d2500d`（重放交付）+ `52a9e56`（证据归档））。Controller 的 rebase 被「未暂存产物」阻断；本轮职责 = 裁定脏面中哪些是**必须保留的有效证据**、把工作树收敛为**可精确暂存/提交的干净面**，并独立复认 rebase 机械面。
+- 边界：**零 rebase、零 commit、零 push、零 PR**（SA3 角色禁 `git add`/`git commit`；交付分支、HEAD 与真实 index 零触碰）；**零业务字节改动**（`packages/ apps/ domains/ docs/ tests/ scripts/ CONTEXT.md/.editorconfig/vitest.config.ts/package.json/tsconfig*` 全空 diff）；暂存门一律经 `GIT_INDEX_FILE` scratch index。
+- 证据日志（新增）：`artifacts/sa3-issue420-rebase-prep-25c51cd.log`，**169 行 / 13161 B / sha256 `ca860222485e6f1e7d8df9f87607266dee7d0ace67bbbfbd7e904ff69bc50b18`**（日志不自载摘要 ⇒ 自登记于本报告；该 digest 不含本报告任何字节）。
+
+### Iteration 3 脏面裁定（「Preserve valid evidence」的落点）
+
+| 路径 | 生产者 / 轮次 | 裁定 |
+| --- | --- | --- |
+| `wiki/raw/task_issue-420_implementation_conflict_report.md` | SA8 conflict-gate iteration 5（06:08） | **有效证据，保留并入档**：父基前移后二段路线的终认 `clear`（双层 merge-tree RC=0 预演、`index.ts` 并集 blob 原样过继、RA1'–RA6'、`requiresConflictRecheck: true` 窄域）——即本授权 rebase 的裁决依据 |
+| `wiki/raw/task_issue-420_sa9_standards.md` | SA9 standards-review（05:53） | **有效证据，保留并入档**：rebase 后交付（`9d2500d` + `52a9e56`）的标准复审 `approve`（9 条 MINOR 全非阻断；`requiresConflictRecheck: true` 驱动 RA2 形式闭环调度） |
+| `wiki/raw/task_issue-420_sa10_spec.md` | SA10 spec-review（05:55） | **有效证据，保留并入档**：rebase 后交付的 spec 复审 `approve`（R1–R9 rebase 保真度独立重取 + AC1–AC5 复核；残余项均为流程门/登记项） |
+
+- 三条均为归档 commit `52a9e56`（05:42:26）之后的活性编辑；**不存在需删除、回退或修正的无效/陈旧/半写证据**：无冲突标记、无占位符/TODO、文件尾完整、末字节均为单 LF；时序自洽（SA9 05:53 < SA10 05:55 < SA8 06:08；SA9/SA10 审 `1f5809b` 基 rebased 交付，SA8 iteration 5 审父基前移后的二段路线）。
+- 脏面除此之外**零残留**：无其它 tracked-modified、无非忽略 untracked（本迭代新增 1 条日志除外）、无暂存残留、`git stash list` 空、无 `.orig/.rej/.swp/.tmp` 残片。
+- **「clean」可达边界的如实登记**：SA3 角色禁 `git add`/`git commit`（skill 明文），故本迭代不能把工作树变为字面零 diff。落点 = 把可提交面收敛为**上述有效证据（3 条）+ 本迭代 SA3 固定产物（2 条）= 恰 5 条**，并逐条通过 C1/暂存门，使 Controller 一次 `git add -A --` + `git commit`（配方见「Suggested commit message」）即得 clean 工作树并解除 rebase 阻断。
+
+### Iteration 3 事实与动作
+
+| 面 | 事实（命令/值） | 结果 |
+| --- | --- | --- |
+| 谱系 | HEAD `52a9e56534d56a75127207b2b9044afa8c3a27b0`，父 `9d2500dd84f59c0bfaa94c53eb1e9966cec82b42`，祖父 `1f5809b001c984e63fac3bafd4c1f3febc76e8a8` | 与第一段 rebase 落地点一致，本迭代零新 commit |
+| 授权父基 | `git rev-parse origin/spec/415-replication-transport-decoupling` = `25c51cd…`；`git cat-file -t` = `commit`；`log -1` = `Merge pull request #428 from nomicore-ai/mabf/issue-423` | 与派工明文逐位相同，对象在场 |
+| 拓扑 | `merge-base(HEAD, 25c51cd…)` = `1f5809b…`；`git rev-list --count 1f5809b..HEAD` = **2**（`52a9e56`、`9d2500d`） | 二段 rebase 重放集恰 2 commit |
+| 零冲突预演（独立重取） | `git merge-tree --write-tree 25c51cd… 9d2500d…` ⇒ 树 `7b5c1cbc3bb77ea98e7b8669f09896624fde76c4`，RC=0；`… 25c51cd… 52a9e56…` ⇒ 树 `2cee6d03f05fb61f12a37c2a9a41170e60fbef86`，RC=0 | 双层 RC=0 且输出仅 1 行 tree OID ⇒ **零冲突、零手工消解**；与 SA8 iteration 5 登记值逐位相同 |
+| 并集路径不动点 | 合并树内 `packages/ws-replication/src/index.ts` blob = `08fa49a1fb84321b92a4cae2da7ee401afdc7ce1` | == SA8 钉死的登记并集 blob ⇒ 父侧未触碰该路径，原样过继，旧「手工写并集」配方作废 |
+| 重叠面 | 交付（`1f5809b..9d2500d`）× 父增量（`1f5809b..25c51cd`，23 路径）交集 = 恰 3 条：`docs/adr/0032-*.md`、`src/hub-session.ts`、`src/hub-split.ts` | 与 SA8 iteration 5 §2-5 一致，hunk 不交叠、auto-merge 双侧语义保留 |
+| 归档顺序无关性 | 5 条可提交路径 ∩ 父增量 23 路径 = **空** | 归档 commit 可在 rebase 前或后重放，零冲突 |
+| C1 卫生门（Host 精确口径） | 3 条证据 + 本报告：`trailing_ws_lines=0 / blank_line_at_eof=False / cr=0 / nul=False / ends_with_LF=True`；`git diff --check` 三路径 RC=0 | 全清 ⇒ 不会触发 Host `MABF_FINALIZE_REPAIR_REQUIRED` 归一化/阻断面 |
+| 暂存门（scratch index） | `GIT_INDEX_FILE=<scratch> git read-tree HEAD` + `add -A -- <5 路径>` + `diff --cached --check` | `SCRATCH_GATE_RC=0`；逐条 staged blob == worktree blob；真实 index 零暂存 |
+| 派生缓存修复 | 陈旧 commit-graph 使 `git rev-list --count --all` **fatal（exit 128）**、`git commit-graph verify` exit 2；备份后 `git commit-graph write --reachable --no-progress` | verify exit 0、`--all` 遍历 exit 0（328 commits）；refs 快照 sha256 `2b1007c4695e3c49d8c56c4b1139229b3331c68caa9111c6f42c5a3e25ca67fb` 前后不变、HEAD 不变 ⇒ 仅派生缓存更换 |
+| 未执行面（边界） | `git diff --cached` 空、`git stash list` 空、reflog `HEAD@{0}` 仍为第一段 rebase finish、业务面 diff 0 条 | 无 rebase/commit/push/PR；交付分支零触碰 |
+
+### File scope check（iteration 3，实际写入面）
+
+| Changed path | 授权 | 用途 |
+| --- | --- | --- |
+| `artifacts/sa3-issue420-rebase-prep-25c51cd.log` | 本轮派工明文（rebase 准备）+ SA3 证据惯例（iteration 1/2 同款 `artifacts/sa3-issue420-*.log`） | 新增证据日志：脏面裁定 / 哈希 / C1 门 / 零冲突预演 / commit-graph 修复 / 精确暂存清单原文 |
+| `wiki/raw/task_issue-420_sa3_impl.md` | SA3 固定产物（skill：原位更新实现报告） | 登记 iteration 3（活文档，提交字节以 Controller 暂存时为准） |
+| （零其它工作树路径） | — | 3 条非 SA3 证据（SA8/SA9/SA10）与全部业务面在本迭代**零字节改动** |
+| （`.git/objects/info/commit-graph`，非工作树路径） | 派生缓存（可重建，非源码/证据） | 陈旧态 → 一致态重建（备份 `/tmp/sa3prep/commit-graph.bak`，before sha256 `4bede9ae…`）；refs/HEAD/对象库零变化 |
+
+### Verification（iteration 3：V22–V28）
+
+| # | Command | Result | Evidence |
+| --- | --- | --- | --- |
+| V22 | `git status --porcelain -uall`；`git diff --cached --stat`；`git stash list` | 脏面 = 恰 3 条 tracked-modified 报告编辑（+ 本迭代 2 条 SA3 产物）；index 空；stash 空；无 `.orig/.rej/.swp` 残片 | 日志 §1 |
+| V23 | `git rev-parse HEAD`/父链；`git merge-base HEAD 25c51cd…`；`git rev-list --count 1f5809b..HEAD`；`git cat-file -t 25c51cd…`；`git rev-parse origin/spec/415-…` | HEAD `52a9e56`；merge-base `1f5809b`；重放集恰 2；父基对象在场且与本地 ref 同值 | 日志 §0 |
+| V24 | `git merge-tree --write-tree 25c51cd… {9d2500d,52a9e56}` | 双双 RC=0（树 `7b5c1cbc…` / `2cee6d03…`）；合并树 `index.ts` blob = `08fa49a1…` | 日志 §3.1–3.3 |
+| V25 | 交付 × 父增量路径交集；5 条可提交路径 ∩ 父增量 | 重叠恰 3（ADR 0032 / `hub-session.ts` / `hub-split.ts`）；证据面交集空 | 日志 §3.4–3.5 |
+| V26 | Host 口径 C1 扫描（逐行 `/[ \t]+$/`、EOF 空行、CR、NUL、末尾 LF）+ `git diff --check` 逐路径 | 4 条待提交面（3 证据 + 报告）全清；三路径 `--check` RC=0；本日志末稿复扫亦全清 | 日志 §2.2–2.4 + 本节末命令块 |
+| V27 | scratch index 暂存门（`read-tree HEAD` + `add -A -- <5 路径>` + `diff --cached --check` + staged blob 身份） | `GATE_RC=0`；5/5 staged blob == worktree blob；真实 index 零暂存条目 | 本节末命令块 |
+| V28 | `git commit-graph verify`；`git rev-list --count --all`；refs 快照 sha256 / HEAD 前后比对 | 修复前 exit 2 + fatal 128 → 修复后 exit 0 + `328`；refs 与 HEAD 逐位不变 | 日志 §5 |
+
+**iteration 3 未运行的验证（职责边界）**：任何测试/typecheck 套件——本迭代零业务字节改动，SA6 红绿契约与包 typecheck 已由 iteration 0 的 V1–V7 覆盖；rebase 后新树的五门重取属 SA8 RA2'（SA4/SA7 证据链），见「Deferred verification」。
+
+- iteration 3 终态命令块（真实 index 零写入；本报告定稿后执行）：
+
+```text
+$ GIT_INDEX_FILE=/tmp/sa3prep/scratch-index git read-tree HEAD
+$ GIT_INDEX_FILE=/tmp/sa3prep/scratch-index git add -A -- \
+    wiki/raw/task_issue-420_implementation_conflict_report.md \
+    wiki/raw/task_issue-420_sa9_standards.md \
+    wiki/raw/task_issue-420_sa10_spec.md \
+    wiki/raw/task_issue-420_sa3_impl.md \
+    artifacts/sa3-issue420-rebase-prep-25c51cd.log
+$ GIT_INDEX_FILE=/tmp/sa3prep/scratch-index git diff --cached --check   # GATE_RC=0
+$ # per-path staged blob == worktree blob identity check                # IDENTITY_FAIL=0
+$ git diff --cached --stat | wc -l                                      # 0（真实 index 零写入）
+```
+
+- 触发条件：若授权父基 head 再前移（≠ `25c51cd…`），停止，先按 `git merge-tree` 复认冲突面再解（SA8 RA1'/RA4'）。
 
 ---
 
@@ -135,6 +215,10 @@ FINAL_C1_SCAN_FAIL=0        # 18/18 PASS
 | `wiki/raw/task_issue-420_design_conflict_report.md` | SA8 design 复查 **clear**（RA1'–RA6'，35 项对照） |
 | `artifacts/sa6-issue420-*`（16 项） | 能力缺口/因果/序列纪律/纯度/中继保真探针与基线日志 |
 | 源码开卷核对 | `src/{index,hub-session,hub-split,hub-edge,hub-connection,hub-namespace,frame-io,observer,defaults,validate,types}.ts`；`test/{harness,driver}.ts`、7 矩阵文件、#418 两冻结锚文件、`vitest.config.ts`、`packages/*/tsconfig*`、`package.json` |
+| iteration 3 追加：`wiki/raw/task_issue-420_implementation_conflict_report.md`（工作区最新字节：SA8 iteration 5 终认） | 二段 rebase 授权面：新父基、零冲突预演、RA1'–RA6'、`requiresConflictRecheck` 口径 |
+| iteration 3 追加：`wiki/raw/task_issue-420_{sa9_standards,sa10_spec}.md`（工作区最新字节） | 归档后两轮复审的 verdict 与其 recheck 依据（脏面裁定 + 归档口径） |
+| iteration 3 追加：`wiki/raw/task_issue-420_design.md` §11 | ALLOW/DENY 面核对（本迭代零业务路径改动，确认无范围扩大） |
+| iteration 3 追加：Host `mabf-runner` `MabfLocalFinalizer`/`MabfPreFinalizationRebaser` 语义（只读源码 + 诊断原文） | C1 卫生门与 clean-worktree 门的**精确口径**（逐行 `/[ \t]+$/`、EOF 空行；脏树 rebase 的 stash 事务先例） |
 
 ---
 
@@ -148,6 +232,7 @@ FINAL_C1_SCAN_FAIL=0        # 18/18 PASS
 | 授权编辑核对 | #418 contract 测试 `FROZEN_PRODUCTION_EXPORTS` 由 11 → 12 名（仅插入 `'createHubSessionHost'`，字母序零重排）；structure 测试仅机械跟随重命名 |
 | 决策面核对 | 公共冻结签名逐字采用 SA6 §12.1；`hub-namespace.ts`/`hub-edge.ts`/`src/testing.ts`/协议文本/上游包 **零 diff**（见 Verification V8） |
 | iteration 1 起点（交付提交 `a315e70` 之后） | `git diff HEAD -- packages docs CONTEXT.md` 空（13 条 ALLOW 路径零 diff）；工作区仅 16 条未提交证据路径 —— 处置见「Iteration 1」节 |
+| iteration 3 起点（归档提交 `52a9e56` 之后） | 工作区 = 恰 3 条 tracked-modified 活报告编辑（SA8 iteration 5 / SA9 / SA10）+ 零未跟踪、零暂存、零 stash —— 逐条裁定为有效证据后收敛为 5 条可提交面，见「Iteration 3」节；业务面 `git diff` 全空 |
 
 ---
 
@@ -239,6 +324,8 @@ FINAL_C1_SCAN_FAIL=0        # 18/18 PASS
 | --- | --- |
 | 回归面扩大（真实 transport 动态、registry/scheduler 家族、backpressure/shed 族、跨包集成） | SA4/SA7（本报告只跑 SA6 指定面 + 全量套件，不承担最终动态验证） |
 | **rebase 后五门重取（SA8 RA2，iteration 2 追加）** | 交付执行者 + SA4/SA7 证据链：rebase 落地后在真实新树重取（#418 契约 exact-equal + #420 三契约；双 test-d；包全量预期 87 文件；根 typecheck；AC3 矩阵逐字）。SA3 的 delivery 重取与 dry-run 树结果均为 **pre-rebase / scratch-tree 证据，不闭合该门**（日志 §11 已列命令与判据） |
+| **第二段 rebase（`25c51cd` 基）后五门重取（SA8 iteration 5 RA2'，iteration 3 追加）** | 交付执行者 + SA4/SA7 证据链：`9d2500d`/`52a9e56` 上已归档的门证据绑定 `1f5809b` 基树，**不闭合新基树**；重取增量 = 包套件文件数预期 **87 → 90**（#423 三测试文件）、根 typecheck 须覆盖 #423 缝签名 × `hub-session-host.ts`/`issue420-shim-hub.ts` 编译面、#418 契约 13/13 与双 test-d 断言面不变、AC3 矩阵（shim 53 + listen 7/52）于 #423 观测发射拆分后的 src 之上逐字重跑为决定性证据；`sendQueueMs` 经 #420 公共缝整键缺席按 #423 注册的 dormant 形态核销 |
+| **迭代 3 的 rebase 预演证据树绑定（iteration 3 追加）** | 本轮 merge-tree 预演（树 `7b5c1cbc…`/`2cee6d03…`）只是**执行前预测**，不是任何门的闭合证据；实际 rebase 出现任何冲突或需任何手工消解即与预演不符，按 SA8 RA4' 路由 |
 | SA8 implementation 段冲突复查（R8''/RA3'/RA6'：零 diff 核对、导出恰增、S2 有界事实、observer 隔离单点、反空跑与 M1–M7 实跑登记、重命名纯机械） | SA8（触发条件三合一已在实现 diff 后成立） |
 | 真 worker / 异步序回传形态、跨线程 pending 义务重入 | 后续票（U2/RA5'；本票只冻结同步宿主 pipe） |
 | `listen:false` 插件 + `nomicoreHubSessionHost` 服务轨、peer 侧拆分、nomic-server 宿主接线、跨进程 revoke 全链路 | 后续票（设计 §1 非目标） |
@@ -267,6 +354,10 @@ SA6 §12.3 的反空跑举例含「生产信号面在场」。实测发现 `ac5-
 ### 4（无阻断项）：设计/ALLOW/契约均可实施，无 reject 事由
 
 除上条 1 的机制替换外，设计 ALLOW/DENY、SA2 三项 required change、SA8 RA1'–RA6' 的落地面无阻塞；未发现需修改设计、扩大范围或改变验收语义的事项。
+
+### 5（iteration 3，角色边界而非缺陷）：工作树「字面 clean」由 Controller 的归档 commit 收口
+
+SA3 角色禁 `git add`/`git commit`/`git rebase`（skill 明文），因此 iteration 3 无法自行把工作树变为零 diff 或执行授权 rebase。本轮的可交付落点 = ① 脏面裁定（3 条归档后编辑全部为有效证据，无删除/回退面）；② 可提交面收敛为恰 5 条并逐条过 C1/暂存门；③ 零冲突预演与派生缓存修复的独立证据；④ Controller 一次 `git add -A --` + `git commit` 即 clean 并解除 rebase 阻断的精确配方。若 Controller 期望工作树在本轮结束时即为零 diff，则须由其本人执行该归档 commit（或其同款的 stash 事务）——本报告与证据日志 §7 已给出两条路径的完整命令。
 
 ---
 
@@ -350,3 +441,39 @@ git add -A -- \
 ```
 
 **iteration 2 rebase 配方（供 Controller 执行；SA3 不执行）**：`a315e7077…` rebase 到 `1f5809b001…`；唯一冲突 `packages/ws-replication/src/index.ts`，写入并集 blob `08fa49a1fb84321b92a4cae2da7ee401afdc7ce1`，其余文件零手工改写；20 条证据路径与父增量 31 路径零交集 ⇒ 证据归档 commit 可在 rebase 前或后重放且零冲突。rebase 落地后按日志 §11 重取五门（RA2），期间不得援引本报告与日志中的 pre-rebase / dry-run 结果作为新树证据。
+
+**iteration 3 建议提交信息（rebase 前追加归档，Controller 定稿）**：
+
+```text
+chore: archive issue 420 round evidence before 25c51cd rebase
+
+- archive the live reports produced after the 52a9e56 archive commit: the SA8
+  conflict-gate re-confirmation for the moved Parent #416 head (25c51cd) and the
+  SA9/SA10 approvals of the rebased delivery
+- record the iteration-3 rebase preparation: dirty-face adjudication (all three edits
+  are valid evidence), C1/staging gates, the independent zero-conflict merge-tree
+  prediction (trees 7b5c1cbc / 2cee6d03; index.ts union blob 08fa49a1) and the stale
+  commit-graph repair
+- zero implementation/test/doc byte change
+```
+
+**iteration 3 精确 staging 清单（5 条，worktree-relative）**：
+
+```text
+git add -A -- \
+  wiki/raw/task_issue-420_implementation_conflict_report.md \
+  wiki/raw/task_issue-420_sa9_standards.md \
+  wiki/raw/task_issue-420_sa10_spec.md \
+  wiki/raw/task_issue-420_sa3_impl.md \
+  artifacts/sa3-issue420-rebase-prep-25c51cd.log
+# 随后 git diff --cached --check（须 RC=0）并 commit —— 提交后工作树即 clean、rebase 阻断解除。
+```
+
+**iteration 3 rebase 配方（供 Controller 执行；SA3 不执行）**：先按上列 5 条完成追加归档 commit（SA8 RA6'），再执行：
+
+```text
+git rebase --onto 25c51cd45a3e4ec1cf8bcdbdcb33ff1f13d1b0df 1f5809b001c984e63fac3bafd4c1f3febc76e8a8 mabf/issue-420
+git rev-parse HEAD~1:packages/ws-replication/src/index.ts   # 须 = 08fa49a1fb84321b92a4cae2da7ee401afdc7ce1
+```
+
+预期**零冲突、零手工消解**（双层 merge-tree RC=0：交付级树 `7b5c1cbc…`、全 tip 树 `2cee6d03…`）；实际出现任何冲突即停、按 SA8 RA4' 回冲突门禁。备选路径 = Host `MabfPreFinalizationRebaser` 同款 stash 事务（`git stash push --include-untracked` → rebase → `git stash pop --index`），但**归档 commit 仍不可省**（Host finalize 的 clean-worktree 门会拒绝未提交证据）；两条路径的完整命令见 iteration 3 证据日志 §7。
