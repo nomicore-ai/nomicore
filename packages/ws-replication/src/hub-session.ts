@@ -59,7 +59,9 @@ class HubSessionHostImpl implements HubSessionHost {
       // （`port.openAdmission` 返回 edge 侧该 (连接, ns) 唯一在途 authorize 的投影）。
       authorize: (_instanceIdentity, namespaceId) => this.pullAuthorization(namespaceId),
       sendControl: (message) => this.sendControl(message),
-      sendData: (namespaceId, bytes) => this.sendData(namespaceId, bytes),
+      // issue #423（SA2 O2 点名绑定箭头）：accounting 必须逐层透传——缺失即 EM-C4c 红
+      // （typecheck 不强制少参箭头，故此处显式三参）。
+      sendData: (namespaceId, bytes, accounting) => this.sendData(namespaceId, bytes, accounting),
       // issue #243（DD-3.5）：UPDATE_CHUNK 与 UPDATE 同一 data 出站点
       sendUpdateChunk: (namespaceId, chunk) => this.sendUpdateChunk(namespaceId, chunk),
       chunkedUpdateNegotiated: () => port.chunkedUpdateNegotiated(),
@@ -206,12 +208,19 @@ class HubSessionHostImpl implements HubSessionHost {
   }
 
   /** data 帧（UPDATE）：闸门前置（对应 HEAD `isEmitAllowed → dataGateOpen` 先于探针）
-   *  → 占位编码（对应探针位置：不可编码消息在此抛出，先于一切额度判定）→ 缝。 */
-  private sendData(namespaceId: string, bytes: Uint8Array): number {
+   *  → 占位编码（对应探针位置：不可编码消息在此抛出，先于一切额度判定）→ 缝。
+   *  issue #423（SA2 O2 点名绑定箭头）：`accounting`（纯 JSON `{sendQueueMs?}`）透传至缝
+   *  ——edge 盖章点据此发射 `update-sent` 且不丢 `sendQueueMs`；宿主直驱帧不传 ⇒ 整键缺席。 */
+  private sendData(
+    namespaceId: string,
+    bytes: Uint8Array,
+    accounting?: Readonly<{ sendQueueMs?: number }>,
+  ): number {
     if (this.config.port.connectionState() === 'closed') return 0;
     if (!this.config.port.dataGateOpen()) return 0;
     return this.config.port.sendDataFrame(
       this.encodePlaceholder({ kind: 'UPDATE', namespaceId, update: bytes }),
+      accounting,
     );
   }
 

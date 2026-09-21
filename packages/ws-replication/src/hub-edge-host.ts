@@ -30,7 +30,7 @@
 import { encodeMessage, type ReplicationMessage } from '@nomicore/replication-protocol';
 import { namespaceErrorFrame } from './frame-io.js';
 import { resolveLimits, resolveTimeouts } from './defaults.js';
-import { dispatchReplicationObserver } from './observer.js';
+import { cidField, dispatchReplicationObserver } from './observer.js';
 import { createHubReplicationEdge as createEdgeConnection, type HubReplicationEdge } from './hub-edge.js';
 import { installEarlyFrameAdmission } from './hub-upgrade-admission.js';
 import type { HubNamespaceChannel } from './hub-namespace.js';
@@ -605,6 +605,9 @@ export class HostSessionAdapter implements HubSessionSink {
     this.port.emitObserver({
       type: 'namespace-error',
       side: 'hub',
+      // issue #423（ADR 0032 决策 5 / 协议 §23.3 在场纪律）：本复刻面与单体发射体同构——
+      // `connectionId` 在握手完成后恒在场（条件展开单点 `cidField`，非无条件加字段）。
+      ...cidField(this.port.connectionId()),
       namespaceId,
       code: 'NAMESPACE_STATE_VIOLATION',
       direction: 'sent',
@@ -618,6 +621,9 @@ export class HostSessionAdapter implements HubSessionSink {
     this.port.emitObserver({
       type: 'namespace-error',
       side: 'hub',
+      // issue #423 AC3：edge 复现拒绝路径的 §23.3 在场纪律收口（值 = 端口 connectionId() =
+      // 句柄 connectionKey 单一键系统；HELLO 门之后恒在场，条件展开保留握手前防御形状）。
+      ...cidField(this.port.connectionId()),
       namespaceId,
       code,
       direction: 'sent',
@@ -628,6 +634,7 @@ export class HostSessionAdapter implements HubSessionSink {
     const event: ReplicationObserverEvent = {
       type: 'namespace-failed',
       side: 'hub',
+      ...cidField(this.port.connectionId()),
       namespaceId,
       cause: 'open-failed',
     };

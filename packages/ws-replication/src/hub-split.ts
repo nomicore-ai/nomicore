@@ -50,6 +50,24 @@ export type HubOpenAdmission =
   | { readonly outcome: 'denied' }
   | { readonly outcome: 'throw' };
 
+/**
+ * issue #423（ADR 0032 决策 5/2）：出站 data 帧的 **session 侧发送记账投影**（纯 JSON）。
+ *
+ * ADR 决策 5 把「依赖盖章后 sequence 的出站事件」（`update-sent`）的发射点划归 edge
+ * （盖章事实所有者），而 `sendQueueMs` 是 session 侧记账事实（§23.1：帧实际出队 − 帧内
+ * 最旧业务项入队；§23.4：发送方进程内精确）。本投影是两者之间的 append-only 承载面：
+ * - 只过**差值**（有限数值），不过绝对时间戳——分片形态下 edge 与 session 是不同时钟
+ *   域实例，跨域减法产生垃圾值（§23.3「绝对时间戳不入事件」同源纪律）；
+ * - `sendQueueMs` 缺省 = 成员缺席（clock 缺面 / 无 observer / 宿主直驱帧无 session 记账）
+ *   ——「缺面 = 字段缺失」纪律，绝不折叠为 0；
+ * - 形状与 `UpdateChannelHost.sendUpdateFrame` / `HubChannelHost.sendData` 的同名可选形参
+ *   **同形同步维护**（结构化类型兼容，peer 侧少参实现零改动）；本类型为纯类型、不进
+ *   `src/index.ts` / `src/testing.ts`（公共面零变化）。
+ */
+export interface HubSendAccounting {
+  readonly sendQueueMs?: number;
+}
+
 /** session → edge（进程内组合成员；worker 形态下由后续票重塑，D6 边界注记）。 */
 export interface HubSessionEdgePort {
   /**
@@ -67,8 +85,11 @@ export interface HubSessionEdgePort {
    *  0 = 未发送/被拒（与既有 `sendControl` 契约同形）。 */
   sendControlFrame(frame: Uint8Array): number;
   /** 出站数据帧（UPDATE / UPDATE_CHUNK，session 已占位编码）。返回盖章后 wire 序；
-   *  0 = 准入拒绝。 */
-  sendDataFrame(frame: Uint8Array): number;
+   *  0 = 准入拒绝。
+   *  issue #423（append-only 可选参数）：`accounting` = session 侧发送记账投影（纯 JSON，
+   *  见 `HubSendAccounting`）——`update-sent` 的 `sendQueueMs` 唯一来源；宿主直驱帧
+   *  不传（整键缺席，缺面 dormant）。既有单参实现/桩类型兼容（少参恒可赋值）。 */
+  sendDataFrame(frame: Uint8Array, accounting?: HubSendAccounting): number;
   /** 连接级 data 水位闸门（设计 D3.1 data 闸门前置判据）。 */
   dataGateOpen(): boolean;
   /** data 入队通知（§4.4 wheel 登记 + 连接总压检查）。 */

@@ -61,8 +61,15 @@ export interface HubChannelHost {
     namespaceId: string,
   ) => Promise<NamespaceAuthorization>;
   sendControl(message: ReplicationMessage): number;
-  /** data 帧（UPDATE）发送路径（§6.3，issue #137）：连接级水位闸门 + data 出队。 */
-  sendData(namespaceId: string, bytes: Uint8Array): number;
+  /** data 帧（UPDATE）发送路径（§6.3，issue #137）：连接级水位闸门 + data 出队。
+   *  issue #423（append-only 可选参数）：`accounting` = session 侧发送记账投影（纯 JSON
+   *  `{sendQueueMs?}`）——与 `UpdateChannelHost.sendUpdateFrame` / `hub-split.ts`
+   *  `HubSendAccounting` **同形同步维护**；透传至缝供 edge 发射 `update-sent`。 */
+  sendData(
+    namespaceId: string,
+    bytes: Uint8Array,
+    accounting?: Readonly<{ sendQueueMs?: number }>,
+  ): number;
   /** issue #243（DD-3.5）：UPDATE_CHUNK 帧发送路径（与 UPDATE 同一 data 出站点）。 */
   sendUpdateChunk(namespaceId: string, chunk: ChunkedTransferPiece): number;
   /** issue #243（DD-1.5）：wire 协商位判据（本连接会话 negotiated 位）。 */
@@ -238,7 +245,7 @@ export class HubNamespaceChannel {
     this.channel = new UpdateChannel({
       limits: host.limits,
       ackTimeoutMs: host.timeouts.ackTimeoutMs,
-      sendUpdateFrame: (bytes) => this.sendUpdateFrame(bytes),
+      sendUpdateFrame: (bytes, accounting) => this.sendUpdateFrame(bytes, accounting),
       sendUpdateChunkFrame: (chunk) => this.sendUpdateChunkFrame(chunk),
       chunkedSendEnabled: () => this.host.chunkedUpdateNegotiated(),
       declareLocalResync: (cause, failureDetail) => this.onLocalResyncEdge(cause, failureDetail),
@@ -1321,15 +1328,20 @@ export class HubNamespaceChannel {
 
   // ─────────────────────────────── apply（§11.1） ───────────────────────────────
 
-  private sendUpdateFrame(bytes: Uint8Array): number {
+  private sendUpdateFrame(
+    bytes: Uint8Array,
+    accounting?: Readonly<{ sendQueueMs?: number }>,
+  ): number {
     if (bytes.byteLength > this.host.limits.maxUpdateBytes) {
       return 0; // 由恢复 round 的 state-vector diff 修复（§10.1 镜像语义）
     }
     try {
       // §6.3 R2（SA2 #7）：see peer-namespace.sendUpdateFrame——异常统一收敛返回 0 → F4。
-      const seq = this.host.sendData(this.namespaceId, bytes);
-      // 出向 UPDATE 帧字节事件发射已移至 onUpdateSent（issue #238——sequence +
-      // sendQueueMs 需在通道记账后构型；seq>0 才触发）
+      // issue #423：accounting 逐层透传（hub-session.sendData → 缝 port.sendDataFrame），
+      // edge 在盖章点据此发射 update-sent（普通帧发射点已迁 edge；本方法零发射）。
+      const seq = this.host.sendData(this.namespaceId, bytes, accounting);
+      // 出向 UPDATE 帧字节事件发射已移至 edge 盖章点（issue #423——sequence + sendQueueMs
+      // 在 edge 单点构型；seq>0 才触发）
       return seq;
     } catch {
       return 0;
@@ -1367,11 +1379,17 @@ export class HubNamespaceChannel {
     });
   }
 
-  /** update-sent（hub 出向 UPDATE 帧实际出站记账事件；issue #238——seq>0 每帧恰一）。
-   *  issue #245（R21/DD3）：info.chunked 在场 = 分块 transfer 完成出站（末 chunk 结算，
-   *  bytes = totalBytes）→ 改道发 chunked-update-sent（transferId/chunkCount/totalBytes，
-   *  无 sequence/latency 键——DD1）；普通帧（chunked 缺省）→ 既有 update-sent 发射体
-   *  逐字节不变（N1 锚）。 */
+  /** update-sent / chunked-update-sent 改道（hub 侧）。
+   *
+   *  issue #423（ADR 0032 决策 5「发射点 = 拥有事实的一侧」）：普通帧（`info.chunked` 缺省）
+   *  的 `update-sent` **发射点已迁 edge 连接级 data 帧出面**（盖章 sequence 事实所有者）——
+   *  本分支零发射（恰一由 edge `port.sendDataFrame` 单漏斗 + 本抑制两点结构性成立；重复
+   *  发射会被 append-only 金标/恰一断言拦下）。本方法保留：`observerOn` 热路径门不变。
+   *  issue #245（R21/DD3）：`info.chunked` 在场 = 分块 transfer 完成出站（末 chunk 结算，
+   *  bytes = totalBytes）→ **仍在 session 侧**改道发 `chunked-update-sent`
+   *  （transferId/chunkCount/totalBytes，无 sequence/latency 键——DD1；结算事实在 session）。
+   *  peer 侧（`peer-namespace.onUpdateSent`）零改动：peer 不拆分，`update-sent{side:'peer'}`
+   *  发射体逐字节不变。 */
   private onUpdateSent(
     info: Readonly<{
       sequence: number;
@@ -1381,26 +1399,15 @@ export class HubNamespaceChannel {
     }>,
   ): void {
     if (!this.observerOn) return;
-    if (info.chunked !== undefined) {
-      this.host.emitObserver({
-        type: 'chunked-update-sent',
-        side: 'hub',
-        ...(cidField(this.host.connectionId())),
-        namespaceId: this.namespaceId,
-        transferId: info.chunked.transferId,
-        chunkCount: info.chunked.chunkCount,
-        totalBytes: info.bytes, // 末 chunk 结算时 bytes = totalBytes（通道记账语义）
-      });
-      return;
-    }
+    if (info.chunked === undefined) return; // issue #423：普通帧 update-sent 发射点 = edge
     this.host.emitObserver({
-      type: 'update-sent',
+      type: 'chunked-update-sent',
       side: 'hub',
       ...(cidField(this.host.connectionId())),
       namespaceId: this.namespaceId,
-      bytes: info.bytes,
-      sequence: info.sequence,
-      ...(info.sendQueueMs !== undefined ? { sendQueueMs: info.sendQueueMs } : {}),
+      transferId: info.chunked.transferId,
+      chunkCount: info.chunked.chunkCount,
+      totalBytes: info.bytes, // 末 chunk 结算时 bytes = totalBytes（通道记账语义）
     });
   }
 

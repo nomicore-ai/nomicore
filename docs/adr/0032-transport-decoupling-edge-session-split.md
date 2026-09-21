@@ -42,3 +42,4 @@ worker 侧 transport shim 无 `bufferedAmount`/ping/onPong → 按既有「缺�
 - 免 listen 模式的 worker 侧插件不再消费 tokens/authorization/verifyToken/authorize 配置（认证授权全部在 edge），也不提供 `nomicoreHubReplication` 服务。
 - 公开面（edge/session 工厂与服务签名）一经发布即按 SA6 纪律冻结，演进只能 append-only。
 - peer 侧对称拆分、跨 worker 运维扇出均留待后续迭代（本期 non-goal）。
+- **决策 5 观测面落地注记（issue #423）**：hub 侧 `update-sent` 的发射点 = edge 连接级 data 帧出面（`port.sendDataFrame` 单漏斗，盖章 `sequence` 事实所有者），`bytes`/`namespaceId` 由帧字节定偏移判定，`sendQueueMs` 经缝上 **append-only 发送记账投影**（纯 JSON `{sendQueueMs?}`，只过差值；ADR 决策 2）自 session 侧携带；工厂/宿主直驱 data 帧无 session 记账 ⇒ 该键**整键缺席**（缺面 dormant）。edge 复刻的授权拒绝路径（`namespace-error{sent}` / `namespace-failed{open-failed}`）按协议 §23.3 在场纪律携带 `connectionId`。`maxConcurrentAssembliesPerConnection` 分片形态 per-session 计数口径已登记协议 §17；发射侧归属表（含「未授权 OPEN 无 `channel-state-changed`」形态差异）已登记协议 §23.1。**决策 1–5 与否决备选原文零改动；peer 侧发射点不变**（本注记只登记落点，不修改决策）。
