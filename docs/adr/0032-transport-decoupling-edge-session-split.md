@@ -1,4 +1,4 @@
-# ADR 0031：复制传输层解耦——Edge/SessionHost 拆分与 namespace 会话级接入缝
+# ADR 0032：复制传输层解耦——Edge/SessionHost 拆分与 namespace 会话级接入缝
 
 日期：2026-09-21（设计敲定：本仓 grill 会话；需求 issue #414，spec 见 issue #415）
 状态：已接受（影响包 `@nomicore/ws-replication`；wire 格式与协议语义零变化，listen 模式行为逐字节不变；peer 侧不拆分）

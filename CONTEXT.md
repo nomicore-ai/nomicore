@@ -223,15 +223,15 @@ _Avoid_: 为历史 wire 形态保留双形态切换或新增 capability、新旧
 _Avoid_: 把 v2 代际误读为协议版本 2 / 用代际推断 `envelopeVersion` 或 `protocolVersions` 变化
 
 **复制 Edge（replication edge）**:
-（ADR 0031）Hub 侧复制协议连接级半边的可独立实例化模块：持有 socket 生命周期、envelope/sequence 纪律、HELLO 与 capability 协商、liveness、GOAWAY/reauth、连接级背压与 OPEN 准入（全解码 + authorize + sink 路由），按路由键契约把 namespace 域帧转发给 SessionHost；不持有 Registry、不驱动 session、连接级帧从不上缝。单体 listen 模式 = Edge 与 SessionHost 的进程内组合，协议状态机单份实现。
+（ADR 0032）Hub 侧复制协议连接级半边的可独立实例化模块：持有 socket 生命周期、envelope/sequence 纪律、HELLO 与 capability 协商、liveness、GOAWAY/reauth、连接级背压与 OPEN 准入（全解码 + authorize + sink 路由），按路由键契约把 namespace 域帧转发给 SessionHost；不持有 Registry、不驱动 session、连接级帧从不上缝。单体 listen 模式 = Edge 与 SessionHost 的进程内组合，协议状态机单份实现。
 _Avoid_: 把 edge 当薄 socket adapter（它是协议状态机）、宿主自实现连接级协议（= fork）、edge 解码 OPEN/ERROR 以外的 namespace payload
 
 **SessionHost（复制会话宿主）**:
-（ADR 0031）Hub 侧复制协议 namespace 级半边：每 (连接, namespace) 一个 HubSession，承载 channel 全部状态机（OPEN 矩阵/Registry open/ReplicationSession 驱动/出站合并/收口），经 Uint8Array 帧缝与 edge 对接——入站帧已被 edge 校验 sequence、出站帧以 sequence=0 占位由 edge 盖章；authorize 不在此调用，消费 edge 传入的预授权投影。session 对象随连接存活（终态不拆）。
+（ADR 0032）Hub 侧复制协议 namespace 级半边：每 (连接, namespace) 一个 HubSession，承载 channel 全部状态机（OPEN 矩阵/Registry open/ReplicationSession 驱动/出站合并/收口），经 Uint8Array 帧缝与 edge 对接——入站帧已被 edge 校验 sequence、出站帧以 sequence=0 占位由 edge 盖章；authorize 不在此调用，消费 edge 传入的预授权投影。session 对象随连接存活（终态不拆）。
 _Avoid_: session 侧重检入站 sequence、把连接级帧推入 session、session 感知 drain 窗口、引入 worker_threads/MessagePort 类型
 
 **路由键契约（routing-key contract）**:
-（ADR 0031）edge 帧 demux 依赖的 wire 布局事实集：namespace 域帧的 namespaceId 恒在定偏移（文法固定 35 字节 ASCII ⟹ varString 长度前缀恒 1 字节；UPDATE_CHUNK 因 kind 首字段偏移 +1），OPEN 走全解码、ERROR 特例有界 mini-decode；与 codec 字段序同步维护，由结构性守卫测试锁死。提取成本 O(帧头)，与 payload 大小无关。
+（ADR 0032）edge 帧 demux 依赖的 wire 布局事实集：namespace 域帧的 namespaceId 恒在定偏移（文法固定 35 字节 ASCII ⟹ varString 长度前缀恒 1 字节；UPDATE_CHUNK 因 kind 首字段偏移 +1），OPEN 走全解码、ERROR 特例有界 mini-decode；与 codec 字段序同步维护，由结构性守卫测试锁死。提取成本 O(帧头)，与 payload 大小无关。
 _Avoid_: 完整 payload 解析取路由键、为路由改 wire 格式、向全部 session 广播路由
 
 **实例角色（instance role）**:
