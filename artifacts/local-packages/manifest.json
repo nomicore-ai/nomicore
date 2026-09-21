@@ -5,13 +5,13 @@
   "@nomicore/doc-runtime": "nomicore-doc-runtime-0.2.0.tgz",
   "@nomicore/clock": "nomicore-clock-0.2.0.tgz",
   "@nomicore/instance": "nomicore-instance-0.2.0.tgz",
-  "@nomicore/persistence": "nomicore-persistence-0.3.0.tgz",
-  "@nomicore/dsh-persistence": "nomicore-dsh-persistence-0.3.0.tgz",
+  "@nomicore/persistence": "nomicore-persistence-0.4.0.tgz",
+  "@nomicore/dsh-persistence": "nomicore-dsh-persistence-0.4.0.tgz",
   "@nomicore/namespace-diagnostic-log": "nomicore-namespace-diagnostic-log-0.2.0.tgz",
-  "@nomicore/namespace-runtime": "nomicore-namespace-runtime-0.2.0.tgz",
-  "@nomicore/namespace-registry": "nomicore-namespace-registry-0.2.0.tgz",
-  "@nomicore/namespace-api": "nomicore-namespace-api-0.1.0.tgz",
+  "@nomicore/namespace-runtime": "nomicore-namespace-runtime-0.3.0.tgz",
+  "@nomicore/namespace-registry": "nomicore-namespace-registry-0.3.0.tgz",
+  "@nomicore/namespace-api": "nomicore-namespace-api-0.2.0.tgz",
   "@nomicore/replication-protocol": "nomicore-replication-protocol-0.2.0.tgz",
-  "@nomicore/ws-replication": "nomicore-ws-replication-0.2.0.tgz",
-  "@nomicore/yjs-server": "nomicore-yjs-server-0.2.0.tgz"
+  "@nomicore/ws-replication": "nomicore-ws-replication-0.3.0.tgz",
+  "@nomicore/yjs-server": "nomicore-yjs-server-0.3.0.tgz"
 }
