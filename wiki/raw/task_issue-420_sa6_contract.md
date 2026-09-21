@@ -1,439 +1,394 @@
-# SA6 诊断与验收契约 — issue #420：SessionHost 公共工厂 + 内存管道完整协议回合（spec #415 T3）
+# SA6 诊断与验收契约 — CI repair：issue #420 / PR #429 CI 红灯（typecheck + test 分片 1/6・6/6）
 
-**Summary (EN).** Task type = **Feature** (capability gap, no bug root cause claimed). At HEAD `7039f6d` the package
-public entry (`src/index.ts`) exports **no SessionHost factory**: the only session-half factory
-(`hub-session.ts:createHubSessionHost`) consumes a **function-bearing** `HubSessionEdgePort` (17 members) and
-**decoded messages**, so it cannot be driven from a pure-JSON descriptor + byte frames. Five runtime probes confirm the
-gap (10/10), that the outbound frame's *assigned wire sequence* is load-bearing (a `void`/`0`-return breaks the round
-loudly: bootstrap ACK → `ACK_STATE_VIOLATION`; live UPDATE → `send-frame-rejected` resync), and that inbound-sequence
-discipline exists **only** at the edge (the session consumes wire sequences as-is = AC5 anchor). This report freezes the
-public surface verbatim (types + per-member semantics), the acceptance test paths, the assertion matrix, red/green
-expectations, and the SA8/ADR obligations carried from #418 (`R2''/R5''/R7''/R8''`). Red is at the right reason:
-`TS2305` on the type lock and `typeof createHubSessionHost === 'undefined'` on the runtime capability gate, while the
-same runner/fixture keeps the listen-mode round green (negative control). Verdict: **approve** (contract executable and
-enterable for design).
+> 轮次：acceptance-contract（iteration 1，**CI 修复轮**）。Dispatch `sa-1073bc5f-1320-42d6-bc1c-e220c77bc26b`（role `mabf-sa6`）。
+> 任务类型：**Bug（CI repair）**。被诊断对象 = PR #429 head `3f470fbcb6f10b0b26dced0fc05fceaec353494a` 上
+> CI run [`35663498235`](https://github.com/nomicore-ai/nomicore/actions/runs/35663498235) 的 5 个红灯作业
+> （`typecheck` + `test (20|24, 1|6)`）；修复对象 = commit `2c87b3b`（两 #423 消费方测试文件的机械符号名跟随）。
+> **结论：`approve`。** 红灯在本机以**单变量控制实验**逐字复现（生产树 `3f470fb..HEAD` 零 diff，仅换两消费方文件
+> ⇒ 4 × TS2724/TS2305 + 8 × `TypeError: (0 , createHubSessionHost) is not a function`）；根因链以源码符号、
+> 谱系事实与运行时探针闭合（9/9 PASS）；修复 commit 的 26 行机械集（断言/用例体零字节变化）在新 head `5a4049d`
+> 上 **CI run 35665953800 = 16/16 绿**（原 5 个红灯作业全部转绿），PR #429 已 merge（`4ad13a35`，2026-09-21T23:08:48Z）。
+> 契约门集（K1~K8）、负控（NC-A~NC-F）、变异敏感性与 runner 触发证据全部实测在册；禁止的修复方向经冻结锚证否。
+
+**Summary (EN).** Task type = **Bug (CI repair)**. The reported CI red (run 35663498235, head `3f470fb`) is a
+deterministic consumer-side symbol drift: the #420 delivery `4e5ff0a` renamed the internal splice exports of
+`packages/ws-replication/src/hub-session.ts` (`HubSessionHost`/`createHubSessionHost` →
+`HubSessionSink`/`createHubSessionSink`, design §7 D9) and followed the #418 consumers, but two #423 consumer test
+files (inherited from the moved-forward parent base `25c51cd`) still bound the pre-rename deep-path names ⇒
+`TS2724/TS2305` in `pnpm typecheck` and an ESM named-import `undefined` at runtime (8 cases). Root cause proven by a
+single-variable experiment (production bytes identical between red and green heads; only the two consumer files
+restored to their pre-repair bytes reproduce the exact CI failures) plus a runtime probe of the module surface.
+The repair commit `2c87b3b` is a 26-line mechanical follow (imports + type annotation + call site + header note; zero
+assertion/selector/case-body change), verified green by root typecheck, package suite, the two CI-verbatim failing
+shards, `--typecheck.only`, and the post-repair CI rerun (16/16). Contract = the CI-equivalent gate set K1–K8 with
+red/green expectations, negative controls, mutation sensitivity and the frozen-anchor constraints that forbid
+production-side alias restoration. Verdict: **approve**.
 
 ---
+
+## 0. 轮次与 supersession
+
+| 项 | 值 |
+| --- | --- |
+| 本文件角色 | 固定 SA6 契约路径 `wiki/raw/task_issue-420_sa6_contract.md`；本**CI 修复轮**按 skill 纪律**原位修订**，只保留当前诊断/契约/证据（同 SA9 前例：新轮原位覆盖旧轮） |
+| 前轮内容 | **feature 轮**（base `7039f6d`，SessionHost 公共工厂能力缺口契约，439 行）全文由 git 历史保存：`git show 4e5ff0a:wiki/raw/task_issue-420_sa6_contract.md`。其仍生效的条目见 **附 B（前轮契约索引）**——被 SA9/SA10 引用的 §12.1（公共签名冻结）、§12.6（授权编辑边界）、U1（重命名冻结）在该处可查 |
+| 本轮不改动 | 生产实现、已合并的交付字节、任何既有测试文件、CI 配置、docs/CONTEXT；只新增 `artifacts/sa6-issue420-ci-repair/**` 证据/最小复现脚本 + 本报告 |
 
 ## 1. Task type and inputs
 
 | 项 | 值 |
 | --- | --- |
-| 任务类型 | **Feature**（目标能力缺失：公共 byte-seam SessionHost 工厂 + 内存管道完整回合）——不虚构 Bug 根因 |
-| 派工 | `sa-dcb7d6ad-6435-4376-9892-993b747b8d87`，role `mabf-sa6`，phase `acceptance-contract`，iteration 0 |
-| 任务简报 | `wiki/raw/task_issue-420.md`（issue #420：ADR 0032 决策 2/3 的 namespace 半边出面；AC1~AC5；Blocked by #418） |
-| 规范权威 | `docs/adr/0032-transport-decoupling-edge-session-split.md`（决策 1~5 + 否决备选 + 后果节）；`CONTEXT.md:225-235`（复制 Edge / **SessionHost** / 路由键契约词条）；`docs/protocols/instance-replication-v1.md` §4.1（连接序）、§7~§11（OPEN/bootstrap/round/UPDATE/CLOSE）、§23（事件面） |
-| 前序证据 | `wiki/raw/task_issue-418_design.md`（§7 D1/D2/D5/D6 + §13 R2、§15.1、Follow-up）、`wiki/raw/task_issue-418_sa6_contract.md`、`wiki/raw/task_issue-418_sa10_spec.md`（§9 行 4/5）、`wiki/raw/task_issue-418_sa9_standards.md`、`wiki/raw/task_issue-419_sa6_contract.md`（T1 守卫） |
-| 源码锚点 | `packages/ws-replication/src/{index,hub-session,hub-split,hub-edge,hub-connection,hub-namespace,frame-io,backpressure,update-channel,defaults,testing}.ts`；`packages/ws-replication/test/{harness,driver}.ts` 与 `ws-replication-issue418-*.test.ts`（C0a~C0d 既有缝形态） |
-| 缺失输入（不阻断） | `wiki/raw/task_issue-420_relevant_decisions.md` 与 `wiki/raw/task_issue-420_conflict_report.md` **不存在**（已 `ls` 核对；#418/#419 有对应物 → 本票决策输入直接取 ADR 0032 + #418 设计义务账）；**无 #420 的 SA8 产物**（见 §3、§15 U5）；REST Issue comments = `[]`（无 Owner 评论） |
-| 角色边界 | 本次只产出本报告 + 证据脚本/日志；**不实现生产代码、不新增交付测试**（临时红灯/负控探针已在收尾前删除，见 §16） |
+| 任务类型 | **Bug（CI repair）**：CI 红灯稳定复现 + 根因证明 + 最小可执行验收契约；不设计最终修复方案、不实现 |
+| 派工 | `sa-1073bc5f-1320-42d6-bc1c-e220c77bc26b`；phase `acceptance-contract`，iteration 1；Owner comment requirements = none |
+| 任务简报 | `wiki/raw/task_issue-420.md`（issue #420：SessionHost 公共工厂 + 内存管道完整协议回合；AC1~AC5） |
+| CI 红灯证据 | `artifacts/sa3-issue420-ci-fail-evidence.log`（run 35663498235：head `3f470fb`，5 fail / 11 pass；§A 作业表 + §B typecheck 4 错 + §C 分片 1/6・6/6） |
+| 上游产物 | `wiki/raw/task_issue-420_implementation_conflict_report.md`（SA8 CI 修复轮：clear；RA1''–RA5''）、`…_sa4_review.md` Part C（approve；O14–O16）、`…_sa9_standards.md`（CI 修复终审 approve；N3 = 新 head CI 复跑待 Controller）、`…_sa10_spec.md`、`…_sa3_impl.md`（SA3 iteration 4 修复报告）、`…_design.md` §7 D9 / §11 ALLOW·DENY LIST |
+| 源码锚点 | `packages/ws-replication/src/{hub-session,hub-session-host,hub-split,index}.ts`；`packages/ws-replication/test/ws-replication-issue423-{sa7-dynamic,observer-emission-split}.test.ts`；`…issue418-edge-session-split-structure.test.ts`（C0c 冻结锚）；`packages/ws-replication/tsconfig.json`（`include: src/**/*.ts + test/**/*.ts`）；`.github/workflows/ci.yml`；`scripts/ci-test-shard.mjs`；`vitest.config.ts` |
+| 本机/远端裁决输入 | REST 双端点亲验 `[]`（§2）；CI 复跑 run [`35665953800`](https://github.com/nomicore-ai/nomicore/actions/runs/35665953800)（head `5a4049d`，success）；PR #429 merged |
+| 角色边界 | 只读诊断 + 报告/证据/最小复现脚本写入；`packages/**` tracked 文件零改动（临时探针已恢复，§16） |
 
 ## 2. Owner comment mapping
 
-派工明文：**Owner feedback requirements: none; current REST Issue comments are empty ([])**。因此无逐条评论映射；派工自带的四条执行要求逐条落位：
+- 派工明文：**Owner comment requirements: none（REST comments returned `[]`）**。本轮独立复核（证据
+  `artifacts/sa6-issue420-ci-repair/10-rest-comments-snapshot.log`，2026-09-21T23:12:04Z）：
+  `issues/420/comments` = `[]`（`{state:"closed", comments:0}`）；`issues/429/comments` = `[]`；
+  `pulls/429/comments` = `[]`；`pulls/429/reviews` = `[]`。⇒ **无逐条评论映射**。
+- 由此验收口径 = 派工自带的唯一硬要求 + 冻结锚：**「修复 CI 红灯且不软化/不跳过任何测试」**，落位如下：
 
 | 派工要求 | 落位 |
 | --- | --- |
-| 「establish the diagnosis」 | §5 正复现（能力缺口）、§8 缺口链、§9 因果实验、§11 排除项 |
-| 「frozen acceptance contract」 | §12（AC1~AC5 冻结签名 + 测试路径 + 断言矩阵 + 红/绿期望 + 变异敏感性） |
-| 「for the SessionHost public factory and complete in-memory protocol round」 | §12.1（公共工厂签名逐字冻结）、§12.2（内存管道完整回合验收） |
-| 「Produce the required SA6 artifact only; do not implement code or tests」 | 交付物 = 本报告 + `artifacts/sa6-issue420-*` 证据；`packages/**` 零改动（§16 `git status` 证据） |
+| 「Diagnose the newly reported CI failures」 | §5（正复现）、§8（根因链）、§9（因果实验）、§11（排除项） |
+| 「define the minimal executable acceptance contract for repair」 | §12（K1~K8 门集 + 最小输入/命令 + 红绿期望 + 负控 + 禁止方向 + 入口证据） |
+| 「Read the task brief, current CI evidence, and relevant upstream artifacts」 | §1 输入表；§3 SA8 约束（RA1''–RA5''） |
+| 「Do not implement」 | 交付 = 本报告 + `artifacts/sa6-issue420-ci-repair/**`（探针/三支 harness/12 组日志）；`git status` 对 tracked 文件零 diff（§16） |
 
 ## 3. SA8 constraints
 
-本票**尚无** SA8 设计前/实现后产物（`wiki/raw/` 无 `task_issue-420_*`；对比 #418/#419 均有 SA8 报告）。可适用的约束来自 **#418 的 SA8 义务账**（跨票存续，`task_issue-418_sa10_spec.md:90-91`、`task_issue-418_design.md` §15.1/§13）与本票的规范输入：
+CI 修复轮的 SA8 产物 = `wiki/raw/task_issue-420_implementation_conflict_report.md`（原位更新的 implementation 复查；
+`clear`：6 × no-conflict + 4 × implements-existing-decision / 0 hard-conflict / 0 override；`requiresConflictRecheck: false`）。
+对本契约有约束力的条款（逐条落位）：
 
-| # | 约束 | 对本票的含义（必须被 SA10/SA8 承接） |
+| # | SA8 条款 | 对本契约的含义 |
 | --- | --- | --- |
-| S1（R5''，门禁性） | worker 形态票必须重新过 SA8：**入站缝形态**（`Uint8Array` 帧 vs #418 的「已解码消息 + 序号」）+ `openAdmission` 拉取形态 + `channels`/`dataFacetOf` 组合成员重塑 | 本契约 §12.1 冻结的公共面即该「新缝面」的输入；实现合入前必须有一次 SA8 复查（本票**未**做该复查 → §15 U5） |
-| S2（R2''） | 跨线程 pending 有界缓冲义务在 worker 形态票**重新进入** | 本契约把 pending 窗口定为**宿主桥**职责并要求有界 + 顺序保真（§12.2），禁无界缓冲 |
-| S3（R7''/R8''） | ADR 0032:22 机制句与 CONTEXT.md:230 词条的描述差（「未授权 OPEN 不过缝 + 闭包回放投影」 vs #418 的「到达点投递 + 拉取」）必须在 worker 形态票 SA8 前置门禁之前或之中落 ADR 修订/澄清附录 | 本契约 §12.1 明确：**公共带外形态回到 ADR 字面**（session 只消费已结算 ok-投影）；拒绝路径归属由设计定（§15 U3），listen 形态零变化 |
-| S4 | ADR 0032 决策 5：worker 侧 shim 无 `bufferedAmount`/ping/onPong → dormant 降级（水位闸门休眠、liveness 休眠）；`maxConcurrentAssembliesPerConnection` 降级为 per-session 计数；observer 发射点 = 拥有事实的一侧 | §12.1 冻结：water gate dormant（true）、`bufferedAmount` 缺席、assembly 槽 per-session、namespace 域 observer 事件在 session 侧（工厂配置注入 observer） |
-| S5 | 模块 `AGENTS.md`：生产 API 只经 `src/index.ts`；可编程适配器/测试控制留在 `/testing` | §12.0：公共工厂经 `src/index.ts`（追加）；桥/夹具只放 `test/`；`/testing` 零改动 |
-| S6 | ADR 0032 后果节：公开面一经发布即 **append-only** | §12.1 的签名一经 test-d 锁定即冻结；后续（async worker / revoke 之外的信号）只能追加（§15 U2） |
+| S1（RA1''） | 修复随交付变更集落地 + push；新 head 上 `typecheck` + `test (20/24, 1–6)` + `contract-gates` 须绿；若出现**不能完全归因于两文件 stale 导入**的失败 ⇒ 停车回 SA8（RA4''①） | 契约 K5 以「CI 复跑 16/16 绿 + 每项失败可归因」为形式闭合凭证；本轮已实测满足（run 35665953800） |
+| S2（RA2''） | 形式闭合 = push 后新 head CI 绿（SA9 §8-N3 登记待 Controller） | 同上；本轮把该状态登记由「待办」更新为**已观测绿**（§13/§14），裁决权仍归 SA8/Controller |
+| S3（RA4''） | 专家路由触发条件：① 新 head CI 失败根因超出两文件 stale 导入；② 实际 diff 超出 26 行机械集；③ 父 head 再前移未复认；④ 「恢复生产别名」或「#423 测试改道公共工厂」提案 | 契约 §12.4 把 ②④ 写成**禁止方向**（违反即非本契约范围内修复，须新 SA8 轮）；本轮 census = 恰 26 行（§5.3） |
+| S4（RA5''） | 账本存续：D9 重命名跟随迄今覆盖 #418 两文件 + #423 两文件；后续内部缝消费方同名同类处理 | 契约 §12.6 给出「同类跟随」的可执行门集与口径注记（含 O14 的引用修正） |
+| S5（SA6 §12.6/U1 边界） | 内部 splice 重命名（D9）为**零行为机械改动**；既有测试文件除授权编辑外不得改动；断言逐字不变 | 契约 K6 把「断言/用例体/选择器/金标零字节变化 + 用例数守恒 + 变异敏感」写成硬判据 |
+| S6（#418 C0c 冻结锚） | `hub-session.ts` 运行时导出面 exact-equality `['createHubSessionSink']`（structure test :618） | 契约 K7 据此**证否**生产侧别名恢复；修复只能落消费方（§12.4） |
 
 ## 4. Environment and baseline
 
 | 项 | 值 |
 | --- | --- |
-| worktree / branch | `/home/wangjian/nomicore-fix-issue-420`，`mabf/issue-420` |
-| HEAD | `7039f6dae8e7d29f0c929492f0ca2119bc63afaa`（= PR #426 merge，含 #418 拆分；父链含 #419） |
-| 工具链 | node `v24.13.0`，pnpm `10.28.2`，vitest `3.2.7`，typescript `5.9.3`；`pnpm install --frozen-lockfile` → `Packages: +65 … Done in 515ms`，exit 0（worktree 初始无 `node_modules`） |
-| 包基线（全量 ws-replication） | **Test Files 77 passed (77) / Tests 588 passed (588) / Type Errors no errors / 48.83s / exit 0** → `artifacts/sa6-issue420-baseline-package-suite.log` |
-| hub-namespace 测试矩阵基线（7 文件） | **7 passed / 52 tests / exit 0**：ac7-faults 12、ac1-ac2-open 12、ac6-resync-close 7、ac5-live 7、periodic-reconcile 5、ac4-reconcile 5、ac3-bootstrap 4 → `artifacts/sa6-issue420-baseline-matrix.log` |
-| 公共入口运行时导出（11 名） | `DEFAULT_REPLICATION_{BACKOFF,LIMITS,TIMEOUTS}`、`NOMICORE_{HUB,PEER}_REPLICATION_SERVICE`、`createHubReplication`、`createHubReplicationPlugin`、`createPeerReplication`、`createPeerReplicationPlugin`、`requireHubReplication`、`requirePeerReplication`（探针 INFO，`artifacts/sa6-issue420-capability-gap-probe.log`） |
-| 模块级导出 | `hub-session.ts`=`['createHubSessionHost']`、`hub-edge.ts`=`['createHubReplicationEdge']`、`hub-split.ts`=`[]`（零运行时导出）——与 #418 C0c（`…structure.test.ts:616-619`）一致 |
-| 既有公共面冻结锚 | `…issue418-edge-session-split-contract.test.ts:144-156`（`FROZEN_PRODUCTION_EXPORTS`/`FROZEN_TESTING_EXPORTS`）+ `:551-552` 全集合相等断言 ⇒ **AC1 追加导出必然使 C5a 红**（本契约 §12.6 明确授权的一次性追加编辑） |
-| 零源码字符串断言纪律 | 既有 #136/#418 测试族头注「零源码 grep 断言」；本契约把 grep 类判据限制为 **AC4/AC5 的补充结构门**（AC 明文要求「零依赖/代码不存在」），行为验证仍由运行时断言承载（§12.4/§12.5） |
+| worktree / branch | `/home/wangjian/nomicore-fix-issue-420`，`mabf/issue-420`（= PR #429 head 分支） |
+| HEAD（本轮全程） | `5a4049d87bb3d244abed910e1bd372949501515c`（`docs: archive CI repair final reviews`；父 `2c87b3b`） |
+| 远端状态 | PR #429 **MERGED**（merge commit `4ad13a35f782411d3c48096c31afa724f6eae067`，parents = `25c51cd`（base）+ `5a4049d`（head），mergedAt 2026-09-21T23:08:48Z）；issue #420 `closed/completed`（23:08:50Z） |
+| 工具链 | node `v24.13.0`，pnpm `10.28.2`，vitest `3.2.7`（`pnpm exec vitest --version` 由运行日志体现）；4 vCPU / 14 GiB（本地），CI = ubuntu-latest × node 20/24 |
+| CI 失败 run | `35663498235`（head `3f470fb`，5 fail / 11 pass，2026-09-21T22:35:52Z）：`typecheck`（job 106543911063）、`test(20,1)`（106543911555）、`test(24,1)`（106543911521）、`test(20,6)`（106543911524）、`test(24,6)`（106543911700） |
+| CI 复跑 run | `35665953800`（head `5a4049d`，**success 16/16**，2026-09-21T23:05:53Z→23:08:37Z；`gh pr checks 429` 19=16 all pass，exit 0） |
+| 门集 | `pnpm typecheck`（15 tsconfig 串行；`ws-replication` 为第 14 条，其 `include` 覆盖 `test/**/*.ts`）；`vitest run --typecheck.only`（`*.test-d.ts`，CI typecheck 作业第二步）；分片作业 `node scripts/ci-test-shard.mjs <shard> 6` + `vitest run $files --typecheck.enabled=false --passWithNoTests=false` |
+| 谱系（亲验） | `4e5ff0a^` = `25c51cd`（PR #428 / #423 merge）；两 #423 测试文件自 `25c51cd` 至 `3f470fb` 零 commit 触碰（`git log 25c51cd..3f470fb -- <两文件>` 空）⇒ 交付时已是 stale 消费方；`4e5ff0a` 交付树 package 收集面 = 90 文件（`25c51cd` = 87 + #423 三文件） |
+| 基线（本机、HEAD） | 修复后全绿：聚焦 2 文件 26/26；包全量 86 文件/758 用例；分片 1/6 = 63 文件/820；分片 6/6 = 67 文件/831；`--typecheck.only` 49 文件/270 且 `Type Errors no errors`；根 typecheck `EXIT=0` |
 
-## 5. Positive reproduction（能力缺口的事实复现）
+## 5. Positive reproduction
 
-探针：`artifacts/sa6-issue420-capability-gap-probe.mts`（10/10 PASS，3 次重复一致）→ 日志 `artifacts/sa6-issue420-capability-gap-probe.log`。
+### 5.1 CI 原始红灯（证据 A：`artifacts/sa3-issue420-ci-fail-evidence.log`）
 
-| # | 事实（运行时观察） | 证据 |
+- **typecheck**（`pnpm typecheck`，exit 2）——4 条错误，逐字：
+
+```
+packages/ws-replication/test/ws-replication-issue423-observer-emission-split.test.ts(54,10): error TS2724: '"../src/hub-session.js"' has no exported member named 'createHubSessionHost'. Did you mean 'createHubSessionSink'?
+packages/ws-replication/test/ws-replication-issue423-observer-emission-split.test.ts(54,37): error TS2305: Module '"../src/hub-session.js"' has no exported member 'HubSessionHost'.
+packages/ws-replication/test/ws-replication-issue423-sa7-dynamic.test.ts(52,10): error TS2724: '"../src/hub-session.js"' has no exported member named 'createHubSessionHost'. Did you mean 'createHubSessionSink'?
+packages/ws-replication/test/ws-replication-issue423-sa7-dynamic.test.ts(52,37): error TS2305: Module '"../src/hub-session.js"' has no exported member 'HubSessionHost'.
+```
+
+- **test 分片**：`test (20,1)`/`test (24,1)` 红 `ws-replication-issue423-sa7-dynamic.test.ts` 3/5 用例
+  （D-SEAM1a/b/c）；`test (20,6)`/`test (24,6)` 红 `ws-replication-issue423-observer-emission-split.test.ts` 5/21 用例
+  （EM-C1e、EM-C3a、EM-C3b、EM-C3d、EM-C4b）；全部失败消息同为
+  `TypeError: (0 , createHubSessionHost) is not a function`（合计 8 红）。分片报告计数：`1 failed | 62 passed (63)` /
+  `1 failed | 66 passed (67)`。
+- 同 run 其余 11 作业绿（其余 4 个分片 × 2 node 版本、`codegen-freshness`、`contract-gates`、`packaging`）
+  ⇒ 失败面**局部**且与 node 版本无关。
+
+### 5.2 本机单变量红色复现（证据 B：`07-red-*`，harness `run-red-prefix.sh`）
+
+控制变量：树固定为已修复 head（`HEAD=5a4049d`），且先证 `git diff 3f470fb HEAD -- packages/ws-replication/src
+packages/ws-replication/test/issue420-shim-hub.ts docs CONTEXT.md .github scripts package.json vitest.config.ts` **为空**、
+`git diff --name-only 3f470fb HEAD -- packages/` = **恰两消费方文件**；随后仅把这两个文件恢复为 `3f470fb` 字节
+（sha256 `bc8c898f…` / `9838f489…`），其余全树不动：
+
+| 项 | 结果 | 与 CI 关系 |
 | --- | --- | --- |
-| G1 | 公共入口**无**任何 SessionHost 形态工厂：`createHubSessionHost` / `createHubNamespaceSession` / `createHubSession` 均 `undefined` | `PASS A.public.*.absent` |
-| G2 | 公共入口**无**任一导出是「工厂 → `open()` → `{handleFrame,onFrame,close}`」形态（构造扫描 `shardLike === 0`） | `PASS D.noShardFactoryInPublicEntry` |
-| G3 | 内部 splice 工厂 `hub-session.ts:createHubSessionHost` 在场，但其缝面是 **17 个函数成员**的 `HubSessionEdgePort`（`hub-split.ts:54-99`）：`openAdmission` 异步拉取 + 4 条发送/查询函数 + 6 条连接级函数 + observer/clock 等；`JSON.stringify` 会丢函数 ⇒ **不能由纯 JSON 描述子驱动** | 探针 `C.spliceFactoryConstructible`、`INFO portMembersTouchedByOpen ["observerPresent","onChannelSettled","openAdmission","sendControlFrame"]` |
-| G4 | 内部 splice 的投递面是 **已解码消息**（`openNamespace(message)` / `namespaceFrame(message, sequence)`），**无字节入帧面**：对象表面 `handleFrame`/`onFrame` 均缺席 | `PASS C.spliceHasNoByteInbound`、`INFO internalSpliceSurface` |
-| G5 | 类型层目标形态不可表达（AC1 的 test-d 现在必红）：`artifacts/sa6-issue420-type-lock-probe/probe.ts`（冻结签名逐字）经 tsc → **8 × TS2305**（`createHubSessionHost`/`HubSessionFrameLane`/`HubSessionFrameListener`/`HubSessionHandle`/`HubSessionHost`/`HubSessionHostConfig`/`HubSessionOpenInput`/`HubSessionSignal` 全缺）+ 3 × TS7006 + 4 × TS2578（负控 `@ts-expect-error` 尚不可达） | `artifacts/sa6-issue420-type-lock-red.log`（`[tsc exit: 2]`） |
-| G6 | runner 层红灯原因无歧义：契约路径上的临时运行探针在同一 runner 内 `expected 'undefined' to be 'function'`；`--typecheck` 侧报 3 条 `TypeCheckError: Module '"@nomicore/ws-replication"' has no exported member …` | `artifacts/sa6-issue420-runner-trigger-red.log` |
-| G7 | 现有 7 文件矩阵**无法**在 shim 装配上重跑：shim 装配需要公共工厂（G1/G2），且内部 splice 需要函数承载 port（G3） | G1~G4 + AC3 现状（无 shim 夹具） |
+| `pnpm exec tsc -p packages/ws-replication/tsconfig.json` | `EXIT=2`，4 条 TS2724/TS2305（文件/行/列/文案逐字同 CI） | 逐字同形 |
+| `pnpm typecheck`（CI typecheck 作业命令） | `EXIT=2`，同 4 条错误 | 逐字同形 |
+| `vitest run <两文件> --typecheck.enabled=false` | `EXIT=1`；`Tests 8 failed | 18 passed (26)`；`TypeError: (0 , createHubSessionHost) is not a function` × **8** | 8 红用例名逐条同 CI |
+| 恢复 | sha256 与恢复前逐位相同；`git status --porcelain --untracked-files=no` 空 | 临时改动已闭合 |
+
+### 5.3 机制隔离探针（证据 C：`06-mechanism-probe.log`，9/9 PASS）
+
+`NODE_OPTIONS=--conditions=nomicore-source pnpm exec tsx artifacts/sa6-issue420-ci-repair/probe-stale-internal-import.mts`
+（不触碰任何 tracked 文件）：
+
+| 判据 | 观察 |
+| --- | --- |
+| A. 旧消费方绑定名缺席 | `typeof sessionModule.createHubSessionHost === 'undefined'`；调用得到真实 `TypeError: sessionModule.createHubSessionHost is not a function` |
+| B. 改名后工厂在场 | `typeof createHubSessionSink === 'function'`；模块运行时导出面 `['createHubSessionSink']`（= #418 C0c 结构锚 :618 的 exact-equality 集合） |
+| C. 公共面 ≠ 内部面 | 公共入口 `createHubSessionHost` 为 function 且与内部 splice 工厂**不同一**（`distinct: true`） |
+| D. 负控 | 相邻模块 `createHubReplicationEdge`、公共入口 `createHubReplication` 在场（导入机制/环境正常） |
+| E. 谱系 | `25c51cd:packages/ws-replication/src/hub-session.ts` 曾 `export function createHubSessionHost(config: HubSessionHostConfig): HubSessionHost` |
+
+### 5.4 修复 commit 的机械集 census（证据：§13 表 + 下方 census）
+
+`git diff 3f470fb 2c87b3b -- packages/` = **恰 2 文件、+18/−8（26 行变更）**，逐行分类：
+
+| 类 | 每文件 | 说明 |
+| --- | --- | --- |
+| 头注 5 行 | +5 | 记录「#420 D9 机械跟随」的授权出处与「用例体、断言与选择器逐字不变」声明 |
+| 深路径导入 2 行 | −1/+1 ×2 | `import { createHubSessionHost, type HubSessionHost } from '../src/hub-session.js'` → `import { createHubSessionSink } from '../src/hub-session.js'`；`HubSessionEdgePort` 类型行并入 `HubSessionSink`（自 `hub-split.js`） |
+| 类型标注 1 行 | −1/+1 | `readonly host: HubSessionHost` → `HubSessionSink`（父树 `HubSessionHost` = `HubSessionSink` 的别名 ⇒ 同一类型） |
+| 工厂调用 1 行 | −1/+1 | `createHubSessionHost({` → `createHubSessionSink({`（同一工厂、同一配置形态） |
+
+**零** `describe/it` 名、断言、选择器、阈值、金标常量变更；修复后 sha256 = `160565873bf980c0ee1042d699fc9da890ee74743222139097e095a60395681e` /
+`778d2461f0421027c25c17bd817327dcccf14b3a53b4f92efa2e728852e0183c`（= SA8 §1 登记值 = 本轮工作树字节）。
 
 ## 6. Negative control
 
-| 负控 | 观察 | 结论 |
-| --- | --- | --- |
-| N1 同一导入机制下的既有公共工厂 | 同一探针用**同一动态导入路径**取到 `createHubReplication` / `createPeerReplication` / `createHubReplicationPlugin` 均为 `function` | G1/G2 的缺席是**真缺席**，非解析/环境故障（`PASS B.*`） |
-| N2 同一 runner + 同一 fixture 的 listen 全回合 | 临时负控文件在同一 vitest run 内 2/2 绿：既有公共工厂在场 + `boot()` 驱动的完整回合（OPEN→bootstrap→live→reconcile→CLOSE + `hub.close()`） | runner/harness/fixture 均正常；G6 的红是能力缺口（`artifacts/sa6-issue420-runner-trigger-red.log`） |
-| N3 结构门基线 | `packages/ws-replication/{src,package.json}` 对 `worker_threads|MessageChannel|MessagePort` 命中 0（AC4 当前即绿，属「实现后必须保持」的不变量） | `PASS A.zeroWorkerApiReferences`（`artifacts/sa6-issue420-seam-purity-gate-probe.log`） |
-| N4 纯 JSON 判据的敏感性 | 冻结描述子 `structuredClone` 深等成功；掺入函数闭包 → `DataCloneError` | 验收里的「纯 JSON」断言不是恒真（`PASS B.d1/B.negativeControl_d2`） |
-| N5 入站 sequence 纪律的对照 | 同类非法序：edge → `SEQUENCE_VIOLATION` + `close(1002,'protocol-error')` + 零缝投递；session（零 diff 通道）→ 照常消费并以其序回帧 | AC5 的正/负对照同时成立（§9 E2） |
-| N6 字节中继前提 | 真实回合中 14 帧 namespace 域帧：`encode(decode(frame), {sequence}) == frame` 逐字节相等（0 mismatch） | 宿主桥「消息→字节」中继保真（§9 E3） |
+| # | 负控 | 实测 | 排除的伪因 |
+| --- | --- | --- | --- |
+| NC-A | 同一命令在修复后 head 上运行 | 聚焦 26/26 绿（`01`/`11`）；根 typecheck `EXIT=0`；包 86/758、分片 63/820、67/831、typecheck.only 49/270 全绿 | 命令写错/入口失配/环境故障 |
+| NC-B | 红态下同两文件的**其余 18 用例** | `8 failed | 18 passed (26)`：红恰为 8 个调用被改名工厂的用例 | 整文件加载失败/夹具或超时（非「全红」而是「精确 8 点」） |
+| NC-C | 红/绿两态的生产树同一性 | `git diff 3f470fb HEAD -- packages/ws-replication/src …` 空；两态差异 = 恰两消费方文件 | 生产行为回归/环境漂移（单变量控制） |
+| NC-D | 相邻第三份 #423 文件（`…issue423-update-offset-guard.test.ts`） | 对被改名符号 `HubSessionHost|createHubSessionHost|hub-session` **0 命中**，全程绿（包套件内） | 失败面外溢（无附带损伤） |
+| NC-E | 变异敏感性（`09-mutation-*`，`run-mutation-sensitivity.sh`） | 生产单行变异：`hub-session.ts:63` 丢弃 `accounting` 透传（`this.sendData(ns, bytes, undefined)`）⇒ 同两文件 **5 failed | 21 passed (26)**（D-SEAM1a、D-SEAM1b、D-BURST1、EM-C4c、EM-C7a 红） | 修复后断言空转化/软化（断言仍绑定运行时行为） |
+| NC-F | node 20 vs 24 分组 | 修复前两版本同 8 红、修复后两版本同绿（run 35663498235 → 35665953800） | 版本相关确定性缺陷 |
 
 ## 7. Stability, scale and timing
 
-| 项 | 观察 |
-| --- | --- |
-| 重复性 | 5 个探针各跑 3 轮，逐轮 rc=0 且 `PROBE_RESULT` 逐字一致（capability 10/10、causality 7/7、sequence-discipline 2/2、seam-purity 4/4、relay-fidelity 2/2）→ `artifacts/sa6-issue420-stability-3x.log` |
-| 时序纪律 | 全部探针零 real sleep：微任务 `settle()/settleUntil()` + 注入 fake scheduler（`createRegistryTestScheduler`）+ 显式 defer 泵；与既有 #136 测试族同款 |
-| 规模/时长 | 探针 ~1–3 s/个；聚焦矩阵 3.38 s；包全量 48.83 s（含 typecheck 11.65 s）；单 namespace/单连接回合（内存管道无 socket 无 worker） |
-| 平台 | node 24 / linux x64；无网络依赖（除 `pnpm install`） |
+- **确定性**（非 flake）：红灯在 CI 两组 node 版本与两次本机独立复现（SA3 一轮 + 本轮一轮）中失败集合、文件、行号、
+  错误文案**逐字一致**；修复后绿门在 6 次独立运行（聚焦 ×2、包套件、分片 1/6、分片 6/6、typecheck-only）与 CI 16 作业中
+  全部稳定。无 sleep、无锁、无真实时钟依赖（被 #423 套件自身的 accounting 仪器保留原状，未被修复触碰）。
+- **规模**：影响面 = 2 文件 / 8 用例；门集覆盖 = 包 86 文件 758 用例、分片 1/6（63 文件 820 用例）、分片 6/6（67 文件 831 用例）、
+  `*.test-d.ts` 49 文件 270 用例、根 typecheck 15 tsconfig（全仓）。
+- **时序/预算**（本机实测）：聚焦 1.7s；包套件 51s；每分片 ~51s（CI ~1–2m，含 install）；`--typecheck.only` 与
+  `pnpm typecheck` 各 ~40s。⇒ 契约门集可在 CI 现有预算内逐字复跑，无需新增预算或特例。
+- **本地 vs CI 分片文件数逐位一致**（63/67），说明分片枚举对新树稳定（`scripts/ci-test-shard.mjs` 磁盘枚举）。
 
-## 8. Capability gap chain（能力缺口链，非缺陷根因）
+## 8. Root-cause chain
 
-| Step | 事实 | 证据 | 置信度 |
+| Step | Fact | Evidence | Confidence |
 | --- | --- | --- | --- |
-| 1（症状） | issue #420 的验收形态（内存管道驱动完整回合、shim 上重跑矩阵、test-d 锁签名）在当前实现上**不可达** | §5 G1~G7 | 高 |
-| 2（直接缺口） | 公共入口无 shard 形态 SessionHost 工厂（`open()→会话句柄`），公开面只有整连接 listen 工厂 | §5 G1/G2 | 高 |
-| 3（结构原因） | 唯一 session 半边工厂吃「函数承载 port + 已解码消息」，其缝形态与 ADR 决策 2 的字节缝（`Uint8Array` + 纯 JSON）**不同构**；且其配置必须内联 17 个函数成员（无法过 JSON 描述子） | `hub-session.ts:30-39,50-79`；`hub-split.ts:54-99`；§5 G3/G4 | 高 |
-| 4（更深根因） | #418 的进程内组合把「缝」实现为**同步函数调用**：出站帧的被分配 wire 序经返回值得以回传（`sendControlFrame/sendDataFrame: number`），而公共形态把它拆成**字节帧 + 宿主 pipe** ⇒ 必须重新定义「序的回传路径」，否则协议回合在首个 ACK 处断裂（§9 E1） | `hub-edge.ts:216-244`、`frame-io.ts:150-197`、`hub-namespace.ts:631,659-662`、`update-channel.ts:346-358` | 高 |
-| 5（放大因素） | 若只导出「可构造」面而不冻结 `onFrame` 的返回语义，实现会在 bootstrap/live 两处响亮失败（resync/connection fatal）——失败点远离根因，易被误判为夹具/超时问题 | §9 E1 臂 A/C | 高 |
-| 6（触发条件） | 任何真实（非 mock）回合：OPEN→bootstrap 必触发；live UPDATE 必触发 | §9 E1 | 高 |
-| 未证实假设 | （i）真 worker（异步 pipe）下序回传的最终形态（本期只冻结**同步宿主 pipe** 面）；(ii) 拒绝路径（denied/throw）在 shim 形态由 edge 还是 session 承载（§15 U3） | 见 §15 | 中 |
-| 排除项 | 环境/runner/fixture 故障、导入解析故障、既有 listen 回合回归（§6 N1/N2） | §6 | 高 |
+| S1 症状 | PR #429 CI：`typecheck` 4 条 TS2724/TS2305 + 分片 1/6・6/6 共 8 条 `TypeError: (0 , createHubSessionHost) is not a function` | run 35663498235；本机逐字复现（`07-red-*`） | 高（直接观测，双源同形） |
+| S2 直接故障点 | `packages/ws-replication/src/hub-session.ts` 在 head 上**只**导出 `createHubSessionSink`（运行时面 `['createHubSessionSink']`）；旧名 `createHubSessionHost`/类型 `HubSessionHost` 已不存在 | 探针 A/B（9/9 PASS）；`grep ^export` 亲验（:299 工厂 / 无别名）；#418 C0c :618 exact-equality 锚 | 高（运行时 + 编译期双证） |
+| S3 触发条件 | 两个 #423 消费方测试文件在 `:54`/`:52` 以深路径具名导入被删除的符号 ⇒ tsc 报错；vitest 变换后该具名绑定为 `undefined` ⇒ 用例内工厂调用抛 TypeError | 红态 4 TS + 8 TypeError；18/26 其余用例绿（NC-B） | 高 |
+| S4 消费方为何 stale | #420 交付 `4e5ff0a` 执行 D9 重命名时跟随了 #418 两测试文件（同一 commit diff 内）与自身新测试，但两 #423 文件不在其 diff 内；而 `4e5ff0a^` = `25c51cd`（#423 已合入的父基）⇒ 两文件自交付起即为同树 stale 消费方（`25c51cd..3f470fb` 对其零触碰） | `git rev-parse 4e5ff0a^`；`git log 25c51cd..3f470fb -- <两文件>` 空；`4e5ff0a --stat` 含 #418 两文件不含 #423 两文件 | 高（谱系亲验） |
+| S5 为何本地门未拦住 | 随交付归档的门日志**不覆盖交付树**：`sa3-issue420-package-suite.log` 自报 80 文件/651 用例且 `issue423` 命中 0，而交付树 package 收集面 = 90 文件（含 #423 三文件）；根测试日志 443 文件 vs 交付树全仓收集面 453 文件 ⇒ 门执行在「#423 尚未进入本分支」的旧快照上，基座前移后未重取门，CI 首次在全量合并树上执行 | 两归档日志全文（`git show 4e5ff0a:artifacts/…`）；文件面计数 `git ls-tree`（87→90 / 443→453） | 中高（「日志不覆盖交付树」= 直接观测；「日志产自哪棵更早的树」= 推断） |
+| S6 最深根因 | **重命名的消费方清点用了过期快照**：D9 的义务面 = 「全仓内部缝消费方」，但交付在 base 前移前完成清点并沿用旧门日志；可捕获该类的编译门（package tsconfig `include: src+test`）存在且必红，只是未在合并树上运行 ⇒ 义务在「消费方清点」这一步失效，而非在重命名语义本身 | S5 + §4 谱系 + 红态 package tsc `EXIT=2` | 高（机制唯一自洽） |
+| S7 修复方向约束 | head 上同模块**两个同名不同形**者并存（内部 splice `createHubSessionSink` ↔ 公共 `createHubSessionHost`，config 形态不同、绑定不同一）⇒ 修复只能让消费方跟随改名后的内部工厂；生产侧恢复别名会破 #418 C0c exact-equality（:618），改道公共工厂则改变被测面（SA8 RA4''④） | 探针 C（distinct）；structure test :618；SA8 §2-7/§3 | 高 |
+| A1 放大因素 | ① `hub-session.ts` 的深路径消费在仓内是多点形态（#418 ×2、#420 夹具、#423 ×2）——单次重命名需要跨票清点；② 归档门日志与交付 commit 同体提交，容易把「旧树绿」误读为「交付树绿」 | §4 谱系 / S5 | 中（属流程放大，不是本红灯的必要条件） |
+| E1 排除 | node 版本差异：两版本同红同绿（NC-F） | run 双矩阵 | 高（排除） |
+| E2 排除 | #423 测试自身缺陷：断言/用例体在父基与修复后零字节变化；同文件 18/26 绿；红点集中在工厂调用 | §5.4 census；NC-B | 高（排除） |
+| E3 排除 | 生产行为回归：红/绿两态生产树零 diff；修复后包套件 + 根 typecheck + CI 16 作业绿 | NC-C；§13 | 高（排除） |
+| E4 排除 | CI 配置/依赖/分片枚举故障：同 run 11 作业绿、分片文件数本地/CI 逐位一致、`codegen-freshness`/`contract-gates`/`packaging` 绿 | §5.1 / §4 | 高（排除） |
 
 ## 9. Causal experiments
 
-**E1 — 出站序回传是承重事实**（`artifacts/sa6-issue420-causality-probe.mts`，7/7，3×一致）。控制变量 = 同一真实 Registry/Runtime fixture + 同一零 diff 通道，唯一变量 = stub edge port 的 `send*Frame` 返回值：
-
-| 臂 | 变量 | 观察（运行时） | 结论 |
-| --- | --- | --- | --- |
-| A | control 面返回 0（= 「fire-and-forget 无回传」） | 帧头占位 `[8..12]==0` ✓；对端视图 `BOOTSTRAP_ACK(ackedSequence=2)` → `connectionFatal('ACK_STATE_VIOLATION', 1002)`，通道未达 `reconciling` | 无回传 ⇒ bootstrap 永不结算（回合断裂） |
-| B | control 面返回递增序 | 同输入 → `fatal=[]` 且 `bootstrapping→reconciling` | 回传 ⇒ 回合继续 |
-| C | data 面返回 0（control 有回传） | live 期真实 hub 写 → UPDATE 出帧但通道判 `resync-required{cause:'send-failed',reason:'send-frame-rejected'}` | data 面同构承重（响亮，不静默） |
-| D | data 面返回递增序 | UPDATE 出帧（占位仍为 0）+ 以回传序投递 `UPDATE_ACK(ackedSequence)` → `update-acked{sequence}` 命中在途条目，零 resync | 回传 ⇒ 窗口/ACK 簿记正确 |
-
-**E2 — 入站 sequence 纪律单点**（`artifacts/sa6-issue420-sequence-discipline-probe.mts`，2/2）：
-
-| 臂 | 输入 | 观察 | 结论 |
-| --- | --- | --- | --- |
-| A（edge） | `HELLO(seq1)` → `OPEN_NAMESPACE(seq3)`（期望 2） | wire `['HELLO_ACK','ERROR']` + `SEQUENCE_VIOLATION` + `close(1002,'protocol-error')`；sink 投递 `[]` | edge 是唯一 sequence 执行点（AC5 的负控） |
-| B（session/零 diff 通道） | 依次消费 seq 2/3/4/5 后，以**回退序 2** 投递 `CLOSE_NAMESPACE` | `CLOSE_OK{ackedSequence: 2}` + `settled=[ns]` + `fatal=[]` | session 半边**零重检**：wire 序被原样消费（AC5 的正锚，当前已在通道内成立，缺的是公共字节入口） |
-
-**E3 — 宿主桥中继保真**（`artifacts/sa6-issue420-bridge-relay-fidelity-probe.mts`，2/2）：真实回合（含 live 双向 UPDATE、periodic reconcile、CLOSE）14 帧 namespace 域帧，`encode(decode(frame), {sequence})` 与原帧**逐字节相等**（`peerToHub` 7 帧 / `hubToPeer` 7 帧，0 mismatch）⇒ 桥可用「解码消息 → 重编码」把 #418 的已解码缝面搬运到 `handleFrame(bytes)`，不引入第二份 codec 语义。**边界登记**：`openNamespace(message)` 不带 seq（`hub-split.ts:109`）⇒ OPEN 帧的中继序为桥合成值（协议上无消费者：通道 OPEN 路径不读 seq）；真 worker 形态应由 edge 直接交原始帧字节（§15 U2 的一部分）。
-
-**E4 — 纯 JSON/字节判据的敏感性**（`artifacts/sa6-issue420-seam-purity-gate-probe.mts`，4/4）：见 §6 N3/N4；另 `encodeMessage(..., {sequence:0})` 解码 `header.sequence === 0` ⇒ 占位语义可运行时断言。
+1. **机制隔离（无副作用）**：运行时导入内部 splice 模块 → 旧名 `undefined`、新名 function、公共面另一绑定、相邻导出在场
+   （探针 9/9，`06-mechanism-probe.log`）。⇒ 直接故障点是**模块导出面**，不是测试或环境。
+2. **单变量红复现**：固定修复后 head 的生产字节（diff 空），仅把两消费方文件回退到 `3f470fb` 字节 ⇒ CI 的 4 TS 错 + 8 TypeError
+   逐字重现；恢复后 sha256 逐位相同。⇒ 红 = 消费方绑定漂移的**充分原因**（`07-red-*`）。
+3. **变异敏感性**：生产单行语义变异（丢弃缝上 `accounting` 透传）⇒ 修复后的同一批断言 5/26 转红。⇒ 修复未软化断言，
+   契约门对生产行为仍然敏感（`09-mutation-*`）。恢复校验：sha256 相同、tracked 状态空。
+4. **绿门对照**：CI 逐字命令（根 typecheck、分片 1/6、分片 6/6、`--typecheck.only`）+ 包套件全部 `EXIT=0`，分片文件数
+   63/67 与 CI 失败态逐位一致。⇒ 绿不是「命令换了」或「测试被过滤」的结果（`01`–`05`）。
+5. **`--passWithNoTests=false` / `--typecheck.enabled=false` 纪律**：所有绿跑都用 CI 同款开关（空分片/空过滤会响亮失败），
+   未使用任何 `skip/only/todo/env override/fallback`。
 
 ## 10. Impact surface
 
-**交付面（目标实现，供 SA10 细化）**
-
-| 路径 | 变更类型 | 内容 |
+| 面 | 内容 | 状态 |
 | --- | --- | --- |
-| `packages/ws-replication/src/hub-session-host.ts` | 新增 | 公共 SessionHost 工厂 + 冻结类型 + 宿主 pipe 适配（内部复用 `hub-session.ts` 的 splice + 字节解码/占位编码） |
-| `packages/ws-replication/src/index.ts` | 追加 | 值导出 `createHubSessionHost` + 类型导出（`HubSessionHostConfig`/`HubSessionHost`/`HubSessionOpenInput`/`HubSessionHandle`/`HubSessionFrameLane`/`HubSessionFrameListener`/`HubSessionSignal`） |
-| `packages/ws-replication/src/hub-session.ts` | 重命名（零行为） | `createHubSessionHost`→`createHubSessionSink`；`HubSessionHostConfig`→`HubSessionSinkConfig`；删 `HubSessionHost = HubSessionSink` 别名（直接用 `HubSessionSink`） |
-| `packages/ws-replication/src/hub-connection.ts` | 机械 | 上条重命名的 import/调用点（1 处） |
-| `packages/ws-replication/test/ws-replication-issue418-edge-session-split-structure.test.ts` | 机械 | C0b 相对导入/调用点 + C0c 期望列表（`:13,:39,:421,:528,:571,:594,:618`）；断言其余逐字不变 |
-| `packages/ws-replication/test/ws-replication-issue418-edge-session-split-contract.test.ts` | 追加一行 | `FROZEN_PRODUCTION_EXPORTS` += `createHubSessionHost`（`:144-156`）；零删除零重排（其余断言不变） |
-| `packages/ws-replication/test/issue420-shim-hub.ts`（建议名） | 新增（夹具） | 宿主桥 + shim hub：`accept/acceptTrusted`（宿主职责：verifyToken→identity）+ 真 edge + 内存管道 + 公共 session 工厂；仅搬运字节/JSON，无协议决策 |
-| `packages/ws-replication/test/ws-replication-issue420-session-host-round.test.ts` | 新增 | AC2/AC5 回合验收（§12.2/§12.5） |
-| `packages/ws-replication/test/ws-replication-issue420-session-host-api.test-d.ts` | 新增 | AC1 类型冻结（§12.1） |
-| `packages/ws-replication/test/ws-replication-issue420-shim-matrix.test.ts`（或 AC3 备选机制） | 新增 | AC3 shim 矩阵重跑 + 反空跑断言（§12.3） |
-| `packages/ws-replication/src/testing.ts` | **零改动** | 桥/夹具不得进 `/testing`（S5） |
-
-**零 diff 要求**：`hub-namespace.ts`（通道）必须逐字节不变（AC3「通道零改动」的硬证据）；`frame-io.ts`/`backpressure.ts`/`round-engine.ts`/`update-*.ts`/`bulk-transfer.ts`/`liveness.ts`/`observer.ts`/`validate.ts` 的 diff 需在交付说明中逐项论证且全量套件绿。
-
-**调用方影响**：nomic-server（宿主：ingress=edge、namespace home worker=公共 session 工厂 + 宿主 pipe）；`listen:false` 插件与 `nomicoreHubSessionHost` 服务**不在本票范围**（ADR 决策 5 的「双轨」之服务轨留后续票，与 #418 SA10 §9 行 4 留白一致）。
-
-**非目标**：peer 侧拆分；真 worker/`MessageChannel` 传输；`listen:false` 插件服务；重认证/主动 revoke 的完整 shard 形态（本契约只冻结 handle 成员可达性，不承诺 edge↔session 跨进程 revoke 全链路）；wire 格式变更。
+| 失败/修复面 | `packages/ws-replication/test/ws-replication-issue423-{sa7-dynamic,observer-emission-split}.test.ts`（消费方） | 修复 commit `2c87b3b`，26 行机械集 |
+| 编译门面 | `pnpm typecheck` 第 14 条 `packages/ws-replication/tsconfig.json`（`include` 覆盖 `test/**/*.ts`）；CI typecheck 作业两步 | 红 → 绿 |
+| 运行门面 | CI 分片 1/6・6/6（node 20/24，共 4 格）；`scripts/ci-test-shard.mjs` 磁盘枚举 | 红 → 绿 |
+| 冻结锚面 | `src/index.ts` 13 值公共导出（`createHubSessionHost` 自 `hub-session-host.ts`）；#418 C0c 模块面 exact-equality；ADR 0032/协议 §17/§23.x | 全程零 diff（修复不触碰） |
+| 协议/wire/schema/持久化/状态机/生命周期 | 零变更 | 零 diff |
+| 跨票账本面（RA5''） | 内部缝深路径消费方清点：`src/hub-connection.ts:18`、`src/hub-session-host.ts:30`、`test/issue420-shim-hub.ts:66`、`test/ws-replication-issue418-edge-session-split-structure.test.ts:36/39` 均已为改名后名；#423 两文件由本修复跟随 | 收敛（根 typecheck 绿 + grep 0 残留） |
+| 语义面 | 不改内部缝/公共缝边界；不改 #423 被测面（仍是内部 splice session） | 保持（§12.4 禁止方向） |
 
 ## 11. Ruled-out hypotheses
 
-| 假设 | 判定 | 依据 |
-| --- | --- | --- |
-| H1「缺口只是少一行 re-export（把内部工厂导出即可）」 | **否决** | 内部 splice 实参含 17 个函数成员（E1/G3），公共形态要求纯 JSON 描述子（AC4）+ 字节入帧面（AC2）⇒ 形态不同，不是 re-export 问题 |
-| H2「内部工厂可由 JSON 描述子驱动（函数可注入桩）」 | **否决** | `JSON.stringify`/`structuredClone` 丢函数（N4）；（真 worker 里根本没有函数可注入） |
-| H3「`onFrame` 可以用 `void` 监听器（fire-and-forget）」 | **否决** | E1：control 面 0 回传 ⇒ `ACK_STATE_VIOLATION` 连接级致命；data 面 0 回传 ⇒ `send-frame-rejected` resync；两者都让 AC2 回合不可能绿 |
-| H4「现有矩阵已经覆盖 shim 形态」 | **否决** | 77 文件全绿只覆盖 listen 单体现状；无任何测试构造公共字节缝（G7） |
-| H5「AC5 已被现有测试锚定」 | **部分否决** | 通道内「零重检」行为已成立（E2-B），但**公共字节入口不存在** ⇒ 该 AC 的锚点在目标形态上仍缺（且新入口最易犯错：给解码器传 `expectedSequence`） |
-| H6「AC4 是空条目（当前已绿）」 | **修正** | 结构门当前绿（N3），但它是**实现后必须保持**的不变量 + 运行时纯 JSON/字节面需新增断言；且本条是唯一允许以结构扫描为**补充**判据的 AC（行为判据同时在场） |
-| H7「稳定失败是环境问题」 | **否决** | N1/N2：同 runner/同导入机制/同 fixture 下既有面全绿；探针 3× 一致 |
+- **H1「CI flake / runner 噪音」**——排除：失败集合在 node 20/24 与两次本机复现中逐字相同；无时间/并发敏感面（编译错误 + 具名导入缺失是确定性事实）。
+- **H2「#423 测试断言本身错误」**——排除：断言/用例体相对父基零字节变化；红态同文件 18/26 绿，红点恰为 8 个工厂调用点。
+- **H3「#420 重命名引入生产行为回归」**——排除：重命名纯度（旧类型名为别名、config 成员逐行相同）；红/绿两态 `src` 零 diff；包 86 文件/758 用例 + 根 typecheck + CI 16 作业绿。
+- **H4「修复通过弱化测试变绿」**——排除：26 行机械集（仅导入/注解/调用/头注）；用例数守恒 26 = 红态 8+18；变异敏感性实测 5/26 红（NC-E）。
+- **H5「rebase 冲突损坏」**——排除：rebase 零冲突；公共面 blob 逐位过继（SA8 §1 亲验 `index.ts` blob `08fa49a1…`）；本红灯 = 清点快照过期，而非合并损坏（S5/S6）。
+- **H6「第三份 #423 文件同样 stale」**——排除：0 命中改名符号，全程绿。
+- **H7「CI 作业过滤/入口失配」**——排除：分片枚举本地/CI 文件数逐位一致（63/67）；红态聚焦命令用 CI 同款开关。
+- **H8「Node 20 专有语义」**——排除：两 node 版本同红同绿（`node --experimental-*` 无涉；失败为纯符号解析）。
 
 ## 12. Acceptance contract and test paths
 
-### 12.0 交付路径与门禁
+### 12.0 不变式（目标行为）
 
-- 新增测试一律落在 `packages/ws-replication/test/`（根 `vitest.config.ts:17` 的 `include` 覆盖）；类型冻结落 `*.test-d.ts`（同文件 `test.typecheck.include:21`）。
-- 夹具（宿主编译的 shim hub / 内存管道）只落 `test/`；生产公共面只经 `src/index.ts`；`src/testing.ts` 零改。
-- 运行命令（实现后逐条执行并把日志登记进交付说明）：
-  - `NODE_OPTIONS=--conditions=nomicore-source pnpm exec vitest run --typecheck packages/ws-replication/test`
-  - `NODE_OPTIONS=--conditions=nomicore-source pnpm exec vitest run packages/ws-replication/test/ws-replication-issue420-session-host-round.test.ts`
-  - `pnpm exec tsc -p packages/ws-replication/tsconfig.json`
-  - `pnpm test`（根：`--conditions=nomicore-source vitest run --typecheck`）与 `pnpm typecheck`（15 tsconfig 串行）
-- 纪律：`skip/only/todo`、env override、fallback、吞错、软化断言全部禁止；断言必须观察运行时行为/wire 原字节。
+> 在修复后的 head 上：**（i）** 仓内任何对被改名内部 splice 模块的消费方绑定都解析到存在的导出（编译门）；
+> **（ii）** 上游 #423 的两支权威套件以 26/26 通过且断言语义零变化；**（iii）** 原 5 个红灯作业在 push 后 CI 复跑全绿；
+> **（iv）** 生产字节、公共导出面与 #418 结构锚零变化（修复只落消费方）。
+> 本契约对「未来同类跟随」（RA5''）同样生效：任何内部缝改名必须一次性清点**当前树**的全部消费方并以本门集验证。
 
-### 12.1 AC1 — 冻结公共面（test-d 锁定）
+### 12.1 最小输入与可执行命令（全部实测）
 
-**冻结声明（逐字，实现必须逐字段一致）**：
+| ID | 最小输入（命令，仓根） | 旧实现（`3f470fb` 消费方字节） | 目标实现（HEAD） | 证据 |
+| --- | --- | --- | --- | --- |
+| K1 | `pnpm typecheck` | **红**：`EXIT=2`，4 × TS2724/TS2305（:54/:52） | **绿**：`EXIT=0` | `07-red-prefix-root-typecheck.log` / `02-head-root-typecheck.log` |
+| K2 | `pnpm exec tsc -p packages/ws-replication/tsconfig.json`（K1 的失败 tsconfig，最短输入） | **红**：`EXIT=2`，同 4 条 | **绿**：`EXIT=0` | `07-red-prefix-package-tsc.log` |
+| K3 | `NODE_OPTIONS=--conditions=nomicore-source pnpm exec vitest run packages/ws-replication/test/ws-replication-issue423-observer-emission-split.test.ts packages/ws-replication/test/ws-replication-issue423-sa7-dynamic.test.ts --typecheck.enabled=false --passWithNoTests=false` | **红**：`EXIT=1`，`8 failed \| 18 passed (26)`，8 × `TypeError: (0 , createHubSessionHost) is not a function` | **绿**：`EXIT=0`，`2 files / 26 passed` | `07-red-prefix-focused.log` / `01`、`11` |
+| K4 | `files=$(node scripts/ci-test-shard.mjs 1 6); NODE_OPTIONS=… vitest run $files --typecheck.enabled=false --passWithNoTests=false`（`6 6` 同式） | **红**（CI 证据：`1 failed \| 62 passed (63)` / `1 failed \| 66 passed (67)`） | **绿**：分片 1/6 = 63 文件/820 用例；6/6 = 67 文件/831 用例 | `04-head-shard-{1,6}.log` + `-meta.log` |
+| K5 | `NODE_OPTIONS=--conditions=nomicore-source pnpm exec vitest run --typecheck.only --passWithNoTests=false`（CI typecheck 作业第二步） | —（不受该 4 条 `test/**` 错误影响的独立步骤；红由 K1 承担） | **绿**：49 文件/270 用例，`Type Errors no errors` | `05-head-typecheck-only.log` |
+| K6 | 包全量：`NODE_OPTIONS=… vitest run packages/ws-replication/test --typecheck.enabled=false --passWithNoTests=false` | 红态等价面：`2 failed \| 84 passed (86 files)`（SA3 复现） | **绿**：86 文件/758 用例 | `03-head-package-suite.log` |
+| K7 | push 后 CI 复跑（`typecheck` + `test (20/24, 1–6)` + `contract-gates` 等 16 作业） | **红**：run 35663498235（5 fail / 11 pass） | **绿**：run 35665953800（**16/16 success**），PR #429 merge `4ad13a35` | `08-ci-rerun-green.log` / `12-merge-state.log` / `10` |
+| K8 | diff 纪律：`git diff 3f470fb <fix> -- packages/` = 恰 2 文件 26 行机械集；生产/配置/docs 零 diff；零 `skip/only/todo/env override` | — | **满足**（§5.4 + NC-E） | §5.4；`09-mutation-*` |
 
-```ts
-// packages/ws-replication/src/hub-session-host.ts（新模块）→ src/index.ts 追加导出
-import type { NamespaceRegistry } from '@nomicore/namespace-registry';
-import type {
-  NamespaceAuthorization,
-  ReplicationClock,
-  ReplicationObserver,
-  ReplicationTimer,
-  ResolvedLimits,
-  ResolvedTimeouts,
-} from './types.js';
+**执行器**（最小复现/契约 harness，全部可重复、自恢复）：
+`artifacts/sa6-issue420-ci-repair/{run-green-gates.sh, run-red-prefix.sh, run-mutation-sensitivity.sh, probe-stale-internal-import.mts}`。
 
-/** 工厂配置：宿主本进程/worker 内事实（**不跨缝**；可含函数，但不得含 authorize/transport/缝 port）。 */
-export interface HubSessionHostConfig {
-  readonly registry: NamespaceRegistry;
-  readonly instanceId: string;              // hub 实例 id（HELLO 绑定/本地 owner 判定）
-  readonly limits: ResolvedLimits;          // 组合根 resolve+validate 后注入（既有纪律）
-  readonly timeouts: ResolvedTimeouts;
-  readonly timer: ReplicationTimer;
-  readonly observer?: ReplicationObserver;  // namespace 域事件发射面（决策 5：拥有事实的一侧）
-  readonly clock?: ReplicationClock;        // now() 采样（无 observer 零采样，既有纪律）
-}
+### 12.2 可观察断言（不得以源码字符串断言替代）
 
-/** 单 (连接, namespace) 会话开启描述子：**纯 JSON**（可 structuredClone，无函数/live 对象）。 */
-export interface HubSessionOpenInput {
-  readonly connectionKey: string;           // 宿主连接身份（不透明；非空；nomicore 不解释）
-  readonly remoteInstanceId: string;        // edge 认证后的对端 instanceId（= edge.authenticatedInstanceId）
-  readonly namespaceId: string;
-  readonly authorization: Extract<NamespaceAuthorization, { ok: true }>; // edge 已结算预授权投影
-  readonly selectedCapabilities: number;    // HELLO capability 交集位图
-  readonly connectionId?: string;           // 连接域 observability id（握手前 undefined）
-}
+- K1/K2/K5 = 编译期可观察结果（tsc 退出码/错误集）；K3/K4/K6 = 运行时行为（用例断言，观察真实 sink/缝上帧与事件），
+  K7 = CI 作业结论。**契约本体不含任何源码 grep/正则断言**；`probe-stale-internal-import.mts` 走**运行时导入**观察模块面，
+  仅作诊断证据，不是验收门。
+- 目标实现的可观察期望：`26 passed` 且失败数为 0；任何用例红都必须来自被观察行为本身（不得 skip/only/todo 或软化）。
 
-export type HubSessionFrameLane = 'control' | 'data';
-/** 出站 sink：同步收帧，返回**被分配的 wire 序**（0 = 未发送/被拒）。 */
-export type HubSessionFrameListener = (frame: Uint8Array, lane: HubSessionFrameLane) => number;
+### 12.3 红/绿期望（旧实现 vs 目标实现）
 
-/** 会话→edge 控制信号（纯 JSON；ADR 决策 2 的 session→edge 半边在字节缝上的载体）。 */
-export type HubSessionSignal =
-  | { readonly type: 'settled'; readonly namespaceId: string }
-  | { readonly type: 'connection-fatal'; readonly code: string };
-
-export interface HubSessionHandle {
-  /** 入站（fire-and-forget）：namespace 域 wire 帧；序列已由 edge 校验——本半边**不得**再校验。 */
-  handleFrame(frame: Uint8Array): void;
-  /** 出站 sink 注册（同步）；至多一个 sink 生效：后注册者替换先注册者；返回退订函数。 */
-  onFrame(listener: HubSessionFrameListener): () => void;
-  /** 会话→edge 控制信号观察（纯 JSON；可多监听，返回值忽略）。 */
-  onSignal(listener: (signal: HubSessionSignal) => void): () => void;
-  /** 'terminateUnauthorized' 控制信号（revoke 链；幂等；无通道则 resolve）。 */
-  terminateUnauthorized(): Promise<void>;
-  /** 'close' 控制信号：同步前缀 quiesce + 异步尾 cleanup；幂等（重复返回同一 promise）。 */
-  close(): Promise<void>;
-}
-
-export interface HubSessionHost {
-  /** 同步开启一个 (连接, namespace) 会话（同一 handle 只服务该 ns；(connectionKey, namespaceId) 唯一属宿主前置条件）。 */
-  open(input: HubSessionOpenInput): HubSessionHandle;
-}
-
-export function createHubSessionHost(config: HubSessionHostConfig): HubSessionHost;
-```
-
-**逐成员语义（冻结）**：
-
-| 成员 | 冻结语义 | 依据 |
-| --- | --- | --- |
-| `open` | 同步返回句柄（宿主可在任何帧到达前注册 sink）；描述子纯 JSON；前置条件：`connectionKey` 非空且 (connectionKey, namespaceId) 在宿主侧唯一（**违反属宿主契约违反，不在本票验收面**；设计可自行选择响亮拒绝，无需断言）；session 对象随连接存活（终态不拆）；`authorization` 只接受 ok-投影（denied/throw **不过缝**，由 edge 处置） | ADR 决策 2/3；CONTEXT.md:230；issue 正文 |
-| `handleFrame` | 解码 namespace 域帧（`selectedCapabilities` 作为 capability 门控透传，与 `hub-edge.ts:378-386` 同源判据）；**禁止传 `expectedSequence`**（AC5）；分派与 #418 `namespaceFrame` 同构：`OPEN_NAMESPACE`→通道 OPEN 矩阵（authorize shim = 闭包回放 `authorization`；`registry.open(authorization.localOwner, nsId)`）、其余 namespace 域 kind→既有通道处理器；连接级/方向域 kind 静默（与内部 default 分支同构）；fire-and-forget（无接纳信号/无回压） | `hub-namespace.ts:346-362`；`hub-session.ts:115-172`；ADR 决策 2 |
-| `onFrame` | 出站帧为 **sequence=0 占位编码**；`lane` 区分控制/数据（宿主据此调 `sendControlFrame`/`sendDataFrame`）；**返回被分配的 wire 序**（0=未发送/被拒），该值即 session 侧发送记账结果（bootstrap/live ACK 结算依赖它）；至多一个 sink | E1；`frame-io.ts:139-197`；`hub-edge.ts:216-217` |
-| `onSignal` | `settled`：通道进入终态时**恰一次**（edge 的 drain 提前完成判据 `hub-edge.ts:689-707`）；`connection-fatal`：请求 edge 执行连接级致命（ERROR + close；**code→close code 映射归 edge**）——`ac5-live.test.ts:133-142` 的 `ACK_STATE_VIOLATION` 场景必须可经此到达 wire | `hub-namespace.ts:662,1099`；`hub-edge.ts:619-644,689-707` |
-| `terminateUnauthorized` | ≈ 内部 `terminateNamespace(nsId)`（revoke 链；`hub-session.ts:278-282`）；幂等、无通道 resolve | ADR 决策 2/5 |
-| `close` | ≈ `HubSessionSink.close()`（同步 quiesce + 异步 cleanup 汇流；幂等） | `hub-session.ts:269-275` |
-
-**test-d 锁定文件**：`packages/ws-replication/test/ws-replication-issue420-session-host-api.test-d.ts`，至少含：
-
-1. 正向：`expectTypeOf(createHubSessionHost).parameter(0).toMatchTypeOf<HubSessionHostConfig>()`；`.returns.toMatchTypeOf<HubSessionHost>()`；`HubSessionHost['open']` 参数 `HubSessionOpenInput`、返回 `HubSessionHandle`；`handleFrame(Uint8Array)→void`；`onFrame(HubSessionFrameListener)→()=>void`；`HubSessionFrameListener` 返回 `number`；`close()/terminateUnauthorized()→Promise<void>`；`onSignal` 参数 `(signal: HubSessionSignal) => void`；`HubSessionOpenInput['authorization']` 精确等于 `Extract<NamespaceAuthorization,{ok:true}>`；`connectionId: string | undefined`。
-2. 负控（**`@ts-expect-error` 必填**，以「未使用指令报 TS2578」自证敏感性）：
-   - `authorization: { ok: false }` 不得通过（denied 不过缝）；
-   - 工厂配置掺 `authorize`/`transport`/`port` 键不得通过（authorize 不在 session 侧调用）；
-   - 句柄 `namespaceFrame(...)`（已解码消息面）不得存在；
-   - `onFrame(() => undefined)`（无 number 返回）不得通过。
-3. 运行时导出面：`Object.keys(公共入口)` 相对 #418 冻结集**恰增 `createHubSessionHost`**（其余 11 名不变）——由 C5a 追加行承载（§12.6）。
-
-> **SA6 追加项声明（超出 issue 正文枚举的三处，逐条附硬证据）**：issue 只点名 `handleFrame`/`onFrame`/`close`。
-> 本契约补齐的 `onSignal`（`settled`/`connection-fatal`）与 `terminateUnauthorized` **不是**自由发明：
-> ① `settled` 是 ADR 决策 2 明文列出的 session→edge 控制信号，且是 edge 提前收 drain 的唯一判据（`hub-edge.ts:689-707`）；
-> ② `connection-fatal` 是零 diff 通道的既有出站信号（`hub-namespace.ts:662,1099`），且被矩阵文件
-> `ws-replication-ac5-live.test.ts:133-142`（`ACK_STATE_VIOLATION` connection fatal）实际触发 ⇒ 缺它 AC3 必红；
-> ③ `terminateUnauthorized` 是 ADR 决策 2 的 edge→session 信号（revoke 链），缺它 shard 形态无法 revoke。
-> 三者都保持「纯 JSON / 字节」的缝纪律，且公共同步面一经 test-d 锁定即 append-only（S6）。
-
-**当前红灯状态（已实测）**：该文件现在必然红（`artifacts/sa6-issue420-runner-trigger-red.log` 的 3 条 `TypeCheckError`，及 `artifacts/sa6-issue420-type-lock-red.log` 的 8 × TS2305）。
-
-### 12.2 AC2 — 内存管道对驱动完整回合
-
-**文件**：`packages/ws-replication/test/issue420-shim-hub.ts`（夹具）+ `packages/ws-replication/test/ws-replication-issue420-session-host-round.test.ts`。
-
-**装配（无 socket 无 worker）**：真 `createPeerReplication` ↔ `makeWire()`（内存双端）↔ hub 侧 = 真 `createHubReplicationEdge`（连接级半边，`createHubReplicationEdge`） + **内存管道对**（夹具桥） + 公共 `createHubSessionHost`（session 半边）+ 真 Registry/Runtime fixture。夹具职责（**只搬运**）：`accept/acceptTrusted`（宿主职责：`verifyToken`→identity）、`sessionFactory(port)` 返回 `HubSessionSink` 代理；首 OPEN 到达点：`port.openAdmission(ns)` 取已结算投影 → `open(descriptor)`（纯 JSON）→ 转发 OPEN 帧字节；后续帧 `encodeMessage(message,{sequence})` → `handleFrame(bytes)`（顺序保真 + 有界 pending 窗口，S2）；`onFrame((frame,lane)=>port.sendControlFrame/sendDataFrame(frame))` 原样回传返回序；`onSignal` → `port.onChannelSettled` / `port.connectionFatal(code)`；`close()`/`terminateNamespace()` → 句柄方法。
-
-**必需断言（全部为运行时行为/wire 原字节）**：
-
-| # | 断言 | 目标期望 |
-| --- | --- | --- |
-| A1 | 能力门：公共入口 `typeof createHubSessionHost === 'function'` | 绿 |
-| A2 | 缝纯度：描述子 `structuredClone` 深等（纯 JSON）；`handleFrame` 收到的每一项 `instanceof Uint8Array`；sink 返回 `number` | 绿 |
-| A3 | 缝纪律：`handleFrame` 观察到的 kind 全集 ⊆ namespace 域 kind；无 `HELLO`/`HELLO_ACK`/`GOAWAY`/方向域帧 | 绿 |
-| A4 | OPEN：wire 恰一 `OPEN_OK`；`authorize` 恰一次且**发生在 edge 侧**（`run.authorizer.calls.length===1`）；session 侧结构性无授权器（§12.1 的 `@ts-expect-error` 负控）；描述子换 `PEER_OWNER`（`registry.open` 主人不符）→ 无 `OPEN_OK` 且 `NAMESPACE_UNAUTHORIZED` | 绿 |
-| A5 | bootstrap：wire 恰一 `BOOTSTRAP_SNAPSHOT`；对端 `BOOTSTRAP_ACK(ackedSequence = 快照帧 wire 序)` → 通道 `bootstrapping→reconciling`（**序回传承重锚**，E1 臂 A/B 对照） | 绿 |
-| A6 | reconcile：`SYNC_STEP1/2/SYNC_APPLIED` 齐备 → hub/peer 双方 live；`peer doc` 与 `hub doc` 收敛（`encodeStateAsUpdate` 等价） | 绿 |
-| A7 | live 双向往返：peer→hub `UPDATE` 落盘 + `UPDATE_ACK(ackedSequence = 入站 wire 序)`；hub 侧真实写 → `UPDATE` 出帧 + peer ACK 结算（`update-acked`，零 `resync-required`） | 绿 |
-| A8 | sequence 单点：全部 wire 帧 `[8..12]` 自 1 严格 +1、**无 0 占位泄漏**；`handleFrame` 收到的帧仍带占位 0（缝内占位语义） | 绿 |
-| A9 | CLOSE：peer `CLOSE_NAMESPACE` → `CLOSE_OK(ackedSequence = 入站 wire 序)`；`settled` 信号恰一次（桥记录）并转发至 edge；通道终态 | 绿 |
-| A10 | revoke：`handle.terminateUnauthorized()` → 该 namespace 离开 live（双方终态/收口帧），零 connection-fatal | 绿 |
-| A11 | drain/收尾：`hub.close()` resolve；`settle()` 后无残留 timer/未决 promise；`collectUnhandledRejections` 为空 | 绿 |
-| A12 | **红臂（变异正控，同文件第二用例）**：把桥 sink 改为返回 0 → 同一回合必须在 bootstrap ACK 处响亮失败——**断言（绿）= 观察到 `ACK_STATE_VIOLATION` connection fatal / 连接收口；被断言的对象（回合结果）= 红**。证明 A5 对「无回传」敏感 | 断言绿 / 回合红 |
-
-### 12.3 AC3 — 现有 hub-namespace 矩阵在 shim 上重跑绿灯
-
-**必需（硬）**：`ac1-ac2-open`(12) / `ac3-bootstrap`(4) / `ac4-reconcile`(5) / `ac5-live`(7) / `ac6-resync-close`(7) / `ac7-faults`(12) / `periodic-reconcile`(5) 七文件在默认（listen）运行中**断言逐字不变**且全绿（基线 52 tests，§4）；同时这些**同一批场景体**必须在 shim 装配上执行并全绿——机制由设计三选一（交付说明须写明选了哪个）：
-
-- (a) **推荐**：`ws-replication-issue420-shim-matrix.test.ts` 用 `vi.mock('@nomicore/ws-replication', …)` 仅替换 `createHubReplication` 为 shim hub 工厂后动态 `import('./ws-replication-ac1-ac2-open.test.js')` 等七个文件 ⇒ 同一份断言代码在 shim 装配下第二次注册/执行（零改矩阵文件）。
-- (b) vitest 项目/别名：新增 shim 项目 + `issue420-shim-alias.ts`（re-export 全量、仅换 `createHubReplication`），同一批文件在 shim 项目下重跑。
-- (c) 矩阵文件参数化：`describe.each([{assembly:'listen'},{assembly:'shim'}])`，断言体逐字不变、listen 臂保留。
-
-**反空跑（必需）**：shim 运行必须自证真的走了 shim——夹具记录 `connectionsOpened` / `sessionsOpened` / `seamFramesIn/Out`，runner 断言 ≥ 期望（例如每 ns 每连接 ≥1 `open()`、缝内双向 ≥N 帧、全部 wire 序列非 0）。**负控**：把替换关掉（或指向 listen 工厂）时该断言必须失败（M4）。
-
-**零 fork（必需）**：`git diff` 中 `packages/ws-replication/src/hub-namespace.ts` **零 diff**；夹具内无协议决策（无 `selectCapabilities`/`decodeInbound`+`expectedSequence`/序列分配/路由键偏移/FSM），唯一变换 = 已解码消息↔字节的中继（E3 证明逐字节保真）+ port 成员搬运。
-
-**runner 层证据（当前已实测，映射本契约路径）**：`artifacts/sa6-issue420-runner-trigger-red.log`——契约路径的临时运行探针被 vitest 发现并红在能力缺口（`typeof === 'undefined'`），同 run 的负控（既有工厂 + listen 全回合）2/2 绿。
-
-### 12.4 AC4 — 缝两侧只过 `Uint8Array` 与纯 JSON；包内零 worker 依赖/类型
-
-| 判据 | 形态 | 当前 |
-| --- | --- | --- |
-| C4a 结构门（**补充**结构判据，AC 明文要求） | `packages/ws-replication/src/**` + `package.json` 对 `worker_threads|MessageChannel|MessagePort` 命中 0（测试内以 `node:fs` 读源扫描，单一模式常量） | 绿（`PASS A.zeroWorkerApiReferences`，须保持） |
-| C4b 描述子纯 JSON | `structuredClone(input)` 深等 + `JSON.stringify` 往返等值；负控：掺函数 → `DataCloneError` | 机制已证（N4） |
-| C4c 帧即字节 | 缝内进出项 `instanceof Uint8Array` 且 header 占位 0（出）/wire 序（入） | 机制已证（E4） |
-| C4d 无 live 对象过缝 | 缝上不出现 `HubNamespaceChannel`/`NamespaceLease`/`Y.Doc`/`ReplicationSession`（以 `structuredClone` + `instanceof` 断言，夹具侧记录） | 目标白盒断言 |
-
-> 纪律说明：C4a 是本契约唯一以「源码扫描」为**补充**的判据（AC 字面即要求「零依赖或类型」）；行为面由 C4b/C4c/C4d 与 §12.2 A2/A3/A8 承载，二者不得互相替代。
-
-### 12.5 AC5 — session 侧重检入站 sequence 的代码不存在
-
-| 判据 | 形态 | 期望 |
-| --- | --- | --- |
-| C5a 行为正锚（**主判据**） | 回合进入 live 后，经桥以**回退/重复序**投递 namespace 域帧（如 `CLOSE_NAMESPACE` seq=2，此前已消费 5）→ 该帧仍被消费，回帧/ACK 携带**该**序；零 fatal、零额外 close | 绿（通道行为已证：E2-B；目标形态须经 `handleFrame` 可达） |
-| C5b 行为负控 | 同一非法序在 **edge** 侧 → `SEQUENCE_VIOLATION` + `close(1002,'protocol-error')` + 零缝投递 | 绿（E2-A，已实测） |
-| C5c 补充结构门 | `hub-session-host.ts` 的解码调用不含 `expectedSequence`（模式命中 0） | 目标绿 |
-| C5d 敏感性 | M5：给 session 解码加 `expectedSequence` → C5a 必红 | 变异必做 |
-
-### 12.6 红/绿期望矩阵与既有冻结锚的**授权编辑**
-
-| 验收件 | 旧实现（HEAD 7039f6d） | 目标实现 | 实测证据 |
+| 验收件 | 旧实现（stale 消费方字节，生产同 HEAD） | 目标实现（消费方跟随） | 敏感性 |
 | --- | --- | --- | --- |
-| AC1 test-d | **红**：TS2305 ×8（+ vitest `TypeCheckError`） | 绿：零类型错误 + 负控 `@ts-expect-error` 全部被触发 | `artifacts/sa6-issue420-type-lock-red.log`；`…runner-trigger-red.log` |
-| AC2 回合测试 | **红**：能力门 `typeof === 'undefined'`（加载期即缺导出） | 绿：A1~A11 全绿；A12 红臂按预期红 | `…runner-trigger-red.log` |
-| AC3 shim 矩阵 | **红**：无公共工厂 ⇒ 无法装配 shim hub（G1~G4/G7） | 绿：listen 52 tests 保持 + shim 臂同场景数全绿 + 反空跑断言绿 | `…baseline-matrix.log`（listen 基线） |
-| AC4 结构门 | 绿（须保持） | 绿 | `…seam-purity-gate-probe.log` |
-| AC5 锚 | 通道行为已在（E2-B），公共入口缺 ⇒ 目标断言红 | 绿（C5a~C5c） | `…sequence-discipline-probe.log` |
+| K1/K2 编译门 | 红：4 × TS2724/TS2305 | 绿：0 错 | 去掉任一跟随行即回到 4 错（红态即该状态） |
+| K3 运行门 | 红：8/26，8 × TypeError | 绿：26/26 | 生产变异 ⇒ 5/26 红（NC-E） |
+| K4/K6 分片/包门 | 红：对应文件所在分片/包面 | 绿：63+67 / 758 用例，exit 0 | 分片枚举自动纳入两文件（新文件自动发现） |
+| K7 CI | 红：5 作业 | 绿：16/16 | CI 逐字命令已在 K1/K3/K4/K5 复跑 |
 
-**授权的一次性编辑（除此外既有测试文件不得改动）**：
+### 12.4 禁止的修复方向（冻结锚证否；触发 SA8 RA4''④）
 
-1. `…issue418-edge-session-split-contract.test.ts:144-156`：`FROZEN_PRODUCTION_EXPORTS` **追加** `createHubSessionHost`（零删除、零重排；`:551` 断言形态不变）。
-2. `…issue418-edge-session-split-structure.test.ts`：机械跟随内部重命名（`:13` 注释、`:39` 导入、`:421/:528/:571/:594` 调用、`:618` 期望列表 → `['createHubSessionSink']`）；其余断言逐字不变。
+| 方向 | 为何禁止 | 证据 |
+| --- | --- | --- |
+| 生产侧恢复 `hub-session.ts` 的旧别名/工厂名 | 破坏 #418 C0c 运行时导出面 exact-equality（`:618` = `['createHubSessionSink']`），并反转设计 §7 D9 | structure test :618；SA8 §3-2 |
+| 把两 #423 测试改道公共入口 `createHubSessionHost` | 公共工厂吃 `HubSessionHostConfig`（授权投影形态）、与内部 splice 工厂**不同一**；被测面改变 = 决策面变化 | 探针 C；SA8 §2-7；RA4''④ |
+| 放宽/删除断言、加 skip/only/todo、改分片或 CI 配置绕过 | skill 纪律与 K8 | §12.1 K8 |
 
-> 重命名理由：公共面必须叫 `createHubSessionHost`（ADR 决策 5「SessionHost 双轨（工厂 + 免 listen 插件服务）」的工厂轨；与 `/testing` 及服务名 `nomicoreHubSessionHost` 命名对称）。若内部 splice 保留同名，包内将出现**两个同名不同形**的工厂（一个吃 `HubSessionEdgePort`、一个吃 `HubSessionHostConfig`），且新模块内部要复用 splice ⇒ 自引用/误用风险；重命名是零行为机械改动，其安全性由「全量 588 tests + 结构测试绿」背书（#418 已把模块面命名交给实现票维护）。
-> 备选（记录但**否决**）：公共名取 `createHubNamespaceSession` 以回避重命名——与 ADR/宿主预期名不符，且把「工厂轨」的名字从公共面上抹掉。
+### 12.5 测试入口与 runner 触发（真实性）
 
-### 12.7 变异敏感性（交付说明必须登记实跑结果）
+- 两套件路径匹配根 `vitest.config.ts:17` 的 `include`（`packages/*/test/**/*.test.ts`），由 `scripts/ci-test-shard.mjs`
+  磁盘枚举自动落入分片（本地实测：`sa7-dynamic` ∈ shard 1/6 的 63 文件清单；`observer-emission-split` ∈ shard 6/6 的 67 文件清单）；
+  `--passWithNoTests=false` 防过滤假绿。
+- 编译门入口：`pnpm typecheck` 的 14/15 条 `packages/ws-replication/tsconfig.json` 的 `include` 覆盖 `test/**/*.ts`
+  ⇒ 消费方 stale 导入**必然**在 CI typecheck 作业暴露（本地红态 tsc 已验证）。
+- CI 触发链（实测）：PR push `3f470fb` → workflow `CI` → 失败 5 作业；push `5a4049d` → 同一 workflow → **16/16 绿** → merge。
 
-| 变异 | 期望 |
-| --- | --- |
-| M1 桥 sink 返回 0 | AC2 A5/A7 红（bootstrap ACK 违约 / `send-frame-rejected` resync）（E1 已证机制） |
-| M2 桥丢弃/迟发 OPEN 帧 | A4 红（无 `OPEN_OK`） |
-| M3 桥自行分配/二次盖章序列 | A8 红（占位泄漏或连续性断裂） |
-| M4 关闭 shim 替换（矩阵臂跑回 listen） | AC3 反空跑断言红 |
-| M5 session 解码传 `expectedSequence` | C5a 红 |
-| M6 公共入口去掉导出 | AC1/AC2 红（= 当前 HEAD 状态，已实测） |
+### 12.6 「未来同类跟随」口径注记（SA4 O14 收口，不改已合并字节）
+
+- **授权账**：D9 重命名的授权 = 设计 §7 D9 / SA6 U1；SA6 §12.6「授权编辑 2」授权的是 **#418 structure 测试**的机械跟随，
+  不是 #423 两文件本身。CI 修复轮对 #423 两文件的**范围许可**由 SA8 §3-1（`implements-existing-decision`）收编并终认、
+  SA4 Part C `approve`、SA9 §7.1 落账。两文件头注括注「SA6 §12.6 授权编辑 2」（O14 MINOR）因此属**散文级精度**问题；
+  本契约以本条把「重命名授权（D9/U1）」与「跟随先例（§12.6 编辑 2）」分列，供后续同类跟随的头注引用。
+- 已合并字节（sha256 见 §5.4）保持冻结，不在本轮修改（改字节会使 K3/K8 的证据链失配）。
 
 ## 13. Red/green or baseline evidence
 
 | 证据 | 文件 | 结果 |
 | --- | --- | --- |
-| 包全量基线 | `artifacts/sa6-issue420-baseline-package-suite.log` | 77 files / 588 tests passed，Type Errors no errors，exit 0 |
-| hub-namespace 矩阵基线 | `artifacts/sa6-issue420-baseline-matrix.log` | 7 files / 52 tests passed，exit 0 |
-| 能力缺口探针（含负控） | `artifacts/sa6-issue420-capability-gap-probe.log` | `PROBE_RESULT 10/10`，能力缺口 CONFIRMED |
-| 类型层红灯 | `artifacts/sa6-issue420-type-lock-red.log` | 8 × TS2305 + 4 × TS2578，`[tsc exit: 2]` |
-| runner 触发 + 红因 + 负控 | `artifacts/sa6-issue420-runner-trigger-red.log` | 临时契约路径文件被 runner 发现：回合探针红（`undefined`）/ test-d 红（3 TypeCheckError）/ 负控 2 tests 绿 |
-| 因果（序回传承重） | `artifacts/sa6-issue420-causality-probe.log` | `7/7`，LOAD-BEARING |
-| 因果（sequence 单点） | `artifacts/sa6-issue420-sequence-discipline-probe.log` | `2/2`，edge 单点 + session 零重检 |
-| AC4 结构门/纯度 | `artifacts/sa6-issue420-seam-purity-gate-probe.log` | `4/4`，基线绿（须保持） |
-| 桥中继保真 | `artifacts/sa6-issue420-bridge-relay-fidelity-probe.log` | `2/2`，14 帧逐字节相等 |
-| 3× 稳定性 | `artifacts/sa6-issue420-stability-3x.log` | 15 次运行逐轮一致 |
+| CI 原始红灯（5 作业） | `artifacts/sa3-issue420-ci-fail-evidence.log`（run 35663498235） | 5 fail / 11 pass；4 TS + 8 TypeError |
+| 本机红态（单变量） | `artifacts/sa6-issue420-ci-repair/07-red-{preconditions,prefix-package-tsc,prefix-root-typecheck,prefix-focused,driver,restore-check}.log` | `PREFIX_PACKAGE_TSC_EXIT=2`、`PREFIX_ROOT_TYPECHECK_EXIT=2`、`PREFIX_FOCUSED_EXIT=1`、`TYPEERROR_COUNT=8`；恢复 sha256 相同、tracked 状态空 |
+| 机制隔离 | `…/06-mechanism-probe.log` + `probe-stale-internal-import.mts` | 9/9 PASS（旧名缺席、新名在场、公共面不同一、负控在场、谱系在场） |
+| 修复后绿（本机 6 跑） | `…/01-head-focused-green.log`、`…/02-head-root-typecheck.log`、`…/03-head-package-suite.log`、`…/04-head-shard-{1,6}.log`、`…/05-head-typecheck-only.log`、`…/11-final-focused-recheck.log` | 26/26；`EXIT=0`；86/758；63/820；67/831；49/270（no type errors）；26/26 |
+| 修复后绿（CI） | `…/08-ci-rerun-green.log`、`…/12-merge-state.log` | run 35665953800 success（16/16）；`gh pr checks 429` 全 pass（exit 0）；merge `4ad13a35` |
+| 变异敏感性 | `…/09-mutation-{driver,focused,restore-check}.log` | 5 failed / 21 passed (26)；恢复 sha256 相同、tracked 状态空 |
+| 冻结字节 | §5.4 sha256（两文件）+ `07-red-sha256-*.log`（`3f470fb` 与 HEAD 两态） | 修复后 = `1605658…`/`778d246…`；红态 = `bc8c898…`/`9838f48…` |
+| REST 评论 | `…/10-rest-comments-snapshot.log` | issue #420 / PR #429 评论与评审全 `[]` |
+| 工作树收尾 | `…/11-final-state-recheck.log` | tracked 状态空；两文件与生产文件 sha256 = HEAD blob |
 
 ## 14. Runner trigger evidence
 
-- **发现机制**：根 `vitest.config.ts:17` `include: ['packages/*/test/**/*.test.ts', …]` ⇒ §12.2/§12.3 的 `.test.ts` 由 `pnpm test`（`NODE_OPTIONS=--conditions=nomicore-source vitest run --typecheck`）与任何 `vitest run <path>` 发现；`vitest.config.ts:21` `typecheck.include: ['packages/*/test/**/*.test-d.ts']` + `tsconfig.typecheck.json`（`packages/*/test/**/*.ts`）⇒ §12.1 的类型冻结由 `--typecheck` 发现并执行。
-- **实测（HEAD，契约路径）**：临时在 `packages/ws-replication/test/ws-replication-issue420-{session-host-round.test.ts,session-host-api.test-d.ts,negative-control.test.ts}` 落文件 → `vitest run --typecheck <三路径>` 报 `Test Files 2 failed | 1 passed (3)`、`Tests 1 failed | 3 passed`、`vitest exit=1`，红因逐条可读：`expected 'undefined' to be 'function'`（运行侧缺导出）与 `TypeCheckError: Module '"@nomicore/ws-replication"' has no exported member 'HubSessionHandle' / 'HubSessionHost' / 'HubSessionHostConfig'`（类型侧）。负控文件（同一 runner、同一 fixture、同一导入机制）2 tests 绿（既有公共工厂在场 + listen 全回合）⇒ 红是能力缺口而非入口/夹具错误。日志：`artifacts/sa6-issue420-runner-trigger-red.log`。**三个文件运行后已删除**（§16）。
-- **探针不干扰门禁**：`artifacts/sa6-issue420-*.mts` 不在任何 include 模式内——包全量套件在探针落盘**之后**重跑仍为 77 files / 588 tests（与落盘前一致，§4 两日志对比）。
-- **实现后须执行的触发命令**：见 §12.0；AC3 若选机制 (a)/(b)，须额外以 `vitest run --typecheck <shim 矩阵路径 or --project shim>` 记录 shim 臂的运行输出。
+- **CI 红触发（可复核 URL）**：run [`35663498235`](https://github.com/nomicore-ai/nomicore/actions/runs/35663498235)
+  → job `typecheck` [`106543911063`](https://github.com/nomicore-ai/nomicore/actions/runs/35663498235/job/106543911063)、
+  `test (20,1)` `106543911555`、`test (24,1)` `106543911521`、`test (20,6)` `106543911524`、`test (24,6)` `106543911700`；
+  其余 11 作业绿。
+- **本机逐字复跑入口**：`run-red-prefix.sh`（红）与 `run-green-gates.sh`（绿）内命令 = CI 命令逐字（含
+  `scripts/ci-test-shard.mjs` 与 `--typecheck.enabled=false --passWithNoTests=false`）；`04-head-shard-*-meta.log` 记录
+  分片文件清单（63/67），两份清单分别包含两个被修文件。
+- **修复后 CI 触发**：push `5a4049d` → run [`35665953800`](https://github.com/nomicore-ai/nomicore/actions/runs/35665953800)
+  = success 16/16（原 5 作业全绿）→ PR #429 merge。
+- **无旁路**：全程未使用 `--exclude`、`-t` 过滤、`skip/only/todo`、env override 或重试软判。
 
 ## 15. Unknowns and blockers
 
-| # | 项 | 状态/要求 |
+| # | 项 | 状态/影响 |
 | --- | --- | --- |
-| U1 | 公共工厂名 `createHubSessionHost` + 内部 splice 重命名为 `createHubSessionSink` | 本契约冻结（理由见 §12.6）；若 SA10/SA8 认为重命名不可接受，必须以「包内两名不同形工厂」的等值论证换取，并保持 §12.1 公共面与 test-d 锁定不变（否则按 conflict 流程回退设计） |
-| U2 | **真 worker（异步 pipe）形态未解** | 本契约冻结的是**同步宿主 pipe** 面（`onFrame` 同步返回被分配序，E1 证明必需）。真 worker 需 append-only 追加「迟归序回传」机制或改判缝形态（#418 R5''/R8'' 义务）；本票不得声称已解决该形态 |
-| U3 | 拒绝路径（`denied`/`throw`）在 shim 形态的归属 | 设计须二选一并给出证据：(i) edge 处置（ADR 决策 3 字面：未授权 OPEN 不过缝 → 需 edge 复现 `NAMESPACE_UNAUTHORIZED` + 拒绝闩锁）；(ii) session 回放已结算 admission（#418 现状）。无论哪种，`ac1-ac2-open` 的 deny/readDeny/submitDeny 断言（`NAMESPACE_UNAUTHORIZED` ×1、authorize 恰一次、注册表零打开）必须保持绿 |
-| U4 | `connectionKey` 的消费方 | 冻结为宿主不透明连接身份（非空校验）；nomicore 不解释。若设计发现需要更强的语义（如 observer 关联键），须 append-only 记录 |
-| U5 | **无 #420 的 SA8 产物** | #418 R5'' 明确 worker 形态票为**既定前置门禁**：本契约（新缝面/公共面）须作为 SA8 复查输入；实现合入前需 SA8 clear |
-| U6 | ADR 0032:22 / CONTEXT.md:230 文本调和（R7''/R8''） | worker 形态票 SA8 前置门禁之前或之中须落 ADR 修订/澄清附录（本 PR 可 documentation-only 先行）；不得以机制句字面迫使回退形态 |
-| U7 | AC3 的机制选择（a/b/c） | 设计择一并记录；反空跑断言 + 变异 M4 为强制项 |
-| U8 | water gate 休眠降级（`dataGateOpen→true`）与 listen 形态「暂停」语义的差异 | 决策 5 已接受（连接级总量保护收敛 edge）；须在 SA10/ADR 侧显式登记，并确保 backpressure/shed 家族测试（issue137/169 等）不在 shim 矩阵臂中静默改语义（本契约的 7 文件矩阵不含该族，故不冲突） |
-| U9 | `terminateUnauthorized` 场景未被 7 文件矩阵覆盖 | 由 §12.2 A10 独立承载；跨进程 revoke 全链路仍留后续票 |
-| U10 | periodic reconcile / timer 归属 | 会话侧计时器一律用工厂配置注入的 `timer`（既有纪律）；shim 夹具须把同一 scheduler 交给 edge 与 session（`BootOptions.hubNode.scheduler`） |
+| U1 | 交付 commit 归档门日志（80 文件 / 0 条 `issue423`）**产自哪一棵更早的树**不可直接重建（无对应 CI 日志/commit） | **不阻断**：「这些日志不覆盖交付树（90 文件收集面）」是直接观测事实；仅「最早可拦点的确切历史时点」为推断（§8 S5 已标注置信度中高） |
+| U2 | 本机无 Node 20（仅 24） | **不阻断**：node 20 面由 CI 双矩阵覆盖（红/绿均同形）；本地只跑 24 |
+| U3 | 本轮运行期间 PR #429 已被合并、issue #420 关闭 | **不阻断**：K7 的形式闭合凭证（新 head CI 绿）已观测（run 35665953800），merge commit `4ad13a35` 的 head 父即 `5a4049d`；本轮不执行任何 re-apply/push |
+| U4 | 未来同类跟随（RA5''）是否会出现新 stale 消费方 | 当前收敛：根 typecheck 绿 + grep 0 残留；契约 K1/K3/K4/K5 即其回归门 |
+| U5 | 交付归档门日志与交付 commit 同体提交（S5/A1②）属流程风险，非本票修复面 | 已在 §8/A1 登记；是否加「基座前移后重取门」流程门属 SA8/Controller 裁决 |
 
 ## 16. Temporary diagnostics cleanup
 
-| 项 | 处置 |
+- 本轮的临时改动**恰两处、均已自恢复**并复验：
+  1. **消费方回退**（红态复现）：`run-red-prefix.sh` 以 `git restore --source=3f470fb --worktree` 回退两测试文件，
+     结束后 `git restore --source=HEAD --worktree` 恢复；复验：sha256 与恢复前逐位相同（`SHA256_IDENTICAL`）、
+     `git status --porcelain --untracked-files=no` 空（`07-red-restore-check.log`）。
+  2. **生产单行变异**（敏感性探针）：`hub-session.ts:63` 丢弃 `accounting` 透传，结束后同法恢复；复验：
+     sha256 与 HEAD blob 相同、tracked 状态空（`09-mutation-restore-check.log`）。
+- 无 `nohup/setsid/PID` 文件、无残留进程、无长驻服务；所有检查点均为前台/后台 job 且已结算（`job_list` 无 running）。
+- 交付写入仅：本报告 + `artifacts/sa6-issue420-ci-repair/**`（3 支 harness + 1 支探针 + 全部日志）；
+  `packages/**`、`docs/**`、`CONTEXT.md`、`.github/**`、`scripts/**`、`wiki/raw/task_issue-420_*.md`（除本文件）零改动。
+- 终态复验：`11-final-state-recheck.log`（tracked 空；两测试文件 sha256 = HEAD blob；`hub-session.ts` sha256 = HEAD blob）
+  + `11-final-focused-recheck.log`（26/26 绿，`EXIT=0`）。
+
+## 附 A：artifactPaths（worktree-relative）
+
+| 路径 | 内容 |
 | --- | --- |
-| 临时 vitest 探针（3 文件，位于契约测试路径） | **已删除**：`packages/ws-replication/test/ws-replication-issue420-{session-host-round.test.ts,session-host-api.test-d.ts,negative-control.test.ts}`；`ls packages/ws-replication/test | grep -c 420` = 0 |
-| 临时 smoke 脚本 | 已删除（`artifacts/sa6-issue420-smoke.mts`、`/tmp/sa6-420-smoke.mts`） |
-| 生产代码/交付测试 | **零改动**：`git status --short` 仅显示 `artifacts/sa6-issue420-*`（新证据）与既有未跟踪 `wiki/raw/task_issue-420.md`；`packages/**` 与 `docs/**` 无 diff |
-| 长驻服务/后台作业 | 无（探针为一次性前台命令；vitest 无 watch；无 nohup/setsid/PID 文件/轮询） |
-| 保留的诊断资产（非临时） | `artifacts/sa6-issue420-{capability-gap, causality, sequence-discipline, seam-purity-gate, bridge-relay-fidelity}-probe.mts` + `.log`、`artifacts/sa6-issue420-type-lock-probe/{probe.ts,tsconfig.json}`、`artifacts/sa6-issue420-{type-lock-red,runner-trigger-red,baseline-package-suite,baseline-matrix,stability-3x}.log`——复现命令见各 `.mts` 文件头（统一前缀 `NODE_OPTIONS=--conditions=nomicore-source pnpm exec tsx`） |
+| `wiki/raw/task_issue-420_sa6_contract.md` | 本报告（固定 SA6 契约路径，原位修订） |
+| `artifacts/sa6-issue420-ci-repair/probe-stale-internal-import.mts` | 机制隔离探针（运行时模块面；9 判据） |
+| `artifacts/sa6-issue420-ci-repair/run-green-gates.sh` | 绿门 harness（CI 逐字命令：包套件/分片 1・6/typecheck-only）；脚本内 `90 files` 为横幅估计，权威计数以各 run 摘要为准：包套件 `--typecheck.enabled=false` = 86 文件（90 = 86 + 4 个仅在 typecheck 模式计入的 `*.test-d.ts`） |
+| `artifacts/sa6-issue420-ci-repair/run-red-prefix.sh` | 单变量红复现 harness（自恢复 + 前后 sha256/状态校验） |
+| `artifacts/sa6-issue420-ci-repair/run-mutation-sensitivity.sh` | 变异敏感性 harness（自恢复） |
+| `artifacts/sa6-issue420-ci-repair/00-green-gates-driver.log` | 绿门 driver（HEAD、四段 EXIT 汇总） |
+| `artifacts/sa6-issue420-ci-repair/01-head-focused-green.log` | 聚焦两文件绿（2 files / 26 tests） |
+| `artifacts/sa6-issue420-ci-repair/02-head-root-typecheck.log` | 根 typecheck（`EXIT=0`） |
+| `artifacts/sa6-issue420-ci-repair/03-head-package-suite.log` | 包全量（86 files / 758 tests） |
+| `artifacts/sa6-issue420-ci-repair/04-head-shard-1.log` / `04-head-shard-1-meta.log` | CI 分片 1/6 绿（63 files / 820 tests）+ 文件清单 |
+| `artifacts/sa6-issue420-ci-repair/04-head-shard-6.log` / `04-head-shard-6-meta.log` | CI 分片 6/6 绿（67 files / 831 tests）+ 文件清单 |
+| `artifacts/sa6-issue420-ci-repair/05-head-typecheck-only.log` | `--typecheck.only`（49 files / 270 tests，Type Errors no errors） |
+| `artifacts/sa6-issue420-ci-repair/06-mechanism-probe.log` | 机制探针日志（9/9 PASS） |
+| `artifacts/sa6-issue420-ci-repair/07-red-driver*.log` | 红态 driver + 前置条件 + 恢复校验 |
+| `artifacts/sa6-issue420-ci-repair/07-red-prefix-package-tsc.log` | 红态包 tsc（4 × TS2724/TS2305，EXIT=2） |
+| `artifacts/sa6-issue420-ci-repair/07-red-prefix-root-typecheck.log` | 红态根 typecheck（CI 逐字，EXIT=2） |
+| `artifacts/sa6-issue420-ci-repair/07-red-prefix-focused.log` | 红态聚焦（8 failed \| 18 passed (26)，8 × TypeError） |
+| `artifacts/sa6-issue420-ci-repair/07-red-sha256-{head-before,3f470fb,restored}.log` | 两态与恢复后 sha256 |
+| `artifacts/sa6-issue420-ci-repair/08-ci-rerun-green.log` | CI 复跑 run 35665953800（success，head `5a4049d`） |
+| `artifacts/sa6-issue420-ci-repair/09-mutation-*.log` | 变异敏感性（5 failed \| 21 passed）+ 恢复校验 |
+| `artifacts/sa6-issue420-ci-repair/10-rest-comments-snapshot.log` | REST 评论/评审快照（全 `[]`） |
+| `artifacts/sa6-issue420-ci-repair/11-final-state-recheck.log` / `11-final-focused-recheck.log` | 收尾状态与最终绿复验 |
+| `artifacts/sa6-issue420-ci-repair/12-merge-state.log` | PR #429 merge 状态 + `gh pr checks` 全绿 |
+| `artifacts/sa3-issue420-ci-fail-evidence.log` | CI 原始红灯证据（run 35663498235 归档，既有） |
 
-## 附：artifactPaths（worktree-relative）
+> 证据规范化说明（零语义，C1 级）：本轮所有日志为命令原始 stdout/stderr；唯一后处理 = 对
+> `12-merge-state.log` 去除行尾空白（`gh pr checks` 输出的尾随 TAB 16 处，2414→2398 字节），
+> 作业名/结论/URL/`PR_CHECKS_EXIT=0` 与全部 CI 事实逐字保留。其余日志未做任何 ANSI/时间戳/内容改写。
 
-```text
-wiki/raw/task_issue-420_sa6_contract.md
-artifacts/sa6-issue420-capability-gap-probe.mts
-artifacts/sa6-issue420-capability-gap-probe.log
-artifacts/sa6-issue420-causality-probe.mts
-artifacts/sa6-issue420-causality-probe.log
-artifacts/sa6-issue420-sequence-discipline-probe.mts
-artifacts/sa6-issue420-sequence-discipline-probe.log
-artifacts/sa6-issue420-seam-purity-gate-probe.mts
-artifacts/sa6-issue420-seam-purity-gate-probe.log
-artifacts/sa6-issue420-bridge-relay-fidelity-probe.mts
-artifacts/sa6-issue420-bridge-relay-fidelity-probe.log
-artifacts/sa6-issue420-type-lock-probe/tsconfig.json
-artifacts/sa6-issue420-type-lock-probe/probe.ts
-artifacts/sa6-issue420-type-lock-red.log
-artifacts/sa6-issue420-runner-trigger-red.log
-artifacts/sa6-issue420-baseline-package-suite.log
-artifacts/sa6-issue420-baseline-matrix.log
-artifacts/sa6-issue420-stability-3x.log
-```
+## 附 B：前轮（feature 轮）契约索引与出处
+
+前轮 439 行全文由 git 历史保存：`git show 4e5ff0a:wiki/raw/task_issue-420_sa6_contract.md`。仍在生效的条目索引：
+
+| 前轮条目 | 内容（摘要） | 现状（CI 修复轮核验） |
+| --- | --- | --- |
+| §12.0 / §12.1 AC1（冻结公共签名） + test-d | 公共 `createHubSessionHost`/`HubSessionHost`/`HubSessionOpenInput`/`HubSessionFrameListener`/`HubSessionSignal`/`HubSessionHandle` 逐字冻结；锁定文件 `packages/ws-replication/test/ws-replication-issue420-session-host-api.test-d.ts` | 交付后在场；`--typecheck.only` 49 文件/270 用例绿（K5）；公共面 13 值导出零 diff |
+| §12.2 AC2（内存管道完整回合） | 夹具 `test/issue420-shim-hub.ts` + `test/ws-replication-issue420-session-host-round.test.ts`（A1~A12，含红臂 A12） | 包套件内绿（K6）；本轮修复不触碰 |
+| §12.3 AC3（现有 hub-namespace 矩阵 shim 重跑） + 反空跑 | `test/ws-replication-issue420-shim-matrix.test.ts` + 七矩阵文件 listen/shim 双形态（52 tests 基线） | 包套件内绿（K6） |
+| §12.4 AC4（缝纯度/零 worker 依赖） | 结构门（源码扫描，唯一补充判据）+ 行为判据 C4b/c/d | 包套件内绿；本轮零改动 |
+| §12.5 AC5（session 侧零入站 sequence 重检） | C5a 行为正锚 / C5b 负控 / C5c 结构门 / C5d 变异 | 包套件内绿；本轮零改动 |
+| §12.6 授权编辑 1/2 | ① #418 契约表追加 `createHubSessionHost`；② #418 structure 测试机械跟随 | 已随交付落地；**口径注记见本报告 §12.6**（O14 收口） |
+| §12.7 变异敏感性 M1~M6 | 交付说明须登记实跑结果 | 本轮新增 NC-E 变异（内部缝 accounting 透传）作为修复后断言敏感性的再证 |
+| U1（重命名冻结） | 内部 splice 改名 `createHubSessionHost`→`createHubSessionSink`、别名删除、零行为 | 本轮根因链 S2/S4 的授权依据；消费方跟随面见 §12.6 |

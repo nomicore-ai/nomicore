@@ -1,0 +1,12 @@
+
+ RUN  v3.2.7 /home/wangjian/nomicore-fix-issue-420
+
+ ✓ packages/ws-replication/test/ws-replication-issue423-sa7-dynamic.test.ts (5 tests) 180ms
+ ✓ packages/ws-replication/test/ws-replication-issue423-observer-emission-split.test.ts (21 tests) 102ms
+
+ Test Files  2 passed (2)
+      Tests  26 passed (26)
+   Start at  07:12:20
+   Duration  1.78s (transform 711ms, setup 0ms, collect 1.16s, tests 282ms, environment 0ms, prepare 109ms)
+
+FINAL_FOCUSED_EXIT=0

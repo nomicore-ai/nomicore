@@ -1,0 +1,21 @@
+HEAD=5a4049d87bb3d244abed910e1bd372949501515c
+### preconditions
+# tracked-file worktree status before swap (expect empty):
+# production tree diff 3f470fb..HEAD (expect empty => only the consumer files move):
+# tracked diff 3f470fb..HEAD (expect the 2 consumer files only):
+packages/ws-replication/test/ws-replication-issue423-observer-emission-split.test.ts
+packages/ws-replication/test/ws-replication-issue423-sa7-dynamic.test.ts
+### swap consumer files to 3f470fb bytes
+SWAP_OK packages/ws-replication/test/ws-replication-issue423-observer-emission-split.test.ts
+SWAP_OK packages/ws-replication/test/ws-replication-issue423-sa7-dynamic.test.ts
+### red 1: package typecheck (tsconfig include = src+test)
+PREFIX_PACKAGE_TSC_EXIT=2
+### red 2: root pnpm typecheck (CI typecheck job, verbatim)
+PREFIX_ROOT_TYPECHECK_EXIT=2
+### red 3: focused vitest on the two consumer files (CI shard command form)
+PREFIX_FOCUSED_EXIT=1
+PREFIX_FOCUSED_TYPEERROR_COUNT=8
+### restore HEAD bytes
+# sha256 comparison head-before vs restored (expect identical):
+SHA256_IDENTICAL
+# tracked-file worktree status after restore (expect empty):
