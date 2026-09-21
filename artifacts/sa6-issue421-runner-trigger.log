@@ -1,0 +1,69 @@
+### SA6 issue #421 runner trigger evidence — HEAD 7039f6dae8e7d29f0c929492f0ca2119bc63afaa — 2026-09-21T18:15:46Z
+=== §1 clean baseline (no placeholder) ===
+      Tests  588 passed (588)
+Type Errors  no errors
+   Start at  02:15:47
+   Duration  42.23s (transform 1.42s, setup 0ms, collect 11.87s, tests 20.68s, environment 9ms, prepare 3.09s, typecheck 2.05s)
+
+=== §2 placeholder in target path discovered by real runner ===
+ ✓ packages/ws-replication/test/ws-replication-issue421-ac.test.ts (1 test) 1ms
+
+ Test Files  1 passed (1)
+      Tests  1 passed (1)
+Type Errors  no errors
+   Start at  02:16:30
+   Duration  156ms (transform 18ms, setup 0ms, collect 13ms, tests 1ms, environment 0ms, prepare 44ms)
+
+=== §3 full suite with placeholder ===
+      Tests  589 passed (589)
+Type Errors  no errors
+   Start at  02:16:30
+   Duration  42.62s (transform 1.57s, setup 0ms, collect 12.03s, tests 20.68s, environment 9ms, prepare 3.17s, typecheck 2.21s)
+
+=== §4 negative test-d fixture: public factory import (expected TYPE ERROR) ===
+ FAIL  packages/ws-replication/test/ws-replication-issue421-api.test-d.ts [ packages/ws-replication/test/ws-replication-issue421-api.test-d.ts ]
+TypeCheckError: '"@nomicore/ws-replication"' has no exported member named 'createHubReplicationEdge'. Did you mean 'createHubReplication'?
+ ❯ packages/ws-replication/test/ws-replication-issue421-api.test-d.ts:2:10
+      1| import { describe, it } from 'vitest';
+      2| import { createHubReplicationEdge } from '@nomicore/ws-replication';
+       |          ^
+      3|
+      4| describe('SA6 #421 api surface（临时负向 fixture，运行后删除）', () => {
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+
+
+ Test Files  1 failed (1)
+      Tests  1 passed (1)
+Type Errors  no errors
+   Start at  02:17:13
+   Duration  1.86s (transform 0ms, setup 0ms, collect 0ms, tests 0ms, environment 0ms, prepare 0ms, typecheck 1.82s)
+
+EXIT_NEGATIVE_TYPECHECK=1
+=== §4b package tsc with negative fixture（同 include 面） ===
+packages/ws-replication/test/ws-replication-issue421-api.test-d.ts(2,10): error TS2724: '"@nomicore/ws-replication"' has no exported member named 'createHubReplicationEdge'. Did you mean 'createHubReplication'?
+TSC_EXIT=0
+=== §5 consumer-path runtime resolution (apps/yjs-server context) ===
+consumer(ws-replication via node_modules link) typeof createHubReplicationEdge = undefined
+consumer exports = DEFAULT_REPLICATION_BACKOFF,DEFAULT_REPLICATION_LIMITS,DEFAULT_REPLICATION_TIMEOUTS,NOMICORE_HUB_REPLICATION_SERVICE,NOMICORE_PEER_REPLICATION_SERVICE,createHubReplication,createHubReplicationPlugin,createPeerReplication,createPeerReplicationPlugin,requireHubReplication,requirePeerReplication
+EXIT_CONSUMER=0
+=== §6 re-verify cleanup + worktree state ===
+0
+issue421 test files: 0
+0
+sa6 temp files in apps/yjs-server: 0
+?? .scratch/sa6-421/
+?? artifacts/sa6-issue421-mutation-sensitivity.log
+?? artifacts/sa6-issue421-probe-green.log
+?? artifacts/sa6-issue421-runner-trigger.log
+?? artifacts/sa6-issue421-structural-evidence.log
+?? wiki/raw/task_issue-421.md
+?? wiki/raw/task_issue-421_sa6_capability_probe.mts
+?? wiki/raw/task_issue-421_sa6_mutation_driver.mts
+=== §4c append: tsx/tsc exit codes with negative fixture（管道不掩码） ===
+TSC_EXIT_NEGATIVE=2
+packages/ws-replication/test/ws-replication-issue421-api.test-d.ts(2,10): error TS2724: '"@nomicore/ws-replication"' has no exported member named 'createHubReplicationEdge'. Did you mean 'createHubReplication'?
+TSC_EXIT_CLEAN=0
+0
+0
+issue421 test files: 0
