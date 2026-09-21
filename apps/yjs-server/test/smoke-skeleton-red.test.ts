@@ -4,10 +4,16 @@
  * 覆盖（最小必要）：hub 启动序 `provisioned → listening(实际 port) → ready`（port 0
  * ephemeral 上报）；peer 静态 target 认证连接 + `verify-write` 收敛；hub `read`
  * 回读相等；SIGTERM 双进程 exit 0；同 rootDir 干净停机后重启可再 boot（锁文件随
- * 干净停机删除，R1 #5）且 durable 回读相等；共享活跃 root 的第二实例被 loud 拒绝。
+ * 干净停机删除，R1 #5）且 durable 回读相等；共享活跃 root 的第二实例被 loud 拒绝；
+ * SIGTERM 直达 app 进程（事件循环忙窗内送达仍完成排空链 → exit 0，CI run 35535478371
+ * `test (24, 6)` 回归锚）。
  *
  * RED 基线：`apps/yjs-server/src/main.ts` 尚不存在（SA3 未实现）→ spawn 即刻失败，
  * 每个用例在等待 NDJSON 事件处抛「进程提前退出」错误。
+ *
+ * spawn 形态（CI 修复）：`node --import tsx <main.ts>` 直跑——`node_modules/.bin/tsx` CLI
+ * 是包装进程，会给自己转发的信号设 30ms 回执窗（超时 SIGKILL 子进程 + exit 143），
+ * 与「SIGTERM → 排空 → exit 0」契约无关且 flaky；详见 `spawnApp` 注释。
  */
 import { spawn, type ChildProcess } from 'node:child_process';
 import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
@@ -19,7 +25,6 @@ import { afterEach, describe, expect, it } from 'vitest';
 import { wsUpgrade } from './harness.ts';
 
 const REPO_ROOT = fileURLToPath(new URL('../../..', import.meta.url));
-const TSX_BIN = join(REPO_ROOT, 'node_modules', '.bin', 'tsx');
 const MAIN_TS = join(REPO_ROOT, 'apps', 'yjs-server', 'src', 'main.ts');
 
 const VFSL_SCHEMA = { lang: 'vfsl', version: 1, id: 'notes-v1', text: 'type ROOT = { count: number; };\n' };
@@ -54,10 +59,34 @@ interface Proc {
 
 const liveProcs: Proc[] = [];
 
-function spawnApp(args: string[]): Proc {
-  const child = spawn(TSX_BIN, [MAIN_TS, ...args], {
+/**
+ * 直接以 `node --import tsx <main.ts>` 启动 app 进程（与 `root-lock-atomic-reclaim-red.test.ts`
+ * 的 `fork(..., { execArgv: ['--import', 'tsx'] })` 既有先例同款；发布产物
+ * `bin: nomicore-yjs-server` 也是 node 直跑 `dist/main.js`）。
+ *
+ * 不再用 `node_modules/.bin/tsx` CLI 直跑（CI run 35535478371 `test (24, 6)` 的
+ * `peer exit code: expected 143 to be +0`）：tsx CLI 是**包装进程**——它自己再 spawn 一个
+ * node 子进程执行 main.ts，并把收到的 SIGTERM/SIGINT 经内部 pipe「转达」给子进程，转达后
+ * 只留 30ms 回执窗（tsx `cli.mjs` `relaySignals` → `waitForSignalFromChild`）；子进程回执
+ * 迟到即 `child.kill('SIGKILL')` + 包装进程 `process.exit(128 + 15)` = **143**，应用进程的
+ * 排空链（drain → dispose）被腰斩（`app-stopped` 永不出现）。回执依赖子进程事件循环被
+ * 调度，30ms 在 CI 上是竞态窗：同一份产品代码的 run 35534499992 该 job 绿、run 35535478371
+ * 该 job 红 ⟹ flaky，非产品缺陷（应用侧 SIGTERM 语义未变）。
+ * node 直跑时信号直达应用自身的 SIGTERM handler，`drain → dispose → exit 0` 硬契约不受
+ * 包装进程窗口约束；断言面（SIGTERM → exit 0、四事件序、锁守卫）逐字不变。
+ *
+ * 可选 `appNodeOptions` 是给 app 进程追加的 node 选项（测试专用注入缝——忙窗回归用例用
+ * `--import <blocker>` 在不改产品代码的前提下制造「信号送达时事件循环正忙」）。
+ */
+function spawnApp(args: string[], appNodeOptions?: string): Proc {
+  const env: NodeJS.ProcessEnv = { ...process.env };
+  if (appNodeOptions !== undefined) {
+    env.NODE_OPTIONS = `${process.env.NODE_OPTIONS ?? ''} ${appNodeOptions}`.trim();
+  }
+  const child = spawn(process.execPath, ['--import', 'tsx', MAIN_TS, ...args], {
     stdio: ['pipe', 'pipe', 'pipe'],
-    env: { ...process.env },
+    cwd: REPO_ROOT,
+    env,
   });
   const proc: Proc = { child, raw: [], events: [], stderr: [], exitCode: null };
   child.stdout!.on('data', (chunk: Buffer) => {
@@ -196,6 +225,33 @@ afterEach(() => {
     rmSync(dir, { recursive: true, force: true });
   }
 });
+
+/**
+ * 忙窗 blocker 源码（用例运行时写入 tmp dir，零新增仓内 fixture）：在 app 进程内周期
+ * 阻塞事件循环 400ms（占空比 ≈96%），并在每个忙窗开始时广播 `busy-window-start` 事件。
+ *
+ * 守卫 `isAppProcess`：NODE_OPTIONS 是进程级注入——若被包装进程继承（旧 `tsx` CLI 形态
+ * 的反证场景），忙窗会同时拖慢包装进程自身的回执判定，断言就不再度量「应用进程的信号
+ * 处理」。忙窗只作用于被测 app 进程。
+ */
+const BUSY_WINDOW_BLOCKER_SOURCE = `
+const isAppProcess = (process.argv[1] ?? '').endsWith('main.ts');
+if (isAppProcess) {
+  const block = (ms) => {
+    const end = Date.now() + ms;
+    while (Date.now() < end) { /* spin */ }
+  };
+  const announce = () => process.stdout.write(JSON.stringify({ event: 'busy-window-start' }) + '\\n');
+  setTimeout(() => {
+    announce();
+    block(400);
+    setInterval(() => {
+      announce();
+      block(400);
+    }, 415);
+  }, 900);
+}
+`;
 
 describe('T3-skeleton real-process smoke (design §5-T3 minimized / AC7/AC2)', () => {
   it('deployable hub rejects missing and invalid bearer credentials before WebSocket upgrade', async () => {
@@ -336,5 +392,42 @@ describe('T3-skeleton real-process smoke (design §5-T3 minimized / AC7/AC2)', (
       await signalAndExpectExit(hub1, 'SIGTERM', 30_000, 0, 'hub1 (lock test)');
     },
     180_000,
+  );
+
+  it(
+    'SIGTERM is delivered to the app process itself: a busy event loop still completes the drain chain and exits 0',
+    async () => {
+      // 回归锚（CI run 35535478371 `test (24, 6)`：`peer exit code: expected 143 to be +0`）：
+      // 忙窗 blocker 由用例运行时写入 tmp dir（零新增仓内 fixture），经 NODE_OPTIONS
+      // `--import` 注入 app 进程；它在每个忙窗开始时广播 NDJSON 事件，用例据此把 SIGTERM
+      // 精确送进「事件循环正忙」窗口。信号直达应用自身 handler ⟹ 阻塞结束即继续
+      // `drain → dispose → app-stopped → exit 0`。
+      // 反证（旧 tsx CLI 包装形态 + 同一 blocker）：包装进程 30ms 回执窗超时 →
+      // SIGKILL 子进程 + `process.exit(143)`，`app-stopped` 缺失 ⟹ 本用例红。
+      const blockerDir = makeTmpDir();
+      const blockerPath = join(blockerDir, 'busy-window.mjs');
+      writeFileSync(blockerPath, BUSY_WINDOW_BLOCKER_SOURCE);
+
+      const hubRoot = makeTmpDir();
+      const hubProc = spawnApp(
+        ['--config', writeConfig(hubRoot, hubConfigFile(hubRoot, 0))],
+        `--import ${blockerPath}`,
+      );
+      await waitForEvent(hubProc, (e) => e.event === 'ready', 60_000, 'hub ready (busy window)');
+      await waitForEvent(hubProc, (e) => e.event === 'busy-window-start', 60_000, 'busy window start');
+      await sleep(50); // 落进 400ms 忙窗内（广播后 50ms）
+      await signalAndExpectExit(hubProc, 'SIGTERM', 30_000, 0, 'hub (busy window)');
+      expect(
+        hubProc.events.some((e) => e.event === 'app-stopped'),
+        'clean shutdown chain completed (app-stopped)',
+      ).toBe(true);
+      // Owner 评论 5751613018 硬契约在忙窗下同样成立：dispose 之前先完成式排空
+      // （`persistence-disposed` 先于 `app-stopped`）。
+      const tailOrder = hubProc.events
+        .filter((e) => e.event === 'persistence-disposed' || e.event === 'app-stopped')
+        .map((e) => e.event as string);
+      expect(tailOrder).toEqual(['persistence-disposed', 'app-stopped']);
+    },
+    120_000,
   );
 });

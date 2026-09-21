@@ -1,0 +1,11 @@
+### 机制复现：同一 app / 同一忙窗 blocker / 两种 spawn 形态
+# 形态 A = 现 harness（node_modules/.bin/tsx CLI 包装进程 + 30ms 信号转达窗）
+shape=tsx-cli busy=1 #1 ready=349ms parentExit=143 parentSignal=null killMs=69 app-stopped=false stderr=""
+shape=tsx-cli busy=1 #2 ready=357ms parentExit=143 parentSignal=null killMs=70 app-stopped=false stderr=""
+shape=tsx-cli busy=1 #3 ready=355ms parentExit=143 parentSignal=null killMs=69 app-stopped=false stderr=""
+SUMMARY shape=tsx-cli busy=1 {"143":3}
+# 形态 B = 修复后 harness（node --import tsx 直跑，信号直达 app 进程）
+shape=node-import busy=1 #1 ready=333ms parentExit=0 parentSignal=null killMs=360 app-stopped=true stderr=""
+shape=node-import busy=1 #2 ready=520ms parentExit=0 parentSignal=null killMs=367 app-stopped=true stderr=""
+shape=node-import busy=1 #3 ready=547ms parentExit=0 parentSignal=null killMs=360 app-stopped=true stderr=""
+SUMMARY shape=node-import busy=1 {"0":3}
