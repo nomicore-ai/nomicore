@@ -223,8 +223,8 @@ _Avoid_: 为历史 wire 形态保留双形态切换或新增 capability、新旧
 _Avoid_: 把 v2 代际误读为协议版本 2 / 用代际推断 `envelopeVersion` 或 `protocolVersions` 变化
 
 **复制 Edge（replication edge）**:
-（ADR 0032）Hub 侧复制协议连接级半边的可独立实例化模块：持有 socket 生命周期、envelope/sequence 纪律、HELLO 与 capability 协商、liveness、GOAWAY/reauth、连接级背压与 OPEN 准入（全解码 + authorize + sink 路由），按路由键契约把 namespace 域帧转发给 SessionHost；不持有 Registry、不驱动 session、连接级帧从不上缝。单体 listen 模式 = Edge 与 SessionHost 的进程内组合，协议状态机单份实现。
-_Avoid_: 把 edge 当薄 socket adapter（它是协议状态机）、宿主自实现连接级协议（= fork）、edge 解码 OPEN/ERROR 以外的 namespace payload
+（ADR 0032）Hub 侧复制协议连接级半边的可独立实例化模块：持有 socket 生命周期、envelope/sequence 纪律、HELLO 与 capability 协商、liveness、GOAWAY/reauth、连接级背压与 OPEN 准入（全解码 + authorize + sink 路由），按路由键契约把 namespace 域帧转发给 SessionHost；不持有 Registry、不驱动 session、连接级帧从不上缝。单体 listen 模式 = Edge 与 SessionHost 的进程内组合，协议状态机单份实现。连接级半边另有**宿主公共出面** `createHubReplicationEdge`（普通工厂、非 Cordis 插件、无 Registry 依赖）：`accept(transport, { token })` 与 `acceptTrusted(transport, identity)` 双入口接纳已升级的 socket，每次 accept 分配一个 Edge 连接句柄（含 `connectionKey`）；OPEN 准入管线（pending 有界缓冲、并发 OPEN 上界、sink 解析失败响亮连接收口）是 Edge 的规范职责，授权通过后经宿主回调 `resolveSessionSink(connectionKey, namespaceId, authorization)` 解析每 (连接, namespace) 会话 sink；出站 sequence 盖章经句柄 `egress` 对外可见。
+_Avoid_: 把 edge 当薄 socket adapter（它是协议状态机）、宿主自实现连接级协议（= fork）、edge 解码 OPEN/ERROR 以外的 namespace payload、在宿主缝外自建连接级准入管线（pending 缓冲/并发 OPEN 上界/解析失败收口）
 
 **SessionHost（复制会话宿主）**:
 （ADR 0032）Hub 侧复制协议 namespace 级半边：每 (连接, namespace) 一个 HubSession，承载 channel 全部状态机（OPEN 矩阵/Registry open/ReplicationSession 驱动/出站合并/收口），经 Uint8Array 帧缝与 edge 对接——入站帧已被 edge 校验 sequence、出站帧以 sequence=0 占位由 edge 盖章；authorize 不在此调用，消费 edge 传入的预授权投影。session 对象随连接存活（终态不拆）。

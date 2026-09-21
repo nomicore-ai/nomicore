@@ -148,6 +148,7 @@ const FROZEN_PRODUCTION_EXPORTS = [
   'NOMICORE_HUB_REPLICATION_SERVICE',
   'NOMICORE_PEER_REPLICATION_SERVICE',
   'createHubReplication',
+  'createHubReplicationEdge',
   'createHubReplicationPlugin',
   'createPeerReplication',
   'createPeerReplicationPlugin',
