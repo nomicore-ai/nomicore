@@ -3,7 +3,8 @@
 - 派工（iteration 0，实现）：`sa-21b8addd-f3ef-41b2-a768-c5530fc7c893`（role `mabf-sa3`，phase implementation，iteration 0）
 - 派工（iteration 1，finalization repair）：`sa-ef1c290c-a552-4c83-a1ac-73ad3f806405`（role `mabf-sa3`，phase implementation，iteration 1）——本报告在该轮原位更新
 - 派工（iteration 2，finalization-repair 证据集 × 权威基 rebase 准备）：`sa-3974e1e9-834e-43ad-9cca-08acb5605efe`（role `mabf-sa3`，phase implementation，iteration 2）——本报告在本轮原位更新
-- 派工（iteration 3，rebase 前工作树准备：脏面裁定 × `25c51cd` 零冲突复认 × 派生缓存修复）：`sa-f36d0903-db28-46ce-9bcf-396d3d8ae18f`（role `mabf-sa3`，phase implementation，iteration 3）——本报告在本轮原位更新
+- 派工（iteration 3，rebase 前工作树准备：脏面裁定 × `25c51cd` 零冲突复认 × 派生缓存修复）：`sa-f36d0903-db28-46ce-9bcf-396d3d8ae18f`（role `mabf-sa3`，phase implementation，iteration 3）——本报告在该轮原位更新
+- 派工（iteration 4，CI 红灯修复：PR #429 / `3f470fb` 的 typecheck + Node 20/24 矩阵）：`sa-5df08616-a9b8-446d-85c5-c249158e2883`（role `mabf-sa3`，phase implementation，iteration 4）——本报告在本轮原位更新
 - worktree / branch：`/home/wangjian/nomicore-fix-issue-420`，`mabf/issue-420`
 - iteration 0 基线 HEAD：`7039f6dae8e7d29f0c929492f0ca2119bc63afaa`（= PR #426 merge）；iteration 0 实施期间零 commit / 零 push
 - 交付承载（iteration 1 亲验）：`a315e7077576951cf0330596cdc588afbeca51be`（`feat(ws-replication): expose session host factory`，父 = `7039f6d`）——iteration 0 的 13 个 ALLOW 路径改动已由 Controller 提交；iteration 1 起点 `git diff HEAD -- packages docs CONTEXT.md` 为空
@@ -11,7 +12,82 @@
 - iteration 2 证据日志（新增）：`artifacts/sa3-issue420-finalize-rebase-evidence.log`，sha256 `bd4b5bfd0385916823c26fd6fdf54dbaa7e3ca0d66cd2663875312b6739d64a3`
 - 授权父基（iteration 3 复认，第二段 rebase 目标）：`25c51cd45a3e4ec1cf8bcdbdcb33ff1f13d1b0df`（= PR #416 当前 head / PR #428 merge，issue #423）；iteration 3 起点 HEAD = `52a9e56534d56a75127207b2b9044afa8c3a27b0`（第一段 rebase 落地点）
 - iteration 3 证据日志（新增）：`artifacts/sa3-issue420-rebase-prep-25c51cd.log`，165 行 / 12703 B，sha256 `33411d6313bde44291f31e21d9aa928e2de9040d902bd4da74e6d456de2b5e85`
-- Owner 评论：无（四轮派工均明文 none；REST comments = `[]`）⇒ 无逐条评论映射可建
+- iteration 4 修复面（CI 红灯 → 最小 TDD 修复）：PR #429 head `3f470fbcb6f10b0b26dced0fc05fceaec353494a`；失败作业 = `typecheck` + `test (20,1)` + `test (20,6)` + `test (24,1)` + `test (24,6)`（run `35663498235`，其余 11 作业含 `contract-gates`/`codegen-freshness`/`packaging`/分片 2–5 全绿）；根因 = 父增量 #423 的三个测试文件仍按重命名前符号名 `HubSessionHost`/`createHubSessionHost` 构造内部 splice；修复 = **零生产代码**、两文件的机械符号名跟随（含 `HubSessionSink` 类型改由 `hub-split.js` 导入），断言与用例体逐字不变
+- iteration 4 证据日志（新增）：`artifacts/sa3-issue420-ci-fail-evidence.log`（修复前 CI 定证）/ `artifacts/sa3-issue420-ci-typecheck-fail.log`（CI typecheck 原始失败步日志）/ `artifacts/sa3-issue420-local-typecheck-pre-fix.log` + `artifacts/sa3-issue420-local-prefix-wsrep-excerpt.log`（本地独立复现）/ `artifacts/sa3-issue420-ci-fix-{typecheck,tests,contract-anchors}.log`（修复后验证）
+- Owner 评论：无（五轮派工均明文 none；REST comments = `[]`）⇒ 无逐条评论映射可建
+
+---
+
+## Iteration 4 — CI 修复轮：`3f470fb` 上 typecheck + Node 20/24 分片红灯的两文件机械跟随
+
+- 派工：`sa-5df08616-a9b8-446d-85c5-c249158e2883`（role `mabf-sa3`，phase implementation，iteration 4）；Owner feedback requirements = none、REST comments = `[]`（本轮 `gh pr view`/`gh pr checks` 亲验）。
+- 被修对象：PR #429（head `3f470fbcb6f10b0b26dced0fc05fceaec353494a`，base `spec/415-replication-transport-decoupling`）的失败 CI。派工明文允许「CI 日志在 workflow 进行中可能不可用」；本轮在 run 结束后取到**定证**（`gh run view --job <id> --log-failed`），并用本地独立复现交叉确认。
+- 边界：**零生产代码改动**（`packages/ws-replication/src/**` 零 diff）、零断言/用例体改动、零 skip/only/todo/env override、零 `git add`/`commit`/`push`。
+
+### 4.1 定证（修复前）
+
+| 面 | 事实（命令/值） | 来源 |
+| --- | --- | --- |
+| run 结论 | `35663498235`：**5 fail / 11 pass**；失败 = `typecheck`、`test (20,1)`、`test (20,6)`、`test (24,1)`、`test (24,6)` | `artifacts/sa3-issue420-ci-fail-evidence.log` §A |
+| `typecheck`（job `106543911063`，失败步 = `Typecheck (tsc)`） | 4 条错误：`ws-replication-issue423-observer-emission-split.test.ts(54,10)` TS2724 + `(54,37)` TS2305；`ws-replication-issue423-sa7-dynamic.test.ts(52,10)` TS2724 + `(52,37)` TS2305（均指向 `'../src/hub-session.js'` 的 `createHubSessionHost`/`HubSessionHost`） | 同上 §B + `artifacts/sa3-issue420-ci-typecheck-fail.log` |
+| `test (20,1)` / `test (24,1)`（job `106543911555` / `106543911521`） | `ws-replication-issue423-sa7-dynamic.test.ts` **3 用例红**（D-SEAM1a/b/c），全部 `TypeError: (0 , createHubSessionHost) is not a function`；`Test Files 1 failed ｜ 62 passed (63)` | 同上 §C |
+| `test (20,6)` / `test (24,6)`（job `106543911524` / `106543911700`） | `ws-replication-issue423-observer-emission-split.test.ts` **5 用例红**（EM-C1e/C3a/C3b/C3d/C4b），同一 `TypeError`；`1 failed ｜ 66 passed (67)` | 同上 §C |
+| 旁证（非本票面） | 同一 run 内 `contract-gates`/`codegen-freshness`/`packaging`/分片 2–5（Node 20+24）全绿 ⇒ 失败面被完全解释为上述两文件，无第二根因 | 同上 §A |
+| 本地独立复现（Node v24.13.0 / pnpm 10.28.2） | `pnpm typecheck` ⇒ 同 4 条错误、`EXIT=2`；`vitest run packages/ws-replication/test` ⇒ `Test Files 2 failed ｜ 84 passed (86)`、`Tests 8 failed ｜ 750 passed (758)`（8 红 = 上述 3+5，逐条同一 `TypeError`） | `artifacts/sa3-issue420-local-typecheck-pre-fix.log`、`artifacts/sa3-issue420-local-prefix-wsrep-excerpt.log` |
+
+### 4.2 根因（父基前移带出的语义碰撞，非文本冲突）
+
+- #420 的 D9（SA6 §12.6 授权编辑 2）对内部 splice 做零行为重命名：`createHubSessionHost`→`createHubSessionSink`、`HubSessionHostConfig`→`HubSessionSinkConfig`、**删除** `export type HubSessionHost = HubSessionSink`（`hub-session.ts`），并把公共名称 `createHubSessionHost` 让给新公共 byte-seam 工厂（`hub-session-host.ts`，经 `src/index.ts`）。
+- 父增量 #423（`7333f35`，经 merge `25c51cd` 进入权威基）带来 3 个测试文件；其中两个以**重命名前**的符号名从深路径构造内部 splice：`import { createHubSessionHost, type HubSessionHost } from '../src/hub-session.js'`。重命名后：`hub-session.ts` 只剩 `createHubSessionSink`（工厂）与配置型导出；`HubSessionSink` 接口在 `hub-split.ts`（`hub-session.ts` 不再导出该类型名）。
+- 因此 SA8 iteration 5 §2-4 的「双层 merge-tree RC=0 零冲突」判断**在文本面上成立**，但语义面在**门禁**上破：这正是 SA8 RA2' 要求在新基树重取五门的意义所在。typecheck 直接命中；矩阵红因 = ESM 链接期具名导入缺席 ⇒ 值为 `undefined`，调用即 `TypeError`（**非**行为断言失败，故不涉及验收语义）。
+- 归因面唯一：CI 5 个失败作业的每一处错误/失败都指向这两个文件的同一 stale 导入；无生产代码、无冻结面、无协议/ADR 文本卷入。
+
+### 4.3 最小修复（落地形态）
+
+| 文件（父侧 #423 测试） | 修复前 | 修复后 |
+| --- | --- | --- |
+| `packages/ws-replication/test/ws-replication-issue423-sa7-dynamic.test.ts` | `import { createHubSessionHost, type HubSessionHost } from '../src/hub-session.js';` + `import type { HubSessionEdgePort } from '../src/hub-split.js';`；`:171` `readonly host: HubSessionHost;`；`:189` `createHubSessionHost({` | `import { createHubSessionSink } from '../src/hub-session.js';` + `import type { HubSessionEdgePort, HubSessionSink } from '../src/hub-split.js';`；`:176` `readonly host: HubSessionSink;`；`:194` `createHubSessionSink({` |
+| `packages/ws-replication/test/ws-replication-issue423-observer-emission-split.test.ts` | 同形（导入 `:54`；类型 `:442`；调用 `:460`） | 同形跟随（导入 `:59`/`:60`；类型 `:447`；调用 `:465`） |
+
+- 逐行清单（`git diff -U0 | grep -E '^[-+][^-+]'`）= 每文件 **+5 行头注 + 2 行导入 + 1 行类型标注 + 1 行工厂调用**，共 `2 files changed, 18 insertions(+), 8 deletions(-)`；**断言、用例体、`describe/it` 名称、选择器、阈值零字节变化**；头注登记该跟随为「D9 机械跟随（父基前移后的符号名跟随）」并明示用例体与断言逐字不变。
+- 类型导入跟随仓库既有权威形态：`HubSessionSink` 接口自 `hub-split.js` 导入（与 `src/hub-connection.ts:23` 后的 `hub-split` 类型面、`test/…issue418-…-structure.test.ts:41-46` 的既有写法同源）——首次尝试（把类型留在 `hub-session.js` 导入）被 `tsc` 以 `TS2459: declares 'HubSessionSink' locally, but it is not exported` 拒绝，已按上表修正（中间态未归档为证据）。
+- **不采用的生产侧替代方案（决定性否决）**：在 `hub-session.ts` 恢复运行性别名 `export const createHubSessionHost = createHubSessionSink`（或再导出）会让 #418 冻结结构断言 `test/ws-replication-issue418-edge-session-split-structure.test.ts:618` `expect(Object.keys(sessionModule).sort()).toEqual(['createHubSessionSink'])` 转红——该断言要求 `hub-session.ts` 的**运行时导出面恰为 `['createHubSessionSink']`**；只恢复**类型**别名（`export type HubSessionHost = HubSessionSink`）不能修运行期 `TypeError`（且被 D9 明文删除）。⇒ 生产侧被冻结契约封死，跟随必须落在 stale 消费方（与 D9 对 #418 两测试文件的授权编辑同类）。
+- 与 AC/验收语义的关系：AC1–AC5 的断言面、SA6 冻结签名、#418 冻结导出表、7 文件 listen 矩阵、#420 三契约**全部零改动**；修复只让既有 #423 断言能重新执行（修复后 8 红全绿，见 §4.4）。
+- 未修改的 stale 面（登记延续）：`artifacts/sa6-issue420-{capability-gap,causality,sequence-discipline}-probe.mts` 仍用旧内部名；本轮以 `grep -rn artifacts tsconfig*.json vitest.config.ts package.json packages/*/tsconfig.json` **零命中**再证其不在任何编译 include 面（根 typecheck exit 0 为独立旁证）⇒ 仍按「Deviations #2」登记，`artifacts/**` 不在 ALLOW LIST，SA3 不动。
+
+### 4.4 Verification（iteration 4：V29–V35）
+
+| # | Command | Result | Evidence |
+| --- | --- | --- | --- |
+| V29 | `pnpm exec tsc -p packages/ws-replication/tsconfig.json` | **绿**：`PACKAGE_TSC_EXIT=0` | `artifacts/sa3-issue420-ci-fix-typecheck.log` |
+| V30 | `pnpm typecheck`（根，15 tsconfig 串行 = CI `typecheck` 作业失败步逐字） | **绿**：`ROOT_TYPECHECK_EXIT=0`（修复前同命令 `EXIT=2` + 同 4 条错误） | 同上 + `artifacts/sa3-issue420-local-typecheck-pre-fix.log` |
+| V31 | `vitest run <两 #423 文件> --typecheck.enabled=false --passWithNoTests=false` | **绿**：`Test Files 2 passed (2)` / `Tests 26 passed (26)` / `TWO_FILES_EXIT=0`（修复前同二文件 8 红） | `artifacts/sa3-issue420-ci-fix-tests.log` §V-F1 |
+| V32 | `vitest run --typecheck packages/ws-replication/test`（包全量；含 test-d） | **绿**：`Test Files 90 passed (90)` / `Tests 785 passed (785)` / `PACKAGE_SUITE_EXIT=0`（文件数 **90** = SA8 RA2' 预期 87 + #423 三文件） | 同上 §V-F2 |
+| V33 | `NODE_OPTIONS=--conditions=nomicore-source pnpm exec vitest run --typecheck.only --passWithNoTests=false`（CI `typecheck` 作业第二步逐字） | **绿**：`Test Files 49 passed (49)` / `Tests 270 passed (270)` / `TYPECHECK_ONLY_EXIT=0` | 同上 §V-F3 |
+| V34 | CI 分片命令逐字：`files=$(node scripts/ci-test-shard.mjs S 6); vitest run $files --typecheck.enabled=false --passWithNoTests=false`，`S∈{1,6}` | **绿**：分片 1/6 = `63 passed (63)` 文件 / `820 passed (820)` 用例（CI 修复前 `1 failed ｜ 62 passed (63)`）；分片 6/6 = `67 passed (67)` / `831 passed (831)`（CI 修复前 `1 failed ｜ 66 passed (67)`）；两 `SHARD_S_EXIT=0` | 同上 §V-F4 |
+| V35 | 契约锚 + CI `contract-gates` 作业四步逐字 | **绿**：#420 三契约 + #418 两冻结锚（`--typecheck`）= `5 passed (5)` / `89 passed (89)`；`persistence-contract` 6/6、`registry-sa7-rev1 -t R5P` 1 passed ｜ 5 skipped（过滤预期）、`domains-scaffold` 2/2、`materialize-root` 59/59，四步 exit 0 | `artifacts/sa3-issue420-ci-fix-contract-anchors.log` |
+
+- 卫生门：`git diff --check` RC=0；两文件 `trailing_ws=0 / cr=0 / blank_line_before_eof=0`；全部新增证据日志 `tw=0 / cr=0 / esc=0 / 末字节 LF`（CI 原始日志的 ANSI 与 CI 前缀仅在 §4.1 的**摘录**日志内做纯格式归一，语义零改动；`ci-typecheck-fail.log` 为原始失败步日志，仅去 ANSI 与行尾空白）。
+
+**iteration 4 未运行面（职责边界）**：根 `pnpm test`（全仓 443 文件）——本修复只触 2 个测试文件的导入符号，SA6 红绿契约、包全量、两失败分片、typecheck 两步与 CI 契约门已全部实跑；新 commit 上的 CI 重跑属交付执行者（SA3 不 commit/push）。
+
+**iteration 4 冻结态锚（供暂存/复核核对；V29–V35 全部在本冻结代码态上执行）**：
+
+```text
+sha256 packages/ws-replication/test/ws-replication-issue423-sa7-dynamic.test.ts
+  = 778d2461f0421027c25c17bd817327dcccf14b3a53b4f92efa2e728852e0183c
+sha256 packages/ws-replication/test/ws-replication-issue423-observer-emission-split.test.ts
+  = 160565873bf980c0ee1042d699fc9da890ee74743222139097e095a60395681e
+# 两文件 mtime 06:41:06 < 全部验证日志产出（06:45:07）⇒ 修复后代码零漂移；
+# 此后仅本报告与证据日志变更（零代码字节变化）。
+sha256 artifacts/sa3-issue420-ci-fail-evidence.log          = 9f77827e4e83b4c7f8bcfcb1364babb192db6ba1dc00ea995f4492b03c82dfaa
+sha256 artifacts/sa3-issue420-ci-typecheck-fail.log         = d457d4bf83bd71f204ba79054890fb41a3fd6cbbc62c409c2630a4a533745297
+sha256 artifacts/sa3-issue420-local-typecheck-pre-fix.log   = 4828bc9fd49d498971351ff144d5d0ceb0db145d3075d480240692907058ffcb
+sha256 artifacts/sa3-issue420-local-prefix-wsrep-excerpt.log = 71565c341f64121c48c2109890ae2f2850bf2caa745e7c350b889d33a45c0b4b
+sha256 artifacts/sa3-issue420-ci-fix-typecheck.log          = c664826a5673ebf4af01d440eeab594017db469b2c25f1f4e72bbb1945bdcb0d
+sha256 artifacts/sa3-issue420-ci-fix-tests.log              = c0443302525406bded9d0644272d5dec1da852dd6e7ba630600a61b5810cb2e5
+sha256 artifacts/sa3-issue420-ci-fix-contract-anchors.log   = a4c9caab5808aeac4fe72ef08fb8cb1b85bbac54ff922ebb137e2efc634248d8
+```
 
 ---
 
@@ -326,6 +402,9 @@ FINAL_C1_SCAN_FAIL=0        # 18/18 PASS
 | **rebase 后五门重取（SA8 RA2，iteration 2 追加）** | 交付执行者 + SA4/SA7 证据链：rebase 落地后在真实新树重取（#418 契约 exact-equal + #420 三契约；双 test-d；包全量预期 87 文件；根 typecheck；AC3 矩阵逐字）。SA3 的 delivery 重取与 dry-run 树结果均为 **pre-rebase / scratch-tree 证据，不闭合该门**（日志 §11 已列命令与判据） |
 | **第二段 rebase（`25c51cd` 基）后五门重取（SA8 iteration 5 RA2'，iteration 3 追加）** | 交付执行者 + SA4/SA7 证据链：`9d2500d`/`52a9e56` 上已归档的门证据绑定 `1f5809b` 基树，**不闭合新基树**；重取增量 = 包套件文件数预期 **87 → 90**（#423 三测试文件）、根 typecheck 须覆盖 #423 缝签名 × `hub-session-host.ts`/`issue420-shim-hub.ts` 编译面、#418 契约 13/13 与双 test-d 断言面不变、AC3 矩阵（shim 53 + listen 7/52）于 #423 观测发射拆分后的 src 之上逐字重跑为决定性证据；`sendQueueMs` 经 #420 公共缝整键缺席按 #423 注册的 dormant 形态核销 |
 | **迭代 3 的 rebase 预演证据树绑定（iteration 3 追加）** | 本轮 merge-tree 预演（树 `7b5c1cbc…`/`2cee6d03…`）只是**执行前预测**，不是任何门的闭合证据；实际 rebase 出现任何冲突或需任何手工消解即与预演不符，按 SA8 RA4' 路由 |
+| **新 commit 上的 CI 重跑（iteration 4 追加）** | 交付执行者：本轮修复落在工作树（SA3 禁 commit/push）⇒ `3f470fb` 上 5 个红作业须由 Controller 提交后在新 head 重跑确认转绿；本轮已用**与 CI 逐字相同**的命令在本地取到对应五门全绿（V29–V35），但**未在 CI 上取绿** |
+| **SA8 对「机械跟随范围扩展」的复认（iteration 4 追加）** | SA8：原 ALLOW LIST 不含两个 #423 测试文件（它们随父基前移进入本树），本轮按其 D9「机械跟随」同类把符号名跟随落在这两文件（Deviations #6）；同时 **SA9 §2.4 的「全部 `test/*issue423*` 文件零 diff」卫生记录对修复后树不再成立**（对交付 commit `4e5ff0a` 仍逐字成立），须由 SA9/SA8 按新树口径更新 |
+| **根 `pnpm test` 全仓重跑（iteration 4 追加）** | 交付执行者/SA7：本修复只改 2 个测试文件的导入符号（生产零 diff），包全量与两失败分片已实跑；全仓 443 文件不在本轮 SA3 职责面 |
 | SA8 implementation 段冲突复查（R8''/RA3'/RA6'：零 diff 核对、导出恰增、S2 有界事实、observer 隔离单点、反空跑与 M1–M7 实跑登记、重命名纯机械） | SA8（触发条件三合一已在实现 diff 后成立） |
 | 真 worker / 异步序回传形态、跨线程 pending 义务重入 | 后续票（U2/RA5'；本票只冻结同步宿主 pipe） |
 | `listen:false` 插件 + `nomicoreHubSessionHost` 服务轨、peer 侧拆分、nomic-server 宿主接线、跨进程 revoke 全链路 | 后续票（设计 §1 非目标） |
@@ -358,6 +437,18 @@ SA6 §12.3 的反空跑举例含「生产信号面在场」。实测发现 `ac5-
 ### 5（iteration 3，角色边界而非缺陷）：工作树「字面 clean」由 Controller 的归档 commit 收口
 
 SA3 角色禁 `git add`/`git commit`/`git rebase`（skill 明文），因此 iteration 3 无法自行把工作树变为零 diff 或执行授权 rebase。本轮的可交付落点 = ① 脏面裁定（3 条归档后编辑全部为有效证据，无删除/回退面）；② 可提交面收敛为恰 5 条并逐条过 C1/暂存门；③ 零冲突预演与派生缓存修复的独立证据；④ Controller 一次 `git add -A --` + `git commit` 即 clean 并解除 rebase 阻断的精确配方。若 Controller 期望工作树在本轮结束时即为零 diff，则须由其本人执行该归档 commit（或其同款的 stash 事务）——本报告与证据日志 §7 已给出两条路径的完整命令。
+
+### 6（iteration 4，**范围扩展，须 SA8 复认**）：修复落在原 ALLOW LIST 之外的两个父侧 #423 测试文件
+
+- **事实**：本轮 CI 红灯（typecheck + 4 个分片作业）的唯一根因是两个父侧 #423 测试文件对**被 D9 授权重命名**的内部符号的陈旧引用。修复 = 这两文件的符号名机械跟随（+2 导入行 / +1 类型标注 / +1 工厂调用 / 每文件 +5 行头注），**零生产代码、零断言/用例体改动**。
+- **为何原 ALLOW LIST 未列**：该表按 `1f5809b` 基树编写，两个文件当时**不存在**（随父增量 `1f5809b..25c51cd` 进入）；DENY 表「其余既有测试文件…零改动」同属该基树口径。故本轮改动**不是** DENY 面被改写，而是设计 D9「机械跟随」类的**新增落点**（同类先例 = ALLOW 第 10/11 条对两个 #418 测试文件的 §12.6 授权编辑）。
+- **为何不回退到生产侧兼容**：`hub-session.ts` 的运行时导出面被 #418 冻结结构断言（`…issue418-…-structure.test.ts:618`，`toEqual(['createHubSessionSink'])`）钉死——恢复运行性别名会让该冻结契约转红；恢复类型别名既不修运行期 `TypeError`，又被 D9 明文删除。⇒ 最小且唯一自洽的落点就是这两个消费方文件的符号名跟随。
+- **未触面**：`docs/`、`CONTEXT.md`、`docs/adr/**`、`docs/protocols/**`、`src/**`、`src/index.ts` 公共面、SA6 冻结签名、#418 冻结导出表、7 文件 listen 矩阵、`packages/ws-replication/package.json`、其余 `test/**`（`git status --short` 全集 = 2 个测试文件 + 7 条新增证据日志 + 本报告）。
+- **请求**（`requiresConflictRecheck: true`）：SA8 按「范围扩展 / 机械跟随落点新增」口径复认本条，并把 SA9 §2.4 的 `test/*issue423*` 零 diff 卫生记录更新为「交付 commit `4e5ff0a` 零 diff；CI 修复 commit 仅允许该两文件的符号名跟随」。SA3 不改设计、ALLOW/DENY 表或 SA9 报告（按 skill 边界）。
+
+### 7（无阻断项）：设计、SA6 红绿契约、#418/#420 冻结面在修复后仍可实施且全绿
+
+修复后：包 typecheck / 根 typecheck / 包全量 90 文件 / `--typecheck.only` / 两失败分片逐字 / #420 三契约 + #418 两冻结锚 / CI `contract-gates` 四步全绿（V29–V35）；无断言软化、无 skip/only/todo、无 env override、无 fallback。SA3 不在本轮承担 CI 重跑与 commit/push（Deferred verification）。
 
 ---
 
@@ -477,3 +568,46 @@ git rev-parse HEAD~1:packages/ws-replication/src/index.ts   # 须 = 08fa49a1fb84
 ```
 
 预期**零冲突、零手工消解**（双层 merge-tree RC=0：交付级树 `7b5c1cbc…`、全 tip 树 `2cee6d03…`）；实际出现任何冲突即停、按 SA8 RA4' 回冲突门禁。备选路径 = Host `MabfPreFinalizationRebaser` 同款 stash 事务（`git stash push --include-untracked` → rebase → `git stash pop --index`），但**归档 commit 仍不可省**（Host finalize 的 clean-worktree 门会拒绝未提交证据）；两条路径的完整命令见 iteration 3 证据日志 §7。
+
+**iteration 4 建议提交信息（CI 红灯修复，Controller 定稿）**：
+
+```text
+fix(ws-replication): follow the issue 420 D9 splice rename in the issue 423 tests
+
+- the parent advance (#423, base 25c51cd) brought two tests that build the internal
+  splice through the pre-rename names HubSessionHost/createHubSessionHost; after the
+  authorized D9 rename (createHubSessionSink; the HubSessionHost alias deleted) those
+  named imports no longer resolve, so `pnpm typecheck` and the test shards 1/6 and 6/6
+  failed on PR #429 (run 35663498235) with TS2724/TS2305 and
+  "TypeError: (0 , createHubSessionHost) is not a function"
+- follow the rename in ws-replication-issue423-{sa7-dynamic,observer-emission-split}.test.ts
+  (factory call, host type annotation, imports; the sink type now comes from hub-split.js)
+  and register the follow in each file header
+- zero production byte change; zero assertion/test-body change (no skip/only/todo,
+  no env override); the #418 frozen export face (toEqual(['createHubSessionSink'])),
+  the #420 frozen public API and the 7-file listen matrix are untouched
+- verification: package tsc + root typecheck exit 0; the two files 26/26 green; package
+  suite 90 files/785 tests green; --typecheck.only 49 files/270 tests green; CI shards
+  1/6 (63 files/820 tests) and 6/6 (67 files/831 tests) verbatim green; #420 three
+  contracts + #418 two frozen anchors 5 files/89 tests green; CI contract-gates steps green
+```
+
+**iteration 4 精确 staging 清单（10 条，worktree-relative）**：
+
+```text
+git add -A -- \
+  packages/ws-replication/test/ws-replication-issue423-sa7-dynamic.test.ts \
+  packages/ws-replication/test/ws-replication-issue423-observer-emission-split.test.ts \
+  wiki/raw/task_issue-420_sa3_impl.md \
+  artifacts/sa3-issue420-ci-fail-evidence.log \
+  artifacts/sa3-issue420-ci-typecheck-fail.log \
+  artifacts/sa3-issue420-local-typecheck-pre-fix.log \
+  artifacts/sa3-issue420-local-prefix-wsrep-excerpt.log \
+  artifacts/sa3-issue420-ci-fix-typecheck.log \
+  artifacts/sa3-issue420-ci-fix-tests.log \
+  artifacts/sa3-issue420-ci-fix-contract-anchors.log
+# commit 前 git diff --cached --check 须 RC=0；提交后工作树 clean，随后由 Controller push 触发
+# 新 head 上的 CI 重跑（5 个红作业应转绿；SA3 不 commit/push）。
+```
+
+**CI 修复后的预期门禁面（供 Controller 复核）**：`typecheck`（两步）、`test (20|24, 1)`、`test (20|24, 6)` 应转绿；`contract-gates`/`codegen-freshness`/`packaging`/`test (*, 2..5)` 在本轮修复前后均绿（修复不触其面）。若新 head 上仍有失败，则说明存在本轮未见的第二根因，须带新证据回 SA3/SA8，不得以本地绿替代 CI 绿。
