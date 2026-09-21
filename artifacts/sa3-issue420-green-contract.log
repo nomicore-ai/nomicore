@@ -1,0 +1,16 @@
+Testing types with tsc and vue-tsc is an experimental feature.
+Breaking changes might not follow SemVer, please pin Vitest's version when using it.
+
+ RUN  v3.2.7 /home/wangjian/nomicore-fix-issue-420
+
+ ✓ packages/ws-replication/test/ws-replication-issue420-shim-matrix.test.ts (53 tests) 434ms
+ ✓  TS  packages/ws-replication/test/ws-replication-issue420-session-host-api.test-d.ts (0 test)
+ ✓ packages/ws-replication/test/ws-replication-issue420-session-host-round.test.ts (10 tests) 127ms
+
+ Test Files  3 passed (3)
+      Tests  63 passed (63)
+Type Errors  no errors
+   Start at  03:35:25
+   Duration  2.97s (transform 1.22s, setup 0ms, collect 1.98s, tests 561ms, environment 0ms, prepare 148ms, typecheck 2.85s)
+
+[vitest exit: 0]

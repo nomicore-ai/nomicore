@@ -10,7 +10,7 @@
  *        （脚本化回 OPEN_OK）+ 注入 authorize 桩——**无 Registry、无 hub 服务**。判据 =
  *        HELLO_ACK / OPEN_OK 全帧 hex 与 SA6 冻结金标逐字节相等、raw `[8..12]` 恒 1..N、
  *        OPEN 准入结局（`HubOpenAdmission`）经缝传递、authorize 恰一次。
- *   C0b  `createHubSessionHost` 单独实例化：注入 **stub edge port**（记录占位帧、返回递增
+ *   C0b  `createHubSessionSink` 单独实例化：注入 **stub edge port**（记录占位帧、返回递增
  *        序号、闸门恒开）+ 真实 Registry/Runtime fixture。判据 = OPEN_OK → BOOTSTRAP_SNAPSHOT
  *        → SYNC_STEP1/2 → SYNC_APPLIED → CLOSE_OK 全生命周期走通；失败 admission（denied/
  *        throw）臂由**真实零 diff 通道**产出 ns ERROR + 事件族 + settled 且 `registry.open`
@@ -36,7 +36,7 @@ import * as edgeModule from '../src/hub-edge.js';
 import * as sessionModule from '../src/hub-session.js';
 import * as splitModule from '../src/hub-split.js';
 import { createHubReplicationEdge } from '../src/hub-edge.js';
-import { createHubSessionHost } from '../src/hub-session.js';
+import { createHubSessionSink } from '../src/hub-session.js';
 import { HubNamespaceChannel } from '../src/hub-namespace.js';
 import type {
   HubOpenAdmission,
@@ -418,7 +418,7 @@ describe('C0b（AC1/AC3）：session 半边可独立实例化（stub edge port +
       kind: 'resolve',
       admission: { outcome: 'authorized', authorization: AUTHORIZED },
     });
-    const host = createHubSessionHost({
+    const host = createHubSessionSink({
       port: stub.port,
       registry: node.registry,
       instanceId: HUB_INSTANCE,
@@ -525,7 +525,7 @@ describe('C0b（AC1/AC3）：session 半边可独立实例化（stub edge port +
       },
     });
     const stub = makeStubPort({ kind: 'resolve', admission: { outcome: 'denied' } });
-    const host = createHubSessionHost({
+    const host = createHubSessionSink({
       port: stub.port,
       registry,
       instanceId: HUB_INSTANCE,
@@ -568,7 +568,7 @@ describe('C0b（AC1/AC3）：session 半边可独立实例化（stub edge port +
       },
     });
     const stub = makeStubPort({ kind: 'resolve', admission: { outcome: 'throw' } });
-    const host = createHubSessionHost({
+    const host = createHubSessionSink({
       port: stub.port,
       registry,
       instanceId: HUB_INSTANCE,
@@ -591,7 +591,7 @@ describe('C0b（AC1/AC3）：session 半边可独立实例化（stub edge port +
     const node = makeNode('hub');
     const fixture = await makeHubNamespace(node);
     const stub = makeStubPort({ kind: 'reject' }); // 台账缺失：port 拉取 reject
-    const host = createHubSessionHost({
+    const host = createHubSessionSink({
       port: stub.port,
       registry: node.registry,
       instanceId: HUB_INSTANCE,
@@ -615,7 +615,7 @@ describe('C0c（AC1）：单体 = 进程内组合；两工厂仅模块级导出�
   it('C0c：模块运行时导出面（组合根不新增导出；缝类型模块零运行时导出）', () => {
     expect(Object.keys(hubConnectionModule).sort()).toEqual(['createHubReplication']);
     expect(Object.keys(edgeModule).sort()).toEqual(['createHubReplicationEdge']);
-    expect(Object.keys(sessionModule).sort()).toEqual(['createHubSessionHost']);
+    expect(Object.keys(sessionModule).sort()).toEqual(['createHubSessionSink']);
     expect(Object.keys(splitModule)).toEqual([]);
   });
 

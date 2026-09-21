@@ -1,5 +1,7 @@
 /**
- * hub-session —— `HubSessionHost`：hub 侧**namespace 级半边**（ADR 0032 决策 1/3；设计 §7 D1/D2/D5/D6）。
+ * hub-session —— `HubSessionSink`（内部 splice）：hub 侧**namespace 级半边**
+ * （ADR 0032 决策 1/3；设计 §7 D1/D2/D5/D6）。公共 byte-seam 工厂见 `hub-session-host.ts`
+ * （内部复用本 splice；本模块不进 `src/index.ts`）。
  *
  * 职责（与 edge 半边的界线）：
  * - `channels` 容器（listen 形态只增不减）与 `HubNamespaceChannel` 全部生命周期；
@@ -26,8 +28,8 @@ import type {
   ResolvedTimeouts,
 } from './types.js';
 
-/** session 半边工厂配置（设计 §7 D1）。 */
-export interface HubSessionHostConfig {
+/** session 半边工厂配置（内部 splice；设计 §7 D1）。 */
+export interface HubSessionSinkConfig {
   readonly port: HubSessionEdgePort;
   /** SessionHost 拥有 Registry open（被拒/throw 在 `registry.open` 之前短路）。 */
   readonly registry: NamespaceRegistry;
@@ -38,16 +40,13 @@ export interface HubSessionHostConfig {
   readonly timeouts: ResolvedTimeouts;
 }
 
-/** session 半边（`HubSessionSink` 的进程内实现；D1/D6）。 */
-export type HubSessionHost = HubSessionSink;
-
-class HubSessionHostImpl implements HubSessionHost {
+class HubSessionSinkImpl implements HubSessionSink {
   /** 通道表**唯一事实源**（listen 形态只增不减）；`HubSessionSink.channels` 只读投影。 */
   readonly channels = new Map<string, HubNamespaceChannel>();
   private readonly channelHost: HubChannelHost;
   private closeTail: Promise<void> | undefined;
 
-  constructor(private readonly config: HubSessionHostConfig) {    const { limits, timeouts, timer, registry, instanceId, port } = config;
+  constructor(private readonly config: HubSessionSinkConfig) {    const { limits, timeouts, timer, registry, instanceId, port } = config;
     this.channelHost = {
       limits,
       timeouts,
@@ -297,6 +296,6 @@ class HubSessionHostImpl implements HubSessionHost {
 }
 
 /** 工厂：session 半边可独立实例化（注入 edge 提供的 `HubSessionEdgePort`）。 */
-export function createHubSessionHost(config: HubSessionHostConfig): HubSessionHost {
-  return new HubSessionHostImpl(config);
+export function createHubSessionSink(config: HubSessionSinkConfig): HubSessionSink {
+  return new HubSessionSinkImpl(config);
 }

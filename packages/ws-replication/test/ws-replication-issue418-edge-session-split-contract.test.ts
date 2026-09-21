@@ -150,6 +150,7 @@ const FROZEN_PRODUCTION_EXPORTS = [
   'createHubReplication',
   'createHubReplicationEdge',
   'createHubReplicationPlugin',
+  'createHubSessionHost',
   'createPeerReplication',
   'createPeerReplicationPlugin',
   'requireHubReplication',

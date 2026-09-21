@@ -1,0 +1,3 @@
+PASS A.edgeRejectsNonMonotonicSequence {"errorCode":"SEQUENCE_VIOLATION","closeInfo":{"code":1002,"reason":"protocol-error"},"delivered":[],"wireKinds":["HELLO_ACK","ERROR"]}
+PASS B.sessionConsumesOutOfOrderSequenceWithoutRecheck {"closeOk":{"kind":"CLOSE_OK","namespaceId":"ns-00000000000000000000000000000001","ackedSequence":2},"settledNs":["ns-00000000000000000000000000000001"],"fatal":[]}
+PROBE_RESULT 2/2 passed; sequence discipline = edge single point, session zero re-check CONFIRMED

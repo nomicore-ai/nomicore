@@ -1,8 +1,11 @@
 /**
  * hub-split —— hub 侧 Edge / SessionHost 拆分**内部缝契约**（ADR 0032 决策 1/2；设计 §7 D1）。
  *
- * 本模块只承载两半之间的类型与同步不变量，**不导出任何运行时值**（零新公共 API：两工厂
- * 仅在 `hub-edge.ts` / `hub-session.ts` 模块级导出，绝不进 `src/index.ts` / `src/testing.ts`）。
+ * 本模块只承载两半之间的类型与同步不变量，**不导出任何运行时值**（零运行时面）。三工厂
+ * 现状（#420 起）：edge 半边 = `hub-edge.ts` 模块级导出；namespace 级内部 splice =
+ * `hub-session.ts` 模块级导出（`createHubSessionSink`）；**公共 byte-seam 工厂** =
+ * `hub-session-host.ts` 的 `createHubSessionHost`，经 `src/index.ts` 导出（ADR 0032 后果节
+ * 的工厂轨）。本模块的类型仍绝不进 `src/index.ts` / `src/testing.ts`。
  *
  * 缝纪律（决策 2 + 设计 §7 D1/D5；同步不变量）：
  * - 缝上只过 **namespace 域帧**（已解码消息 + wire 序号）+ **纯 JSON 的 OPEN 准入结局**

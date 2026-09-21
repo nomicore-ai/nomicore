@@ -3,7 +3,7 @@
  * 进程内组合根**（ADR 0032 决策 1；设计 §7 D7）。
  *
  * issue #418：连接级半边 = `createHubReplicationEdge`（hub-edge.ts），namespace 级半边 =
- * `createHubSessionHost`（hub-session.ts）——本模块按认证门序分配 edge，并由 edge 在构造期
+ * `createHubSessionSink`（hub-session.ts，内部 splice）——本模块按认证门序分配 edge，并由 edge 在构造期
  * 以 `sessionFactory` 装配 session（缝 = 函数调用，协议状态机单份）。服务面（accept/
  * acceptTrusted/revoke/requestReauth/close/dropConnection）与校验链原样保留。
  *
@@ -15,7 +15,7 @@
 import type { DuplexTransport, HubUpgradeRequest, UpgradeIdentity } from './types.js';
 import { dispatchReplicationObserver } from './observer.js';
 import { createHubReplicationEdge, type HubReplicationEdge } from './hub-edge.js';
-import { createHubSessionHost } from './hub-session.js';
+import { createHubSessionSink } from './hub-session.js';
 import type { NamespaceRegistry } from '@nomicore/namespace-registry';
 import type {
   HubConnection,
@@ -341,7 +341,7 @@ class HubReplicationImpl implements HubReplication {
       authorize: internals.authorize,
       earlyFrames,
       sessionFactory: (port) =>
-        createHubSessionHost({
+        createHubSessionSink({
           port,
           registry: internals.registry,
           instanceId: internals.instanceId,
