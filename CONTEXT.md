@@ -136,6 +136,10 @@ _Avoid_: hot reload、热更新（暗示不经写序列器的异步切换）、s
 close 首次调用同步进入 `closing` 后，capability 槽立即停止接纳新调用：readData 同步结果联合返回 `RUNTIME_READ_DISABLED` 分支（lifecycle 失败不是路径缺陷，不借用路径失败码）；三个数据投影 getter（getSchema / getMetadata / getActiveSchema）与 readData 同属停接纳范围——同步 loud throw 稳定码 `RUNTIME_READ_DISABLED`（getter 返回类型非结果联合，拒绝通道为 throw；message 区分 getter 域与 lifecycle 值）；mutateData/replaceSchema 经 Promise settle 含 `RUNTIME_WRITE_DISABLED` 的零写入结果——该码与 fatal 后排队写、写前 writable gate（handle 非 ready：persistence-degraded / released / disposed）、notifyDirty 未绑定共用同一码族，message 文案区分域；close 前已接纳任务仍无条件排空。internal fatal 只永久禁写并保留读取，不触发 readData/getter 停接纳。getStatus 全生命周期可用（生命周期观测面，非数据投影），不在停接纳范围。
 _Avoid_: 把 lifecycle 失败伪装成路径失败码、把停接纳误解为取消已接纳任务、把停接纳误读为 getStatus 不可用
 
+**完成式排空（drain）**:
+把「所有 live 脏 entry 落完盘」表达为可 await 的完成事件：对所有 live 脏 entry（含有 handle 与零 handle）立即强制 flush（跳过 debounce/max-dirty 定时器）并 await 全部 settle；不 abort、不 destroy、不清调度面、不驱逐。宿主优雅停机硬契约：dispose 之前先 await drain（至完成，或至宿主显式预算耗尽且该事实可观察）；drain 返回后 dispose 可安全立即执行，drain 之后再调用为 vacuous 完成。库级 drain 无时间预算（持续失败的 store 下不 resolve），store 失败面永不 reject。见 ADR 0006 修订节。
+_Avoid_: flush-all、force-sync、定时排空窗（固定睡眠猜窗口）、把 drain 并进 dispose（dispose 保持 abortive/有损）
+
 **重建校验（rebuild validation）**:
 单字段 patch 也在最近结构边界合并当前值后按完整子 schema 校验——判别联合只有看到判别字段才知道按哪个变体验。ordinary mutation 的最近必要语义边界（union 穿越位 / Record 位 / 数组位 / delete 父位 / set 目标位）与批量数组整体判定（values[]/count 一次重建，不逐元素）见 ADR-0007 issue #237 修订节。
 

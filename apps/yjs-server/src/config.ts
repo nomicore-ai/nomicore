@@ -10,8 +10,8 @@
  *    `ownerUserId`（owner 唯一来源 = provision 条目）；
  *  - `hub.tokens` 的 value 全表唯一（重复 → 启动期 loud 拒，杜绝 反查表
  *    last-wins 静默身份别名）；
- *  - `persistence.schedule.maxDirtyMs` 设上界（`MAX_MAX_DIRTY_MS`）：file 停机
- *    排空窗必须严格短于总超时 watchdog，合法配置下的 dirty flush 永不被硬编码
+ *  - `persistence.schedule.maxDirtyMs` 设上界（`MAX_MAX_DIRTY_MS`）：停机/换装的
+ *    **排空预算**必须严格短于总超时 watchdog，合法配置下的 dirty flush 永不被硬编码
  *    watchdog 击穿；
  *  - 解析结果**深冻结**（调用方改写配置零效果——配置是不可变契约）。
  *
@@ -25,11 +25,19 @@ export const INSTANCE_ID_PATTERN = /^[a-z][a-z0-9-]{0,62}$/;
 export const NAMESPACE_ID_PATTERN = /^ns-[0-9a-f]{32}$/;
 
 /**
- * `persistence.schedule.maxDirtyMs` 上界（SA4 B2）：file 停机/换装的「停旧」排空窗 =
- * `maxDirtyMs + DRAIN_MARGIN_MS`（app.ts），必须严格短于 main.ts 的总超时 watchdog
- * （`STOP_WATCHDOG_MS = 60_000`）——否则合法配置下的干净停机会被 watchdog 强制
- * exit(1)、dirty flush 随进程终止丢失。上限取 30_000：排空窗 ≤ 30.5s，watchdog 余量
- * ≥ 29.5s 覆盖其余拆卸链。
+ * `persistence.schedule.maxDirtyMs` 上界（SA4 B2；issue #412 语义刷新）：停机/换装的
+ * 「停旧」**排空预算** = `maxDirtyMs + DRAIN_MARGIN_MS`（app.ts 对完成式 `drain()` 的
+ * 有界等待——原固定睡眠窗已由完成式排空替换；memory 配置无 schedule 键，预算走
+ * `DEFAULT_MAX_DIRTY_MS` 缺省推导，两 kind 统一），必须严格短于 main.ts 的总超时
+ * watchdog（`STOP_WATCHDOG_MS = 60_000`）——否则合法配置下的干净停机会被 watchdog
+ * 强制 exit(1)、dirty flush 随进程终止丢失。上限取 30_000：排空预算 ≤ 30.5s，
+ * watchdog 余量 ≥ 29.5s 覆盖其余拆卸链。
+ *
+ * **诚实性边界（issue #412 / SA8 action 4）**：本预算覆盖的是**正常路径**最坏等待
+ * （强制即时 flush + maxDirtyMs 级退避节奏 + I/O 边距）；库级 `drain()` 本体**无
+ * 上界**（持续失败的 store 下重试无次数上限）——本预算是宿主侧总界：预算尽 →
+ * `persistence-drain-budget-exceeded` 诚实事件 + 有损 dispose 继续（不依赖 watchdog
+ * 兜底）。注释不得写成「drain 恒有界」。
  */
 export const MAX_MAX_DIRTY_MS = 30_000;
 
@@ -267,7 +275,7 @@ function validatePersistence(value: unknown, violations: Violations): Persistenc
       if (value.schedule.maxDirtyMs > MAX_MAX_DIRTY_MS) {
         violations.push({
           path: 'persistence.schedule.maxDirtyMs',
-          reason: `maxDirtyMs must be <= ${MAX_MAX_DIRTY_MS} (the stop total-timeout watchdog must cover the dirty-flush drain window)`,
+          reason: `maxDirtyMs must be <= ${MAX_MAX_DIRTY_MS} (the stop total-timeout watchdog must cover the bounded persistence-drain budget)`,
         });
       }
       schedule = { debounceMs: value.schedule.debounceMs, maxDirtyMs: value.schedule.maxDirtyMs };

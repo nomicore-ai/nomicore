@@ -1,0 +1,42 @@
+### in-repo red proof（最终文件版本）— 临时把 spawnApp 还原为 tsx CLI 形态，跑新增回归用例
+# 期望：新增用例红（143 / app-stopped 缺失 + 尾序断言不可达）
+
+ RUN  v3.2.7 /home/wangjian/nomicore-fix-issue-412
+
+ ❯ apps/yjs-server/test/smoke-skeleton-red.test.ts (5 tests | 1 failed | 4 skipped) 1165ms
+   ↓ T3-skeleton real-process smoke (design §5-T3 minimized / AC7/AC2) > deployable hub rejects missing and invalid bearer credentials before WebSocket upgrade
+   ↓ T3-skeleton real-process smoke (design §5-T3 minimized / AC7/AC2) > hub emits provisioned→listening(actual port)→ready; peer authenticates static target; verify-write converges to hub read; SIGTERM exits 0
+   ↓ T3-skeleton real-process smoke (design §5-T3 minimized / AC7/AC2) > clean shutdown releases the rootDir lock: same rootDir restarts and reads back the durable value
+   ↓ T3-skeleton real-process smoke (design §5-T3 minimized / AC7/AC2) > a second instance sharing an active file root is rejected loudly (lock guard, AC2)
+   × T3-skeleton real-process smoke (design §5-T3 minimized / AC7/AC2) > SIGTERM is delivered to the app process itself: a busy event loop still completes the drain chain and exits 0 1164ms
+     → hub (busy window) exit code: expected 143 to be +0 // Object.is equality
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  apps/yjs-server/test/smoke-skeleton-red.test.ts > T3-skeleton real-process smoke (design §5-T3 minimized / AC7/AC2) > SIGTERM is delivered to the app process itself: a busy event loop still completes the drain chain and exits 0
+AssertionError: hub (busy window) exit code: expected 143 to be +0 // Object.is equality
+
+- Expected
++ Received
+
+- 0
++ 143
+
+ ❯ signalAndExpectExit apps/yjs-server/test/smoke-skeleton-red.test.ts:153:37
+    151|   proc.child.kill(signal);
+    152|   const code = await waitForExit(proc, timeoutMs, what);
+    153|   expect(code, `${what} exit code`).toBe(expectedCode);
+       |                                     ^
+    154| }
+    155|
+ ❯ apps/yjs-server/test/smoke-skeleton-red.test.ts:419:7
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+
+
+ Test Files  1 failed (1)
+      Tests  1 failed | 4 skipped (5)
+   Start at  11:46:04
+   Duration  1.98s (transform 482ms, setup 0ms, collect 654ms, tests 1.16s, environment 0ms, prepare 48ms)
+
+RED-EXIT=1

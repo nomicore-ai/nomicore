@@ -1,0 +1,43 @@
+# CI failure evidence — run 35535478371 job 106143620539 (test (24, 6), head f3b13ee)
+# source: gh api /repos/nomicore-ai/nomicore/actions/jobs/106143620539/logs (ANSI stripped, filtered)
+
+243-2026-09-20T20:25:31.9989230Z  ✓ packages/vfsl/test/sc1-schema-id-envelope-validation.test.ts (25 tests) 17ms
+244-2026-09-20T20:25:33.2961727Z  ✓ packages/ws-replication/test/ws-replication-sa7-r2-transport.test.ts (2 tests) 1010ms
+245:2026-09-20T20:25:33.2962906Z    ✓ issue #137 R2 SA7：真实 transport control 额度边界抽样（真实 TCP + 真实 bufferedAmount） > A（存活侧）：真实暂停段 + 缺省 8MiB 额度内 control 流量（4 ns × 32 ACK = 128 ≈ 7.3KiB）——全部上 wire、零 ERROR、连接 ready  340ms
+246:2026-09-20T20:25:33.2964520Z    ✓ issue #137 R2 SA7：真实 transport control 额度边界抽样（真实 TCP + 真实 bufferedAmount） > B（耗尽侧）：真实暂停段 + 跨越显式 64KiB 对照额度的 control 流量（40 ns × 32 ACK = 1280 ≈ 73KiB）——恰 1 ERROR(CONNECTION_BACKPRESSURE) + close(1011) + peer backoff  668ms
+247-2026-09-20T20:25:33.5653853Z  ✓ packages/namespace-diagnostic-log/test/file-adapter-retention-lease-gate.test.ts (8 tests) 78ms
+248-2026-09-20T20:25:33.8560571Z stdout | packages/ws-replication/test/ws-replication-issue239-repro.test.ts > issue #239：periodic reconciliation 语义 no-op 可观测（修复后语义，翻转断言） > 场景 1：已收敛副本 7 轮 periodic round —— bytes 恒非零但观察面明确报全 noop（roundId 关联 + 效果组）
+--
+289-2026-09-20T20:25:44.4429928Z  ❯ apps/yjs-server/test/smoke-skeleton-red.test.ts (4 tests | 1 failed) 3252ms
+290-2026-09-20T20:25:44.4431139Z    ✓ T3-skeleton real-process smoke (design §5-T3 minimized / AC7/AC2) > deployable hub rejects missing and invalid bearer credentials before WebSocket upgrade  362ms
+291:2026-09-20T20:25:44.4432588Z    × T3-skeleton real-process smoke (design §5-T3 minimized / AC7/AC2) > hub emits provisioned→listening(actual port)→ready; peer authenticates static target; verify-write converges to hub read; SIGTERM exits 0 964ms
+292:2026-09-20T20:25:44.4433843Z      → peer exit code: expected 143 to be +0 // Object.is equality
+293-2026-09-20T20:25:44.4434717Z    ✓ T3-skeleton real-process smoke (design §5-T3 minimized / AC7/AC2) > clean shutdown releases the rootDir lock: same rootDir restarts and reads back the durable value  1219ms
+294-2026-09-20T20:25:44.4435750Z    ✓ T3-skeleton real-process smoke (design §5-T3 minimized / AC7/AC2) > a second instance sharing an active file root is rejected loudly (lock guard, AC2)  707ms
+--
+400-2026-09-20T20:25:55.4392317Z  ✓ packages/vfsl-protocol/test/vfsl-protocol-empty-module.test.ts (1 test) 2ms
+401-2026-09-20T20:25:55.4494239Z
+402:2026-09-20T20:25:55.4495331Z ⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+403-2026-09-20T20:25:55.4495713Z
+404:2026-09-20T20:25:55.4497485Z  FAIL  apps/yjs-server/test/smoke-skeleton-red.test.ts > T3-skeleton real-process smoke (design §5-T3 minimized / AC7/AC2) > hub emits provisioned→listening(actual port)→ready; peer authenticates static target; verify-write converges to hub read; SIGTERM exits 0
+405:2026-09-20T20:25:55.4507510Z AssertionError: peer exit code: expected 143 to be +0 // Object.is equality
+406-2026-09-20T20:25:55.4507957Z
+407-2026-09-20T20:25:55.4508115Z - Expected
+--
+423-2026-09-20T20:25:55.4574361Z
+424-2026-09-20T20:25:55.4577377Z
+425:2026-09-20T20:25:55.4595074Z  Test Files  1 failed | 65 passed (66)
+426:2026-09-20T20:25:55.4596021Z       Tests  1 failed | 744 passed (745)
+427-2026-09-20T20:25:55.4596670Z    Start at  20:25:17
+428-2026-09-20T20:25:55.4597549Z    Duration  37.92s (transform 1.33s, setup 0ms, collect 6.84s, tests 22.99s, environment 7ms, prepare 2.42s)
+429-2026-09-20T20:25:55.4598070Z
+430-2026-09-20T20:25:55.4599396Z
+431:2026-09-20T20:25:55.4620922Z ##[error]AssertionError: peer exit code: expected 143 to be +0 // Object.is equality
+432-
+433-- Expected
+--
+441-
+442-
+443:2026-09-20T20:25:55.5464967Z ##[error]Process completed with exit code 1.
+444-2026-09-20T20:25:55.5531251Z Node 20 is being deprecated. This workflow is running with Node 24 by default. If you need to temporarily use Node 20, you can set the ACTIONS_ALLOW_USE_UNSECURE_NODE_VERSION=true environment variable. For more information see: https://github.blog/changelog/2025-09-19-deprecation-of-node-20-on-github-actions-runners/
+445-2026-09-20T20:25:55.5532144Z Post job cleanup.

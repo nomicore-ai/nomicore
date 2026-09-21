@@ -5,6 +5,7 @@ import {
   type DocHandle,
   type DocPersistence,
   type PersistedIdentityProbeResult,
+  type PersistenceDrainTarget,
   type PersistenceSchedule,
   type PersistenceScheduler,
   type ReplicationIdentityRef,
@@ -144,6 +145,17 @@ export class FilePersistence implements DocPersistence {
   }
 
   dispose(): Promise<void> { return this.core.dispose() }
+
+  /** issue #412（ADR 0006 修订节）：完成式排空委托 + 入口 targets `validateIdentity`
+   *  （SAFE_PATH_SEGMENT 双段，与其余公开入口同款——不安全的 target 永不可能对应 live
+   *  cell，校验纯为 loud 防御，合法 target 零行为差异；`targets === undefined` 时无
+   *  校验路径）。宿主优雅停机硬契约：`dispose()` 之前必须先 await 本方法。 */
+  async drain(targets?: readonly PersistenceDrainTarget[]): Promise<void> {
+    if (targets !== undefined) {
+      for (const target of targets) this.validateIdentity(target.owner, target.docId)
+    }
+    await this.core.drain(targets)
+  }
 
   /** Package-internal test seam; never exported from the package root. */
   seedForTest(owner: User, docId: string): DocHandle {

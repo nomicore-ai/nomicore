@@ -94,9 +94,11 @@ async function reload(state: CliState): Promise<void> {
   }
   state.reloading = true;
   // 总超时保护（设计 §3.6「全程设总超时保护」、§3.7-3 全序含超时保护）：停旧（含
-  // file 排空窗，上界由 config.ts `MAX_MAX_DIRTY_MS` 保证 < watchdog）与装新
-  // （`await state.app.ready`）整条链必须受同一 watchdog 覆盖——任一半程挂起都不得
-  // 无限静默停摆：超时 → error 事件 + exit(1)（§3.7-4 的运行期失败 loud 语义）。
+  // 持久化**排空预算窗**——file/memory 配置统一的完成式 `drain()` 有界等待，上界 =
+  // config.ts `MAX_MAX_DIRTY_MS` + 边距 < watchdog，issue #412；预算尽发
+  // `persistence-drain-budget-exceeded` 后有损继续，换装链不因 degraded store 挂起）
+  // 与装新（`await state.app.ready`）整条链必须受同一 watchdog 覆盖——任一半程挂起
+  // 都不得无限静默停摆：超时 → error 事件 + exit(1)（§3.7-4 的运行期失败 loud 语义）。
   const watchdog = setTimeout(() => {
     process.stderr.write('reload watchdog timeout: force exit(1)\n');
     state.sink({ event: 'reload-failed', reason: 'watchdog-timeout', message: 'reload total-timeout watchdog fired' });

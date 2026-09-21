@@ -21,6 +21,7 @@ import {
   type DocHandle,
   type DocHandleStatus,
   type PersistedIdentityProbeResult,
+  type PersistenceDrainTarget,
   type PersistenceSchedule,
   type PersistenceScheduler,
   type ReplicationIdentityRef,
@@ -93,8 +94,12 @@ interface LiveEntry {
   readonly docId: string
   readonly doc: Y.Doc
   readonly handles: Set<PersistenceHandle>
-  /** Phase 5 归档 settle 排空通知面（§4.5.2）：仅 settleEntryForArchive 填充；
-   *  非归档路径恒空 ⟹ flush finally / dispose 的 splice no-op、零观测差异。 */
+  /** settle 排空通知面（Phase 5 §4.5.2 起，issue #412 修订）：归档/删除/**drain**
+   *  的 settle 排空路径填充（`settleEntryForArchive` / `settleEntryForDelete` /
+   *  `drain`）；驱逐（`maybeEvict` / 两处 cancel-then-evict 腿）与 dispose 路径
+   *  负责释放（不变量：**任何移除 live entry 的路径必须释放其 settle waiters**）。
+   *  无等待者时为空数组 ⟹ flush finally / 驱逐 / dispose 的 splice 为 no-op、
+   *  零观测差异。 */
   readonly archiveWaiters: Array<() => void>
   degraded: boolean
   dirtyGeneration: number
@@ -669,6 +674,9 @@ export class PersistenceLifecycle {
       this.clearTimers(entry)
       const now = this.cells.get(key)
       if (now === cell && now.state === 'live') {
+        // issue #412（DD-5b）：移除 live entry 必须释放 settle waiters（drain 等待者
+        // 可能正等待该 entry 的 retry 回退窗——本路径已取消定时器，不释放即永久挂起）。
+        this.releaseSettleWaiters(entry)
         this.cells.delete(key)
         entry.doc.destroy()
       }
@@ -696,6 +704,9 @@ export class PersistenceLifecycle {
       if (entry.retryTimer === undefined) {
         if (!entry.flushing && entry.savedGeneration === entry.dirtyGeneration) {
           this.clearTimers(entry)
+          // issue #412（DD-5b）：干净驱逐腿同样必须释放 settle waiters
+          //（drain 等待者可能正等待该 entry 的在途/回退窗结算；此处已干净且无在途）。
+          this.releaseSettleWaiters(entry)
           this.cells.delete(key)
           entry.doc.destroy() // 干净零-handle entry：镜像 maybeEvict（590-596）当场驱逐
           return
@@ -815,14 +826,57 @@ export class PersistenceLifecycle {
         // clearTimers 取消、flush finally 永不再运行，waiter 仍被此路径唤醒）；
         // waiter 续体是微任务，本同步段（含 cells.clear()）先完成 ⟹ settle 重检见
         // cell 缺席而退出循环，claim 段以 bare disposed 错误收口（INV-15）。
-        const waiters = entry.archiveWaiters.splice(0)
-        for (const w of waiters) w()
+        // issue #412：drain 的等待者经同一通知面释放（调用方同步段先完成 ⟹ drain
+        // 重扫见 closed → vacuous resolve）。
+        this.releaseSettleWaiters(entry)
         entry.handles.clear()
         entry.doc.destroy()
       }
     }
     this.cells.clear()
     await Promise.allSettled([...this.inFlight])
+  }
+
+  /**
+   * issue #412（ADR 0006 修订节）：**完成式排空**——对所有 live 脏 entry（含有 handle
+   * 与零 handle）立即强制 flush（跳过 debounce/maxDirty 定时器）并 await 全部 settle；
+   * 不 abort、不 destroy、不清调度面、不驱逐。宿主优雅停机硬契约：`dispose()` 之前
+   * 必须先 await `drain()`（至完成，或至宿主显式预算耗尽且该事实可观察）。
+   *
+   * 语义（与 `settleEntryForArchive` 单 key 先例同构、去掉归档前置与驱逐腿）：
+   *  - `retryTimer` 武装（degraded 回退窗）→ 被动等待（注册 waiter），不强制即时重试、
+   *    不热循环（ADR 0006「退避即该 entry 的唯一 flush 调度源」）；
+   *  - `flushing` → 等待其结算（`startFlush`/`flush` 既有双门保证零重复发起）；
+   *  - idle 且脏 → `startFlush`（强制即时 flush）；
+   *  - 干净 → 跳过（零 write、不清定时器、不驱逐）。
+   *  返回语义 = **静息观察点结算**：resolve ⟺ 最后一轮扫描观察时范围内无「脏且可推进」
+   *  「在途」「回退窗等待」的 live entry（终扫后新 ACK 的写者不属本次调用覆盖范围）。
+   *  并发重入各自独立成环、各自结算；dispose 交错经通知点 2 唤醒后重扫见 `closed` →
+   *  vacuous 立即 resolve（dispose 后无 live 脏状态可排空）。store 失败面永不 reject
+   *  （写失败被既有 degraded + 内部退避吸收）；库级无时间预算。
+   */
+  async drain(targets?: readonly PersistenceDrainTarget[]): Promise<void> {
+    const scope =
+      targets === undefined ? undefined : new Set(targets.map((t) => toKey(t.owner, t.docId)))
+    for (;;) {
+      if (this.closed) return // vacuous：dispose 中/后无 live 脏状态可排空
+      const pending: Array<Promise<void>> = []
+      for (const [key, cell] of this.cells) {
+        if (scope !== undefined && !scope.has(key)) continue
+        if (cell.state !== 'live') continue // reading/creating/archiving/deleting 不在范围
+        const entry = cell.entry
+        if (entry.retryTimer !== undefined || entry.flushing) {
+          // 回退窗被动等待 / 在途结算等待：只注册 waiter（single-flight，零重复发起）
+          pending.push(new Promise<void>((resolve) => { entry.archiveWaiters.push(resolve) }))
+          continue
+        }
+        if (entry.savedGeneration === entry.dirtyGeneration) continue // 干净：零 write
+        this.startFlush(entry) // ★ 强制即时 flush——跳过 debounce/maxDirty 定时器
+        pending.push(new Promise<void>((resolve) => { entry.archiveWaiters.push(resolve) }))
+      }
+      if (pending.length === 0) return // 静息观察点：本轮无待结算
+      await Promise.all(pending) // 屏障后重扫（等待期内的再脏/换 cell 均被吸收）
+    }
   }
 
   private async loadSlowPath(owner: User, docId: string, key: string): Promise<DocHandle | null> {
@@ -1015,6 +1069,16 @@ export class PersistenceLifecycle {
     return this.createEntry(owner, docId, key, doc)
   }
 
+  /**
+   * issue #412（DD-2）：重试**首基准**单源（createEntry 初始化与 flush 成功回落两落点
+   * 共用）。显式配置 `retryDelayMs` 时与 `debounceMs` 正交；键缺席时**动态**回退到
+   * 解析后的 `debounceMs`（保持既有行为，非固定默认值）。`|| 1` 下限纪律与旧式
+   * `schedule.debounceMs || 1` 一致（显式 0 折叠为 1，防 0ms 热重试）。
+   */
+  private get retryBaseMs(): number {
+    return (this.schedule.retryDelayMs ?? this.schedule.debounceMs) || 1
+  }
+
   private createEntry(owner: User, docId: string, key: string, doc: Y.Doc): LiveEntry {
     return {
       key,
@@ -1027,7 +1091,7 @@ export class PersistenceLifecycle {
       dirtyGeneration: 0,
       savedGeneration: 0,
       flushing: false,
-      retryDelayMs: this.schedule.debounceMs || 1,
+      retryDelayMs: this.retryBaseMs,
     }
   }
 
@@ -1085,7 +1149,7 @@ export class PersistenceLifecycle {
       await this.io.write(entry.key, snapshot, this.abortController.signal)
       if (!this.isCurrent(epoch)) return
       entry.savedGeneration = generation
-      entry.retryDelayMs = this.schedule.debounceMs || 1
+      entry.retryDelayMs = this.retryBaseMs
       entry.degraded = false
     } catch {
       if (!this.isCurrent(epoch)) return
@@ -1126,6 +1190,9 @@ export class PersistenceLifecycle {
   private maybeEvict(entry: LiveEntry): void {
     if (entry.handles.size || entry.flushing || entry.savedGeneration !== entry.dirtyGeneration) return
     this.clearTimers(entry)
+    // issue #412（DD-5b）：移除 live entry 必须释放 settle waiters（`maybeEvict` 只在
+    // 干净且零 handle 时驱逐；等待者续体重扫见 key 缺席 → 退出范围）。
+    this.releaseSettleWaiters(entry)
     const cell = this.cells.get(entry.key)
     if (cell?.state === 'live' && cell.entry === entry) this.cells.delete(entry.key)
     entry.doc.destroy()
@@ -1146,6 +1213,20 @@ export class PersistenceLifecycle {
     this.cancelMaxDirty(entry)
     if (entry.retryTimer !== undefined) this.scheduler.clearTimeout(entry.retryTimer)
     entry.retryTimer = undefined
+  }
+
+  /**
+   * settle 排空 waiters 的统一释放（issue #412 / DD-5b 不变量）：**任何移除 live
+   * entry 的路径必须释放其 settle waiters**——否则 drain / settleEntryForArchive /
+   * settleEntryForDelete 的等待者在该 entry 被驱逐或 dispose 后永不结算（liveness
+   * 空洞）。live-entry 移除点全集 = dispose / `settleEntryForDelete` 驱逐腿 /
+   * `settleEntryForArchive` 干净驱逐腿 / `maybeEvict`——全部调用本方法。无等待者时
+   * splice 空数组为 no-op、零观测差异（与既有 flush finally 通知点同款论证）。
+   * waiter 续体仅排入微任务队列，调用方同步段先完成 ⟹ 续体重检看到的是终态。
+   */
+  private releaseSettleWaiters(entry: LiveEntry): void {
+    const waiters = entry.archiveWaiters.splice(0)
+    for (const w of waiters) w()
   }
 
   private track<T>(promise: Promise<T>): Promise<T> {

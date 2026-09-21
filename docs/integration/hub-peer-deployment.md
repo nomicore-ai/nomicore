@@ -36,8 +36,11 @@ NOMICORE_CONFIG=<path> pnpm exec nomicore-yjs-server
 stdout 输出 NDJSON 生命周期事件（`config-loaded / provisioned / provision-failed /
 listening / ready / target-added / replica-reset（reset-replica 仅成功路径发射）/
 reply / connection-state-changed / goaway-received / … / replication-drained /
-registry-stopped / persistence-disposed / app-stopped / reload-starting /
-reload-ignored / config-error / reload-complete`）。复制域事件直接
+registry-stopped / persistence-drain-budget-exceeded / persistence-disposed /
+app-stopped / reload-starting /
+reload-ignored / config-error / reload-complete`）。其中
+`persistence-drain-budget-exceeded{budgetMs}` **仅在停机排空预算耗尽时发射**（健康
+store 的完成式排空直接返回，不发射——它不是每次停机的必发阶段事件）。复制域事件直接
 映射公共 `ReplicationObserver` 判别联合（字段与包类型逐字一致），已脱敏：不含
 token、owner 值、Yjs bytes、SCHEMA/ROOT 内容。
 
@@ -274,9 +277,16 @@ file 模式启动时以 `rootDir/.nomicore-lock/` 非空目录作为权威锁（
 SIGTERM/SIGINT 的网络与 Runtime 收口语义以
 `docs/protocols/instance-replication-v1.md` §21 为权威。composition root 先同步停止
 HTTP/Upgrade 接纳，再关闭 replication transport 并等待已接纳 apply 与资源清理，随后
-依次执行 Registry shutdown、Persistence dispose、Timer/Clock teardown。NDJSON 事件序 =
-`replication-drained → registry-stopped → persistence-disposed → app-stopped`；
-全程总超时保护（超时 `exit(1)`）。`stop()` 幂等（single-flight）。
+依次执行 Registry shutdown、Persistence dispose、Timer/Clock teardown。**Registry
+shutdown 之后、Persistence dispose 之前**，对持久化 adapter（**file 与 memory 配置
+统一**，无 kind 特判）执行**有界完成式排空**：`await adapter.drain()` 把所有脏 entry
+立即落盘并等待 settle（跳过 debounce；预算 = `maxDirtyMs + 边距`，memory 配置无
+schedule 键 → 缺省推导 `DEFAULT_MAX_DIRTY_MS + 边距`，两 kind 均 < 60s watchdog）；
+预算尽则发 `persistence-drain-budget-exceeded{budgetMs}` 后继续有损 dispose（ADR 0006
+修订节停机硬契约：dispose 前必须先 await drain——完成或至预算耗尽且可观察）。NDJSON
+事件序 = `replication-drained → registry-stopped → persistence-disposed →
+app-stopped`（预算事件仅在预算耗尽时插入中间）；全程总超时保护（超时 `exit(1)`）。
+`stop()` 幂等（single-flight）。
 `onFatalError:'exit'`（缺省）下 fatal 类 observer 事件触发同一条拆卸链：NDJSON
 序 = 原事件直通（如 `schema-rearm-failed`）→ `fatal-shutdown{trigger,namespaceId?}`
 标记 → 上述四事件 → 非零退出（issue #288 / ADR 0018 §4）。

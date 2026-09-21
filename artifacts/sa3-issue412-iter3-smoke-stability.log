@@ -1,0 +1,11 @@
+### 修复后稳定性：Node 24 串行 5 次（每次完整文件，含新增忙窗回归用例）
+ Test Files  1 passed (1)
+      Tests  5 passed (5)
+ Test Files  1 passed (1)
+      Tests  5 passed (5)
+ Test Files  1 passed (1)
+      Tests  5 passed (5)
+ Test Files  1 passed (1)
+      Tests  5 passed (5)
+ Test Files  1 passed (1)
+      Tests  5 passed (5)

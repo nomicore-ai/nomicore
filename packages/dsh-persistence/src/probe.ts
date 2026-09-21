@@ -441,8 +441,9 @@ export async function runPersistenceProbe(options: ProbeRunOptions): Promise<Pro
         savedByKey.set(degradedKey, (savedByKey.get(degradedKey) ?? 0) + 1) // 决策 C：resolve 后才计数
         emit({ type: 'save-degraded', owner: 'user-a', docId: 'doc-degraded', t: now() })
 
-        // 内部退避 retry 通用循环（§5：镜像内核 retryDelayMs 初值 debounceMs，失败后 ×2 cap maxDirtyMs）
-        let delay = schedule.debounceMs || 1
+        // 内部退避 retry 通用循环（§5：镜像内核 retryDelayMs 单源——显式配置时取
+        // retryDelayMs，键缺席时动态回退 debounceMs；失败后 ×2 cap maxDirtyMs。issue #412）
+        let delay = (schedule.retryDelayMs ?? schedule.debounceMs) || 1
         let left = failFirstFlushes - 1
         while (left > 0) {
           if (adapter === 'file') ensureBlocked('user-a', 'doc-degraded')

@@ -14,8 +14,10 @@
  *
  * 停机（§3.6 单一拆卸链）：宿主显式执行复制 drain（含包内 apply 排空 + close session →
  * release lease）→ 已接纳 REST 工作有界排空（issue #270，ADR 0015 L210；boot 窗口未构造
- * 时跳过）→ registry shutdown → persistence dispose → timer/clock teardown；复制插件不
- * 另注册重复 disposer；`stop()` 幂等（single-flight promise）。
+ * 时跳过）→ registry shutdown → 持久化**有界完成式排空**（issue #412：file 与 memory
+ * 配置统一的 `adapter.drain()` 预算 race——dispose 前 await drain 的停机硬契约）→
+ * persistence dispose → timer/clock teardown；复制插件不另注册重复 disposer；`stop()`
+ * 幂等（single-flight promise）。
  *
  * REST hosting（issue #270，ADR 0015 L18–32）：hub listener 经 raw path 分流承载 REST
  * route family（REST 优先，`matched:false` 回落 `/healthz`+404；upgrade 维持 `/replication`
@@ -81,9 +83,12 @@ const READ_READY_TIMEOUT_MS = 10_000;
 const LIVE_POLL_INTERVAL_MS = 100;
 /** open 物化等待重试间隔（F1：本地记录未物化时的 `NAMESPACE_NOT_FOUND` 重试）。 */
 const OPEN_RETRY_INTERVAL_MS = 50;
-/** file adapter 缺省 flush 上限（persistence DEFAULT_PERSISTENCE_SCHEDULE.maxDirtyMs）。 */
+/** 缺省 flush 上限（persistence `DEFAULT_PERSISTENCE_SCHEDULE.maxDirtyMs`）。issue #412：
+ *  file 配置缺省 schedule 与 memory 配置（无 schedule 键，内部取 DEFAULT schedule）的
+ *  停机**排空预算**同源推导——两 kind 统一。 */
 const DEFAULT_MAX_DIRTY_MS = 5_000;
-/** 调空窗口边距（flush 提交的保守余量）。 */
+/** 排空预算边距（issue #412）：预算窗内最后一轮在途/重试 flush I/O 的保守余量
+ *  （原「调空窗口边距」措辞已随固定睡眠 → 完成式排空替换而过期）。 */
 const DRAIN_MARGIN_MS = 500;
 /** peer 侧 closeTimeoutMs 缺省（ws-replication defaults.ts:38；app 不 import 包内部缺省）。 */
 const DEFAULT_PEER_CLOSE_TIMEOUT_MS = 5_000;
@@ -175,6 +180,14 @@ class AppHandle {
 
   private registry: NamespaceRegistry | undefined;
   private persistenceFiber: { dispose(): Promise<unknown> } | undefined;
+  /** issue #412（DD-7）：persistence plugin 公共句柄（**file 与 memory 分支统一保留**——
+   *  两工厂均返回 `{apply, get instance()}`；停机链经 `get instance()` 取 adapter 调
+   *  `drain()`。不假设 cordis 动态 pluginId、不 import 包内部路径）。boot 窗口为
+   *  undefined（停机请求落在 boot 中段时跳过排空步——与同函数既有 optional 纪律一致）。 */
+  private persistencePlugin:
+    | ReturnType<typeof createFilePersistencePlugin>
+    | ReturnType<typeof createMemoryPersistencePlugin>
+    | undefined;
   private hubService: HubReplicationService | undefined;
   private peerService: PeerReplicationService | undefined;
   private hubListener: Awaited<ReturnType<HubListenAdapter['listen']>> | undefined;
@@ -284,17 +297,19 @@ class AppHandle {
     await clockFiber;
     if (this.stopRequested) return;
     new TimerService(ctx);
-    const persistenceFiber =
+    // issue #412（DD-7）：两 kind 统一保留 plugin 句柄（公共 `{apply, get instance()}`），
+    // 停机链第 3 步经 `get instance()` 取 adapter 执行有界完成式排空（`drain()`）。
+    const persistencePlugin =
       this.config.persistence.kind === 'file'
-        ? ctx.plugin(
-            createFilePersistencePlugin({
-              rootDir: this.config.persistence.rootDir,
-              ...(this.config.persistence.schedule !== undefined
-                ? { schedule: this.config.persistence.schedule }
-                : {}),
-            }),
-          )
-        : ctx.plugin(createMemoryPersistencePlugin());
+        ? createFilePersistencePlugin({
+            rootDir: this.config.persistence.rootDir,
+            ...(this.config.persistence.schedule !== undefined
+              ? { schedule: this.config.persistence.schedule }
+              : {}),
+          })
+        : createMemoryPersistencePlugin();
+    this.persistencePlugin = persistencePlugin;
+    const persistenceFiber = ctx.plugin(persistencePlugin);
     this.persistenceFiber = persistenceFiber;
     await persistenceFiber;
     if (this.stopRequested) return;
@@ -529,6 +544,30 @@ class AppHandle {
     return this.stopPromise;
   }
 
+  /**
+   * 有界等待完成式排空（issue #412，DD-7；镜像同文件 REST 排空纪律
+   * rest-hosting.ts `runDrain` 的 tagged-outcome `Promise.race` + timer 早清）：
+   * drain 先完成 → true；预算尽 → false（调用方发诚实事件后继续有损 dispose）。
+   *
+   * 预算 timer 用进程级 `setTimeout`（停机编排属进程级，不走 Cordis Timer——与
+   * REST 排空同款先例）；drain 先完成时 clearTimeout 防泄漏。**败者 drain 续体不被
+   * 放弃**：随后的 `persistenceFiber.dispose()` → adapter dispose 的通知点 2 唤醒
+   * waiter → drain 重扫见 closed → vacuous resolve；drain 在 store 失败面永不 reject
+   * ⟹ 零 unhandled rejection。drain 同步 throw（结构性不可达——adapter 契约违约级
+   * bug）冒泡至 `performStop` 既有 try/catch → `app-stop-failed` + rethrow（fail loud）。
+   */
+  private async awaitDrainWithBudget(drain: Promise<void>, budgetMs: number): Promise<boolean> {
+    let timer: NodeJS.Timeout | undefined;
+    const outcome = await Promise.race<'drained' | 'budget'>([
+      drain.then(() => 'drained' as const),
+      new Promise<'budget'>((resolve) => {
+        timer = setTimeout(() => resolve('budget'), Math.max(0, budgetMs));
+      }),
+    ]);
+    if (timer !== undefined) clearTimeout(timer);
+    return outcome === 'drained';
+  }
+
   private async performStop(): Promise<void> {
     try {
       // 1. listener.close() 同步停止 HTTP/Upgrade 接纳且不等待既有 socket；随后由
@@ -562,14 +601,29 @@ class AppHandle {
       // 无限延迟（结构性满足；未来 writer queue 切片的 drain 预算另行定义——§4-D7 备案）。
       this.diagnostics?.close();
       this.sink({ event: 'diagnostics-closed' });
-      // 3. persistence fiber 卸载前：给 file adapter 的排空窗口——adapter 的 dirty
-      // flush 走 debounce 调度（saveDoc → maxDirtyMs 内保证提交；dispose() 只
-      // abort+destroy，**不冲刷 dirty**，file.ts:27「dispose and drain first」）。
-      // registry.shutdown 后立即拆 fiber 会把停机前最后写入（如 provision 的
-      // enableReplication META）丢弃——先等调度窗（maxDirtyMs + 边距）落盘。
-      if (this.config.persistence.kind === 'file') {
-        const drainMs = (this.config.persistence.schedule?.maxDirtyMs ?? DEFAULT_MAX_DIRTY_MS) + DRAIN_MARGIN_MS;
-        await sleep(drainMs);
+      // 3. persistence fiber 卸载前：**完成式排空**（issue #412；停机硬契约——
+      //    Owner 评论 5751613018 / ADR 0006 修订节：dispose 之前必须先 await drain）。
+      //    adapter 对所有 live 脏 entry 立即强制 flush 并等待 settle（跳过 debounce/
+      //    maxDirty 定时器），排空窗口从「时间量猜测」（原固定睡眠 maxDirtyMs + 边距）
+      //    变为「事件量 + 预算上界」。**file 与 memory 配置统一执行，无 kind 特判**
+      //    （SA2-7 路径 (b)：契约边界 = 配置的 store 面而非 adapter 类名；接线
+      //    writeSnapshot hook 的 memory 实例与 file 实例同质受保护）。
+      //    宿主预算 = maxDirtyMs + 边距（config.ts `MAX_MAX_DIRTY_MS` 立法保证
+      //    ≤ 30.5s < 60s watchdog；memory 配置无 schedule 键 → 缺省预算 =
+      //    DEFAULT_MAX_DIRTY_MS + 边距 = 5.5s，与内置 memory adapter 的内部 DEFAULT
+      //    schedule 同构）。预算尽 → `persistence-drain-budget-exceeded` 诚实事件后
+      //    **继续** 3b 有损 dispose（ADR 0006 dispose 保持 abortive；预算路径是硬契约
+      //    的显式可观察退出，不是违约）。库级 drain 本体无上界——本预算是宿主侧总界。
+      //    boot 窗口 stop 时句柄/instance 未定义 → 跳过（F2）。
+      const adapter = this.persistencePlugin?.instance;
+      if (adapter !== undefined) {
+        const budgetMs =
+          (this.config.persistence.kind === 'file'
+            ? this.config.persistence.schedule?.maxDirtyMs ?? DEFAULT_MAX_DIRTY_MS
+            : DEFAULT_MAX_DIRTY_MS) + DRAIN_MARGIN_MS;
+        if (!(await this.awaitDrainWithBudget(adapter.drain(), budgetMs))) {
+          this.sink({ event: 'persistence-drain-budget-exceeded', budgetMs });
+        }
       }
       // 3b. persistence fiber 卸载（撤服务 → 级联依赖 fiber 卸载 → adapter dispose 落盘）。
       if (this.persistenceFiber !== undefined) {
