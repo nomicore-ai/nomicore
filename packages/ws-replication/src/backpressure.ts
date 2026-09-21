@@ -51,6 +51,11 @@ export interface ConnectionSenderHost {
   emitControl(message: ReplicationMessage): number;
   /** data 帧出站点（→ OutboundQueue.emit；序列号单点分配）。 */
   emitData(message: ReplicationMessage): number;
+  /** issue #418（设计 D3.2）：字节形态 control 出站点（→ OutboundQueue.sendControlFrame）。
+   *  可选成员；hub 组合根必持（缺失 → 首用响亮 throw，正常路径不变量缺失 fail-loud）。 */
+  emitControlFrame?(frame: Uint8Array): number;
+  /** issue #418（设计 D3.2）：字节形态 data 出站点（→ OutboundQueue.emitFrame）。 */
+  emitDataFrame?(frame: Uint8Array): number;
   /** 命名空间 facet 查询（peer: controllers map / hub: channels map）。 */
   facetOf(namespaceId: string): DataSenderFacet | undefined;
   /** 连接可发送性（peer: connState==='ready'；hub: 未收口）。 */
@@ -133,6 +138,55 @@ export class ConnectionSender {
       + this.totalQueuedBytes() + frameBytes;
     if (projected > this.host.limits.maxQueuedBytesPerConnection) return 0;
     return this.host.emitData(message);
+  }
+
+  /**
+   * issue #418（设计 D3.2）字节形态 control 发送点：判定次序与 `sendControl` 逐点相同
+   * ——`observeWater()` → 暂停态配额（判据用 `byteLength`，与 `measureFrame` 探针编码
+   * 同值，O4）→ 控制队列出队盖章。session 半边已完成占位编码（编码异常在其同步点抛出，
+   * 先于本方法——D3.3「暂停态控制」行等价）。
+   */
+  sendControlFrame(frame: Uint8Array): number {
+    this.observeWater();
+    if (this.paused) {
+      if (this.controlUnflushed + frame.byteLength > this.host.limits.maxQueuedControlBytes) {
+        this.host.onBackpressureExhausted();
+        return 0;
+      }
+    }
+    return this.emitControlFrameBytes(frame);
+  }
+
+  /**
+   * issue #418（设计 D3.2）字节形态 data 发送点：`isEmitAllowed` / data 闸门已由 session
+   * 半边**前置**（D3.1：对应 HEAD `tryEmitData` 的判定次序），本方法承接其后的单帧守卫与
+   * 统一账本 admission（全部以 `byteLength` 为确定判据）→ data 出队盖章。
+   */
+  tryEmitDataFrame(frame: Uint8Array): number {
+    const frameBytes = frame.byteLength;
+    if (frameBytes > this.host.limits.maxQueuedBytesPerConnection) return 0;
+    const projected =
+      this.observe() + this.pendingDataHandoff + this.controlPendingHandoff
+      + this.totalQueuedBytes() + frameBytes;
+    if (projected > this.host.limits.maxQueuedBytesPerConnection) return 0;
+    return this.emitDataFrameBytes(frame);
+  }
+
+  /** 字节路径宿主成员缺失 = 正常路径不变量破坏 → 响亮 throw（无静默 fallback）。 */
+  private emitControlFrameBytes(frame: Uint8Array): number {
+    const emit = this.host.emitControlFrame;
+    if (emit === undefined) {
+      throw new Error('ConnectionSender: 字节形态 control 路径缺宿主成员 emitControlFrame');
+    }
+    return emit.call(this.host, frame);
+  }
+
+  private emitDataFrameBytes(frame: Uint8Array): number {
+    const emit = this.host.emitDataFrame;
+    if (emit === undefined) {
+      throw new Error('ConnectionSender: 字节形态 data 路径缺宿主成员 emitDataFrame');
+    }
+    return emit.call(this.host, frame);
   }
 
   /** data 闸门（§4.2 hysteresis）：> highWater → 暂停；暂停段 ≤ lowWater → 恢复 + drain。 */
