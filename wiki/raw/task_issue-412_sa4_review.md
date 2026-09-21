@@ -1,12 +1,255 @@
 # SA4 Implementation Review — issue #412
 
 - 任务：issue #412（persistence 公开完成式排空 `drain()` + `retryDelayMs` 解耦 + 停机硬契约）
-- Worktree：`/home/wangjian/nomicore-fix-issue-412`（分支 `mabf/issue-412`，HEAD `f3b13ee`）
-- 本轮 dispatch：`sa-b0e509f7-f0db-4278-900d-207cbb627480`（phase **implementation-review**，iteration 4）
-- 本轮审查对象：**`test (24, 6)` smoke SIGTERM 修复轮**（SA3 iteration 3，dispatch `sa-98b9e976-b530-4227-ae2e-1dfa5cfa40d7`）——`f3b13ee` 之上的未提交增量，覆盖三面：①direct-node launcher（`spawnApp` 由 `.bin/tsx` CLI 改 `node --import tsx` 直跑）；②新增忙窗 drain-before-dispose 回归锚；③无测试弱化 / 无范围回退
-- 适用 Owner 要求：Issue comment ID `5751613018`，updated `2026-09-20T18:03:36Z`——**硬性优雅停机 drain-before-dispose 契约与 ADR 对齐必须保持**（本轮以「保持性」维度复核，见 §C3；comment id/时间戳/作者已由 SA8 `gh api` 独立拉取核对并在其报告引用）
+- Worktree：`/home/wangjian/nomicore-fix-issue-412`（分支 `mabf/issue-412`，HEAD `2c3a486`，领先 `origin/main` 7 提交；修复 `d60760c`、iteration-2 证据 `bdb91cb`、评审留档 `f3b13ee`/`2c3a486` 均在其历史）
+- 本轮 dispatch：`sa-77c6a88d-7626-4df7-b22a-69f3ccba1cb0`（phase **implementation-review**，iteration 6）
+- 本轮审查对象（Part E）：**已批准保留的 iteration-3 CI 修复验证证据日志的空白归零（whitespace normalization）入库前审查**——Controller 已 stage 的 8 份日志的工作区清整增量（`git diff --cached --check` 报出的 14 处：8 处行尾空白 + 6 处 EOF 空行）+ SA3 报告 iteration-5 清整记录；三问：仅格式缺陷、证据仍真实必要、产品/测试行为零改动；Owner comment `5751613018`（updated `2026-09-20T18:03:36Z`）的硬 drain-before-dispose 与 ADR 对齐保持
+- Part D dispatch：`sa-81d27538-450e-41cc-80d1-13a766f97d4c`（phase **implementation-review**，iteration 5；review group `review-412-cirepair-evidence-5`）
+- Part D 审查对象：**SA3 选定的 iteration-3 CI 修复验证证据产物的入库前审查**——8 份未跟踪具名闸门日志（`artifacts/sa3-issue412-iter3-{ci-failure-evidence,smoke-red-proof,shard6-node24,persistence-contract,shutdown-tests,root-typecheck,generate-check,app-suite}.log`）+ iteration-4 收纳轮对 26→8 的裁决（18 份清理）+ SA3 报告原位更新；四问：必要、真实、范围、不藏抑制/不改已评审修复
+- Part C dispatch：`sa-b0e509f7-f0db-4278-900d-207cbb627480`（phase **implementation-review**，iteration 4）
+- Part C 审查对象：**`test (24, 6)` smoke SIGTERM 修复轮**（SA3 iteration 3，dispatch `sa-98b9e976-b530-4227-ae2e-1dfa5cfa40d7`）——`f3b13ee` 之上的未提交增量，覆盖三面：①direct-node launcher（`spawnApp` 由 `.bin/tsx` CLI 改 `node --import tsx` 直跑）；②新增忙窗 drain-before-dispose 回归锚；③无测试弱化 / 无范围回退
+- 适用 Owner 要求：Issue comment ID `5751613018`，updated `2026-09-20T18:03:36Z`——**硬性优雅停机 drain-before-dispose 契约与 ADR 对齐必须保持**（本轮以「保持性」维度复核，见 §E2-5；comment id/时间戳/作者已由 SA8 `gh api` 独立拉取核对并在其报告引用）
 - 审查纪律：静态实现审查。未运行测试/未启动服务/未修改实现；本轮新证据 = 只读 Git（diff/status/numstat/两 head 对照）+ tsx `cli.mjs`/`preflight.cjs` 信号转达机制源码通读 + 被改测试全文/产品源码/CI 分片器/AGENTS 通读 + SA3 证据日志（`artifacts/sa3-issue412-iter3-*.log`）交叉核对
-- 历史轮次：**Part A**（iteration 1）= codegen-freshness 修复轮（对象已提交为 `9094760`，结论 **approve** 保持）；**Part B**（iteration 0）= #412 主体实现审查（已提交为 `75bd0ab`，27 文件核对无漂移，结论 **approve** 保持，关键锚本轮抽验仍在）
+- 历史轮次：**Part E**（iteration 6）= 空白归零入库前审查（本轮，结论 **approve**）；**Part D**（iteration 5）= 证据收纳面审查（结论 **approve** 保持，本轮 Part E 复核其保留集 8 份逐份未被增删/替换）；**Part C**（iteration 4）= smoke SIGTERM 修复轮审查（对象已提交为 `d60760c`，结论 **approve** 保持，本轮 Part E 复核其逐字节未改）；**Part A**（iteration 1）= codegen-freshness 修复轮（对象已提交为 `9094760`，结论 **approve** 保持）；**Part B**（iteration 0）= #412 主体实现审查（已提交为 `75bd0ab`，27 文件核对无漂移，结论 **approve** 保持，关键锚本轮抽验仍在）
+
+---
+
+# Part E — 空白归零后证据入库前审查（SA3 iteration-5 清整轮对象，本轮 dispatch）
+
+## E1. Reviewed inputs
+
+| 输入 | 状态 | 用途 |
+| --- | --- | --- |
+| 本轮 dispatch 指令（审查 whitespace-normalized 保留的 iteration-3 CI-repair 证据产物 commit 前：仅格式缺陷、证据仍真实必要、产品/测试行为零改动；Owner comment 5751613018 updated 2026-09-20T18:03:36Z 硬 drain-before-dispose + ADR 对齐保持） | 已读 | 审查授权范围 + 四问验收面 |
+| 8 份已 stage 日志的**索引 blob ↔ 工作区版**逐份对照（`git diff -- artifacts/` 全量 hunk、`cat -A` 可见空白、行/字节计数、`tr -d '[:space:]' \| sha256sum` 双侧复算） | 逐份执行 | 「仅格式缺陷」判定本体 |
+| `git diff --cached --check`（索引态）与 `git diff --no-index --check /dev/null <逐份>`（工作区态）双态运行 | 只读 | 被报 14 处缺陷 ↔ 清整后归零的独立复核 |
+| `git status --porcelain -uall`、`git diff HEAD --stat/--name-only`（含 `-- packages apps docs domains scripts .github` 排除面）、`git diff HEAD --check`、`git diff d60760c -- apps/yjs-server/test/smoke-skeleton-red.test.ts`、`git diff --cached --numstat -- artifacts/`、`git show --stat d60760c -- artifacts/` | 只读 | 零产品/测试改动、纯新增、已入库 3 份边界 |
+| `wiki/raw/task_issue-412_sa3_impl.md` 工作区版 §iteration 5 清整记录（14 处缺陷表、计数/字节/哈希表、验证表、范围申报） | 全量逐行 | 清整申报与实测的逐项对账 |
+| 真实性锚独立重验：`apps/yjs-server/test/smoke-skeleton-red.test.ts` HEAD 版 `:153/:419` 现读、`git show f3b13ee:…` `:267` 现读、各日志 `Start at`/`Duration`/计数轴（66/746、35/183、21/221、3/3、5 tests 1 failed 4 skipped、745 CI 基线）、`ci-failure-evidence.log` 头部摘录披露、`smoke-red-proof.log` `RED-EXIT=1`、提交时间线（f3b13ee 04:24 +08 → CI 失败 20:25Z → 本地复跑 11:33-11:47 → d60760c 11:59 → 2c3a486 12:10 → 清整 mtime 12:26） | 现读/复算 | 证据真实性（不采信自述，锚点重验） |
+| Owner 载体现读：`docs/adr/0006-server-persistence-docstore.md:242/:270/:276`、`apps/yjs-server/src/app.ts:624→:630→:632`、`smoke-skeleton-red.test.ts:427-429` 尾序锚、`persistence-drain-shutdown.test.ts`（S-5） | 逐行 | Owner 5751613018 硬契约保持性 |
+| 保留集引用面：`grep -rln sa3-issue412-iter3`（= 仅 5 份 wiki 记录）、wiki 内 sha256 钉值扫描（= 仅 SA3 报告 iteration-5 节的去空白哈希） | 只读 | 归零是否破坏任何既有引用/钉值 |
+| Part D（iteration 5）审查记录 + SA8 iteration-5 conflict report（staged 版，`gh api` 独立拉取的 comment id/时间戳/作者事实） | 已读 | 前轮四轴真实性结论的可承继性与独立旁证 |
+
+## E2. Verdict
+
+**approve**（0 × BLOCKER；0 × MAJOR；0 × MINOR 阻断项；观察项见 §E12）。空白归零后的 8 份保留日志**准予入库**——前置条件：Controller 提交前**必须重新 `git add` 这 8 份日志 + 工作区版 SA3 报告**（索引当前仍持清整前 blob，见 E-O1；重 add 后的提交内容面已由本审查 `git diff HEAD --check` 静默独立验证）。
+
+核心判定（对应 dispatch 三问 + Owner 保持）：
+
+1. **仅格式缺陷（数学级闭合，非目测）**：工作区 vs 索引的全部 hunk 恰为两类——①6 份文件（app-suite/generate-check/persistence-contract/root-typecheck/shard6-node24/shutdown-tests）各删 1 个 EOF 空行（`…\n\n`→`…\n`）；②`ci-failure-evidence.log` 7 行删行尾空格（`401/403/406/423/424/429/430-…Z␠`→`…Z`）+ `smoke-red-proof.log` 1 行删行尾空格（vitest 代码帧空源码行 `155|␠`→`155|`）。合计 14 处 = `git diff --cached --check` 被报数，**无第三类 hunk**。独立证明：8 份 `tr -d '[:space:]'` 后 sha256[:16] 索引↔工作区逐份相同且与 SA3 报告申报值逐字一致；行/字节差逐份 = 索引↔工作区实测（6 份 −1 行/−1 byte；ci-failure 0 行/−7 byte；smoke-red-proof 0 行/−1 byte ⟹ 合计 −14 bytes 守恒）；无 CR 字符；`grep -nP '[ \t]+$'` 对 11 份 iter3 日志零命中；工作区 8 份 `git diff --no-index --check` 全静默。语义面：被删空白均为空内容行的行尾填充或 EOF 冗余换行——时间戳前缀（`432-` 等未被报行原样保留）、代码帧行号、一切计数/时序/退出码/判定文字逐字未动。
+2. **证据仍真实（内容 = 前轮已四轴验真的同一字节，锚点本轮重验）**：归零不改变任何日志内容字节（仅空白），Part D 行号/时间/计数/旁证四轴结论全部承继；本轮独立重验三处硬锚——red 证明栈帧 `:153:37`（`expect(code,…).toBe(expectedCode)` 现位 :153）/`:419:7`（`signalAndExpectExit(hubProc,'SIGTERM',30_000,0,…)` 现位 :419）与 HEAD 文件逐字吻合；CI 失败观测点 `:267`（f3b13ee 版 `signalAndExpectExit(peerProc,…)`）吻合且该版恰 4 tests（与摘录 `(4 tests | 1 failed)` 互证）；计数轴 CI 745（1 failed|744 passed）↔ 本地 746（+1 新用例）↔ HEAD 5 tests、shard6 66 files/746、apps 35/183、契约 21/221+typecheck、S-5 3/3 自洽；时间线（CI 失败 2026-09-20T20:25Z = f3b13ee 推送后即时；本地复跑早于 d60760c 11:59 提交）无矛盾。
+3. **证据仍必要（保留集零增删，必要性判断面未变）**：文件集仍 = Part D 批准的 8 份 + 已入库 3 份（d60760c：probe-memory/relay-redgreen/smoke-stability）= 11 份，`git status` 无新增/删除/重命名；`git diff --cached --numstat -- artifacts/` 8 份均纯新增（N/0）；每份仍承载互斥闸门主张（CI 失败外证 / 仓内红证明 / shard-6 步骤原文 / 契约切片+typecheck / S-5 / generate --check / root typecheck / apps 全套），无重复主张引入、无闸门缺口产生；18 份冗余物维持已清理状态（其事实固化于 SA3 报告 §Evidence reconciliation，未因本轮被触碰）。
+4. **产品/测试行为零改动**：`git diff HEAD` 全树 = 恰 8 份 artifacts + 3 份 wiki；`git diff HEAD -- packages apps docs domains scripts .github` = 空；无未跟踪文件；被修复测试文件相对 `d60760c` 零 diff（`git diff d60760c -- apps/yjs-server/test/smoke-skeleton-red.test.ts` = 空）、无 `.skip/.only/.todo`、`143` 零容忍维持。CI 复跑权威性仍留待 Controller push 后判定（沿 §D11）。
+5. **Owner comment 5751613018（2026-09-20T18:03:36Z）保持且未被清整稀释**：ADR-0006 `:242`（修订节，明文引用该 comment）、`:270`（无条件硬契约：`dispose()` 前必须先 await `drain()`）、`:276`（dispose 对齐条款，dispose 保持 abortive、分层公开 drain）逐行现读在位；`app.ts:624`（`awaitDrainWithBudget(adapter.drain(), budgetMs)`）结构性先于 `:630`（全仓唯一 `persistenceFiber.dispose()`）→ `:632 persistence-disposed` → `:635 app-stopped`；`smoke-skeleton-red.test.ts:427-429` 忙窗尾序锚 `toEqual(['persistence-disposed','app-stopped'])` 在位；保留的 `shutdown-tests.log`（S-5 3/3 绿）与 `shard6/app-suite`（含 S-5 与忙窗锚）恰是该契约的绿灯记录——清整对契约**只动证据排版、不动任何载体**。
+
+## E3. 上游要求落实
+
+| Requirement or finding | Implementation evidence | Assessment |
+| --- | --- | --- |
+| dispatch：confirm only formatting defects changed | §E2-1：hunk 全枚举两类 14 处 + 去空白 sha256 8/8 相同 + 行/字节差守恒 + 无 CR | **落实** |
+| dispatch：confirm evidence remains authentic | §E2-2：内容字节不变 + 三处行号锚/计数轴/时间线本轮独立重验闭合 | **落实** |
+| dispatch：confirm evidence remains necessary | §E2-3：文件集零增删、8 份主张互斥如故、18 份冗余维持清理 | **落实** |
+| dispatch：confirm no product/test behavior changed | §E2-4：非 artifacts/wiki 面对 HEAD 零 diff、测试文件对 d60760c 零 diff、无抑制面 | **落实** |
+| Owner 5751613018（updated 2026-09-20T18:03:36Z）：hard drain-before-dispose + ADR alignment remain intact | §E2-5 四方载体（ADR :242/:270/:276、app.ts :624→:630、smoke :429 尾序锚、S-5）逐行现读在位 | **保持** |
+| SA3 iteration-5 报告申报诚实性 | 报告全部可复核申报（14 处缺陷清单、8 份计数/字节/哈希、验证命令结果、索引未重写披露）与实测逐项一致；唯一出入见 E-O3（计数措辞） | **落实** |
+
+## E4. 清整规则落实审查（SA3 iteration-5 自设规则 vs 实际执行）
+
+| 规则 | 实际执行 | Assessment | Finding |
+| --- | --- | --- | --- |
+| 只归零被 `git diff --cached --check` 报出的精确缺陷，不触碰其他字节 | 14 处逐份对上（6 EOF + 8 行尾空白）；无任何未被报行被改 | 忠实 | 无 |
+| 保持日志内容与已评审修复不变 | 去空白哈希 8/8 相同（= Part D 已审内容）；测试文件对 d60760c 零 diff | 忠实 | 无 |
+| 不执行 `git add`/`commit`（角色边界），索引留 Controller 重写 | `git status` 8 份 `AM`、报告 `MM`——索引持清整前 blob，已如实披露（§Deferred verification） | 忠实（E-O1 前置条件） | 无 |
+
+## E5. 架构一致性与惯例
+
+- **相似能力对照**：仓库 whitespace 卫生惯例由 `git diff --check` 门（预提交检查的通用事实源）承载；本次清整 = 让被入库产物满足该门，非新造格式标准。
+- **单一事实源**：缺陷判定事实源 = `git diff --cached --check` 输出（本审查独立复跑同款 14 处）；SA3 报告的去空白哈希表是**派生记录**且与实测一致，无第二事实源冲突。
+- **生命周期对称性**：日志为终态证据，无运行时生命周期；stage→清整→重 stage→commit 的所有权链清晰（SA3 清整、Controller 提交），无越权 stage。
+
+## E6. 文件范围审查
+
+| Changed path | ALLOW entry | Purpose | Assessment |
+| --- | --- | --- | --- |
+| `artifacts/sa3-issue412-iter3-{app-suite,generate-check,persistence-contract,root-typecheck,shard6-node24,shutdown-tests}.log`（6 份，索引 A + 工作区清整） | dispatch 明示「whitespace-normalized retained iteration-3 CI-repair evidence artifacts」 | EOF 空行归零 | 仅格式，合规 |
+| `artifacts/sa3-issue412-iter3-{ci-failure-evidence,smoke-red-proof}.log`（2 份，同上） | 同上 | 行尾空白归零（7+1 处） | 仅格式，合规 |
+| `wiki/raw/task_issue-412_sa3_impl.md`（MM：staged iteration-4 版 + 工作区 iteration-5 增量） | SA3 固定产物（skill §实现报告） | 清整记录原位追加 | 合规（增量全为追加，未改既往结论/计数/判定） |
+| `wiki/raw/task_issue-412_sa4_review.md`（本文件）、`wiki/raw/task_issue-412_implementation_conflict_report.md`（12:34 SA8 iteration-6 conflict-gate 并行原位更新，其独立重测事实与本报文一致：14 处/−14 bytes/6 份 −1 行） | SA4/SA8 各自固定产物 | 评审留档 | 不归入本轮被审对象（留档防误归因）；清整对象仅 artifacts+SA3 报告 |
+
+DENY 面（`packages/**`、`apps/**`、`docs/**`、`.github/**`、`domains/**`、`scripts/**`、其余 `artifacts/**` 含已入库 3 份 iter3 日志、其他 SA wiki 产物）：本轮零写入（`git diff HEAD` 双核对；已入库 3 份 mtime/内容未动）。
+
+## E7. 契约连锁审查（归零的消费者面）
+
+| Contract | Caller | Actual handling | Risk | Finding |
+| --- | --- | --- | --- | --- |
+| 日志文件名引用 | 5 份 wiki 记录（SA3/SA4/SA8/SA9/SA10） | 引用按文件名，不依赖行内空白 | 无 | 无 |
+| 既有字节钉值 | 仅 SA3 报告 iteration-5 节的去空白 sha256（tr -d '[:space:]'） | 该口径归零前后同值（实测 8/8 与申报一致）；仓内无 raw-sha256 钉值被破坏 | 无 | 无 |
+| `git diff --cached --check` 门 | Controller 提交流程 | 重 add 后静默（`git diff HEAD --check` 已由本审查独立验证为空） | 不重 add 则门仍红（E-O1） | 无（前置条件） |
+| 程序化日志消费者 | 无（grep 全仓：零产品/测试代码引用 artifacts/sa3-issue412-iter3-*） | 不存在依赖行内空白的消费者 | 无 | 无 |
+
+## E8. 错误、恢复与并发（清整动作面）
+
+- **失败留痕不被抹除**：`RED-EXIT=1`、`##[error]AssertionError`、CI `1 failed | 744 passed` 总结数逐字保留；被删空白均在空内容行上，无任何失败证据被弱化或删除。
+- **可逆性**：索引 blob 保留清整前全文（`git show :<path>` 可完整取回），归零动作完全可逆、可审计。
+- **无隐藏写入**：`git status -uall` 无未跟踪残留；mtime 变化（8 份 12:26 重写）与清整动作一一对应，无未申报文件被触碰。
+
+## E9. 测试质量审查（本轮=零测试改动复核）
+
+| Test | Behavior asserted | Runner entry | Weakening or gap | Finding |
+| --- | --- | --- | --- | --- |
+| `smoke-skeleton-red.test.ts`（5 用例，含忙窗锚） | exit 0、四事件序、锁守卫、durable 回读、`['persistence-disposed','app-stopped']` 尾序 | CI `test (20\|24, 6)` 分片；证据 = shard6 66/746 | 本轮零改动（对 d60760c 零 diff、无 skip/only/todo、143 零容忍） | 无 |
+| S-5a/b/c | drain 完成式/预算诚实事件先于 dispose/统一路径 | SA6 §12 runner `--typecheck`；证据 = shutdown-tests 3/3 | 本轮零改动 | 无 |
+| 保留证据的有效性 | — | — | 归零不改任何断言/计数/退出码面（§E2-1） | 无 |
+
+## E10. Required revisions（本轮）
+
+无 BLOCKER / MAJOR / MINOR finding。一项**前置条件**（非返工）：Controller 提交前重新 `git add` 8 份日志 + 工作区版 SA3 报告，使 `git diff --cached --check` 静默（内容侧等价性已由本审查独立证明）。
+
+## E11. 后续动态验证项
+
+| Risk | Driver | Expected observation | Failure condition |
+| --- | --- | --- | --- |
+| 重 add 后提交面完整性 | Controller `git add` 后复跑 `git diff --cached --check` | 静默（本审查 `git diff HEAD --check` 已空） | 仍报缺陷 ⟹ add 未覆盖工作区版 |
+| 新 head CI 权威复跑（沿 §D11） | Controller push 后 CI | `test (24,6)`/`test (20,6)` 绿 | 复现 143 或忙窗锚超时 ⟹ 回流 SA3 |
+| （承接 §D11/§C11 其余各项） | 见各 Part | — | — |
+
+## E12. Non-blocking observations（本轮新增）
+
+| # | 严重度 | 观察 | 建议处置 |
+| --- | --- | --- | --- |
+| E-O1 | 前置条件 | 索引仍持清整前 blob（8 份 `AM`）：直接 commit 会把 14 处空白缺陷带入仓库。SA3 因角色边界未 stage（已披露），非缺陷 | Controller 重 add 后提交；勿以索引现状直接 commit |
+| E-O2 | 观察 | 8 份文件 mtime 被清整重写（12:26），Part D 的 mtime 真实性轴对工作区副本不再可直接复跑 | 已由「去空白哈希与索引 blob 相同（Part D 审的正是该内容）」闭合，无证据损失；留档说明 |
+| E-O3 | 观察 | SA3 报告 iteration-5 节表述「8 处行尾空白 + 6 处 EOF 空行」与逐行清单（7+1 行尾空白、6 EOF）口径一致，但「行尾空白」计数按被报行数（8）而非文件数（2）——纯措辞，无实质出入 | 无需返工 |
+| E-O4 | 观察 | 沿 D-O2：`generate-check.log`/`root-typecheck.log` 仍为成功静默型命令头，无显式退出码锚 | 后续闸门日志模板统一追加 `EXIT=0` 尾行（不适用本轮——追加内容即违反「仅空白」边界） |
+
+## E13. 复查标记（本轮）
+
+本轮为证据格式清整面审查：零实现/测试/文档触碰，无新 ADR 冲突维度；Owner 5751613018 硬契约四方载体原样在位（§E2-5）。`requiresConflictRecheck` 本轮提交 **false**。
+
+---
+
+# Part D — iteration-3 验证证据产物入库前审查（SA3 iteration-4 收纳轮对象）
+
+## D1. Reviewed inputs
+
+| 输入 | 状态 | 用途 |
+| --- | --- | --- |
+| 本轮 dispatch 指令（审查 SA3 选定的 iteration-3 CI 修复验证证据；验证必要/真实/范围/不藏抑制/不改已评审修复；Owner comment 5751613018 updated 2026-09-20T18:03:36Z 保持） | 已读 | 审查授权范围 + 四问验收面 |
+| 8 份未跟踪保留日志全文（`ci-failure-evidence` / `smoke-red-proof` / `shard6-node24` / `persistence-contract` / `shutdown-tests` / `root-typecheck` / `generate-check` / `app-suite`） | 逐份通读 + 交叉核对 | 被审对象本体 |
+| `wiki/raw/task_issue-412_sa3_impl.md` 工作区版本 + `git diff HEAD`（相对 `2c3a486` 已入库版本） | 全量逐行 | 收纳轮报告增量的诚实性（是否改动 iteration-3 结论/计数/判定） |
+| **Controller 在案 iteration-3 SA3 结果记录**（`~/.dsh/nomicore/mabf-peer-jim-dev/users/mabf-center/ns-a14c373c98ddc2dbbc99f7ca244e82f8.snapshot` 内 `sa-98b9e976-…-completion-…` 的 `saVerdict`/`artifactPaths`） | 只读独立拉取 | 「声明集」权威判据的**独立复核**（不采信 SA3 报告的自述） |
+| Git 事实：`git status --porcelain -uall`（= 8 未跟踪 + 1 报告修改）、`git diff d60760c HEAD -- apps/yjs-server/test/smoke-skeleton-red.test.ts`（空）、`git diff HEAD -- packages apps docs domains scripts .github`（空）、`git show --stat d60760c/bdb91cb/2c3a486`、`git diff --name-only f3b13ee HEAD` | 只读 | 已评审修复零改动、入库先例、提交面纯净 |
+| `apps/yjs-server/test/smoke-skeleton-red.test.ts`（HEAD 版）与 `git show d60760c^:` 版 | 现读 | 红证明日志行号（:153/:419）与 CI 失败行号（:267）双向核对 |
+| `docs/adr/0006-server-persistence-docstore.md`（:242/:270/:276）、`apps/yjs-server/src/app.ts`（:624/:625/:630/:632） | 现读 | Owner 5751613018 硬契约四方载体保持性 |
+| `wiki/raw/task_issue-412_sa9_standards.md`（M-1/M-6、26 份未跟踪清点）、`wiki/raw/task_issue-412_sa10_spec.md`（§第 9 条证据入库残余） | 已读 | 收纳前状态的独立旁证 + M-1 分歧披露核对 |
+| 8 份日志的 `stat`（mtime）与日志内 `Start at`/`Duration` | 算术核对 | 时间轴自洽性（真实性） |
+| `git ls-files artifacts/`（215 项；iter3 已入库 3 份） | 只读 | `artifacts/**` 入库惯例与「已入库 3 份」申报核对 |
+
+## D2. Verdict
+
+**approve**（0 × BLOCKER；0 × MAJOR；0 × MINOR 阻断项；观察项见 §D12）。8 份保留日志可以按 SA3 建议的 `chore(ci): record issue 412 iter3 verification evidence` 入库。
+
+核心判定（对应 dispatch 四问）：
+
+1. **必要（不冗余、不缺失）**：保留集 = Controller 在案 iteration-3 SA3 `structured_output.artifactPaths` 声明集（12 路径 = 报告 + 被修复测试文件 + 10 份证据日志）减去已随 `d60760c` 入库的 `relay-redgreen`/`smoke-stability` 与已入库的报告/测试文件——**本审查从 mabf-center 快照独立拉取该记录核对，逐项吻合**。8 份各自承载互不重复的闸门主张（CI 失败外证 / 仓内敏感性红证明 / CI shard-6 步骤原文复跑 66 files/746 tests / SA6 契约切片 21 files/221 tests+typecheck / S-5 停机锚 3 tests / `generate --check` / root typecheck / apps 全套 35 files/183 tests），恰好覆盖 SA6 §12 与设计 §12 对修复范围声明的全部验证门，无互相重复、无门缺口。已清理的 18 份（`smoke-run1`、`smoke-load1..3`、`smoke-load-run1..14`）**均不在声明集内**（独立复核确认），属同一命令的逐次 stdout 转储。
+2. **真实（多轴独立交叉，非单一自述）**：①行号轴——红证明日志栈帧 `smoke-skeleton-red.test.ts:153:37`（`expect(code,…).toBe` 现位 :153）与 `:419:7`（忙窗用例 `signalAndExpectExit` 调用现位 :419）与 HEAD 文件逐字吻合；CI 失败证据的观测点 `:267` 与 `d60760c^`（修复前 4-test 版）`:267` 的 `signalAndExpectExit(peerProc,…)` 逐字吻合——伪造日志需同时伪造三处行号锚。②时间轴——5 份 vitest 日志的 `Start at + Duration` 与文件 mtime 全部在 <1s 内闭合（如 shard6：11:46:09+40.94s ↔ mtime 11:46:50.72；app-suite：11:34:57+195.67s ↔ 11:38:13.29；red-proof：11:46:04+1.98s ↔ 11:46:06.63）。③计数轴——CI 基线 745（1 failed|744 passed）↔ 本地 746（+1 新用例）自洽；shard6 日志实测恰 66 个 `.test.` 文件、与 CI 失败日志的 66-file 分片一致；S-5 3、契约 21/221、apps 35/183、smoke 5 tests 与报告全量一致。④旁证轴——SA8/SA9 同轮独立 `gh run list`/`gh api` 拉取的 run/job 事实一致；SA9（收纳前）抽读 `smoke-load-run{1..14}` 判「形态真实、计数互洽」。「忙窗锚 1361ms」在 app-suite 与 shard6 两份独立日志中同值系**机制必然**（时间线锚在 app 进程自身定时器：+900ms 广播→窗内 SIGTERM→+400ms 阻塞收尾→排空链，与 boot 抖动无关），不构成造假信号。
+3. **范围（scoped）**：8 份日志无任何凭据/令牌类内容（`ghp_`/`github_pat_`/`AKIA`/`authorization:`/`bearer`/`token=` 扫描零命中）；仅含 worktree 路径 `/home/wangjian/nomicore-fix-issue-412`（报告已公开的既有事实）；体量克制（43–189 行）；CI 失败证据为头部披露的过滤摘录（`ANSI stripped, filtered`），保留失败原文、错误标记 `##[error]` 与总结数，无矛盾性删削。
+4. **不藏抑制 / 不改已评审修复**：全部绿日志 skipped=0（746/746、221/221、183/183、3/3、5/5）；唯一「4 skipped」在红证明（`-t "busy event loop"` 名称过滤的证据运行形态，Part C 已裁定非抑制）；修复文件精确 grep `(it|test|describe)\.(skip|only|todo)|fit\(|fdescribe\(` 零命中；143 零容忍（仅注释）。**已评审修复逐字节保持**：`git diff d60760c HEAD -- apps/yjs-server/test/smoke-skeleton-red.test.ts` = 空，工作区 vs HEAD 产品/测试树 diff = 空（唯一变更 = SA3 报告）；`f3b13ee..HEAD` 全部变更 = 该测试文件 + 3 份已入库 iter3 日志 + wiki 记录，无 `packages/**`/`docs/**`/`.github/**` 触碰。
+5. **Owner comment 5751613018（2026-09-20T18:03:36Z）保持且未被证据收纳稀释**：ADR-0006 :242（修订节，明文引用该 comment）、:270（无条件硬契约：dispose 前必须先 await drain）、:276（「修订并扩展 :86」dispose 对齐条款，dispose 保持 abortive）原样在位；`app.ts:624 awaitDrainWithBudget(adapter.drain(), budgetMs)` → :625 预算尽诚实事件 → :630 全仓唯一 `persistenceFiber.dispose()` → :632 `persistence-disposed` 结构在位；保留证据中 `shutdown-tests.log`（S-5 3/3 绿）与 `shard6/app-suite`（含 S-5 与 smoke 忙窗锚）恰是该契约的绿灯记录；已入库忙窗锚把契约钉成 `toEqual(['persistence-disposed','app-stopped'])` 尾序断言——证据收纳对该契约**只留证、不动载体**。
+
+## D3. 上游要求落实
+
+| Requirement or finding | Implementation evidence | Assessment |
+| --- | --- | --- |
+| dispatch：保留日志「必要」 | §D2-1：8 份 ↔ Controller 在案声明集（独立拉取核对）逐项吻合、主张互斥、门覆盖完整；18 份清理物均未声明且事实固化于报告 | **落实** |
+| dispatch：保留日志「真实」 | §D2-2 四轴交叉（行号/时间/计数/旁证）全部闭合 | **落实** |
+| dispatch：保留日志「scoped」 | §D2-3：零凭据、路径面已公开、体量克制、摘录有披露 | **落实** |
+| dispatch：不藏测试抑制 | §D2-4：绿日志零 skipped、修复文件零 skip/only/todo、143 零容忍、断言面较修复前加严 | **落实** |
+| dispatch：不改动已批准修复 | `git diff d60760c HEAD` 测试文件 = 空；工作区产品/测试树零 diff；`f3b13ee..HEAD` 提交面纯净 | **落实** |
+| Owner 5751613018：硬 drain-before-dispose + ADR 对齐保持 | §D2-5 四方载体（ADR :242/:270/:276、app.ts :624→:630、S-5 锚、忙窗尾序锚）现读在位 | **保持** |
+| iteration-4 收纳轮报告诚实性（不覆盖 iteration-3 结论） | `git diff HEAD` 报告增量全为追加/注记：负载行证据指针改指 §Evidence reconciliation（结论「14/14 绿」原样）、Deferred「1 次未复现失败」原文保留仅追加收纳注、无任何计数/判定改动 | **落实** |
+
+## D4. 证据收纳设计落实审查（iteration-4 裁决规则 vs 实际执行）
+
+| 裁决规则（SA3 自设） | 实际执行 | Assessment | Finding |
+| --- | --- | --- | --- |
+| 声明面：以 Controller 在案 `artifactPaths` 为权威清单 | 本审查独立拉取快照记录：12 路径，8 份保留未跟踪 + 4 份已入库（报告/测试文件/relay-redgreen/smoke-stability）全部对账，无一声明物被删 | 规则成立且执行忠实 | 无 |
+| 必要性：互不重复主张才保留 | 8 份主张互斥（见 §D2-1）；唯一交叉（S-5 同时现于 shutdown-tests/shard6/app-suite）中 shutdown-tests 是唯一 `--typecheck` 形态（Type Errors: no errors 为其独有主张） | 成立 | 无 |
+| 可复现性：被清理物命令/计数/时序固化 | 报告 §Evidence reconciliation 固化 18 份的 bytes/sha256[:12]/逐次 Start/忙窗用时/总时长 + 重放命令；但文件本体已不可恢复（见 D-O5） | 成立（事实保全）/ 本体不可复核（披露） | 无（观察 D-O5） |
+| DENY 面零触碰 | `git diff HEAD` = 仅报告；`artifacts/**` 为 SA3 证据惯例目录（215 项 tracked），非设计 §11 产品/测试面 | 成立 | 无 |
+
+## D5. 架构一致性与惯例（证据入库面）
+
+- **相似能力对照**：iteration-2 先例 `bdb91cb chore(ci): record issue 412 verification evidence` = 恰 5 份具名闸门日志 + 3 份 wiki——本轮建议提交（8 份日志 + 报告）与之同构、规模相当（多出的 3 份对应本轮修复新增的失败外证/红证明/shard 复跑主张）。
+- **单一事实源**：CI 失败事实的仓内载体 = `ci-failure-evidence.log`（外部账本受 GitHub 日志保留期约束，无法由本仓再生成——保留必要性最高的一份）；机制/敏感性事实载体 = 已入库 `relay-redgreen` + 未入库 `smoke-red-proof`，两者主张不同（探针机制 vs 仓内文件级红证明），非重复事实源。
+- **生命周期对称性**：日志为终态产物，无 register/dispose 面；未跟踪→入库转化由 Controller 执行（SA3 未自行 commit，符合角色边界）。
+
+## D6. 文件范围审查（本轮未跟踪面）
+
+| Changed path（未跟踪，待入库） | ALLOW entry | Purpose | Assessment |
+| --- | --- | --- | --- |
+| `artifacts/sa3-issue412-iter3-ci-failure-evidence.log` | dispatch「preserving any necessary reproducible verification evidence」+ 声明集 | run 35535478371/job 106143620539 失败原文（唯一不可再生成外证） | 必要、真实（§D2-2③④） |
+| `artifacts/sa3-issue412-iter3-smoke-red-proof.log` | 同上 | 仓内敏感性红证明（CI 签名逐字复现 + RED-EXIT=1） | 必要、真实（行号锚闭合） |
+| `artifacts/sa3-issue412-iter3-shard6-node24.log` | 同上 | CI `test (…,6)` 步骤原文复跑 66/746 绿 | 必要、真实（时间轴闭合） |
+| `artifacts/sa3-issue412-iter3-persistence-contract.log` | 同上 | SA6 契约切片 21/221 + typecheck 无错 | 必要、真实 |
+| `artifacts/sa3-issue412-iter3-shutdown-tests.log` | 同上 | S-5a/b/c 3 tests（Owner 硬契约语义时序锚） | 必要、真实 |
+| `artifacts/sa3-issue412-iter3-root-typecheck.log` | 同上 | root `pnpm typecheck`（15 段 tsconfig） | 必要；证据形态弱（D-O2） |
+| `artifacts/sa3-issue412-iter3-generate-check.log` | 同上 | `pnpm generate --check`（CI `codegen-freshness` 步骤原文） | 必要；证据形态弱（D-O2） |
+| `artifacts/sa3-issue412-iter3-app-suite.log` | 同上 | apps 全套 35/183 绿（apps AGENTS.md 门） | 必要、真实 |
+| `wiki/raw/task_issue-412_sa3_impl.md`（已跟踪，修改） | SA3 固定产物（skill §实现报告） | iteration-4 收纳裁决 + 保持性复核记录 | 增量诚实（§D3 末行） |
+
+DENY 面（`packages/**`、`apps/**`、`docs/**`、`.github/**`、`domains/**`、`scripts/**`、其余 `artifacts/**`、其他 SA wiki 产物）：本轮零写入（`git status` + `git diff HEAD` 双核对）。
+
+## D7. 契约连锁审查（证据消费者）
+
+| Contract | Caller | Actual handling | Risk | Finding |
+| --- | --- | --- | --- | --- |
+| 保留日志被三份已入库 SA 报告（SA3/SA9/SA10 iteration-3 版）引用 | 后续追溯读者 | 入库后引用链闭合（M-1 的「untracked 被引用」缺口由本次提交消除） | 无 | 无 |
+| SA9 M-1 建议（含 14 份负载复跑补入库） | Controller/SA9 | SA3 报告明文披露分歧并交裁定，未自裁 | 分歧未决前入库 8 份不与 M-1 冲突（M-1 的核心是关键闸门日志，8 份全覆盖） | 无（观察 D-O5） |
+| CI 复跑权威性 | Controller push 后 CI | 报告如实登记「本机无法触发」；本地证据不冒充 CI 结论 | 无 | 无 |
+
+## D8. 错误、恢复与并发（证据链视角）
+
+- **失败留痕**：`probe-memory.log`（已入库）保留失败中间探针（×3 TIMEOUT）；`ci-failure-evidence.log` 保留 CI 失败原文；红证明保留确定红——负结果链完整，无「只留绿」筛选。
+- **唯一失败数据点**（4× 超订负载下 1 次 `1 failed | 4 passed`，无 143 字样）：从未形成文件（原始即只留命令行过滤输出），报告 Deferred 原文 + 收纳注双留，未被清理动作触及——**不存在「删除失败证据」**。
+- **不可恢复面**：18 份清理物删除后 sha256 不可复核（D-O5）；缓解 = 声明集独立核对证明其非交付物 + SA9 收纳前抽读旁证 + 报告固化计数/时序。
+
+## D9. 测试质量审查（保留日志所证面的触发入口）
+
+| Test | Behavior asserted | Runner entry | Weakening or gap | Finding |
+| --- | --- | --- | --- | --- |
+| smoke 5 用例（含忙窗锚） | exit 0、四事件序、锁守卫、durable 回读、`['persistence-disposed','app-stopped']` 尾序 | `ci-test-shard.mjs 6 6` 分片枚举（CI `test (20\|24, 6)` 真实入口）；`shard6-node24.log` 66/746 | 无弱化（Part C §C9 沿用） | 无 |
+| S-5a/b/c | drain 完成式/预算诚实事件先于 dispose/统一路径 | SA6 §12 runner `--typecheck`；`shutdown-tests.log` 3/3 | 无 | 无 |
+| SA6 契约切片 | C1–C14 + drain-red/surface/semantics | `persistence-contract.log` 21/221 + no type errors | 无 | 无 |
+| 敏感性反证 | 旧 spawn 形态 → CI 签名红 | `smoke-red-proof.log`（RED-EXIT=1 显式退出码） | 还原核验未回显于日志内（D-O4） | 无 |
+
+## D10. Required revisions（本轮）
+
+无 BLOCKER / MAJOR / MINOR finding。8 份保留日志准予入库；M-1 分歧裁定与范围追认属 Controller 记录动作，不构成返工项。
+
+## D11. 后续动态验证项
+
+| Risk | Driver | Expected observation | Failure condition |
+| --- | --- | --- | --- |
+| 新 head（含 `d60760c` 修复 + 本次证据提交）CI 权威复跑 `test (24, 6)`/`test (20, 6)` | Controller push 后 CI | 两 job 绿（本地步骤原文 66/746 为前置证据） | 复现 143 或忙窗锚超时 ⟹ 回流 SA3 |
+| 已清理 14 份负载证据若 Controller 裁定须入库 | 重放报告 §Verification 负载命令（人工 6 路忙循环） | 重生成逐次日志后入库 | 无法重放出门限内绿 ⟹ 重开稳定性问题 |
+| `generate --check`/root typecheck 的 CI 面复核 | 同一 CI run（`codegen-freshness` + 各 typecheck 门） | 绿 | 红 ⟹ 回流 SA3 |
+| （承接 Part C §C11 其余各项） | 见 Part C | — | — |
+
+## D12. Non-blocking observations（本轮新增）
+
+| # | 严重度 | 观察 | 建议处置 |
+| --- | --- | --- | --- |
+| D-O1 | 观察 | SA3 报告 Inputs 行记声明集为「9 份具名证据日志」，Controller 在案记录实为 **10 份**（8 保留 + `relay-redgreen` + `smoke-stability`）——纯计数笔误，保留集↔声明集映射本身逐项精确 | 入库提交信息以 10 为准；无需返工 |
+| D-O2 | 观察 | `generate-check.log`/`root-typecheck.log` 仅含命令头（成功静默型命令），未回显退出码（对照红证明的 `RED-EXIT=1` 显式锚） | 后续闸门日志统一追加 `EXIT=0` 尾行；本轮以 CI 同门复跑为旁证放行 |
+| D-O3 | 观察 | `ci-failure-evidence.log` 为披露的过滤摘录（原文仅存 GitHub 保留期窗内） | 无需处置（头部已声明 filter；失败原文/总结数/错误标记俱在） |
+| D-O4 | 观察 | 红证明的「还原核验 RESTORED-OK」仅见于报告表格、未回显于日志内 | 终态可由 Git 独立证明（`d60760c`↔HEAD↔工作区三重零 diff，本审查已核），无证据损失；后续红证明模板建议内嵌还原核验回显 |
+| D-O5 | 观察 | 18 份清理物本体不可恢复，sha256[:12]/bytes 只余报告自述；与 SA9 M-1「含 14 份负载复跑补入库」建议存在已披露分歧 | 维持交 Controller/SA9 裁定（SA3 已披露且固化计数/时序；声明集核对确认其非交付物）；若裁定须入库即重放命令再生 |
+| D-O6 | 观察 | iteration-4「复核运行」（2 files/8 tests、tsc、21/221）无日志产物；忙窗锚 1361ms 与 app-suite/shard6 同值 | 机制上系必然同值（§D2-2④），不作为独立稳定性数据采信；后续复核运行建议同样落日志 |
+
+## D13. 复查标记（本轮）
+
+本轮为证据收纳面审查：零实现/测试/文档触碰，无新 ADR 冲突维度；Owner 5751613018 硬契约四方载体原样在位（§D2-5）。`requiresConflictRecheck` 本轮提交 **false**（与同轮 SA8 conflict-gate 并行结论互不依赖）。
 
 ---
 
