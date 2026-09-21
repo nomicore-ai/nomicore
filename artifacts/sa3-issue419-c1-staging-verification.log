@@ -1,0 +1,294 @@
+----------------------------------------------------------------
+SA3 issue #419 -- iteration 2: canonical (C1) evidence-contract repair + staging verification
+C1 canonical form = .editorconfig [*] {end_of_line=lf, insert_final_newline=true,
+                    trim_trailing_whitespace=true} + Controller gate rules {blank-at-eol, blank-at-eof}:
+                    (1) no [ \t] before any LF, (2) no [ \t] at EOF, (3) exactly one final LF.
+Authorization: SA6 contract section 18.11 R1/R2 (SA6 iteration-1 approved canonical repair)
+               + SA3 iteration-2 dispatch (apply the repair / normalize the f1 trailing-space defect).
+Owner comment REST snapshot = [] (empty; per dispatch) -- no owner requirements, comment IDs or
+timestamps exist to incorporate.
+Business semantics: zero code/test byte changes (packages/**, docs/**, CONTEXT.md untouched);
+                    the only writes are two evidence-log byte normalizations + this log + the report.
+worktree=/home/wangjian/nomicore-fix-issue-419
+HEAD=02abf662c8ab8689bc3e407921839d509539c802  git=2.43.0
+----------------------------------------------------------------
+SECTION 0 -- pre-state: the red mandatory gate and the two non-C1 artifacts (real index, read-only)
+# (the .scratch/sa3-419-iter2/ entry is this transient driver workspace, removed after the run)
+$ git status --porcelain -uall
+A  artifacts/sa3-issue419-f1-evidence-restore.log
+M  artifacts/sa6-issue419-runner-trigger.log
+M  wiki/raw/task_issue-419_implementation_conflict_report.md
+A  wiki/raw/task_issue-419_sa10_spec.md
+M  wiki/raw/task_issue-419_sa3_impl.md
+M  wiki/raw/task_issue-419_sa4_review.md
+ M wiki/raw/task_issue-419_sa6_contract.md
+A  wiki/raw/task_issue-419_sa9_standards.md
+?? .scratch/sa3-419-iter2/pre-state.raw
+?? artifacts/sa6-issue419-eof-gate-conflict.log
+?? wiki/raw/task_issue-419_sa6_whitespace_gate_check.sh
+$ git diff --cached --check
+artifacts/sa3-issue419-f1-evidence-restore.log:20: trailing whitespace.
++<{SP}
+artifacts/sa6-issue419-runner-trigger.log:70: new blank line at EOF.
+GATE_RC=2
+$ sha256sum artifacts/sa6-issue419-runner-trigger.log artifacts/sa3-issue419-f1-evidence-restore.log
+96abbb72ecefdc3ad2b37bc8cfcdbb011e7c43b409c0b5f130c7a3e7a1b2e06c  artifacts/sa6-issue419-runner-trigger.log
+2932f2a773a4c0a6a30432983685b613bb51a16504fd61f9e376167002d974a3  artifacts/sa3-issue419-f1-evidence-restore.log
+$ wc -l -c artifacts/sa6-issue419-runner-trigger.log artifacts/sa3-issue419-f1-evidence-restore.log
+   70  4322 artifacts/sa6-issue419-runner-trigger.log
+  221 15421 artifacts/sa3-issue419-f1-evidence-restore.log
+  291 19743 total
+$ git hash-object artifacts/sa6-issue419-runner-trigger.log artifacts/sa3-issue419-f1-evidence-restore.log
+c183ba296bbb886931b1b2adc2e24d4f930f0d7a
+e4af259eb39de4a1298af7ac68e067e707bcd509
+$ git ls-files -s -- artifacts/sa6-issue419-runner-trigger.log artifacts/sa3-issue419-f1-evidence-restore.log
+100644 e4af259eb39de4a1298af7ac68e067e707bcd509 0	artifacts/sa3-issue419-f1-evidence-restore.log
+100644 c183ba296bbb886931b1b2adc2e24d4f930f0d7a 0	artifacts/sa6-issue419-runner-trigger.log
+$ tail -c 12 artifacts/sa6-issue419-runner-trigger.log | od -c
+0000000   e   c   k       2   .   1   8   s   )  \n  \n
+0000014
+$ sed -n 20p artifacts/sa3-issue419-f1-evidence-restore.log | od -c
+0000000   <      \n
+0000003
+$ sha256sum "$(git rev-parse --git-path index)"
+e9fcd77115076b5a8a2398f7017b53e85d80dde46e42173a353a8a320c6e0c78  /home/wangjian/nomicore/.git/worktrees/nomicore-fix-issue-419/index
+----------------------------------------------------------------
+SECTION 1 -- C1 normalization applied (R1 + R2), byte-exact
+# R1 = restore the registered C1 bytes of runner-trigger.log (identical to the committed HEAD blob);
+# R2 = remove the single trailing space on line 20 of the f1 evidence log (-1 byte at 0-based 1330).
+### R1: normalize artifacts/sa6-issue419-runner-trigger.log to C1 (= HEAD committed bytes)
+$ git restore --worktree --source=HEAD -- artifacts/sa6-issue419-runner-trigger.log
+R1_RESTORE_RC=0
+$ sha256sum artifacts/sa6-issue419-runner-trigger.log
+23787bf1a40c183b69c9903a4c26cedb0737b391f490fb5eb9156f361bfed372  artifacts/sa6-issue419-runner-trigger.log
+$ git hash-object artifacts/sa6-issue419-runner-trigger.log
+46ff267d3451c22147b759002aee3345d09871a9
+$ wc -l -c artifacts/sa6-issue419-runner-trigger.log
+  69 4321 artifacts/sa6-issue419-runner-trigger.log
+$ cmp artifacts/sa6-issue419-runner-trigger.log <(git cat-file blob 46ff267d3451c22147b759002aee3345d09871a9) ; echo CMP_HEAD_BYTES=$?
+CMP_HEAD_BYTES=0
+
+### R2: normalize artifacts/sa3-issue419-f1-evidence-restore.log to C1 (line 20 trailing space removed)
+$ perl -0pe "s/[ \t]+(?=\n)//g; s/[ \t]+\z//; s/\n*\z/\n/" <f1log> > canon-f1.log
+CANON_RC=0
+$ diff <f1log-raw-backup> <canon-f1.log>
+20c20
+< <{SP}
+---
+> <
+DIFF_RC=1  (1 = differences reported above)
+$ wc -l -c <canon-f1.log>
+  221 15420 .scratch/sa3-419-iter2/canon-f1.log
+$ sha256sum <canon-f1.log> ; git hash-object <canon-f1.log>
+3b861d2dc34eff92686d52d29e746acade673831769ca9226fd5835304b45c15  .scratch/sa3-419-iter2/canon-f1.log
+0996a3249e81f201f57aafb8278f5a4e4b11948c
+$ cat <canon-f1.log> > artifacts/sa3-issue419-f1-evidence-restore.log
+R2_WRITE_RC=0
+$ sha256sum artifacts/sa3-issue419-f1-evidence-restore.log
+3b861d2dc34eff92686d52d29e746acade673831769ca9226fd5835304b45c15  artifacts/sa3-issue419-f1-evidence-restore.log
+$ git hash-object artifacts/sa3-issue419-f1-evidence-restore.log
+0996a3249e81f201f57aafb8278f5a4e4b11948c
+$ wc -l -c artifacts/sa3-issue419-f1-evidence-restore.log
+  221 15420 artifacts/sa3-issue419-f1-evidence-restore.log
+----------------------------------------------------------------
+SECTION 2 -- section 17 registry cross-check (SA6 approved C1 registry vs computed bytes)
+$ bash wiki/raw/task_issue-419_sa6_whitespace_gate_check.sh --registry
+----------------------------------------------------------------
+REGISTRY CHECK -- section 17 rows vs computed bytes (read-only; C1 = canonical form)
+worktree=/home/wangjian/nomicore-fix-issue-419 HEAD=02abf662c8ab8689bc3e407921839d509539c802
+wiki/raw/task_issue-419_sa6_route_key_probe.mts            canonical sha256=b340dcd37681d9a5499d82647e9536de637addb1994baca0a874165d843e1407 registry=b340dcd37681d9a5499d82647e9536de637addb1994baca0a874165d843e1407 MATCH
+wiki/raw/task_issue-419_sa6_route_key_mutation_driver.mts  canonical sha256=3631b43f29f3471bac6a8ea34cd74cfecd70af14e2a54b535b160132f4da0e19 registry=3631b43f29f3471bac6a8ea34cd74cfecd70af14e2a54b535b160132f4da0e19 MATCH
+artifacts/sa6-issue419-probe-green.log                     canonical sha256=1960c24a7011331f24f5c9ebb5f6951b17d2787b9dd3bddcb1edd5ffb5a1560a registry=1960c24a7011331f24f5c9ebb5f6951b17d2787b9dd3bddcb1edd5ffb5a1560a MATCH
+artifacts/sa6-issue419-mutation-sensitivity.log            canonical sha256=c8f67f9bdf7d59211be5264950452713ca4844a111a7f9d0a6952089678accc8 registry=c8f67f9bdf7d59211be5264950452713ca4844a111a7f9d0a6952089678accc8 MATCH
+artifacts/sa6-issue419-capability-gap.log                  canonical sha256=b054b3c022cd7c5383c59980ab1a0fa93262e863459ed71c9b3b96edab63a175 registry=b054b3c022cd7c5383c59980ab1a0fa93262e863459ed71c9b3b96edab63a175 MATCH
+artifacts/sa6-issue419-package-tsc-baseline.log            canonical sha256=1f23a7a0ed185aeb2df7f0ac660dcc430854e38ceaa9d9d68eecba038a5b24a4 registry=1f23a7a0ed185aeb2df7f0ac660dcc430854e38ceaa9d9d68eecba038a5b24a4 MATCH
+-- runner-trigger.log: registry is over C1 (canonical projection of the working tree)
+   C1        sha256=23787bf1a40c183b69c9903a4c26cedb0737b391f490fb5eb9156f361bfed372 registry=23787bf1a40c183b69c9903a4c26cedb0737b391f490fb5eb9156f361bfed372 MATCH
+   HEAD blob 46ff267d3451c22147b759002aee3345d09871a9 sha256=23787bf1a40c183b69c9903a4c26cedb0737b391f490fb5eb9156f361bfed372 (committed bytes == C1: YES)
+   working-tree sha256=23787bf1a40c183b69c9903a4c26cedb0737b391f490fb5eb9156f361bfed372 = superseded raw registration 96abbb72ecefdc3ad2b37bc8cfcdbb011e7c43b409c0b5f130c7a3e7a1b2e06c MISMATCH
+-- f1 log: registry is over C1
+   C1        sha256=3b861d2dc34eff92686d52d29e746acade673831769ca9226fd5835304b45c15 registry=3b861d2dc34eff92686d52d29e746acade673831769ca9226fd5835304b45c15 MATCH
+   working-tree sha256=3b861d2dc34eff92686d52d29e746acade673831769ca9226fd5835304b45c15 = superseded raw registration 2932f2a773a4c0a6a30432983685b613bb51a16504fd61f9e376167002d974a3 MISMATCH
+wiki/raw/task_issue-419_sa6_whitespace_gate_check.sh       canonical sha256=b7e2011320efdc5d11729044c4c0eaa933667112aaa18000b797dc2e52656e73 registry=b7e2011320efdc5d11729044c4c0eaa933667112aaa18000b797dc2e52656e73 MATCH
+artifacts/sa6-issue419-eof-gate-conflict.log               canonical sha256=d152aeff053128d516cccf8a572595bb2f5658656f4c8452a3c9a00d622c529a registry=d152aeff053128d516cccf8a572595bb2f5658656f4c8452a3c9a00d622c529a MATCH
+-- git blob entries for the canonical forms
+   46ff267d3451c22147b759002aee3345d09871a9 artifacts/sa6-issue419-runner-trigger.log (C1)   0996a3249e81f201f57aafb8278f5a4e4b11948c artifacts/sa3-issue419-f1-evidence-restore.log (C1)
+----------------------------------------------------------------
+REGISTRY_RC=0
+# Note on the two "superseded raw registration" lines: they now report MISMATCH, which is expected
+# and intended. The working-tree bytes are no longer the superseded raw forms; both files now carry
+# the C1 bytes that section 17 registers (10/10 registry rows MATCH, including both C1 rows).
+----------------------------------------------------------------
+SECTION 3 -- mandatory gate on private index copies (the real index is never written)
+real index = /home/wangjian/nomicore/.git/worktrees/nomicore-fix-issue-419/index sha256=e9fcd77115076b5a8a2398f7017b53e85d80dde46e42173a353a8a320c6e0c78
+3a. faithfulness control: an untouched copy of the real index must still be red
+$ GIT_INDEX_FILE=<copy> git diff --cached --check
+artifacts/sa3-issue419-f1-evidence-restore.log:20: trailing whitespace.
++<{SP}
+artifacts/sa6-issue419-runner-trigger.log:70: new blank line at EOF.
+GATE_RC=2
+3b. the two registered C1 blobs swapped in on the copy: the two named findings must disappear
+$ GIT_INDEX_FILE=<copy> git update-index --add --cacheinfo 100644,46ff267d3451c22147b759002aee3345d09871a9,artifacts/sa6-issue419-runner-trigger.log
+update_rc=0
+$ GIT_INDEX_FILE=<copy> git update-index --add --cacheinfo 100644,0996a3249e81f201f57aafb8278f5a4e4b11948c,artifacts/sa3-issue419-f1-evidence-restore.log
+update_rc=0
+$ GIT_INDEX_FILE=<copy> git diff --cached --check   # the mandatory gate, repaired
+GATE_RC=0
+$ GIT_INDEX_FILE=<copy> git ls-files -s -- <both artifacts>
+100644 0996a3249e81f201f57aafb8278f5a4e4b11948c 0	artifacts/sa3-issue419-f1-evidence-restore.log
+100644 46ff267d3451c22147b759002aee3345d09871a9 0	artifacts/sa6-issue419-runner-trigger.log
+$ GIT_INDEX_FILE=<copy> git diff --cached --stat
+ artifacts/sa3-issue419-f1-evidence-restore.log     | 221 +++++++++++++++++++
+ ...ask_issue-419_implementation_conflict_report.md | 110 +++++-----
+ wiki/raw/task_issue-419_sa10_spec.md               |  89 ++++++++
+ wiki/raw/task_issue-419_sa3_impl.md                | 111 +++++++++-
+ wiki/raw/task_issue-419_sa4_review.md              | 243 +++++++++++----------
+ wiki/raw/task_issue-419_sa9_standards.md           |  71 ++++++
+ 6 files changed, 666 insertions(+), 179 deletions(-)
+3c. full candidate changeset: every changed path staged at its proof-time worktree bytes (private copy)
+$ # for each changed path: git hash-object -w <path> + update-index --add --cacheinfo (copy only)
+  staged artifacts/sa3-issue419-f1-evidence-restore.log blob=0996a3249e81f201f57aafb8278f5a4e4b11948c sha256=3b861d2dc34eff92686d52d29e746acade673831769ca9226fd5835304b45c15
+  staged artifacts/sa6-issue419-eof-gate-conflict.log blob=b3b4cdf6761ed893cce80b10ff53c17fa3a2635d sha256=d152aeff053128d516cccf8a572595bb2f5658656f4c8452a3c9a00d622c529a
+  staged artifacts/sa6-issue419-runner-trigger.log blob=46ff267d3451c22147b759002aee3345d09871a9 sha256=23787bf1a40c183b69c9903a4c26cedb0737b391f490fb5eb9156f361bfed372
+  staged wiki/raw/task_issue-419_implementation_conflict_report.md blob=633bad9f368380052705878c282dc918f6e71dba sha256=174701e815ec726a44afefaf490f75f36193747793f6d7672ac82d2987c49d74
+  staged wiki/raw/task_issue-419_sa10_spec.md blob=67cc24c34ab657035065f05e813110cd5190774d sha256=3760f05016f3e8474cb668535d7baa37bb51055e686bb2652f166bf7e0971742
+  staged wiki/raw/task_issue-419_sa3_impl.md blob=f59b9bf6562a8ad3b1bc82628ce91cbe8a08b569 sha256=bafae3387f48f0acf953ff8fdee96ad3b6d8dd18cd3bdc3c0bcc62c55a5ee9ec
+  staged wiki/raw/task_issue-419_sa4_review.md blob=45e2aef8230bfa3c258996ab838ab936aa5da395 sha256=27b3ddea6ef8e9e54acb382231f303a60eed35781a412dd916ad76d196ff0c96
+  staged wiki/raw/task_issue-419_sa6_contract.md blob=a93fccdba5ca6389deea7852910dd808046c88d7 sha256=022ee25a373da27d66e0e782b069085e95c219a32fedd2626d9a2f5d0f0c68b4
+  staged wiki/raw/task_issue-419_sa6_whitespace_gate_check.sh blob=00be34299fdf2fb978a4d5d37acd5b977970caf2 sha256=b7e2011320efdc5d11729044c4c0eaa933667112aaa18000b797dc2e52656e73
+  staged wiki/raw/task_issue-419_sa9_standards.md blob=0a3bf1c6005e03de53172a8c9e33d61a40f51319 sha256=56f75f9262d92c3bbd5b1b90a768cd992ce29cbec6180b5966230f02c8ddca40
+$ GIT_INDEX_FILE=<copy> git diff --cached --check   # full candidate changeset
+GATE_RC=0
+$ GIT_INDEX_FILE=<copy> git diff --cached --stat
+ artifacts/sa3-issue419-f1-evidence-restore.log     | 221 ++++++++++++++
+ artifacts/sa6-issue419-eof-gate-conflict.log       | 173 +++++++++++
+ ...ask_issue-419_implementation_conflict_report.md | 110 ++++---
+ wiki/raw/task_issue-419_sa10_spec.md               |  89 ++++++
+ wiki/raw/task_issue-419_sa3_impl.md                | 111 ++++++-
+ wiki/raw/task_issue-419_sa4_review.md              | 243 ++++++++--------
+ wiki/raw/task_issue-419_sa6_contract.md            | 209 ++++++++++++-
+ .../task_issue-419_sa6_whitespace_gate_check.sh    | 324 +++++++++++++++++++++
+ wiki/raw/task_issue-419_sa9_standards.md           |  71 +++++
+ 9 files changed, 1363 insertions(+), 188 deletions(-)
+real index sha256 after all proof work = e9fcd77115076b5a8a2398f7017b53e85d80dde46e42173a353a8a320c6e0c78  (unchanged => these proofs are non-mutating)
+# Caveat (self-reference, stated plainly): this log did not exist while 3c ran, and the SA3 report is
+# updated after this run, so those two paths are absent from the 3c changeset. Their final bytes are
+# covered by the post-freeze proof recorded in the SA3 report (same private-index method with the
+# frozen blobs of every changed path) plus the structural C1 checks below.
+----------------------------------------------------------------
+SECTION 4 -- negative controls and mutation sensitivity
+$ git diff --no-index --check /dev/null <canonical artifact>   # rc 1 = bytes differ; silent = no findings
+  artifacts/sa6-issue419-runner-trigger.log rc=1 (silent)
+  artifacts/sa3-issue419-f1-evidence-restore.log rc=1 (silent)
+# MC1: canonical runner + one final LF must re-trip blank-at-eof and reproduce the superseded raw bytes
+.scratch/sa3-419-iter2/mut-runner.log:70: new blank line at EOF.
+  MUTATION_RC=3 sha256=96abbb72ecefdc3ad2b37bc8cfcdbb011e7c43b409c0b5f130c7a3e7a1b2e06c equals_superseded_raw=YES
+# MC2: canonical f1 + the one removed space at 0-based 1330 must re-trip blank-at-eol and reproduce raw
+.scratch/sa3-419-iter2/mut-f1.log:20: trailing whitespace.
++<{SP}
+  MUTATION_RC=3 sha256=2932f2a773a4c0a6a30432983685b613bb51a16504fd61f9e376167002d974a3 equals_superseded_raw=YES
+# => the gate is sensitive to exactly the two bytes under repair, and no other byte was touched.
+----------------------------------------------------------------
+SECTION 5 -- scope and business-semantics invariants (re-run after the byte repair)
+$ git diff --stat -- packages/replication-protocol/src   # zero behaviour surface
+SRC_DIFF_RC=0
+$ git diff --stat HEAD -- packages docs CONTEXT.md .editorconfig   # zero code/doc/config drift
+SCOPE_DIFF_RC=0
+$ sha256sum packages/replication-protocol/test/codec-route-key-guard.test.ts   # delivery bytes
+32aa83a5ffaa6a3c5499f7fbfc324e515d25e8b5b68fb2e2a503cf5d67e403d4  packages/replication-protocol/test/codec-route-key-guard.test.ts
+$ cat .scratch/sa3-419-iter2/raw-package-suite.log   # AC5 suite re-run after the repair
+Testing types with tsc and vue-tsc is an experimental feature.
+Breaking changes might not follow SemVer, please pin Vitest's version when using it.
+
+ RUN  v3.2.7 /home/wangjian/nomicore-fix-issue-419
+
+ ✓ packages/replication-protocol/test/codec-fuzz-property.test.ts (5 tests) 210ms
+ ✓ packages/replication-protocol/test/codec-roundtrip-truncation.test.ts (8 tests) 176ms
+ ✓ packages/replication-protocol/test/codec-route-key-guard.test.ts (19 tests) 47ms
+ ✓ packages/replication-protocol/test/codec-issue242-ac-red.test.ts (29 tests) 25ms
+ ✓ packages/replication-protocol/test/codec-registries.test.ts (13 tests) 22ms
+ ✓ packages/replication-protocol/test/codec-version-interop.test.ts (25 tests) 17ms
+ ✓ packages/replication-protocol/test/codec-malformed.test.ts (37 tests) 31ms
+ ✓ packages/replication-protocol/test/codec-messages-golden.test.ts (27 tests) 14ms
+ ✓ packages/replication-protocol/test/codec-issue246-doc-contract.test.ts (22 tests) 16ms
+ ✓  TS  packages/replication-protocol/test/codec-api.test-d.ts (8 tests)
+ ✓ packages/replication-protocol/test/codec-issue299-ac-red.test.ts (17 tests) 8ms
+ ✓ packages/replication-protocol/test/codec-package-contract.test.ts (5 tests) 8ms
+ ✓ packages/replication-protocol/test/codec-issue299-encode-symmetry.test.ts (5 tests) 8ms
+ ✓ packages/replication-protocol/test/codec-envelope.test.ts (13 tests) 7ms
+
+ Test Files  14 passed (14)
+      Tests  233 passed (233)
+Type Errors  no errors
+   Start at  23:43:22
+   Duration  4.09s (transform 323ms, setup 0ms, collect 856ms, tests 589ms, environment 2ms, prepare 814ms, typecheck 3.29s)
+
+EXIT=0
+$ cat .scratch/sa3-419-iter2/raw-tsc-probe-mutation.log   # tsc + SA6 probe + RK-C6 mutation matrix
+$ pnpm exec tsc -p packages/replication-protocol/tsconfig.json
+TSC_EXIT=0
+$ NODE_OPTIONS=--conditions=nomicore-source pnpm exec tsx wiki/raw/task_issue-419_sa6_route_key_probe.mts
+PASS P1.domain-fixed-offset :: 14 构造（13 型 × OPEN_NAMESPACE identity 两态）落 [21..56)
+PASS P2.update-chunk-kind-first :: kind0/first:kind@20=0,ns@[22..57) | kind0/later:kind@20=0,ns@[22..57) | kind1/first+binding:kind@20=1,ns@[22..57) | kind1/later:kind@20=1,ns@[22..57) | kind2/first+binding:kind@20=2,ns@[22..57) | kind2/later:kind@20=2,ns@[22..57)
+PASS P3.error-field-order :: conn/related:no-ns | conn/no-related:no-ns | ns/related:ns@payload+27(bounded) | ns/no-related:ns@payload+26(bounded) | worst(35B code):ns@payload+46
+PASS P4.differential-window :: UPDATE:Δ[24..56)⇒field[21..56) | CLOSE_OK:Δ[24..56)⇒field[21..56) | RESYNC_REQUIRED:Δ[24..56)⇒field[21..56) | UPDATE_CHUNK/kind0:Δ[25..57)⇒field[22..57) | UPDATE_CHUNK/kind2-first:Δ[25..57)⇒field[22..57)
+PASS NC1.connection-frames-silent :: HELLO/HELLO_ACK/GOAWAY/连接级 ERROR 均无 0x23@20 且不含 NS 字节
+PASS NC2.registry-scope-partition :: namespace-scope=14；固定偏移规则适用 = 13（排除 UPDATE_CHUNK）+ ERROR 全例外
+PASS NC3.corpus-discrimination :: fixed=13 / chunk=3 / error=2 / exceptions=ERROR_CONN,ERROR_NS,GOAWAY,HELLO,HELLO_ACK,UPDATE_CHUNK_BASIC,UPDATE_CHUNK_MULTIBYTE,UPDATE_CHUNK_U32_MAX
+SRC /home/wangjian/nomicore-fix-issue-419/packages/replication-protocol/src/index.ts
+RESULT 7/7 passed
+PROBE_EXIT=0
+$ NODE_OPTIONS=--conditions=nomicore-source pnpm exec tsx wiki/raw/task_issue-419_sa6_route_key_mutation_driver.mts
+probe=wiki/raw/task_issue-419_sa6_route_key_probe.mts  src=packages/replication-protocol/src
+EXPECTED M1-domain-field-order :: RESYNC_REQUIRED：reasonCode 写到 namespaceId 之前（namespace 域字段序漂移）
+    exit=1 failed=[P1.domain-fixed-offset,P4.differential-window] expected=[P1.domain-fixed-offset,P4.differential-window]
+    FAIL P1.domain-fixed-offset :: RESYNC_REQUIRED: prefix@20 = 11 ≠ 0x23
+    FAIL P4.differential-window :: RESYNC_REQUIRED: 差分值域起点 36 ≠ 24
+EXPECTED M2-chunk-kind-order :: UPDATE_CHUNK：namespaceId 写到 kind 之前（kind 首字段漂移）
+    exit=1 failed=[NC2.registry-scope-partition,P2.update-chunk-kind-first,P4.differential-window] expected=[NC2.registry-scope-partition,P2.update-chunk-kind-first,P4.differential-window]
+    FAIL P2.update-chunk-kind-first :: kind0/first: kind@20 = 35 ≠ 0
+    FAIL P4.differential-window :: UPDATE_CHUNK/kind0: 差分值域起点 24 ≠ 25
+    FAIL NC2.registry-scope-partition :: UPDATE_CHUNK 首字节是 kind，不得被 [21..56) 规则误纳
+EXPECTED M3-error-field-order :: ERROR：namespaceId 块写到 relatedSequence 块之前（ERROR 字段序漂移）
+    exit=1 failed=[P3.error-field-order] expected=[P3.error-field-order]
+    FAIL P3.error-field-order :: conn/related: namespaceId 值长度 ≠ 35
+EXPECTED M4-domain-leading-field :: UPDATE：namespaceId 之前插入新前导字段（定偏移整体位移 1 字节）
+    exit=1 failed=[P1.domain-fixed-offset,P4.differential-window] expected=[P1.domain-fixed-offset,P4.differential-window]
+    FAIL P1.domain-fixed-offset :: UPDATE: prefix@20 = 0 ≠ 0x23
+    FAIL P4.differential-window :: UPDATE: 差分值域起点 25 ≠ 24
+EXPECTED NM1-neutral-refactor :: 负控：SYNC_APPLIED 的 ackedSequence 从 writeVarUint32 改为等价 writeVarUint（字节恒等，探针必须全绿）
+    exit=0 failed=[] expected=[] (负控：必须保持全绿)
+EXPECTED NM2-connection-value-change :: 负控：GOAWAY（连接级）drainTimeoutMs 值改变——路由键布局不动，探针必须全绿（守卫不得越界到连接级语义）
+    exit=0 failed=[] expected=[] (负控：必须保持全绿)
+MUTATION_RESULT 6/6 expected
+MUTATION_EXIT=0
+----------------------------------------------------------------
+SECTION 6 -- remaining staging actions (Controller; SA3 does not write the real index)
+R3  git add -- artifacts/sa6-issue419-runner-trigger.log
+    # worktree bytes == HEAD bytes == registered C1 -> the path leaves the commit changeset entirely
+    git add -- artifacts/sa3-issue419-f1-evidence-restore.log
+    git add -- wiki/raw/task_issue-419_sa6_contract.md wiki/raw/task_issue-419_sa6_whitespace_gate_check.sh artifacts/sa6-issue419-eof-gate-conflict.log artifacts/sa3-issue419-c1-staging-verification.log wiki/raw/task_issue-419_sa3_impl.md
+    # section 17 registry amendment + gate script + SA6 conflict log + this log + the SA3 report
+R4  git diff --cached --check   # expect rc=0, zero output (proved on the private copies above)
+R5  post-commit terminal check:
+    git show HEAD:artifacts/sa6-issue419-runner-trigger.log | sha256sum   == 23787bf1a40c183b69c9903a4c26cedb0737b391f490fb5eb9156f361bfed372
+    git show HEAD:artifacts/sa3-issue419-f1-evidence-restore.log | sha256sum   == 3b861d2dc34eff92686d52d29e746acade673831769ca9226fd5835304b45c15
+    # the runner expectation supersedes the legacy 96abbb72... in the f1 log section 8/R1 and SA8 section 7-2
+R6  optional one-shot: bash wiki/raw/task_issue-419_sa6_whitespace_gate_check.sh --apply
+----------------------------------------------------------------
+SECTION 7 -- registry rows and superseded raw values retained (authority = SA6 contract section 17)
+  artifacts/sa6-issue419-runner-trigger.log      C1 23787bf1a40c183b69c9903a4c26cedb0737b391f490fb5eb9156f361bfed372 (blob 46ff267d3451c22147b759002aee3345d09871a9, 69 lines/4321 B, == HEAD bytes)
+      superseded raw (historical only): 96abbb72ecefdc3ad2b37bc8cfcdbb011e7c43b409c0b5f130c7a3e7a1b2e06c (blob c183ba296bbb886931b1b2adc2e24d4f930f0d7a, 70 lines/4322 B;
+      rationale: trailing blank line violates blank-at-eof, so the raw form can never be staged)
+  artifacts/sa3-issue419-f1-evidence-restore.log  C1 3b861d2dc34eff92686d52d29e746acade673831769ca9226fd5835304b45c15 (blob 0996a3249e81f201f57aafb8278f5a4e4b11948c, 221 lines/15420 B)
+      superseded raw (historical only): 2932f2a773a4c0a6a30432983685b613bb51a16504fd61f9e376167002d974a3 (221 lines/15421 B;
+      rationale: the line-20 trailing space violates blank-at-eol and the committed .editorconfig trim rule)
+  This log itself is not a section 17 row (SA6 owns the registry); its authoritative sha256 is recorded
+  in the SA3 report, and its bytes are verified C1-clean by the post-freeze checks.
+----------------------------------------------------------------
+RESULT: red gate reproduced on the real index (2 findings / 2 rules); R1+R2 normalize exactly the two
+under-repair bytes; section 17 registry 10/10 MATCH; the two-artifact repair and the full candidate
+changeset are gate-clean (rc=0, zero output) on private index copies; real index and worktree artifacts
+under proof were never written by the proofs; business suite 14 files/233 tests + 0 type errors, tsc
+exit 0, probe 7/7, RK-C6 6/6 expected.
+----------------------------------------------------------------

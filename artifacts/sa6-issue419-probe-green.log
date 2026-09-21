@@ -1,0 +1,9 @@
+PASS P1.domain-fixed-offset :: 14 构造（13 型 × OPEN_NAMESPACE identity 两态）落 [21..56)
+PASS P2.update-chunk-kind-first :: kind0/first:kind@20=0,ns@[22..57) | kind0/later:kind@20=0,ns@[22..57) | kind1/first+binding:kind@20=1,ns@[22..57) | kind1/later:kind@20=1,ns@[22..57) | kind2/first+binding:kind@20=2,ns@[22..57) | kind2/later:kind@20=2,ns@[22..57)
+PASS P3.error-field-order :: conn/related:no-ns | conn/no-related:no-ns | ns/related:ns@payload+27(bounded) | ns/no-related:ns@payload+26(bounded) | worst(35B code):ns@payload+46
+PASS P4.differential-window :: UPDATE:Δ[24..56)⇒field[21..56) | CLOSE_OK:Δ[24..56)⇒field[21..56) | RESYNC_REQUIRED:Δ[24..56)⇒field[21..56) | UPDATE_CHUNK/kind0:Δ[25..57)⇒field[22..57) | UPDATE_CHUNK/kind2-first:Δ[25..57)⇒field[22..57)
+PASS NC1.connection-frames-silent :: HELLO/HELLO_ACK/GOAWAY/连接级 ERROR 均无 0x23@20 且不含 NS 字节
+PASS NC2.registry-scope-partition :: namespace-scope=14；固定偏移规则适用 = 13（排除 UPDATE_CHUNK）+ ERROR 全例外
+PASS NC3.corpus-discrimination :: fixed=13 / chunk=3 / error=2 / exceptions=ERROR_CONN,ERROR_NS,GOAWAY,HELLO,HELLO_ACK,UPDATE_CHUNK_BASIC,UPDATE_CHUNK_MULTIBYTE,UPDATE_CHUNK_U32_MAX
+SRC /home/wangjian/nomicore-fix-issue-419/packages/replication-protocol/src/index.ts
+RESULT 7/7 passed

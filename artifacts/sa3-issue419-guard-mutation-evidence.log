@@ -1,0 +1,31 @@
+
+## Supplementary: guard test run against mutant codec copies
+# 2026-09-21T14:54:51Z
+$ NODE_OPTIONS=--conditions=nomicore-source pnpm exec tsx .scratch/sa3-419/guard-mutation-driver.mts
+guard=packages/replication-protocol/test/codec-route-key-guard.test.ts  src(mutant copies)=packages/replication-protocol/src
+EXPECTED M1-domain-field-order :: exit=1 failedGroups=[G2-a,G2-b,G5-a] expected=[G2-a,G2-b,G5-a]
+EXPECTED M2-chunk-kind-order :: exit=1 failedGroups=[G3-a,G3-b,G3-d,G5-a,NC2] expected=[G3-a,G3-b,G3-d,G5-a,NC2]
+EXPECTED M3-error-field-order :: exit=1 failedGroups=[G4-a,G4-b,G4-c,G4-d,G4-e] expected=[G4-a,G4-b,G4-c,G4-d,G4-e]
+UNEXPECTED M4-domain-leading-field :: exit=1 failedGroups=[G1-b,G2-a,G2-b,G5-a] expected=[G2-a,G2-b,G5-a]
+EXPECTED NM1-neutral-refactor :: exit=0 failedGroups=[] expected=[] (负控：守卫必须保持全绿)
+EXPECTED NM2-connection-value-change :: exit=0 failedGroups=[] expected=[] (负控：守卫必须保持全绿)
+GUARD_MUTATION_RESULT 5/6 expected
+EXIT=1
+
+## scratch cleanup check
+ls: cannot access '.scratch/sa3-419': No such file or directory
+(cleaned)
+vfsl-v1-parser
+
+## Supplementary run 2 (M4 expected-set corrected: G1-b is an intended sensitive assertion — it consumes the codec-written [21..56) window)
+# 2026-09-21T14:55:20Z
+$ NODE_OPTIONS=--conditions=nomicore-source pnpm exec tsx .scratch/sa3-419/guard-mutation-driver.mts
+guard=packages/replication-protocol/test/codec-route-key-guard.test.ts  src(mutant copies)=packages/replication-protocol/src
+EXPECTED M1-domain-field-order :: exit=1 failedGroups=[G2-a,G2-b,G5-a] expected=[G2-a,G2-b,G5-a]
+EXPECTED M2-chunk-kind-order :: exit=1 failedGroups=[G3-a,G3-b,G3-d,G5-a,NC2] expected=[G3-a,G3-b,G3-d,G5-a,NC2]
+EXPECTED M3-error-field-order :: exit=1 failedGroups=[G4-a,G4-b,G4-c,G4-d,G4-e] expected=[G4-a,G4-b,G4-c,G4-d,G4-e]
+EXPECTED M4-domain-leading-field :: exit=1 failedGroups=[G1-b,G2-a,G2-b,G5-a] expected=[G1-b,G2-a,G2-b,G5-a]
+EXPECTED NM1-neutral-refactor :: exit=0 failedGroups=[] expected=[] (负控：守卫必须保持全绿)
+EXPECTED NM2-connection-value-change :: exit=0 failedGroups=[] expected=[] (负控：守卫必须保持全绿)
+GUARD_MUTATION_RESULT 6/6 expected
+EXIT=0
