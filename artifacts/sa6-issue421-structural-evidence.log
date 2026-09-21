@@ -1,0 +1,55 @@
+### SA6 issue #421 structural supplementary evidence — HEAD 7039f6dae8e7d29f0c929492f0ca2119bc63afaa — 2026-09-21T18:15:35Z
+--- A: connection-level INTERNAL_ERROR fatal call sites in ws-replication src ---
+  packages/ws-replication/src/hub-split.ts:43: *   `INTERNAL_ERROR`；错误值被 catch 丢弃，仅「抛出」这一事实上 wire）。
+  packages/ws-replication/src/hub-split.ts:62:   * fail-loud → `startOpen` catch → `INTERNAL_ERROR`，零静默 fallback）。连接已收口后结算
+  packages/ws-replication/src/types.ts:384: * 握手完成前 undefined）、稳定错误码（闭联合，未知折叠 INTERNAL_ERROR）、有限数值
+  packages/ws-replication/src/types.ts:774:       *  §23.2 namespace 域白名单；未知折叠 INTERNAL_ERROR 不适用——Runtime 侧产出面
+  packages/ws-replication/src/peer-namespace.ts:598:          this.sendNsError('INTERNAL_ERROR');
+  packages/ws-replication/src/hub-session.ts:103:   *   `INTERNAL_ERROR`（响亮，非静默 fallback）。
+  packages/ws-replication/src/hub-session.ts:119:        // 处理（无台账 → shim 响亮缺失 → INTERNAL_ERROR，非静默）
+  packages/ws-replication/src/error-mapping.ts:92:      return { kind: 'wire', code: 'INTERNAL_ERROR', terminalState: 'failed' };
+  packages/ws-replication/src/error-mapping.ts:107:/** 同步 throw（encode* 面）语义结算：围栏命中 → fence；closed → 本地终局；其余 → wire INTERNAL_ERROR。 */
+  packages/ws-replication/src/error-mapping.ts:122:  return { kind: 'wire', code: 'INTERNAL_ERROR', terminalState: 'failed' };
+  packages/ws-replication/src/hub-edge.ts:17: * `port.openAdmission`，台账必须已存在（违反 → 响亮 reject → `INTERNAL_ERROR`）。
+  packages/ws-replication/src/peer-connection.ts:740:        this.emitConnectionFailed('INTERNAL_ERROR', 1011);
+  packages/ws-replication/src/peer-connection.ts:970:    this.emitConnectionFailed(code, wsCloseCode); // P6：稳定码折叠（未知 → INTERNAL_ERROR）
+  packages/ws-replication/src/hub-namespace.ts:348:        if (this.isOpenAborted()) { this.finishOpenSilently(); return; } // ★ 已静默：不向死连接发 INTERNAL_ERROR
+  packages/ws-replication/src/hub-namespace.ts:349:        this.finishOpenError('INTERNAL_ERROR', 'open-failed');
+  packages/ws-replication/src/hub-namespace.ts:365:        this.finishOpenError('INTERNAL_ERROR', 'open-failed');
+  packages/ws-replication/src/hub-namespace.ts:375:        this.finishOpenError(opened.code === 'NAMESPACE_NOT_FOUND' ? 'NAMESPACE_NOT_FOUND' : 'INTERNAL_ERROR', 'open-failed');
+  packages/ws-replication/src/hub-namespace.ts:388:        this.finishOpenError('INTERNAL_ERROR', 'open-failed');
+  packages/ws-replication/src/hub-namespace.ts:429:        this.finishOpenError('INTERNAL_ERROR', 'session-open-failed');
+  packages/ws-replication/src/hub-namespace.ts:440:          sessionResult.code === 'REPLICATION_NOT_ENABLED' ? 'REPLICATION_NOT_ENABLED' : 'INTERNAL_ERROR',
+  packages/ws-replication/src/hub-namespace.ts:564:        this.finishOpenError('INTERNAL_ERROR', 'internal-error');
+  packages/ws-replication/src/hub-namespace.ts:570:        this.finishOpenError('INTERNAL_ERROR', 'replication-disabled');
+  packages/ws-replication/src/hub-namespace.ts:1269:    // INTERNAL_ERROR 收口（F7 对齐；不产生 IDENTITY_CHANGED 假码）
+  packages/ws-replication/src/hub-namespace.ts:1270:    this.sendNsError('INTERNAL_ERROR');
+  packages/ws-replication/src/observer.ts:12: * 运行期把任意 string 折叠进闭联合：不匹配一律折叠 INTERNAL_ERROR（注册表既有
+  packages/ws-replication/src/observer.ts:69:/** 任意 string（异常携带码）→ 连接域稳定码；未知折叠 INTERNAL_ERROR。 */
+  packages/ws-replication/src/observer.ts:73:    : 'INTERNAL_ERROR';
+  packages/ws-replication/src/observer.ts:76:/** 任意 string（异常携带码）→ namespace 域稳定码；未知折叠 INTERNAL_ERROR。 */
+  packages/ws-replication/src/observer.ts:80:    : 'INTERNAL_ERROR';
+  packages/ws-replication/src/observer.ts:95: *  `INTERNAL_ERROR`」分支：本域的协议词表（§23.1 第 24 型）就是双码，而 `INTERNAL_ERROR`
+  packages/ws-replication/src/observer.ts:97: *  INTERNAL_ERROR 不适用——Runtime 侧产出面即本双码」）。初版实现折叠到它需要对事件
+  packages/ws-replication/src/observer.ts:98: *  类型撒谎（`'INTERNAL_ERROR' as …`，断言出的值不在其声明的闭联合内），且该分支不可达、
+--- B: hub-edge.ts config surface members ---
+  57:  readonly transport: DuplexTransport;
+  58:  readonly timer: ReplicationTimer;
+  60:  readonly limits: ResolvedLimits;
+  61:  readonly timeouts: ResolvedTimeouts;
+  62:  readonly observer?: ReplicationObserver;
+  63:  readonly clock?: ReplicationClock;
+  65:  readonly instanceId: string;
+  67:  readonly peerInstanceId: string;
+  69:  readonly connectionCounter: number;
+  71:  readonly authorize: NamespaceAuthorizer;
+  73:  readonly earlyFrames: readonly Uint8Array[];
+  75:  readonly sessionFactory: (port: HubSessionEdgePort) => HubSessionSink;
+  77:  readonly onConnectionDropped: () => void;
+  84:  readonly peerInstanceId: string | undefined;
+--- C: accept/acceptTrusted/verifyToken/resolveSessionSink/pending in hub-edge.ts ---
+  701:   * 对 `'opening'`/`'closing'` 的阻塞案被**包含式收编**，无需独立 pending 集（两量单调：
+--- D: public entry + testing surface free of the two factories ---
+  (no matches)
+--- E: concurrency-bound knobs in limits ---
+  48:  readonly maxConcurrentAssembliesPerConnection: number; // 4

@@ -1,0 +1,126 @@
+### SA6 issue #421 probe — HEAD 7039f6dae8e7d29f0c929492f0ca2119bc63afaa — 2026-09-21T18:15:19Z
+--- run 1 ---
+GAP    G1   ABSENT entry=ws-replication/src/index.ts exports=11 个；createHubReplicationEdge 未导出
+GAP    G2   ABSENT 连接级半边无 accept/acceptTrusted（双入口仅存在于服务层组合根 HubReplicationImpl）
+GAP    G3   ABSENT T4 形态构造抛错（config.sessionFactory is not a function）；合法配置下 resolveSessionSink 调用 0 次
+GAP    G4   ABSENT 授权拒绝下 OPEN 仍投递到 session 半边（opens=["ns-00000000000000000000000000000001"]，pulls=[{"namespaceId":"ns-00000000000000000000000000000001","outcome":"denied"}]）——「未授权 OPEN 不过缝」无岗位可落
+GAP    G5   ABSENT sink 未解析（authorize 在途）期帧即刻投递、零缓冲、零上界收口（无 pending 状态可测）
+GAP    G6   ABSENT 8 个 in-flight OPEN 全部到达 session 半边，零收口（无并发 OPEN 上界岗位）
+GAP    G7   ABSENT sink 装配失败 = 构造期同步抛错（sa6: sink unavailable），wire 零帧零 close——连接级 INTERNAL_ERROR+1011 不可达
+ORACLE O1   ok     违例帧 → ERROR{MALFORMED_FRAME, scope=connection} + close 1002 + 零投递（原始帧字节 [20]=0x22）
+ORACLE O1b  ok     同输入序列逐字节一致（2 帧；HELLO_ACK+MALFORMED_FRAME），close 一致
+ORACLE O2   ok     合法无 sink → ERROR{NAMESPACE_STATE_VIOLATION, ns} 且连接存活（后续帧仍处理）
+ORACLE O2b  ok     无 sink 合成帧与单体逐字节一致（同输入序列对比方法在 HEAD 可用）
+ORACLE O3   ok     连接级 ERROR 不路由（零投递、零出站回显、连接存活）
+ORACLE O4   ok     namespace 级 ERROR 路由到该 ns 的 session（含 wire 序），连接存活
+ORACLE O5   ok     per-connection 严格递增 1..5；交织帧字节 == 占位帧 [8..12] 重写结果
+ORACLE O5b  ok     HELLO_ACK + 两笔违例 ERROR 三帧逐字节一致（盖章后 wire 与单体等价）
+ORACLE O6   ok     GOAWAY(REAUTH_REQUIRED, drain>0) → drain 门丢新 OPEN → settled 全覆盖提前 1001（deadline 未 fire）
+ORACLE O7   ok     非 HELLO → HELLO_REQUIRED 1002；坏 magic → BAD_MAGIC 1002；seq gap → SEQUENCE_VIOLATION 1002
+ORACLE O8   ok     ping 武装 + 不匹配 pong 不清超时 → 1001；匹配 pong 清超时且连接存活
+NC     NC1  ok     已建立 ns 的合法帧投递且零违例（对照 O2 的「无 sink」分支可判别）
+NC     NC2  ok     两条连接各自从 1 起（per-connection 而非全局计数）
+NC     NC3  ok     未知 ns 的 namespace 级 ERROR 静默丢弃（单体 I5 语义；与 O3/O4 两分支可判别）
+NC     NC4  ok     已建 ns A 时 ns B 帧不得投递；违例帧点名 ns B（账本按键隔离）
+RESULT gaps=7/7 oracle+nc=15/15 failed_oracle=[] failed_gap=[]
+EXIT=0
+--- run 2 ---
+GAP    G1   ABSENT entry=ws-replication/src/index.ts exports=11 个；createHubReplicationEdge 未导出
+GAP    G2   ABSENT 连接级半边无 accept/acceptTrusted（双入口仅存在于服务层组合根 HubReplicationImpl）
+GAP    G3   ABSENT T4 形态构造抛错（config.sessionFactory is not a function）；合法配置下 resolveSessionSink 调用 0 次
+GAP    G4   ABSENT 授权拒绝下 OPEN 仍投递到 session 半边（opens=["ns-00000000000000000000000000000001"]，pulls=[{"namespaceId":"ns-00000000000000000000000000000001","outcome":"denied"}]）——「未授权 OPEN 不过缝」无岗位可落
+GAP    G5   ABSENT sink 未解析（authorize 在途）期帧即刻投递、零缓冲、零上界收口（无 pending 状态可测）
+GAP    G6   ABSENT 8 个 in-flight OPEN 全部到达 session 半边，零收口（无并发 OPEN 上界岗位）
+GAP    G7   ABSENT sink 装配失败 = 构造期同步抛错（sa6: sink unavailable），wire 零帧零 close——连接级 INTERNAL_ERROR+1011 不可达
+ORACLE O1   ok     违例帧 → ERROR{MALFORMED_FRAME, scope=connection} + close 1002 + 零投递（原始帧字节 [20]=0x22）
+ORACLE O1b  ok     同输入序列逐字节一致（2 帧；HELLO_ACK+MALFORMED_FRAME），close 一致
+ORACLE O2   ok     合法无 sink → ERROR{NAMESPACE_STATE_VIOLATION, ns} 且连接存活（后续帧仍处理）
+ORACLE O2b  ok     无 sink 合成帧与单体逐字节一致（同输入序列对比方法在 HEAD 可用）
+ORACLE O3   ok     连接级 ERROR 不路由（零投递、零出站回显、连接存活）
+ORACLE O4   ok     namespace 级 ERROR 路由到该 ns 的 session（含 wire 序），连接存活
+ORACLE O5   ok     per-connection 严格递增 1..5；交织帧字节 == 占位帧 [8..12] 重写结果
+ORACLE O5b  ok     HELLO_ACK + 两笔违例 ERROR 三帧逐字节一致（盖章后 wire 与单体等价）
+ORACLE O6   ok     GOAWAY(REAUTH_REQUIRED, drain>0) → drain 门丢新 OPEN → settled 全覆盖提前 1001（deadline 未 fire）
+ORACLE O7   ok     非 HELLO → HELLO_REQUIRED 1002；坏 magic → BAD_MAGIC 1002；seq gap → SEQUENCE_VIOLATION 1002
+ORACLE O8   ok     ping 武装 + 不匹配 pong 不清超时 → 1001；匹配 pong 清超时且连接存活
+NC     NC1  ok     已建立 ns 的合法帧投递且零违例（对照 O2 的「无 sink」分支可判别）
+NC     NC2  ok     两条连接各自从 1 起（per-connection 而非全局计数）
+NC     NC3  ok     未知 ns 的 namespace 级 ERROR 静默丢弃（单体 I5 语义；与 O3/O4 两分支可判别）
+NC     NC4  ok     已建 ns A 时 ns B 帧不得投递；违例帧点名 ns B（账本按键隔离）
+RESULT gaps=7/7 oracle+nc=15/15 failed_oracle=[] failed_gap=[]
+EXIT=0
+--- run 3 ---
+GAP    G1   ABSENT entry=ws-replication/src/index.ts exports=11 个；createHubReplicationEdge 未导出
+GAP    G2   ABSENT 连接级半边无 accept/acceptTrusted（双入口仅存在于服务层组合根 HubReplicationImpl）
+GAP    G3   ABSENT T4 形态构造抛错（config.sessionFactory is not a function）；合法配置下 resolveSessionSink 调用 0 次
+GAP    G4   ABSENT 授权拒绝下 OPEN 仍投递到 session 半边（opens=["ns-00000000000000000000000000000001"]，pulls=[{"namespaceId":"ns-00000000000000000000000000000001","outcome":"denied"}]）——「未授权 OPEN 不过缝」无岗位可落
+GAP    G5   ABSENT sink 未解析（authorize 在途）期帧即刻投递、零缓冲、零上界收口（无 pending 状态可测）
+GAP    G6   ABSENT 8 个 in-flight OPEN 全部到达 session 半边，零收口（无并发 OPEN 上界岗位）
+GAP    G7   ABSENT sink 装配失败 = 构造期同步抛错（sa6: sink unavailable），wire 零帧零 close——连接级 INTERNAL_ERROR+1011 不可达
+ORACLE O1   ok     违例帧 → ERROR{MALFORMED_FRAME, scope=connection} + close 1002 + 零投递（原始帧字节 [20]=0x22）
+ORACLE O1b  ok     同输入序列逐字节一致（2 帧；HELLO_ACK+MALFORMED_FRAME），close 一致
+ORACLE O2   ok     合法无 sink → ERROR{NAMESPACE_STATE_VIOLATION, ns} 且连接存活（后续帧仍处理）
+ORACLE O2b  ok     无 sink 合成帧与单体逐字节一致（同输入序列对比方法在 HEAD 可用）
+ORACLE O3   ok     连接级 ERROR 不路由（零投递、零出站回显、连接存活）
+ORACLE O4   ok     namespace 级 ERROR 路由到该 ns 的 session（含 wire 序），连接存活
+ORACLE O5   ok     per-connection 严格递增 1..5；交织帧字节 == 占位帧 [8..12] 重写结果
+ORACLE O5b  ok     HELLO_ACK + 两笔违例 ERROR 三帧逐字节一致（盖章后 wire 与单体等价）
+ORACLE O6   ok     GOAWAY(REAUTH_REQUIRED, drain>0) → drain 门丢新 OPEN → settled 全覆盖提前 1001（deadline 未 fire）
+ORACLE O7   ok     非 HELLO → HELLO_REQUIRED 1002；坏 magic → BAD_MAGIC 1002；seq gap → SEQUENCE_VIOLATION 1002
+ORACLE O8   ok     ping 武装 + 不匹配 pong 不清超时 → 1001；匹配 pong 清超时且连接存活
+NC     NC1  ok     已建立 ns 的合法帧投递且零违例（对照 O2 的「无 sink」分支可判别）
+NC     NC2  ok     两条连接各自从 1 起（per-connection 而非全局计数）
+NC     NC3  ok     未知 ns 的 namespace 级 ERROR 静默丢弃（单体 I5 语义；与 O3/O4 两分支可判别）
+NC     NC4  ok     已建 ns A 时 ns B 帧不得投递；违例帧点名 ns B（账本按键隔离）
+RESULT gaps=7/7 oracle+nc=15/15 failed_oracle=[] failed_gap=[]
+EXIT=0
+--- run 4 ---
+GAP    G1   ABSENT entry=ws-replication/src/index.ts exports=11 个；createHubReplicationEdge 未导出
+GAP    G2   ABSENT 连接级半边无 accept/acceptTrusted（双入口仅存在于服务层组合根 HubReplicationImpl）
+GAP    G3   ABSENT T4 形态构造抛错（config.sessionFactory is not a function）；合法配置下 resolveSessionSink 调用 0 次
+GAP    G4   ABSENT 授权拒绝下 OPEN 仍投递到 session 半边（opens=["ns-00000000000000000000000000000001"]，pulls=[{"namespaceId":"ns-00000000000000000000000000000001","outcome":"denied"}]）——「未授权 OPEN 不过缝」无岗位可落
+GAP    G5   ABSENT sink 未解析（authorize 在途）期帧即刻投递、零缓冲、零上界收口（无 pending 状态可测）
+GAP    G6   ABSENT 8 个 in-flight OPEN 全部到达 session 半边，零收口（无并发 OPEN 上界岗位）
+GAP    G7   ABSENT sink 装配失败 = 构造期同步抛错（sa6: sink unavailable），wire 零帧零 close——连接级 INTERNAL_ERROR+1011 不可达
+ORACLE O1   ok     违例帧 → ERROR{MALFORMED_FRAME, scope=connection} + close 1002 + 零投递（原始帧字节 [20]=0x22）
+ORACLE O1b  ok     同输入序列逐字节一致（2 帧；HELLO_ACK+MALFORMED_FRAME），close 一致
+ORACLE O2   ok     合法无 sink → ERROR{NAMESPACE_STATE_VIOLATION, ns} 且连接存活（后续帧仍处理）
+ORACLE O2b  ok     无 sink 合成帧与单体逐字节一致（同输入序列对比方法在 HEAD 可用）
+ORACLE O3   ok     连接级 ERROR 不路由（零投递、零出站回显、连接存活）
+ORACLE O4   ok     namespace 级 ERROR 路由到该 ns 的 session（含 wire 序），连接存活
+ORACLE O5   ok     per-connection 严格递增 1..5；交织帧字节 == 占位帧 [8..12] 重写结果
+ORACLE O5b  ok     HELLO_ACK + 两笔违例 ERROR 三帧逐字节一致（盖章后 wire 与单体等价）
+ORACLE O6   ok     GOAWAY(REAUTH_REQUIRED, drain>0) → drain 门丢新 OPEN → settled 全覆盖提前 1001（deadline 未 fire）
+ORACLE O7   ok     非 HELLO → HELLO_REQUIRED 1002；坏 magic → BAD_MAGIC 1002；seq gap → SEQUENCE_VIOLATION 1002
+ORACLE O8   ok     ping 武装 + 不匹配 pong 不清超时 → 1001；匹配 pong 清超时且连接存活
+NC     NC1  ok     已建立 ns 的合法帧投递且零违例（对照 O2 的「无 sink」分支可判别）
+NC     NC2  ok     两条连接各自从 1 起（per-connection 而非全局计数）
+NC     NC3  ok     未知 ns 的 namespace 级 ERROR 静默丢弃（单体 I5 语义；与 O3/O4 两分支可判别）
+NC     NC4  ok     已建 ns A 时 ns B 帧不得投递；违例帧点名 ns B（账本按键隔离）
+RESULT gaps=7/7 oracle+nc=15/15 failed_oracle=[] failed_gap=[]
+EXIT=0
+--- run 5 ---
+GAP    G1   ABSENT entry=ws-replication/src/index.ts exports=11 个；createHubReplicationEdge 未导出
+GAP    G2   ABSENT 连接级半边无 accept/acceptTrusted（双入口仅存在于服务层组合根 HubReplicationImpl）
+GAP    G3   ABSENT T4 形态构造抛错（config.sessionFactory is not a function）；合法配置下 resolveSessionSink 调用 0 次
+GAP    G4   ABSENT 授权拒绝下 OPEN 仍投递到 session 半边（opens=["ns-00000000000000000000000000000001"]，pulls=[{"namespaceId":"ns-00000000000000000000000000000001","outcome":"denied"}]）——「未授权 OPEN 不过缝」无岗位可落
+GAP    G5   ABSENT sink 未解析（authorize 在途）期帧即刻投递、零缓冲、零上界收口（无 pending 状态可测）
+GAP    G6   ABSENT 8 个 in-flight OPEN 全部到达 session 半边，零收口（无并发 OPEN 上界岗位）
+GAP    G7   ABSENT sink 装配失败 = 构造期同步抛错（sa6: sink unavailable），wire 零帧零 close——连接级 INTERNAL_ERROR+1011 不可达
+ORACLE O1   ok     违例帧 → ERROR{MALFORMED_FRAME, scope=connection} + close 1002 + 零投递（原始帧字节 [20]=0x22）
+ORACLE O1b  ok     同输入序列逐字节一致（2 帧；HELLO_ACK+MALFORMED_FRAME），close 一致
+ORACLE O2   ok     合法无 sink → ERROR{NAMESPACE_STATE_VIOLATION, ns} 且连接存活（后续帧仍处理）
+ORACLE O2b  ok     无 sink 合成帧与单体逐字节一致（同输入序列对比方法在 HEAD 可用）
+ORACLE O3   ok     连接级 ERROR 不路由（零投递、零出站回显、连接存活）
+ORACLE O4   ok     namespace 级 ERROR 路由到该 ns 的 session（含 wire 序），连接存活
+ORACLE O5   ok     per-connection 严格递增 1..5；交织帧字节 == 占位帧 [8..12] 重写结果
+ORACLE O5b  ok     HELLO_ACK + 两笔违例 ERROR 三帧逐字节一致（盖章后 wire 与单体等价）
+ORACLE O6   ok     GOAWAY(REAUTH_REQUIRED, drain>0) → drain 门丢新 OPEN → settled 全覆盖提前 1001（deadline 未 fire）
+ORACLE O7   ok     非 HELLO → HELLO_REQUIRED 1002；坏 magic → BAD_MAGIC 1002；seq gap → SEQUENCE_VIOLATION 1002
+ORACLE O8   ok     ping 武装 + 不匹配 pong 不清超时 → 1001；匹配 pong 清超时且连接存活
+NC     NC1  ok     已建立 ns 的合法帧投递且零违例（对照 O2 的「无 sink」分支可判别）
+NC     NC2  ok     两条连接各自从 1 起（per-connection 而非全局计数）
+NC     NC3  ok     未知 ns 的 namespace 级 ERROR 静默丢弃（单体 I5 语义；与 O3/O4 两分支可判别）
+NC     NC4  ok     已建 ns A 时 ns B 帧不得投递；违例帧点名 ns B（账本按键隔离）
+RESULT gaps=7/7 oracle+nc=15/15 failed_oracle=[] failed_gap=[]
+EXIT=0

@@ -1,0 +1,21 @@
+### SA6 issue #421 mutation sensitivity — HEAD 7039f6dae8e7d29f0c929492f0ca2119bc63afaa — 2026-09-21T18:15:24Z
+=== round 1 ===
+OK   M1-route-key-domain-offset         expected=[G5,NC1,NC4,O2,O2b,O5b] actual=[G5,NC1,NC4,O2,O2b,O5b]
+OK   M2-connection-error-broadcast      expected=[O3] actual=[O3]
+OK   M3-stamp-no-increment              expected=[NC2,O1b,O2b,O5,O5b] actual=[NC2,O1b,O2b,O5,O5b]
+OK   M4-no-sink-silent-drop             expected=[NC4,O2,O2b,O5b] actual=[NC4,O2,O2b,O5b]
+OK   M5-drain-gate-removed              expected=[O6] actual=[O6]
+OK   NM1-ascii-at-equivalent-rewrite    expected=[] actual=[]
+OK   NM2-routing-key-statement-reorder  expected=[] actual=[]
+MUTATION_RESULT 7/7 expected
+EXIT=0
+=== round 2 ===
+OK   M1-route-key-domain-offset         expected=[G5,NC1,NC4,O2,O2b,O5b] actual=[G5,NC1,NC4,O2,O2b,O5b]
+OK   M2-connection-error-broadcast      expected=[O3] actual=[O3]
+OK   M3-stamp-no-increment              expected=[NC2,O1b,O2b,O5,O5b] actual=[NC2,O1b,O2b,O5,O5b]
+OK   M4-no-sink-silent-drop             expected=[NC4,O2,O2b,O5b] actual=[NC4,O2,O2b,O5b]
+OK   M5-drain-gate-removed              expected=[O6] actual=[O6]
+OK   NM1-ascii-at-equivalent-rewrite    expected=[] actual=[]
+OK   NM2-routing-key-statement-reorder  expected=[] actual=[]
+MUTATION_RESULT 7/7 expected
+EXIT=0
