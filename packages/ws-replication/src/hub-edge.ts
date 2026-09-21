@@ -21,6 +21,8 @@
 import type { DuplexTransport } from './types.js';
 import {
   CAP_CHUNKED_UPDATE,
+  ENVELOPE_HEADER_BYTES,
+  MESSAGE_TYPES,
   selectCapabilities,
   selectProtocolVersion,
   type ReplicationMessage,
@@ -30,7 +32,13 @@ import { startLiveness } from './liveness.js';
 import { ConnectionSender } from './backpressure.js';
 import { dispatchReplicationObserver, safeNow, stableConnectionCode } from './observer.js';
 import type { HubNamespaceChannel } from './hub-namespace.js';
-import type { HubSessionEdgePort, HubSessionSink, HubOpenAdmission, OpenNamespaceInbound } from './hub-split.js';
+import type {
+  HubSendAccounting,
+  HubSessionEdgePort,
+  HubSessionSink,
+  HubOpenAdmission,
+  OpenNamespaceInbound,
+} from './hub-split.js';
 import type {
   HubConnectionState,
   NamespaceAuthorizer,
@@ -51,6 +59,9 @@ const EMPTY_CHANNELS: ReadonlyMap<string, HubNamespaceChannel> = new Map();
 
 /** namespaceId wire 形态：`ns-` + 32 小写 hex = 35 ASCII ⟹ varString 长度前缀恒 1 字节。 */
 const NAMESPACE_ID_BYTES = 35;
+
+/** UPDATE 帧头判定最小长度（`[20]` 前缀 + 35 字节 id + 载荷起点）；短于此即结构性非 UPDATE 形态。 */
+const UPDATE_FRAME_MIN_BYTES = ENVELOPE_HEADER_BYTES + 1 + NAMESPACE_ID_BYTES;
 
 /** edge 半边工厂配置（设计 §7 D1）。 */
 export interface HubReplicationEdgeConfig {
@@ -109,6 +120,40 @@ function asciiAt(bytes: Uint8Array, start: number, end: number): string {
   let out = '';
   for (let index = start; index < end; index += 1) out += String.fromCharCode(bytes[index]!);
   return out;
+}
+
+/** 大端读取 uint32（envelope `[8..12]` sequence / `[12..16]` payloadLength；与 codec
+ *  `writeBe32` 同构的本地只读先例——`frame-io.ts:201-206` 的写侧同款分层）。 */
+function readBe32At(bytes: Uint8Array, offset: number): number {
+  return (
+    ((bytes[offset]! << 24) |
+      (bytes[offset + 1]! << 16) |
+      (bytes[offset + 2]! << 8) |
+      bytes[offset + 3]!) >>>
+    0
+  );
+}
+
+/** lib0 canonical varUint 定偏移只读（≤5 字节，续位 `0x80`、7bit 组 LSB 先）。
+ *  越界/续位超过 5 字节/非规范输入 → undefined（调用方按布局校验不过处置，零 throw）。 */
+function readVarUintAt(bytes: Uint8Array, offset: number): Readonly<{ value: number; bytes: number }> | undefined {
+  let value = 0;
+  let scale = 1;
+  for (let index = 0; index < 5; index += 1) {
+    const position = offset + index;
+    if (position >= bytes.byteLength) return undefined;
+    const byte = bytes[position]!;
+    value += (byte & 0x7f) * scale;
+    scale *= 128;
+    if ((byte & 0x80) === 0) return { value, bytes: index + 1 };
+  }
+  return undefined; // 续位未在 5 字节内终止 ⇒ 非规范 varUint（codec 产出面结构性不可达）
+}
+
+/** issue #423：UPDATE 帧的定偏移判定结果（`namespaceId` = 路由键、`updateBytes` = 载荷长度）。 */
+interface UpdateFrameProbe {
+  readonly namespaceId: string;
+  readonly updateBytes: number;
 }
 
 class HubReplicationEdgeImpl implements HubReplicationEdge {
@@ -214,7 +259,16 @@ class HubReplicationEdgeImpl implements HubReplicationEdge {
     return {
       openAdmission: (namespaceId) => this.openAdmission(namespaceId),
       sendControlFrame: (frame) => this.sender.sendControlFrame(frame),
-      sendDataFrame: (frame) => this.sender.tryEmitDataFrame(frame),
+      // issue #423（ADR 0032 决策 5）：`update-sent` 的**唯一发射点** = 本连接级 data 帧出面
+      // （盖章事实所有者 = edge `OutboundQueue.emitOne` 的 `[8..12]` 单点）。单漏斗论证：
+      // hub 侧全部 data 帧（session 组装路径 + UPDATE_CHUNK/分块族 + 宿主 egress 直驱）都
+      // 经本成员，`seq > 0` 门保证「未发送/被拒 ⇒ 零事件」（与既有「seq>0 每帧恰一」同构）；
+      // 原生 `dispatchReplicationObserver` 单点隔离不变（observer throw 零协议影响）。
+      sendDataFrame: (frame, accounting) => {
+        const sequence = this.sender.tryEmitDataFrame(frame);
+        if (sequence > 0) this.emitUpdateSentAtStamp(frame, sequence, accounting);
+        return sequence;
+      },
       dataGateOpen: () => this.sender.dataGateOpen(),
       onDataQueued: (namespaceId) => this.sender.onDataQueued(namespaceId),
       requestDataDrain: () => this.sender.requestDrain(),
@@ -782,6 +836,66 @@ class HubReplicationEdgeImpl implements HubReplicationEdge {
       bufferedAmount,
     });
   }
+
+  /**
+   * issue #423（ADR 0032 决策 5；协议 §23.1 `update-sent` 行）：
+   * **edge 盖章点单点发射**——出站 UPDATE 帧实际出站后（序已分配）恰一事件。
+   *
+   * - 首行 observer 门：无 observer ⇒ 零构造、零字段读取、零判定（§23.4 热路径纪律）；
+   * - 型门 + 定偏移判定（`updateFrameProbe`）：非 UPDATE（含 UPDATE_CHUNK 0x42 与一切经
+   *   data 面出站的其它型）与布局校验不过一律 dormant 零事件（决策 4「O(帧头)、不解析
+   *   payload」；观测面失败绝不改变协议结果——§23.4）；
+   * - 字段：`sequence` = `[8..12]` 盖章返回值（同点派生）；`bytes` = 出站 UPDATE 载荷长度；
+   *   `namespaceId` = 帧路由键（防缝上投影说谎——同一代码路径同时服务 session 帧与宿主
+   *   直驱帧）；`sendQueueMs` 仅记账投影在场时携带（缺面 = 整键缺席，非 0）。
+   */
+  private emitUpdateSentAtStamp(
+    frame: Uint8Array,
+    sequence: number,
+    accounting?: HubSendAccounting,
+  ): void {
+    if (this.connectionObserver() === undefined) return;
+    const probe = updateFrameProbe(frame);
+    if (probe === undefined) return; // 型门/布局校验不过 ⇒ dormant（零 throw、零事件）
+    dispatchReplicationObserver(this.connectionObserver(), {
+      type: 'update-sent',
+      side: 'hub',
+      ...(this.connectionIdValue !== undefined ? { connectionId: this.connectionIdValue } : {}),
+      namespaceId: probe.namespaceId,
+      bytes: probe.updateBytes,
+      sequence,
+      ...(accounting?.sendQueueMs !== undefined ? { sendQueueMs: accounting.sendQueueMs } : {}),
+    });
+  }
+}
+
+/**
+ * issue #423：UPDATE 帧定偏移判定（ADR 0032 决策 4 的扩展适用 + 长度交叉校验）。
+ *
+ * 布局（与 codec 字段序的同步维护契约；守卫测试 = `ws-replication-issue423-update-offset-guard`）：
+ * `[5]` = messageType（UPDATE = 0x40）、`[12..16]` = payloadLength、
+ * payload = `varString(namespaceId)`（35 字节 ASCII ⟹ 前缀恒 1 字节，id 窗口 `[21,56)`）
+ * + `varUint8Array(update)`（varUint 长度前缀自 `[56]` 起）。
+ *
+ * 判定 ⟹ `payloadLength === 1 + 35 + varUint 字节数 + updateLen` 且
+ * `frame.byteLength === 20 + payloadLength`（两式同时成立才算结构自洽）。
+ * 返回 undefined = 非 UPDATE 形态或布局不自洽（正常路径不可达：到达本面的 UPDATE 帧由
+ * `encodeMessage` 产出，畸形输入在编码期响亮 throw，先于任何字节出站）。
+ */
+function updateFrameProbe(frame: Uint8Array): UpdateFrameProbe | undefined {
+  if (frame.byteLength < UPDATE_FRAME_MIN_BYTES || frame[5] !== MESSAGE_TYPES.UPDATE) {
+    return undefined; // 短帧 / 非 UPDATE 型（UPDATE_CHUNK 0x42、控制帧结构性不触达本面）
+  }
+  if (frame[20] !== NAMESPACE_ID_BYTES) return undefined; // 路由键长度前缀不符（窗口契约破坏）
+  const payloadLength = readBe32At(frame, 12);
+  if (frame.byteLength !== ENVELOPE_HEADER_BYTES + payloadLength) return undefined;
+  const prefix = readVarUintAt(frame, ENVELOPE_HEADER_BYTES + 1 + NAMESPACE_ID_BYTES);
+  if (prefix === undefined) return undefined;
+  if (payloadLength !== 1 + NAMESPACE_ID_BYTES + prefix.bytes + prefix.value) return undefined;
+  return {
+    namespaceId: asciiAt(frame, ENVELOPE_HEADER_BYTES + 1, ENVELOPE_HEADER_BYTES + 1 + NAMESPACE_ID_BYTES),
+    updateBytes: prefix.value,
+  };
 }
 
 /** 工厂：edge 半边可独立实例化（注入 transport/authorize/sessionFactory；无 Registry 依赖）。 */

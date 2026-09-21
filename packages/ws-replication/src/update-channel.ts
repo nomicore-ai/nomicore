@@ -22,8 +22,15 @@ import type {
 export interface UpdateChannelHost {
   readonly limits: ResolvedLimits;
   readonly ackTimeoutMs: number;
-  /** 发送 UPDATE 帧；返回分配的帧序。 */
-  readonly sendUpdateFrame: (bytes: Uint8Array) => number;
+  /** 发送 UPDATE 帧；返回分配的帧序。
+   *  issue #423（append-only 可选参数）：`accounting` = session 侧发送记账投影（纯 JSON，
+   *  只过差值 `{sendQueueMs?}`——与 `hub-split.ts` 的 `HubSendAccounting`、
+   *  `HubChannelHost.sendData` 同名形参**同形同步维护**）。hub 侧边（盖章事实所有者）
+   *  据此发射 `update-sent` 且不丢 `sendQueueMs`；peer 侧实现保持单参（结构化兼容）。 */
+  readonly sendUpdateFrame: (
+    bytes: Uint8Array,
+    accounting?: Readonly<{ sendQueueMs?: number }>,
+  ) => number;
   /** issue #243（DD-3.5）：发送 UPDATE_CHUNK 帧（与 UPDATE 同一 data 出站点）；返回分配的帧序。 */
   readonly sendUpdateChunkFrame: (chunk: ChunkedTransferPiece) => number;
   /** issue #243（DD-1.5）：wire 协商位判据——true 才允许分块出站（发送门）。 */
@@ -56,7 +63,9 @@ export interface UpdateChannelHost {
   ) => void;
   /** 帧实际出站记账（issue #238 §5.4）：seq>0 的每帧恰一通知（update-sent 发射信息）——
    *  sendQueueMs = 帧出队时刻 − 帧内最旧业务项入队时刻（clock 缺省时 undefined）。
-   *  发射方（namespace facet）自行做 observer 在场门。
+   *  issue #423（ADR 0032 决策 5）：**hub 侧该通知的消费方只剩 chunked 改道分支**——普通帧
+   *  `update-sent` 的发射点已迁 edge（盖章事实所有者，经 `sendUpdateFrame` 的 append-only
+   *  记账投影携带同一差值）；peer 侧照旧由 namespace facet 发射 `update-sent{side:'peer'}`。
    *  issue #245（DD3）：chunked 组仅末 chunk 结算通知携带（= 分块 transfer 完成出站——
    *  中间 chunk 保持零通知）；发送侧据此改道发 chunked-update-sent。 */
   readonly noteUpdateSent: (
@@ -343,10 +352,26 @@ export class UpdateChannel {
       }
       return; // 不调用 host.sendUpdateFrame——控制器大小门保留为不可达后盾
     }
-    const seq = this.host.sendUpdateFrame(bytes);
+    // issue #423（SA6 U2 裁决的承载机制）：sentAt 采样点 = **发送调用边界**（同一同步栈；
+    // 发送栈 `sendUpdateFrame → sendData → port.sendDataFrame → tryEmitDataFrame → emitOne
+    // → transport.send` 零时钟读 ⇒ 手动时钟域逐值不变——issue238 精确断言锚）。
+    // 同一读数两用：① 缝上 append-only 记账投影（edge 据此发射 update-sent 且不丢
+    // sendQueueMs）；② inFlight 的 ACK 时延 t0（§23.4 ackLatencyMs 锚）。读数次数不变（1 次）。
+    // 次序事实（勿「顺手还原」）：edge 的 update-sent 在本调用内同步发射，**先于**下方
+    // `inFlight.set` / `armAckTimer`——两点之间零 observer 事件 ⇒ 组合观测面事件序列逐字
+    // 不变（AC6 金标；inFlight 与 ACK timer 是缝不暴露的内部状态，不可观察）。
+    const sentAt = safeNow(() => this.host.now?.());
+    const sendQueueMs =
+      sentAt !== undefined && oldestQueuedAt !== undefined ? sentAt - oldestQueuedAt : undefined;
+    // accounting 透传——缺失即 EM-C4c 红（append-only 纯 JSON 过缝，ADR 0032 决策 2/5）。
+    const seq = this.host.sendUpdateFrame(
+      bytes,
+      sendQueueMs !== undefined ? { sendQueueMs } : undefined,
+    );
     if (seq <= 0) {
       // issue #231：发送路径拒绝（连接/状态/背压/编码/发送异常折叠为非正 sequence）——
       // 失败明细必须在 discardQueued 之前采样（丢弃后计数恒零，丢失诊断价值）。
+      // 记账随拒帧弃置：无帧出站即零事件（恰一语义与既有 seq>0 门同构）。
       const detail = this.captureFailureDetail('send-frame-rejected', bytes.byteLength);
       this.discardQueued();
       this.needsResync = true;
@@ -354,15 +379,13 @@ export class UpdateChannel {
       return;
     }
     // §6.5 U2：发送时刻记账（帧实际出队后；clock 缺省 → undefined；throw → 缺面）
-    const sentAt = safeNow(() => this.host.now?.());
     this.inFlight.set(seq, {
       bytes: bytes.byteLength,
       ...(sentAt !== undefined ? { sentAt } : {}),
     });
     // issue #238 §5.4：sendQueueMs = 帧出队 − 帧内最旧业务项入队（发送方进程内精确；
-    // clock 缺省 → 缺面）。update-sent 发射信息随记账回调传出（发射方做 observer 门）。
-    const sendQueueMs =
-      sentAt !== undefined && oldestQueuedAt !== undefined ? sentAt - oldestQueuedAt : undefined;
+    // clock 缺省 → 缺面）。hub 侧普通帧的 update-sent 发射点已迁 edge（issue #423）——
+    // 本通知在 hub 侧只剩 chunked 改道消费；peer 侧 update-sent 发射体逐字节不变。
     this.host.noteUpdateSent({
       sequence: seq,
       bytes: bytes.byteLength,

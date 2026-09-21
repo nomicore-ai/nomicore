@@ -1,0 +1,141 @@
+=== SA6 issue #423 evidence log ===
+HEAD: 1f5809b001c984e63fac3bafd4c1f3febc76e8a8
+Date: 2026-09-21T20:24:15Z
+
+=== [S0] baseline red run (contract file, focused) ===
+--- stability run 1 ---
+   × issue #423 EM-C2：授权拒绝路径的字段正确性（connectionId 在场纪律） > EM-C2a：工厂形态拒绝路径两事件必须携 connectionId（= 句柄 connectionKey；握手后在场的纪律） 6ms
+   × issue #423 EM-C4：出站 sequence 事件（update-sent）由 edge 盖章点发射 > EM-C4a：工厂形态 host 数据帧 → edge 恰一 update-sent（sequence = 盖章序、bytes = UPDATE 载荷长度） 3ms
+   × issue #423 EM-C4：出站 sequence 事件（update-sent）由 edge 盖章点发射 > EM-C4b：session 半边不再发射出站 sequence 事件（帧已出站，但 update-sent 不在 session 观测面） 4ms
+      Tests  3 failed | 18 passed (21)
+--- stability run 2 ---
+   × issue #423 EM-C2：授权拒绝路径的字段正确性（connectionId 在场纪律） > EM-C2a：工厂形态拒绝路径两事件必须携 connectionId（= 句柄 connectionKey；握手后在场的纪律） 7ms
+   × issue #423 EM-C4：出站 sequence 事件（update-sent）由 edge 盖章点发射 > EM-C4a：工厂形态 host 数据帧 → edge 恰一 update-sent（sequence = 盖章序、bytes = UPDATE 载荷长度） 3ms
+   × issue #423 EM-C4：出站 sequence 事件（update-sent）由 edge 盖章点发射 > EM-C4b：session 半边不再发射出站 sequence 事件（帧已出站，但 update-sent 不在 session 观测面） 4ms
+      Tests  3 failed | 18 passed (21)
+--- stability run 3 ---
+   × issue #423 EM-C2：授权拒绝路径的字段正确性（connectionId 在场纪律） > EM-C2a：工厂形态拒绝路径两事件必须携 connectionId（= 句柄 connectionKey；握手后在场的纪律） 6ms
+   × issue #423 EM-C4：出站 sequence 事件（update-sent）由 edge 盖章点发射 > EM-C4a：工厂形态 host 数据帧 → edge 恰一 update-sent（sequence = 盖章序、bytes = UPDATE 载荷长度） 3ms
+   × issue #423 EM-C4：出站 sequence 事件（update-sent）由 edge 盖章点发射 > EM-C4b：session 半边不再发射出站 sequence 事件（帧已出站，但 update-sent 不在 session 观测面） 4ms
+      Tests  3 failed | 18 passed (21)
+--- stability run 4 ---
+   × issue #423 EM-C2：授权拒绝路径的字段正确性（connectionId 在场纪律） > EM-C2a：工厂形态拒绝路径两事件必须携 connectionId（= 句柄 connectionKey；握手后在场的纪律） 6ms
+   × issue #423 EM-C4：出站 sequence 事件（update-sent）由 edge 盖章点发射 > EM-C4a：工厂形态 host 数据帧 → edge 恰一 update-sent（sequence = 盖章序、bytes = UPDATE 载荷长度） 3ms
+   × issue #423 EM-C4：出站 sequence 事件（update-sent）由 edge 盖章点发射 > EM-C4b：session 半边不再发射出站 sequence 事件（帧已出站，但 update-sent 不在 session 观测面） 4ms
+      Tests  3 failed | 18 passed (21)
+--- stability run 5 ---
+   × issue #423 EM-C2：授权拒绝路径的字段正确性（connectionId 在场纪律） > EM-C2a：工厂形态拒绝路径两事件必须携 connectionId（= 句柄 connectionKey；握手后在场的纪律） 7ms
+   × issue #423 EM-C4：出站 sequence 事件（update-sent）由 edge 盖章点发射 > EM-C4a：工厂形态 host 数据帧 → edge 恰一 update-sent（sequence = 盖章序、bytes = UPDATE 载荷长度） 3ms
+   × issue #423 EM-C4：出站 sequence 事件（update-sent）由 edge 盖章点发射 > EM-C4b：session 半边不再发射出站 sequence 事件（帧已出站，但 update-sent 不在 session 观测面） 4ms
+      Tests  3 failed | 18 passed (21)
+
+=== [S1] mutation sensitivity (each mutation reverted before next) ===
+--- M1: add connectionId to edge-reproduced denial events (target fix shape) ---
+× issue #423 EM-C4：出站 sequence 事件（update-sent）由 edge 盖章点发射 > EM-C4a：工厂形态 host 数据帧 → edge 恰一 update-sent（sequence = 盖章序、bytes = UPDATE 载荷长度） 9ms
+× issue #423 EM-C4：出站 sequence 事件（update-sent）由 edge 盖章点发射 > EM-C4b：session 半边不再发射出站 sequence 事件（帧已出站，但 update-sent 不在 session 观测面） 4ms
+AssertionError: EM-C4a: edge 盖章点必须发射恰一 update-sent: expected [] to have a length of 1 but got +0
+AssertionError: EM-C4b: 出站 sequence 事件的发射侧 = edge（盖章事实所有者）；session 侧零发射: expected [ 'update-sent' ] to deeply equal []
+Tests  2 failed | 19 passed (21)
+--- M2: remove try/catch isolation in dispatchReplicationObserver ---
+× issue #423 EM-C2：授权拒绝路径的字段正确性（connectionId 在场纪律） > EM-C2a：工厂形态拒绝路径两事件必须携 connectionId（= 句柄 connectionKey；握手后在场的纪律） 7ms
+× issue #423 EM-C4：出站 sequence 事件（update-sent）由 edge 盖章点发射 > EM-C4a：工厂形态 host 数据帧 → edge 恰一 update-sent（sequence = 盖章序、bytes = UPDATE 载荷长度） 3ms
+× issue #423 EM-C4：出站 sequence 事件（update-sent）由 edge 盖章点发射 > EM-C4b：session 半边不再发射出站 sequence 事件（帧已出站，但 update-sent 不在 session 观测面） 4ms
+× issue #423 EM-C5：observer throw 隔离（dispatchReplicationObserver 单点语义） > EM-C5a：edge 公共出面——全抛 observer 下 wire 逐帧等于健康 observer 运行、连接存活、零 unhandledRejection 6ms
+× issue #423 EM-C5：observer throw 隔离（dispatchReplicationObserver 单点语义） > EM-C5b：单体进程内组合——全抛 observer 下业务收敛不变、零 unhandledRejection 4ms
+AssertionError: EM-C2a: namespace-error{sent} 缺 connectionId: expected undefined to be 'hub-omega-conn-0' // Object.is equality
+AssertionError: EM-C4a: edge 盖章点必须发射恰一 update-sent: expected [] to have a length of 1 but got +0
+AssertionError: EM-C4b: 出站 sequence 事件的发射侧 = edge（盖章事实所有者）；session 侧零发射: expected [ 'update-sent' ] to deeply equal []
+Tests  5 failed | 16 passed (21)
+--- M3+M4: edge emits update-sent at mux + session suppresses it (target shape without seam timing) ---
+× issue #423 EM-C2：授权拒绝路径的字段正确性（connectionId 在场纪律） > EM-C2a：工厂形态拒绝路径两事件必须携 connectionId（= 句柄 connectionKey；握手后在场的纪律） 6ms
+× issue #423 EM-C4：出站 sequence 事件（update-sent）由 edge 盖章点发射 > EM-C4c：listen 组合形态恰一 update-sent（无重复）、sequence == wire [8..12]、字段集 ⊆ §23 7ms
+× issue #423 EM-C7：单体进程内组合事件序列 == 拆分前金标（AC6） > EM-C7a：live 全序列逐字相等（handshake→open→bootstrap→reconcile→live→双向写） 8ms
+AssertionError: EM-C2a: namespace-error{sent} 缺 connectionId: expected undefined to be 'hub-omega-conn-0' // Object.is equality
+AssertionError: EM-C4c: append-only 字段集——clock 在场时 sendQueueMs 保留: expected false to be true // Object.is equality
+AssertionError: expected [ …(10) ] to deeply equal [ …(10) ]
+Tests  3 failed | 18 passed (21)
+--- M5+M6: assembly limit knob ignored + dormant bufferedAmount collapsed to 0 ---
+× issue #423 EM-C2：授权拒绝路径的字段正确性（connectionId 在场纪律） > EM-C2a：工厂形态拒绝路径两事件必须携 connectionId（= 句柄 connectionKey；握手后在场的纪律） 6ms
+× issue #423 EM-C3：缺面 dormant — session 侧 shim 无 bufferedAmount/clock/ping-onPong > EM-C3a：shim 无 bufferedAmount → 发送失败事件该键**缺失**（非 0、非 undefined 值） 7ms
+× issue #423 EM-C4：出站 sequence 事件（update-sent）由 edge 盖章点发射 > EM-C4a：工厂形态 host 数据帧 → edge 恰一 update-sent（sequence = 盖章序、bytes = UPDATE 载荷长度） 3ms
+× issue #423 EM-C4：出站 sequence 事件（update-sent）由 edge 盖章点发射 > EM-C4b：session 半边不再发射出站 sequence 事件（帧已出站，但 update-sent 不在 session 观测面） 4ms
+× issue #423 EM-C6：listen 模式 maxConcurrentAssembliesPerConnection 计数口径不变 > EM-C6a：listen 缝 = per-connection 跨 namespace 共享槽位（limit=2；释放后可再纳） 1ms
+AssertionError: EM-C2a: namespace-error{sent} 缺 connectionId: expected undefined to be 'hub-omega-conn-0' // Object.is equality
+AssertionError: EM-C3a: 缺面必须整键缺席: expected true to be false // Object.is equality
+AssertionError: EM-C4a: edge 盖章点必须发射恰一 update-sent: expected [] to have a length of 1 but got +0
+AssertionError: EM-C4b: 出站 sequence 事件的发射侧 = edge（盖章事实所有者）；session 侧零发射: expected [ 'update-sent' ] to deeply equal []
+AssertionError: EM-C6a: 第 3 个 ns 超额（listen 口径 = per-connection 跨 ns 共享）: expected true to be false // Object.is equality
+Tests  5 failed | 16 passed (21)
+
+--- post-mutation source tree status ---
+?? artifacts/sa6-issue423-contract-evidence.log
+?? packages/ws-replication/test/ws-replication-issue423-observer-emission-split.test.ts
+?? wiki/raw/task_issue-423.md
+
+=== [S2] AC6 pre-split golden capture (worktree @ e9cd7eb = parent of split commit 1278fd3) ===
+--- pre-split run (dumper script, worktree) ---
+PRESPLIT-LIVE-BEGIN
+["connection-state-changed|connectionId,from,side,to,type|side=hub;connectionId=hub-omega-conn-0;from=handshaking;to=ready","channel-state-changed|connectionId,from,namespaceId,side,to,type|side=hub;connectionId=hub-omega-conn-0;namespaceId=ns-00000000000000000000000000000001;from=opening;to=bootstrapping","bootstrap-snapshot-sent|bytes,connectionId,namespaceId,side,type|side=hub;connectionId=hub-omega-conn-0;namespaceId=ns-00000000000000000000000000000001","channel-state-changed|connectionId,from,namespaceId,side,to,type|side=hub;connectionId=hub-omega-conn-0;namespaceId=ns-00000000000000000000000000000001;from=bootstrapping;to=reconciling","sync-step2-sent|bytes,connectionId,encodedUpdateBytes,namespaceId,side,syncRoundId,type|side=hub;connectionId=hub-omega-conn-0;namespaceId=ns-00000000000000000000000000000001;syncRoundId=1","sync-diff-applied|applyEffect,applyLatencyMs,bytes,connectionId,encodedUpdateBytes,namespaceId,sequence,side,stateVectorAfterHash,stateVectorBeforeHash,stateVectorChanged,syncRoundId,type|side=hub;connectionId=hub-omega-conn-0;namespaceId=ns-00000000000000000000000000000001;sequence=5;syncRoundId=1;applyEffect=noop;stateVectorChanged=false","channel-state-changed|connectionId,from,namespaceId,side,to,type|side=hub;connectionId=hub-omega-conn-0;namespaceId=ns-00000000000000000000000000000001;from=reconciling;to=live","update-sent|bytes,connectionId,namespaceId,sendQueueMs,sequence,side,type|side=hub;connectionId=hub-omega-conn-0;namespaceId=ns-00000000000000000000000000000001;sequence=7","update-acked|ackLatencyMs,bytes,connectionId,namespaceId,sequence,side,type|side=hub;connectionId=hub-omega-conn-0;namespaceId=ns-00000000000000000000000000000001;sequence=7","update-applied|applyLatencyMs,bytes,connectionId,namespaceId,sequence,side,type|side=hub;connectionId=hub-omega-conn-0;namespaceId=ns-00000000000000000000000000000001;sequence=8"]
+PRESPLIT-LIVE-END
+PRESPLIT-DENIED-BEGIN
+["connection-state-changed|connectionId,from,side,to,type|side=hub;connectionId=hub-omega-conn-0;from=handshaking;to=ready","namespace-error|code,connectionId,direction,namespaceId,side,type|side=hub;connectionId=hub-omega-conn-0;namespaceId=ns-00000000000000000000000000000001;code=NAMESPACE_UNAUTHORIZED;direction=sent","channel-state-changed|connectionId,from,namespaceId,side,to,type|side=hub;connectionId=hub-omega-conn-0;namespaceId=ns-00000000000000000000000000000001;from=opening;to=failed","namespace-failed|cause,connectionId,namespaceId,side,type|side=hub;connectionId=hub-omega-conn-0;namespaceId=ns-00000000000000000000000000000001;cause=open-failed"]
+PRESPLIT-DENIED-END
+Tests  2 passed (2)
+--- same scenario re-run on HEAD (golden reproducibility) ---
+PRESPLIT-LIVE-BEGIN
+["connection-state-changed|connectionId,from,side,to,type|side=hub;connectionId=hub-omega-conn-0;from=handshaking;to=ready","channel-state-changed|connectionId,from,namespaceId,side,to,type|side=hub;connectionId=hub-omega-conn-0;namespaceId=ns-00000000000000000000000000000001;from=opening;to=bootstrapping","bootstrap-snapshot-sent|bytes,connectionId,namespaceId,side,type|side=hub;connectionId=hub-omega-conn-0;namespaceId=ns-00000000000000000000000000000001","channel-state-changed|connectionId,from,namespaceId,side,to,type|side=hub;connectionId=hub-omega-conn-0;namespaceId=ns-00000000000000000000000000000001;from=bootstrapping;to=reconciling","sync-step2-sent|bytes,connectionId,encodedUpdateBytes,namespaceId,side,syncRoundId,type|side=hub;connectionId=hub-omega-conn-0;namespaceId=ns-00000000000000000000000000000001;syncRoundId=1","sync-diff-applied|applyEffect,applyLatencyMs,bytes,connectionId,encodedUpdateBytes,namespaceId,sequence,side,stateVectorAfterHash,stateVectorBeforeHash,stateVectorChanged,syncRoundId,type|side=hub;connectionId=hub-omega-conn-0;namespaceId=ns-00000000000000000000000000000001;sequence=5;syncRoundId=1;applyEffect=noop;stateVectorChanged=false","channel-state-changed|connectionId,from,namespaceId,side,to,type|side=hub;connectionId=hub-omega-conn-0;namespaceId=ns-00000000000000000000000000000001;from=reconciling;to=live","update-sent|bytes,connectionId,namespaceId,sendQueueMs,sequence,side,type|side=hub;connectionId=hub-omega-conn-0;namespaceId=ns-00000000000000000000000000000001;sequence=7","update-acked|ackLatencyMs,bytes,connectionId,namespaceId,sequence,side,type|side=hub;connectionId=hub-omega-conn-0;namespaceId=ns-00000000000000000000000000000001;sequence=7","update-applied|applyLatencyMs,bytes,connectionId,namespaceId,sequence,side,type|side=hub;connectionId=hub-omega-conn-0;namespaceId=ns-00000000000000000000000000000001;sequence=8"]
+PRESPLIT-LIVE-END
+PRESPLIT-DENIED-BEGIN
+["connection-state-changed|connectionId,from,side,to,type|side=hub;connectionId=hub-omega-conn-0;from=handshaking;to=ready","namespace-error|code,connectionId,direction,namespaceId,side,type|side=hub;connectionId=hub-omega-conn-0;namespaceId=ns-00000000000000000000000000000001;code=NAMESPACE_UNAUTHORIZED;direction=sent","channel-state-changed|connectionId,from,namespaceId,side,to,type|side=hub;connectionId=hub-omega-conn-0;namespaceId=ns-00000000000000000000000000000001;from=opening;to=failed","namespace-failed|cause,connectionId,namespaceId,side,type|side=hub;connectionId=hub-omega-conn-0;namespaceId=ns-00000000000000000000000000000001;cause=open-failed"]
+PRESPLIT-DENIED-END
+Tests  2 passed (2)
+
+=== [S3] runner trigger evidence (root vitest include = packages/*/test/**/*.test.ts) ===
+Testing types with tsc and vue-tsc is an experimental feature.
+Breaking changes might not follow SemVer, please pin Vitest's version when using it.
+packages/ws-replication/test/ws-replication-issue423-observer-emission-split.test.ts > issue #423 EM-C1：发射侧归属 — edge 半边 > EM-C1a：HELLO → connection-state-changed 由 edge 发射（宿主 session 桩零事件参与）
+packages/ws-replication/test/ws-replication-issue423-observer-emission-split.test.ts > issue #423 EM-C1：发射侧归属 — edge 半边 > EM-C1b：未授权 OPEN → edge 复现拒绝路径（ns ERROR 帧 + 恰一 namespace-error + 恰一 namespace-failed）
+packages/ws-replication/test/ws-replication-issue423-observer-emission-split.test.ts > issue #423 EM-C1：发射侧归属 — edge 半边 > EM-C1c：无台账 ns 帧 → edge 合成 NAMESPACE_STATE_VIOLATION（R-none；session 桩零投递）
+packages/ws-replication/test/ws-replication-issue423-observer-emission-split.test.ts > issue #423 EM-C1：发射侧归属 — edge 半边 > EM-C1d（负控）：edge 半边零 namespace 域成功族越界发射（bootstrap/sync/applied 型零出现）
+packages/ws-replication/test/ws-replication-issue423-observer-emission-split.test.ts > issue #423 EM-C1：发射侧归属 — edge 半边 > EM-C1e（session 半边负控）：独立 session host 零连接域事件（连接域事实不在 session）
+packages/ws-replication/test/ws-replication-issue423-observer-emission-split.test.ts > issue #423 EM-C2：授权拒绝路径的字段正确性（connectionId 在场纪律） > EM-C2a：工厂形态拒绝路径两事件必须携 connectionId（= 句柄 connectionKey；握手后在场的纪律）
+packages/ws-replication/test/ws-replication-issue423-observer-emission-split.test.ts > issue #423 EM-C2：授权拒绝路径的字段正确性（connectionId 在场纪律） > EM-C2b：authorize throw 同族——键集 ⊆ §23 注册集、必填键在场、零异常原文
+packages/ws-replication/test/ws-replication-issue423-observer-emission-split.test.ts > issue #423 EM-C2：授权拒绝路径的字段正确性（connectionId 在场纪律） > EM-C2c（负控）：pre-connection `auth-upgrade-rejected` 无 connectionId（§23 既有形态；在场纪律非无条件加字段）
+packages/ws-replication/test/ws-replication-issue423-observer-emission-split.test.ts > issue #423 EM-C3：缺面 dormant — session 侧 shim 无 bufferedAmount/clock/ping-onPong > EM-C3a：shim 无 bufferedAmount → 发送失败事件该键**缺失**（非 0、非 undefined 值）
+packages/ws-replication/test/ws-replication-issue423-observer-emission-split.test.ts > issue #423 EM-C3：缺面 dormant — session 侧 shim 无 bufferedAmount/clock/ping-onPong > EM-C3b（正控）：bufferedAmount 可观测 → 该键在场且为真实读数（0 与 12 两取值）
+packages/ws-replication/test/ws-replication-issue423-observer-emission-split.test.ts > issue #423 EM-C3：缺面 dormant — session 侧 shim 无 bufferedAmount/clock/ping-onPong > EM-C3c：缺 clock → 出站 sequence 事件无 sendQueueMs（§23.4 整键缺席；正控 = EM-C4c clock 在场键在场）
+packages/ws-replication/test/ws-replication-issue423-observer-emission-split.test.ts > issue #423 EM-C3：缺面 dormant — session 侧 shim 无 bufferedAmount/clock/ping-onPong > EM-C3d：无 ping/onPong 面（session 侧无 liveness）→ 全生命周期零 event-loop-delay-sampled
+packages/ws-replication/test/ws-replication-issue423-observer-emission-split.test.ts > issue #423 EM-C4：出站 sequence 事件（update-sent）由 edge 盖章点发射 > EM-C4a：工厂形态 host 数据帧 → edge 恰一 update-sent（sequence = 盖章序、bytes = UPDATE 载荷长度）
+packages/ws-replication/test/ws-replication-issue423-observer-emission-split.test.ts > issue #423 EM-C4：出站 sequence 事件（update-sent）由 edge 盖章点发射 > EM-C4b：session 半边不再发射出站 sequence 事件（帧已出站，但 update-sent 不在 session 观测面）
+packages/ws-replication/test/ws-replication-issue423-observer-emission-split.test.ts > issue #423 EM-C4：出站 sequence 事件（update-sent）由 edge 盖章点发射 > EM-C4c：listen 组合形态恰一 update-sent（无重复）、sequence == wire [8..12]、字段集 ⊆ §23
+packages/ws-replication/test/ws-replication-issue423-observer-emission-split.test.ts > issue #423 EM-C5：observer throw 隔离（dispatchReplicationObserver 单点语义） > EM-C5a：edge 公共出面——全抛 observer 下 wire 逐帧等于健康 observer 运行、连接存活、零 unhandledRejection
+packages/ws-replication/test/ws-replication-issue423-observer-emission-split.test.ts > issue #423 EM-C5：observer throw 隔离（dispatchReplicationObserver 单点语义） > EM-C5b：单体进程内组合——全抛 observer 下业务收敛不变、零 unhandledRejection
+packages/ws-replication/test/ws-replication-issue423-observer-emission-split.test.ts > issue #423 EM-C6：listen 模式 maxConcurrentAssembliesPerConnection 计数口径不变 > EM-C6a：listen 缝 = per-connection 跨 namespace 共享槽位（limit=2；释放后可再纳）
+packages/ws-replication/test/ws-replication-issue423-observer-emission-split.test.ts > issue #423 EM-C6：listen 模式 maxConcurrentAssembliesPerConnection 计数口径不变 > EM-C6b（负控）：缺省 4 → 第 5 个 distinct ns 超额；槽位非 per-namespace 无限
+packages/ws-replication/test/ws-replication-issue423-observer-emission-split.test.ts > issue #423 EM-C7：单体进程内组合事件序列 == 拆分前金标（AC6） > EM-C7a：live 全序列逐字相等（handshake→open→bootstrap→reconcile→live→双向写）
+packages/ws-replication/test/ws-replication-issue423-observer-emission-split.test.ts > issue #423 EM-C7：单体进程内组合事件序列 == 拆分前金标（AC6） > EM-C7b：拒绝臂全序列逐字相等（连接域 + 拒绝路径四事件）
+--- counts ---
+63
+
+=== [S4] AC5 listen counting regression anchors (existing suites, unchanged & green) ===
+Test Files  2 passed (2)
+Tests  25 passed (25)
+
+=== [S5] full package gate (root vitest include + typecheck) ===
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 3 ⎯⎯⎯⎯⎯⎯⎯
+Test Files  1 failed | 84 passed (85)
+Tests  3 failed | 704 passed (707)
+Type Errors  no errors
+Duration  49.76s (transform 1.72s, setup 0ms, collect 15.30s, tests 22.13s, environment 12ms, prepare 3.92s, typecheck 2.62s)
+
+=== [S6] root typecheck gate: pnpm typecheck (all packages + apps) ===
+exit code = 0 (all tsc -p targets clean; no output)
+
+=== [S7] final state after report/contract finalization ===
+× issue #423 EM-C2：授权拒绝路径的字段正确性（connectionId 在场纪律） > EM-C2a：工厂形态拒绝路径两事件必须携 connectionId（= 句柄 connectionKey；握手后在场的纪律） 7ms
+× issue #423 EM-C4：出站 sequence 事件（update-sent）由 edge 盖章点发射 > EM-C4a：工厂形态 host 数据帧 → edge 恰一 update-sent（sequence = 盖章序、bytes = UPDATE 载荷长度） 3ms
+× issue #423 EM-C4：出站 sequence 事件（update-sent）由 edge 盖章点发射 > EM-C4b：session 半边不再发射出站 sequence 事件（帧已出站，但 update-sent 不在 session 观测面） 4ms
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 3 ⎯⎯⎯⎯⎯⎯⎯
+Test Files  1 failed (1)
+Tests  3 failed | 18 passed (21)
+Type Errors  no errors
