@@ -1,0 +1,7 @@
+ ✓ packages/ws-replication/test/ws-replication-ac3-bootstrap.test.ts (4 tests) 48ms
+
+ Test Files  7 passed (7)
+      Tests  52 passed (52)
+Type Errors  no errors
+   Start at  04:05:15
+   Duration  3.42s (transform 687ms, setup 0ms, collect 1.86s, tests 503ms, environment 1ms, prepare 334ms)

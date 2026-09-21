@@ -1,0 +1,11 @@
+Breaking changes might not follow SemVer, please pin Vitest's version when using it.
+
+ RUN  v3.2.7 /home/wangjian/nomicore-fix-issue-420
+
+ ✓ packages/ws-replication/test/ws-replication-issue420-session-host-round.test.ts (10 tests | 9 skipped) 28ms
+
+ Test Files  1 passed (1)
+      Tests  1 passed | 9 skipped (10)
+Type Errors  no errors
+   Start at  03:26:02
+   Duration  1.12s (transform 676ms, setup 0ms, collect 921ms, tests 28ms, environment 0ms, prepare 56ms)

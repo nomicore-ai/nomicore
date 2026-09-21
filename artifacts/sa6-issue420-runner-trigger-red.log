@@ -1,0 +1,95 @@
+Testing types with tsc and vue-tsc is an experimental feature.
+Breaking changes might not follow SemVer, please pin Vitest's version when using it.
+
+ RUN  v3.2.7 /home/wangjian/nomicore-fix-issue-420
+
+ ✓ packages/ws-replication/test/ws-replication-issue420-negative-control.test.ts (2 tests) 67ms
+ ❯ packages/ws-replication/test/ws-replication-issue420-session-host-round.test.ts (1 test | 1 failed) 9ms
+   × #420 AC1/AC2（临时红灯探针） > 公共入口导出 SessionHost 工厂（目标形态） 8ms
+     → expected 'undefined' to be 'function' // Object.is equality
+ ❯  TS  packages/ws-replication/test/ws-replication-issue420-session-host-api.test-d.ts (1 test)
+   ✓ #420 AC1 类型冻结（临时红灯探针） > 公共工厂签名
+
+⎯⎯⎯⎯⎯⎯ Failed Suites 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  packages/ws-replication/test/ws-replication-issue420-session-host-api.test-d.ts > #420 AC1 类型冻结（临时红灯探针）
+TypeCheckError: Module '"@nomicore/ws-replication"' has no exported member 'HubSessionHandle'.
+ ❯ packages/ws-replication/test/ws-replication-issue420-session-host-api.test-d.ts:4:15
+      2| import { describe, expectTypeOf, it } from 'vitest';
+      3| import { createHubSessionHost } from '@nomicore/ws-replication';
+      4| import type { HubSessionHandle, HubSessionHost, HubSessionHostConfig }…
+       |               ^
+      5|
+      6| describe('#420 AC1 类型冻结（临时红灯探针）', () => {
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/4]⎯
+
+ FAIL  packages/ws-replication/test/ws-replication-issue420-session-host-api.test-d.ts > #420 AC1 类型冻结（临时红灯探针）
+TypeCheckError: Module '"@nomicore/ws-replication"' has no exported member 'HubSessionHost'.
+ ❯ packages/ws-replication/test/ws-replication-issue420-session-host-api.test-d.ts:4:33
+      2| import { describe, expectTypeOf, it } from 'vitest';
+      3| import { createHubSessionHost } from '@nomicore/ws-replication';
+      4| import type { HubSessionHandle, HubSessionHost, HubSessionHostConfig }…
+       |                                 ^
+      5|
+      6| describe('#420 AC1 类型冻结（临时红灯探针）', () => {
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/4]⎯
+
+ FAIL  packages/ws-replication/test/ws-replication-issue420-session-host-api.test-d.ts > #420 AC1 类型冻结（临时红灯探针）
+TypeCheckError: Module '"@nomicore/ws-replication"' has no exported member 'HubSessionHostConfig'.
+ ❯ packages/ws-replication/test/ws-replication-issue420-session-host-api.test-d.ts:4:49
+      2| import { describe, expectTypeOf, it } from 'vitest';
+      3| import { createHubSessionHost } from '@nomicore/ws-replication';
+      4| import type { HubSessionHandle, HubSessionHost, HubSessionHostConfig }…
+       |                                                 ^
+      5|
+      6| describe('#420 AC1 类型冻结（临时红灯探针）', () => {
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[3/4]⎯
+
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  packages/ws-replication/test/ws-replication-issue420-session-host-round.test.ts > #420 AC1/AC2（临时红灯探针） > 公共入口导出 SessionHost 工厂（目标形态）
+AssertionError: expected 'undefined' to be 'function' // Object.is equality
+
+Expected: "function"
+Received: "undefined"
+
+ ❯ packages/ws-replication/test/ws-replication-issue420-session-host-round.test.ts:7:41
+      5| describe('#420 AC1/AC2（临时红灯探针）', () => {
+      6|   it('公共入口导出 SessionHost 工厂（目标形态）', () => {
+      7|     expect(typeof createHubSessionHost).toBe('function');
+       |                                         ^
+      8|   });
+      9| });
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[4/4]⎯
+
+⎯⎯⎯⎯⎯⎯ Unhandled Errors ⎯⎯⎯⎯⎯⎯
+
+Vitest caught 1 unhandled error during the test run.
+This might cause false positive tests. Resolve unhandled errors to make sure your tests are not affected.
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Module '"@nomicore/ws-replication"' has no exported member 'createHubSessionHost'.
+ ❯ packages/ws-replication/test/ws-replication-issue420-session-host-round.test.ts:3:10
+      1| // SA6 临时红灯探针（#420 契约路径的 runner 触发证据；运行后删除，不交付）
+      2| import { describe, expect, it } from 'vitest';
+      3| import { createHubSessionHost } from '@nomicore/ws-replication';
+       |          ^
+      4|
+      5| describe('#420 AC1/AC2（临时红灯探针）', () => {
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯
+
+
+ Test Files  2 failed | 1 passed (3)
+      Tests  1 failed | 3 passed (4)
+Type Errors  no errors
+     Errors  1 error
+   Start at  02:22:44
+   Duration  2.74s (transform 1.02s, setup 0ms, collect 1.68s, tests 76ms, environment 0ms, prepare 123ms, typecheck 2.69s)
+
+vitest exit=1

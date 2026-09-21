@@ -1,0 +1,11 @@
+ RUN  v3.2.7 /home/wangjian/nomicore-fix-issue-420
+
+ ✓ packages/ws-replication/test/ws-replication-issue420-shim-matrix.test.ts (53 tests) 456ms
+ ✓  TS  packages/ws-replication/test/ws-replication-issue420-session-host-api.test-d.ts (0 test)
+ ✓ packages/ws-replication/test/ws-replication-issue420-session-host-round.test.ts (10 tests) 106ms
+
+ Test Files  3 passed (3)
+      Tests  63 passed (63)
+Type Errors  no errors
+   Start at  04:05:11
+   Duration  2.97s (transform 1.20s, setup 0ms, collect 2.00s, tests 562ms, environment 0ms, prepare 113ms, typecheck 2.77s)

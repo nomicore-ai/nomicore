@@ -1,0 +1,59 @@
+     54| } from '../src/hub-session-host.js';
+     55| import { createHubSessionSink, type HubSessionSink } from '../src/hub-…
+       |                                     ^
+     56| import type { HubSessionEdgePort, OpenNamespaceInbound } from '../src/…
+     57| import { resolveLimits, resolveTimeouts } from '../src/defaults.js';
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Parameter 'frame' implicitly has an 'any' type.
+ ❯ packages/ws-replication/test/issue420-shim-hub.ts:337:25
+    335|         this.config.probes.sessionsOpened += 1;
+    336|         this.config.probes.handles.set(namespaceId, handle);
+    337|         handle.onFrame((frame, lane) => this.deliverOutbound(frame, la…
+       |                         ^
+    338|         handle.onSignal((signal) => {
+    339|           this.config.probes.signals.push(signal);
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Parameter 'lane' implicitly has an 'any' type.
+ ❯ packages/ws-replication/test/issue420-shim-hub.ts:337:32
+    335|         this.config.probes.sessionsOpened += 1;
+    336|         this.config.probes.handles.set(namespaceId, handle);
+    337|         handle.onFrame((frame, lane) => this.deliverOutbound(frame, la…
+       |                                ^
+    338|         handle.onSignal((signal) => {
+    339|           this.config.probes.signals.push(signal);
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Parameter 'signal' implicitly has an 'any' type.
+ ❯ packages/ws-replication/test/issue420-shim-hub.ts:338:26
+    336|         this.config.probes.handles.set(namespaceId, handle);
+    337|         handle.onFrame((frame, lane) => this.deliverOutbound(frame, la…
+    338|         handle.onSignal((signal) => {
+       |                          ^
+    339|           this.config.probes.signals.push(signal);
+    340|           if (signal.type === 'settled') this.port.onChannelSettled(si…
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Module '"@nomicore/ws-replication"' has no exported member 'createHubSessionHost'.
+ ❯ packages/ws-replication/test/ws-replication-issue420-session-host-round.test.ts:21:3
+     19| } from '@nomicore/replication-protocol';
+     20| import {
+     21|   createHubSessionHost,
+       |   ^
+     22|   type HubReplication,
+     23|   type HubReplicationOptions,
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯
+
+
+ Test Files  3 failed (3)
+      Tests  no tests
+Type Errors  no errors
+     Errors  7 errors
+   Start at  03:21:43
+   Duration  2.95s (transform 1.01s, setup 0ms, collect 0ms, tests 0ms, environment 0ms, prepare 110ms, typecheck 2.89s)

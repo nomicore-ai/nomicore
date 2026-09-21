@@ -1,0 +1,166 @@
+Testing types with tsc and vue-tsc is an experimental feature.
+Breaking changes might not follow SemVer, please pin Vitest's version when using it.
+
+ RUN  v3.2.7 /home/wangjian/nomicore-fix-issue-420
+
+ ❯ packages/ws-replication/test/ws-replication-issue420-session-host-round.test.ts (10 tests | 9 failed) 64ms
+   × @420 AC2：公共 SessionHost 工厂 + 内存管道完整协议回合 > A1–A3：能力门 + 缝纯度（纯 JSON/字节）+ 缝纪律（仅 namespace 域 kind） 25ms
+     → settleUntil 预算耗尽：namespace 状态 ∈ [live]，当前 opening
+   × @420 AC2：公共 SessionHost 工厂 + 内存管道完整协议回合 > A4–A8：OPEN 恰一 + authorize 恰一次（edge 侧）+ bootstrap/reconcile/live + wire 序与缝序纪律 7ms
+     → settleUntil 预算耗尽：namespace 状态 ∈ [live]，当前 opening
+   × @420 AC2：公共 SessionHost 工厂 + 内存管道完整协议回合 > A4-W2 负控：ok-投影 localOwner 与 entry owner 不符 → 无 OPEN_OK + NAMESPACE_NOT_FOUND + 零成功打开 5ms
+     → settleUntil 预算耗尽：namespace 状态 ∈ [failed]，当前 opening
+   × @420 AC2：公共 SessionHost 工厂 + 内存管道完整协议回合 > A9：CLOSE 回合——CLOSE_OK 回指入站 wire 序 + settled 信号恰一次 + 终态 4ms
+     → settleUntil 预算耗尽：namespace 状态 ∈ [live]，当前 opening
+   × @420 AC2：公共 SessionHost 工厂 + 内存管道完整协议回合 > A10–A11：terminateUnauthorized 收口（零 fatal）+ hub.close() drain 幂等 + 零 unhandled rejection 4ms
+     → settleUntil 预算耗尽：namespace 状态 ∈ [live]，当前 opening
+   × @420 AC2：公共 SessionHost 工厂 + 内存管道完整协议回合 > A12 红臂（变异正控）：宿主不回传被分配序 → bootstrap ACK 处响亮 ACK_STATE_VIOLATION 收口 5ms
+     → expected [] to include 'ACK_STATE_VIOLATION'
+   × @420 AC5：session 侧重检入站 sequence 的代码不存在 > C5b 负控：同一非法序在 edge → SEQUENCE_VIOLATION + close(1002) + 零缝投递 4ms
+     → settleUntil 预算耗尽：namespace 状态 ∈ [live]，当前 opening
+   × @420 AC5：session 侧重检入站 sequence 的代码不存在 > C5a 正锚：回退/重复序经公共 handleFrame 仍被消费并回显该序（零 fatal）+ C5c 结构门 3ms
+     → settleUntil 预算耗尽：namespace 状态 ∈ [live]，当前 opening
+   ✓ @420 AC4：缝两侧只过 Uint8Array 与纯 JSON；包内零跨线程面依赖/类型 > C4a：src/** 与 package.json 对跨线程面 API 命中的结构门为 0（实现后须保持） 4ms
+   × @420 AC4：缝两侧只过 Uint8Array 与纯 JSON；包内零跨线程面依赖/类型 > C4b–C4d：描述子纯 JSON + 帧即字节 + 无 live 对象过缝（负控敏感性） 4ms
+     → settleUntil 预算耗尽：namespace 状态 ∈ [live]，当前 opening
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 9 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  packages/ws-replication/test/ws-replication-issue420-session-host-round.test.ts > @420 AC2：公共 SessionHost 工厂 + 内存管道完整协议回合 > A1–A3：能力门 + 缝纯度（纯 JSON/字节）+ 缝纪律（仅 namespace 域 kind）
+Error: settleUntil 预算耗尽：namespace 状态 ∈ [live]，当前 opening
+ ❯ settleUntil packages/ws-replication/test/harness.ts:267:9
+    265|     await Promise.resolve();
+    266|   }
+    267|   throw new Error(`settleUntil 预算耗尽：${what}`);
+       |         ^
+    268| }
+    269|
+ ❯ Run.waitNamespace packages/ws-replication/test/driver.ts:327:5
+ ❯ boot packages/ws-replication/test/driver.ts:605:27
+ ❯ packages/ws-replication/test/ws-replication-issue420-session-host-round.test.ts:122:17
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/9]⎯
+
+ FAIL  packages/ws-replication/test/ws-replication-issue420-session-host-round.test.ts > @420 AC2：公共 SessionHost 工厂 + 内存管道完整协议回合 > A4–A8：OPEN 恰一 + authorize 恰一次（edge 侧）+ bootstrap/reconcile/live + wire 序与缝序纪律
+Error: settleUntil 预算耗尽：namespace 状态 ∈ [live]，当前 opening
+ ❯ settleUntil packages/ws-replication/test/harness.ts:267:9
+    265|     await Promise.resolve();
+    266|   }
+    267|   throw new Error(`settleUntil 预算耗尽：${what}`);
+       |         ^
+    268| }
+    269|
+ ❯ Run.waitNamespace packages/ws-replication/test/driver.ts:327:5
+ ❯ boot packages/ws-replication/test/driver.ts:605:27
+ ❯ packages/ws-replication/test/ws-replication-issue420-session-host-round.test.ts:167:17
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/9]⎯
+
+ FAIL  packages/ws-replication/test/ws-replication-issue420-session-host-round.test.ts > @420 AC2：公共 SessionHost 工厂 + 内存管道完整协议回合 > A4-W2 负控：ok-投影 localOwner 与 entry owner 不符 → 无 OPEN_OK + NAMESPACE_NOT_FOUND + 零成功打开
+Error: settleUntil 预算耗尽：namespace 状态 ∈ [failed]，当前 opening
+ ❯ settleUntil packages/ws-replication/test/harness.ts:267:9
+    265|     await Promise.resolve();
+    266|   }
+    267|   throw new Error(`settleUntil 预算耗尽：${what}`);
+       |         ^
+    268| }
+    269|
+ ❯ Run.waitNamespace packages/ws-replication/test/driver.ts:327:5
+ ❯ boot packages/ws-replication/test/driver.ts:605:27
+ ❯ packages/ws-replication/test/ws-replication-issue420-session-host-round.test.ts:258:17
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[3/9]⎯
+
+ FAIL  packages/ws-replication/test/ws-replication-issue420-session-host-round.test.ts > @420 AC2：公共 SessionHost 工厂 + 内存管道完整协议回合 > A9：CLOSE 回合——CLOSE_OK 回指入站 wire 序 + settled 信号恰一次 + 终态
+Error: settleUntil 预算耗尽：namespace 状态 ∈ [live]，当前 opening
+ ❯ settleUntil packages/ws-replication/test/harness.ts:267:9
+    265|     await Promise.resolve();
+    266|   }
+    267|   throw new Error(`settleUntil 预算耗尽：${what}`);
+       |         ^
+    268| }
+    269|
+ ❯ Run.waitNamespace packages/ws-replication/test/driver.ts:327:5
+ ❯ boot packages/ws-replication/test/driver.ts:605:27
+ ❯ packages/ws-replication/test/ws-replication-issue420-session-host-round.test.ts:301:17
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[4/9]⎯
+
+ FAIL  packages/ws-replication/test/ws-replication-issue420-session-host-round.test.ts > @420 AC2：公共 SessionHost 工厂 + 内存管道完整协议回合 > A10–A11：terminateUnauthorized 收口（零 fatal）+ hub.close() drain 幂等 + 零 unhandled rejection
+Error: settleUntil 预算耗尽：namespace 状态 ∈ [live]，当前 opening
+ ❯ settleUntil packages/ws-replication/test/harness.ts:267:9
+    265|     await Promise.resolve();
+    266|   }
+    267|   throw new Error(`settleUntil 预算耗尽：${what}`);
+       |         ^
+    268| }
+    269|
+ ❯ Run.waitNamespace packages/ws-replication/test/driver.ts:327:5
+ ❯ boot packages/ws-replication/test/driver.ts:605:27
+ ❯ packages/ws-replication/test/ws-replication-issue420-session-host-round.test.ts:328:17
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[5/9]⎯
+
+ FAIL  packages/ws-replication/test/ws-replication-issue420-session-host-round.test.ts > @420 AC2：公共 SessionHost 工厂 + 内存管道完整协议回合 > A12 红臂（变异正控）：宿主不回传被分配序 → bootstrap ACK 处响亮 ACK_STATE_VIOLATION 收口
+AssertionError: expected [] to include 'ACK_STATE_VIOLATION'
+ ❯ packages/ws-replication/test/ws-replication-issue420-session-host-round.test.ts:374:48
+    372|     expect(run.namespaceState()).not.toBe('live');
+    373|     // 断言（绿）= 观察到 bootstrap ACK 违约的连接级收口。
+    374|     expect(errorCodes(run.hubFrames('ERROR'))).toContain('ACK_STATE_VI…
+       |                                                ^
+    375|     expect(probes.signals).toContainEqual({
+    376|       type: 'connection-fatal',
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[6/9]⎯
+
+ FAIL  packages/ws-replication/test/ws-replication-issue420-session-host-round.test.ts > @420 AC5：session 侧重检入站 sequence 的代码不存在 > C5b 负控：同一非法序在 edge → SEQUENCE_VIOLATION + close(1002) + 零缝投递
+Error: settleUntil 预算耗尽：namespace 状态 ∈ [live]，当前 opening
+ ❯ settleUntil packages/ws-replication/test/harness.ts:267:9
+    265|     await Promise.resolve();
+    266|   }
+    267|   throw new Error(`settleUntil 预算耗尽：${what}`);
+       |         ^
+    268| }
+    269|
+ ❯ Run.waitNamespace packages/ws-replication/test/driver.ts:327:5
+ ❯ boot packages/ws-replication/test/driver.ts:605:27
+ ❯ packages/ws-replication/test/ws-replication-issue420-session-host-round.test.ts:389:17
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[7/9]⎯
+
+ FAIL  packages/ws-replication/test/ws-replication-issue420-session-host-round.test.ts > @420 AC5：session 侧重检入站 sequence 的代码不存在 > C5a 正锚：回退/重复序经公共 handleFrame 仍被消费并回显该序（零 fatal）+ C5c 结构门
+Error: settleUntil 预算耗尽：namespace 状态 ∈ [live]，当前 opening
+ ❯ settleUntil packages/ws-replication/test/harness.ts:267:9
+    265|     await Promise.resolve();
+    266|   }
+    267|   throw new Error(`settleUntil 预算耗尽：${what}`);
+       |         ^
+    268| }
+    269|
+ ❯ Run.waitNamespace packages/ws-replication/test/driver.ts:327:5
+ ❯ boot packages/ws-replication/test/driver.ts:605:27
+ ❯ packages/ws-replication/test/ws-replication-issue420-session-host-round.test.ts:406:17
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[8/9]⎯
+
+ FAIL  packages/ws-replication/test/ws-replication-issue420-session-host-round.test.ts > @420 AC4：缝两侧只过 Uint8Array 与纯 JSON；包内零跨线程面依赖/类型 > C4b–C4d：描述子纯 JSON + 帧即字节 + 无 live 对象过缝（负控敏感性）
+Error: settleUntil 预算耗尽：namespace 状态 ∈ [live]，当前 opening
+ ❯ settleUntil packages/ws-replication/test/harness.ts:267:9
+    265|     await Promise.resolve();
+    266|   }
+    267|   throw new Error(`settleUntil 预算耗尽：${what}`);
+       |         ^
+    268| }
+    269|
+ ❯ Run.waitNamespace packages/ws-replication/test/driver.ts:327:5
+ ❯ boot packages/ws-replication/test/driver.ts:605:27
+ ❯ packages/ws-replication/test/ws-replication-issue420-session-host-round.test.ts:461:17
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[9/9]⎯
+
+
+ Test Files  1 failed (1)
+      Tests  9 failed | 1 passed (10)
+Type Errors  no errors
+   Start at  03:26:12
+   Duration  1.16s (transform 687ms, setup 0ms, collect 931ms, tests 64ms, environment 0ms, prepare 49ms)
