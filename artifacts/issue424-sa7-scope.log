@@ -1,0 +1,6 @@
+== GATE-C3 seg1: git diff --stat (src faces) ==
+rc=0 (empty=clean)
+== seg2: git status --short (full DENY surface) ==
+rc=0 (empty=clean)
+== seg3: tracked-file modifications repo-wide ==
+rc=0 (empty=clean)

@@ -1,0 +1,34 @@
+# SA6 issue #424 红臂变异敏感性（探针侧宿主桥单点变异；每臂期望特定 ORACLE 失败）
+# 命令：NODE_OPTIONS=--conditions=nomicore-source SA6_PROBE_MUTATION=<id> pnpm exec tsx wiki/raw/task_issue-424_sa6_capability_probe.mts
+===== MUTATION=none =====
+SA6_PROBE_RESULT gaps=4/4 oracles=14/14
+SA6_PROBE_VERDICT=CONFIRMED (能力缺口成立；目标行为 oracle 全绿)
+PIPE_EXIT=0
+===== MUTATION=no-sequence-return =====
+ORACLE O8 FAIL settleUntil 预算耗尽：namespace 状态 ∈ [live]，当前 opening
+SA6_PROBE_RESULT gaps=4/4 oracles=13/14
+SA6_PROBE_VERDICT=ORACLE_RED (O8)
+PIPE_EXIT=2
+===== MUTATION=route-all-to-first-worker =====
+ORACLE O3 FAIL worker0 描述子数 ≠ 1
+SA6_PROBE_RESULT gaps=4/4 oracles=13/14
+SA6_PROBE_VERDICT=ORACLE_RED (O3)
+PIPE_EXIT=2
+===== MUTATION=no-close-on-close =====
+ORACLE O4 FAIL closeCalls=[0,0]
+ORACLE O8 FAIL closeCalls=[0]
+SA6_PROBE_RESULT gaps=4/4 oracles=12/14
+SA6_PROBE_VERDICT=ORACLE_RED (O4,O8)
+PIPE_EXIT=2
+===== MUTATION=no-settled-forward =====
+ORACLE O9 FAIL drain 提前完成未收口（hubClose=undefined）
+SA6_PROBE_RESULT gaps=4/4 oracles=13/14
+SA6_PROBE_VERDICT=ORACLE_RED (O9)
+PIPE_EXIT=2
+===== MUTATION=reopen-not-forwarded =====
+ORACLE O1-O2-four-forms FAIL form=pass parity 失败：控制帧逐字节=不等(帧数不同 left=3 right=2)；骨架=不等(mono=HELLO_ACK#1 OPEN_OK#2 BOOTSTRAP_SNAPSHOT#3 OPEN_OK#4 | shard=HELLO_ACK#1 OPEN_OK#2 BOOTSTRAP_SNAPSHOT#3)；数据帧文档语义=等；控制帧=2 数据帧=1
+ORACLE NC2 FAIL parity 失败：控制帧逐字节=不等(帧数不同 left=3 right=2)；骨架=不等(mono=HELLO_ACK#1 OPEN_OK#2 BOOTSTRAP_SNAPSHOT#3 OPEN_OK#4 | shard=HELLO_ACK#1 OPEN_OK#2 BOOTSTRAP_SNAPSHOT#3)；数据帧文档语义=等；控制帧=2 数据帧=1
+ORACLE O5 FAIL revoke 末帧不同：第 0 帧不同
+SA6_PROBE_RESULT gaps=4/4 oracles=11/14
+SA6_PROBE_VERDICT=ORACLE_RED (O1-O2-four-forms,NC2,O5)
+PIPE_EXIT=2

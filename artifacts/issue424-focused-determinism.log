@@ -1,0 +1,38 @@
+# issue #424 聚焦验收套件确定性证据（3 轮重复；设计 §7.7/§9 纪律）
+# 时间：2026-09-22T02:09:46Z  HEAD：cab3e8c245ef189da1d823719370a68459939316
+
+===== 第 1 轮 =====
+ ✓ packages/ws-replication/test/ws-replication-issue424-auth-parity.test.ts (7 tests) 83ms
+ ✓ packages/ws-replication/test/ws-replication-issue424-cross-seam-round.test.ts (5 tests) 72ms
+ ✓ packages/ws-replication/test/ws-replication-issue424-lifecycle.test.ts (9 tests) 59ms
+ ✓ packages/ws-replication/test/ws-replication-issue424-multi-worker.test.ts (4 tests) 52ms
+ Test Files  4 passed (4)
+      Tests  25 passed (25)
+Type Errors  no errors
+   Duration  2.34s (transform 716ms, setup 0ms, collect 1.46s, tests 266ms, environment 1ms, prepare 196ms)
+exit=0
+
+===== 第 2 轮 =====
+ ✓ packages/ws-replication/test/ws-replication-issue424-auth-parity.test.ts (7 tests) 81ms
+ ✓ packages/ws-replication/test/ws-replication-issue424-cross-seam-round.test.ts (5 tests) 77ms
+ ✓ packages/ws-replication/test/ws-replication-issue424-lifecycle.test.ts (9 tests) 60ms
+ ✓ packages/ws-replication/test/ws-replication-issue424-multi-worker.test.ts (4 tests) 55ms
+ Test Files  4 passed (4)
+      Tests  25 passed (25)
+Type Errors  no errors
+   Duration  2.32s (transform 706ms, setup 0ms, collect 1.45s, tests 273ms, environment 1ms, prepare 175ms)
+exit=0
+
+===== 第 3 轮 =====
+ ✓ packages/ws-replication/test/ws-replication-issue424-auth-parity.test.ts (7 tests) 85ms
+ ✓ packages/ws-replication/test/ws-replication-issue424-cross-seam-round.test.ts (5 tests) 73ms
+ ✓ packages/ws-replication/test/ws-replication-issue424-lifecycle.test.ts (9 tests) 69ms
+ ✓ packages/ws-replication/test/ws-replication-issue424-multi-worker.test.ts (4 tests) 53ms
+ Test Files  4 passed (4)
+      Tests  25 passed (25)
+Type Errors  no errors
+   Duration  2.39s (transform 746ms, setup 0ms, collect 1.49s, tests 280ms, environment 1ms, prepare 192ms)
+exit=0
+
+===== 包类型检查（final）=====
+tsc exit=0

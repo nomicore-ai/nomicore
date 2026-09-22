@@ -1,0 +1,74 @@
+# SA6 issue #424 探针绿臂（正常臂 ×3；期望 gaps=4/4 oracles=14/14 exit=0）
+# 命令：NODE_OPTIONS=--conditions=nomicore-source pnpm exec tsx wiki/raw/task_issue-424_sa6_capability_probe.mts
+===== RUN 1 =====
+=== §G 能力缺口（issue #424 验收交付面） ===
+GAP G1 CONFIRMED 验收文件发现数=0（ws-replication/test 下 *424* 命中 0；wiki/raw 的 issue-424 产物 3 件 = 契约/探针，非验收套件）
+GAP G2 CONFIRMED 现有夹具单 registry 装配：foreign-worker ns=ns-b9b4e0da3fc41bee73acc8bb57322cd6 无法路由到其 home worker（wire=HELLO_ACK#1 ERROR(NAMESPACE_NOT_FOUND)#2；零跨 worker 装配面）
+GAP G3 CONFIRMED 公共工厂既有覆盖文件 16 件：issue421/* 的宿主 sink 全为 stub（无真 Registry/Runtime）；issue420/* 回合走内部 edge 模块 + 单例 host（单 registry）。「公共 edge 工厂 + 多公共 SessionHost」的真 Registry 组合零覆盖
+GAP G4 CONFIRMED 四态授权 parity / 多 worker demux-mux 序列 / 终结传播 / revoke 路由的分片形态断言零落点（见 §O 实测：行为可达、无断言）
+=== §O 运行时 oracle（今日真实行为） ===
+ORACLE O1-O2-four-forms PASS [pass] 控制帧逐字节=等；骨架=等；数据帧文档语义=等；控制帧=3 数据帧=1；期望码=OPEN_OK×2；shard=HELLO_ACK#1 OPEN_OK#2 BOOTSTRAP_SNAPSHOT#3 OPEN_OK#4 || [deny] 控制帧逐字节=等；骨架=等；数据帧文档语义=等；控制帧=3 数据帧=0；期望码=ERROR(NAMESPACE_UNAUTHORIZED)+ERROR(NAMESPACE_REOPEN_REQUIRES_RECONNECT)；shard=HELLO_ACK#1 ERROR(NAMESPACE_UNAUTHORIZED)#2 ERROR(NAMESPACE_REOPEN_REQUIRES_RECONNECT)#3 || [throw] 控制帧逐字节=等；骨架=等；数据帧文档语义=等；控制帧=3 数据帧=0；期望码=ERROR(INTERNAL_ERROR)+ERROR(NAMESPACE_REOPEN_REQUIRES_RECONNECT)；shard=HELLO_ACK#1 ERROR(INTERNAL_ERROR)#2 ERROR(NAMESPACE_REOPEN_REQUIRES_RECONNECT)#3
+ORACLE O2-latch PASS [deny] 闩锁拒答=1；控制帧逐字节=等；骨架=等；数据帧文档语义=等；控制帧=3 数据帧=0 || [throw] 闩锁拒答=1；控制帧逐字节=等；骨架=等；数据帧文档语义=等；控制帧=3 数据帧=0
+ORACLE NC2 PASS 通过形态重 OPEN=OPEN_OK×2（≠ 闩锁拒答）；控制帧逐字节=等；骨架=等；数据帧文档语义=等；控制帧=3 数据帧=1
+ORACLE NC3 PASS deny 形态零会话（未授权 OPEN 不过缝）；pass 形态恰一会话；重 OPEN 经已建句柄转发
+ORACLE O3 PASS demux/mux：w0(opens=1)/w1(opens=1)；出站序=[1,2,3,4,5] 严格递增；帧=HELLO_ACK#1 OPEN_OK#2 BOOTSTRAP_SNAPSHOT#3 OPEN_OK#4 BOOTSTRAP_SNAPSHOT#5
+ORACLE O6 PASS 第二连接首帧序=[1]
+ORACLE O4 PASS state=closed；session closeCalls=[1,1]；帧数=5；零新出站
+ORACLE O5 PASS 末帧逐字节相等；shard=HELLO_ACK#1 OPEN_OK#2 BOOTSTRAP_SNAPSHOT#3 OPEN_OK#4 ERROR(NAMESPACE_UNAUTHORIZED)#5；跨 worker 零外溢（A ERROR=0）
+ORACLE O7 PASS 单体 vs 单体（独立建文档）：控制帧逐字节等；全轨迹不等（第 2 帧不同）；文档语义等 → 数据帧差异 = Yjs clientID 随机性，非拓扑归因
+ORACLE O8 PASS 回合帧：OPEN_OK×1 BOOTSTRAP×1 SYNC_STEP1/2/APPLIED 齐备 live；live UPDATE 达 hub(ROOT.n=7)；CLOSE_OK 回指序=9；settled×1；close 幂等；session closeCalls=[1]；timer 无泄漏；零新出站；零 unhandled
+ORACLE O9 PASS GOAWAY×1 → CLOSE_NAMESPACE → settled×1 → drain 提前完成 close(1001)={"code":1001,"reason":"hub-reauth"}（未 fire deadline timer）
+ORACLE O10 PASS 登记缺失 → 连接级 ERROR(INTERNAL_ERROR)#2 + close({"code":1011,"reason":"protocol-error"})，零会话（响亮收口，无静默 fallback）
+ORACLE NC1 PASS 合成违例逐字节相等（state=ready；HELLO_ACK#1 ERROR(NAMESPACE_STATE_VIOLATION)#2）
+ORACLE NC4 PASS 协商形态 parity 成立；描述符 selectedCapabilities=1；控制帧逐字节=等；骨架=等；数据帧文档语义=等；控制帧=2 数据帧=1
+SA6_PROBE_RESULT gaps=4/4 oracles=14/14
+SA6_PROBE_VERDICT=CONFIRMED (能力缺口成立；目标行为 oracle 全绿)
+EXIT=0
+===== RUN 2 =====
+=== §G 能力缺口（issue #424 验收交付面） ===
+GAP G1 CONFIRMED 验收文件发现数=0（ws-replication/test 下 *424* 命中 0；wiki/raw 的 issue-424 产物 3 件 = 契约/探针，非验收套件）
+GAP G2 CONFIRMED 现有夹具单 registry 装配：foreign-worker ns=ns-b9b4e0da3fc41bee73acc8bb57322cd6 无法路由到其 home worker（wire=HELLO_ACK#1 ERROR(NAMESPACE_NOT_FOUND)#2；零跨 worker 装配面）
+GAP G3 CONFIRMED 公共工厂既有覆盖文件 16 件：issue421/* 的宿主 sink 全为 stub（无真 Registry/Runtime）；issue420/* 回合走内部 edge 模块 + 单例 host（单 registry）。「公共 edge 工厂 + 多公共 SessionHost」的真 Registry 组合零覆盖
+GAP G4 CONFIRMED 四态授权 parity / 多 worker demux-mux 序列 / 终结传播 / revoke 路由的分片形态断言零落点（见 §O 实测：行为可达、无断言）
+=== §O 运行时 oracle（今日真实行为） ===
+ORACLE O1-O2-four-forms PASS [pass] 控制帧逐字节=等；骨架=等；数据帧文档语义=等；控制帧=3 数据帧=1；期望码=OPEN_OK×2；shard=HELLO_ACK#1 OPEN_OK#2 BOOTSTRAP_SNAPSHOT#3 OPEN_OK#4 || [deny] 控制帧逐字节=等；骨架=等；数据帧文档语义=等；控制帧=3 数据帧=0；期望码=ERROR(NAMESPACE_UNAUTHORIZED)+ERROR(NAMESPACE_REOPEN_REQUIRES_RECONNECT)；shard=HELLO_ACK#1 ERROR(NAMESPACE_UNAUTHORIZED)#2 ERROR(NAMESPACE_REOPEN_REQUIRES_RECONNECT)#3 || [throw] 控制帧逐字节=等；骨架=等；数据帧文档语义=等；控制帧=3 数据帧=0；期望码=ERROR(INTERNAL_ERROR)+ERROR(NAMESPACE_REOPEN_REQUIRES_RECONNECT)；shard=HELLO_ACK#1 ERROR(INTERNAL_ERROR)#2 ERROR(NAMESPACE_REOPEN_REQUIRES_RECONNECT)#3
+ORACLE O2-latch PASS [deny] 闩锁拒答=1；控制帧逐字节=等；骨架=等；数据帧文档语义=等；控制帧=3 数据帧=0 || [throw] 闩锁拒答=1；控制帧逐字节=等；骨架=等；数据帧文档语义=等；控制帧=3 数据帧=0
+ORACLE NC2 PASS 通过形态重 OPEN=OPEN_OK×2（≠ 闩锁拒答）；控制帧逐字节=等；骨架=等；数据帧文档语义=等；控制帧=3 数据帧=1
+ORACLE NC3 PASS deny 形态零会话（未授权 OPEN 不过缝）；pass 形态恰一会话；重 OPEN 经已建句柄转发
+ORACLE O3 PASS demux/mux：w0(opens=1)/w1(opens=1)；出站序=[1,2,3,4,5] 严格递增；帧=HELLO_ACK#1 OPEN_OK#2 BOOTSTRAP_SNAPSHOT#3 OPEN_OK#4 BOOTSTRAP_SNAPSHOT#5
+ORACLE O6 PASS 第二连接首帧序=[1]
+ORACLE O4 PASS state=closed；session closeCalls=[1,1]；帧数=5；零新出站
+ORACLE O5 PASS 末帧逐字节相等；shard=HELLO_ACK#1 OPEN_OK#2 BOOTSTRAP_SNAPSHOT#3 OPEN_OK#4 ERROR(NAMESPACE_UNAUTHORIZED)#5；跨 worker 零外溢（A ERROR=0）
+ORACLE O7 PASS 单体 vs 单体（独立建文档）：控制帧逐字节等；全轨迹不等（第 2 帧不同）；文档语义等 → 数据帧差异 = Yjs clientID 随机性，非拓扑归因
+ORACLE O8 PASS 回合帧：OPEN_OK×1 BOOTSTRAP×1 SYNC_STEP1/2/APPLIED 齐备 live；live UPDATE 达 hub(ROOT.n=7)；CLOSE_OK 回指序=9；settled×1；close 幂等；session closeCalls=[1]；timer 无泄漏；零新出站；零 unhandled
+ORACLE O9 PASS GOAWAY×1 → CLOSE_NAMESPACE → settled×1 → drain 提前完成 close(1001)={"code":1001,"reason":"hub-reauth"}（未 fire deadline timer）
+ORACLE O10 PASS 登记缺失 → 连接级 ERROR(INTERNAL_ERROR)#2 + close({"code":1011,"reason":"protocol-error"})，零会话（响亮收口，无静默 fallback）
+ORACLE NC1 PASS 合成违例逐字节相等（state=ready；HELLO_ACK#1 ERROR(NAMESPACE_STATE_VIOLATION)#2）
+ORACLE NC4 PASS 协商形态 parity 成立；描述符 selectedCapabilities=1；控制帧逐字节=等；骨架=等；数据帧文档语义=等；控制帧=2 数据帧=1
+SA6_PROBE_RESULT gaps=4/4 oracles=14/14
+SA6_PROBE_VERDICT=CONFIRMED (能力缺口成立；目标行为 oracle 全绿)
+EXIT=0
+===== RUN 3 =====
+=== §G 能力缺口（issue #424 验收交付面） ===
+GAP G1 CONFIRMED 验收文件发现数=0（ws-replication/test 下 *424* 命中 0；wiki/raw 的 issue-424 产物 3 件 = 契约/探针，非验收套件）
+GAP G2 CONFIRMED 现有夹具单 registry 装配：foreign-worker ns=ns-b9b4e0da3fc41bee73acc8bb57322cd6 无法路由到其 home worker（wire=HELLO_ACK#1 ERROR(NAMESPACE_NOT_FOUND)#2；零跨 worker 装配面）
+GAP G3 CONFIRMED 公共工厂既有覆盖文件 16 件：issue421/* 的宿主 sink 全为 stub（无真 Registry/Runtime）；issue420/* 回合走内部 edge 模块 + 单例 host（单 registry）。「公共 edge 工厂 + 多公共 SessionHost」的真 Registry 组合零覆盖
+GAP G4 CONFIRMED 四态授权 parity / 多 worker demux-mux 序列 / 终结传播 / revoke 路由的分片形态断言零落点（见 §O 实测：行为可达、无断言）
+=== §O 运行时 oracle（今日真实行为） ===
+ORACLE O1-O2-four-forms PASS [pass] 控制帧逐字节=等；骨架=等；数据帧文档语义=等；控制帧=3 数据帧=1；期望码=OPEN_OK×2；shard=HELLO_ACK#1 OPEN_OK#2 BOOTSTRAP_SNAPSHOT#3 OPEN_OK#4 || [deny] 控制帧逐字节=等；骨架=等；数据帧文档语义=等；控制帧=3 数据帧=0；期望码=ERROR(NAMESPACE_UNAUTHORIZED)+ERROR(NAMESPACE_REOPEN_REQUIRES_RECONNECT)；shard=HELLO_ACK#1 ERROR(NAMESPACE_UNAUTHORIZED)#2 ERROR(NAMESPACE_REOPEN_REQUIRES_RECONNECT)#3 || [throw] 控制帧逐字节=等；骨架=等；数据帧文档语义=等；控制帧=3 数据帧=0；期望码=ERROR(INTERNAL_ERROR)+ERROR(NAMESPACE_REOPEN_REQUIRES_RECONNECT)；shard=HELLO_ACK#1 ERROR(INTERNAL_ERROR)#2 ERROR(NAMESPACE_REOPEN_REQUIRES_RECONNECT)#3
+ORACLE O2-latch PASS [deny] 闩锁拒答=1；控制帧逐字节=等；骨架=等；数据帧文档语义=等；控制帧=3 数据帧=0 || [throw] 闩锁拒答=1；控制帧逐字节=等；骨架=等；数据帧文档语义=等；控制帧=3 数据帧=0
+ORACLE NC2 PASS 通过形态重 OPEN=OPEN_OK×2（≠ 闩锁拒答）；控制帧逐字节=等；骨架=等；数据帧文档语义=等；控制帧=3 数据帧=1
+ORACLE NC3 PASS deny 形态零会话（未授权 OPEN 不过缝）；pass 形态恰一会话；重 OPEN 经已建句柄转发
+ORACLE O3 PASS demux/mux：w0(opens=1)/w1(opens=1)；出站序=[1,2,3,4,5] 严格递增；帧=HELLO_ACK#1 OPEN_OK#2 BOOTSTRAP_SNAPSHOT#3 OPEN_OK#4 BOOTSTRAP_SNAPSHOT#5
+ORACLE O6 PASS 第二连接首帧序=[1]
+ORACLE O4 PASS state=closed；session closeCalls=[1,1]；帧数=5；零新出站
+ORACLE O5 PASS 末帧逐字节相等；shard=HELLO_ACK#1 OPEN_OK#2 BOOTSTRAP_SNAPSHOT#3 OPEN_OK#4 ERROR(NAMESPACE_UNAUTHORIZED)#5；跨 worker 零外溢（A ERROR=0）
+ORACLE O7 PASS 单体 vs 单体（独立建文档）：控制帧逐字节等；全轨迹不等（第 2 帧不同）；文档语义等 → 数据帧差异 = Yjs clientID 随机性，非拓扑归因
+ORACLE O8 PASS 回合帧：OPEN_OK×1 BOOTSTRAP×1 SYNC_STEP1/2/APPLIED 齐备 live；live UPDATE 达 hub(ROOT.n=7)；CLOSE_OK 回指序=9；settled×1；close 幂等；session closeCalls=[1]；timer 无泄漏；零新出站；零 unhandled
+ORACLE O9 PASS GOAWAY×1 → CLOSE_NAMESPACE → settled×1 → drain 提前完成 close(1001)={"code":1001,"reason":"hub-reauth"}（未 fire deadline timer）
+ORACLE O10 PASS 登记缺失 → 连接级 ERROR(INTERNAL_ERROR)#2 + close({"code":1011,"reason":"protocol-error"})，零会话（响亮收口，无静默 fallback）
+ORACLE NC1 PASS 合成违例逐字节相等（state=ready；HELLO_ACK#1 ERROR(NAMESPACE_STATE_VIOLATION)#2）
+ORACLE NC4 PASS 协商形态 parity 成立；描述符 selectedCapabilities=1；控制帧逐字节=等；骨架=等；数据帧文档语义=等；控制帧=2 数据帧=1
+SA6_PROBE_RESULT gaps=4/4 oracles=14/14
+SA6_PROBE_VERDICT=CONFIRMED (能力缺口成立；目标行为 oracle 全绿)
+EXIT=0
