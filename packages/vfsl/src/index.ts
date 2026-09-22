@@ -129,6 +129,11 @@ export function matchPattern(compiled: CompiledPattern, input: string): boolean 
 // （applyElementwiseArrayMutation + ArrayCarrierFacts + ElementwiseArrayMutationPayload）
 // ——fast path 在「element 子 schema + 载体长度 O(1) 事实 + 新值/区间」上结算
 // array-insert/array-delete，不消费整数组提取值；union 数组目标永久走 legacy 轨。
+// issue #440 / ADR 0034 决策 1/2/4：Record 与封闭对象 delete 的逐 entry 校验接缝
+// （applyElementwiseEntryMutation + EntryCarrierFacts + ElementwiseEntryMutationPayload）
+// ——fast path 在「schema 静态事实 + 目标键位在场性 O(1) 事实 + 新值」上结算非 union
+// Record 位 set/delete 与封闭对象字段 delete，不消费整 map / 父对象提取值；union map 位
+// 永久走 legacy 轨。
 export {
   validatePatch,
   validateAppendToArray,
@@ -137,6 +142,7 @@ export {
   planMutationBoundary,
   applyMutationAtBoundary,
   applyElementwiseArrayMutation,
+  applyElementwiseEntryMutation,
 } from './validate-patch.js';
 export type {
   MutationBoundaryOp,
@@ -144,6 +150,8 @@ export type {
   BoundaryMutationPayload,
   ArrayCarrierFacts,
   ElementwiseArrayMutationPayload,
+  EntryCarrierFacts,
+  ElementwiseEntryMutationPayload,
 } from './validate-patch.js';
 
 // Issue #272 / ADR-0016：读路径语义 schema 投影解析（公开同步纯函数；namespace-runtime
