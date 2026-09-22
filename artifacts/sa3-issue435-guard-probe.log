@@ -1,0 +1,23 @@
+  [PASS] G-A fail closed + message 逐字
+  [PASS] A2 plan 未被突变
+  [PASS] G-B fail closed + message 逐字
+  [PASS] F-1 length=-1
+  [PASS] F-1 length=NaN
+  [PASS] F-1 length=1.5
+  [PASS] F-1 length 缺失
+  [PASS] P-1 index=-1
+  [PASS] P-1 index=1.5
+  [PASS] P-1 values 非数组
+  [PASS] P-2 count=-1
+  [PASS] P-2 count=1.5
+  [PASS] P-2 index=-1
+  [PASS] delete count=0 界内接受（镜像 legacy 谓词）
+  [PASS] E100 收编手造 plan（path=[]、不抛错）
+  [PASS] D-I message/path 逐字（index=2 > length=1）
+  [PASS] D-D message/path 逐字（index=1 >= length=1）
+  [PASS] 空批量 index===length 恒等接受
+  [PASS] E-* issue rebase [...arrayPath, index+j, ...rel]
+  [PASS] 纯度：四输入零突变
+  [PASS] 确定性：重复调用逐字节相同
+
+=== 汇总：failures=0 ===

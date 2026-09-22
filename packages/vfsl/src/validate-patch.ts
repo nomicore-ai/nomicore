@@ -3,7 +3,10 @@
  * （§7）判定核心的增量形态。issue #237（mutation 边界规划与重建校验）在本文件
  * 就地扩展两个纯函数接缝：planMutationBoundary（结构侧规划）与
  * applyMutationAtBoundary（边界尺度重建 + 校验）——doc-runtime 写热路径消费，
- * vfsl 保持无 Yjs 依赖。ADR 0002「结构 → 值」两步判定：
+ * vfsl 保持无 Yjs 依赖。issue #435（ADR 0033 决策 1/2/4）在本文件再追加纯函数接缝
+ * applyElementwiseArrayMutation：在「element 子 schema + 载体长度 O(1) 事实 + 新值/区间」
+ * 上结算 array-insert/array-delete，不消费整数组提取值（union 数组目标永久走 legacy 轨）。
+ * ADR 0002「结构 → 值」两步判定：
  *
  * ① 结构守卫（§3.2）：结构树节点集游走（ADR 0003 §3「任一成员出现即存在」；
  *    leaf / plain / xml-fragment 为终态拒绝下钻；数组越界归运行时）——只消费
@@ -33,7 +36,7 @@ import type { DerivedSchema, StructureNode, ValueSchema } from './derived.js';
 import { InternalError, walkRefChain } from './resolve.js';
 import type { RefChainLens } from './resolve.js';
 import { validateSubtree } from './validate.js';
-import type { ValidateResult } from './validate.js';
+import type { ValidateIssue, ValidateResult } from './validate.js';
 
 // —— 通用小工具（与 validate.ts 冻结语义一致）——
 
@@ -1025,5 +1028,119 @@ function wrapApply(fn: () => ApplyBoundaryResult): ApplyBoundaryResult {
   } catch (err) {
     const detail = err instanceof Error ? err.message : String(err);
     return { ok: false, result: { ok: false, issues: [{ message: `VFSL-E100: 内部错误（意外异常）: ${detail}`, path: [] }] } };
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// issue #435 / ADR 0033：数组逐元素校验接缝（fast path——element 子 schema +
+// 载体长度事实 + 新值/区间；不消费整数组，delete 不触碰元素值）
+// ═══════════════════════════════════════════════════════════════════════════
+
+/**
+ * 数组载体域事实（ADR 0033 决策 2）：O(1) 可得的长度投影——不含任何元素值。
+ * 调用方（doc-runtime 接线面）从 live 载体读出 `Y.Array.length` 后传入；vfsl 侧
+ * 不引入 Yjs 运行时关切（包纪律）。
+ */
+export type ArrayCarrierFacts = { readonly length: number };
+
+/**
+ * 逐元素数组 mutation 载荷：字段与 `BoundaryMutationPayload` 同名支逐字一致；
+ * 词表恰两支（`set`/`delete` 仍走 legacy 边界路径）。
+ */
+export type ElementwiseArrayMutationPayload =
+  | { op: 'array-insert'; index: number; values: readonly unknown[] }
+  | { op: 'array-delete'; index: number; count: number };
+
+/** 非负安全整数（`-0 >= 0` 为真、归 0——与 legacy slice 语义等价）。 */
+function isSafeNonNegInt(n: unknown): n is number {
+  return typeof n === 'number' && Number.isSafeInteger(n) && n >= 0;
+}
+
+/** 单 issue 失败结果（path 一律新鲜副本；确定性、无输入突变）。 */
+function singleIssue(message: string, path: Array<string | number>): ValidateResult {
+  return { ok: false, issues: [{ message, path: [...path] }] };
+}
+
+/**
+ * 数组逐元素 mutation 判定（issue #435 / ADR 0033 决策 1/2/4）：在「element 子 schema +
+ * 载体长度事实 + 新值/区间」上结算 `array-insert`/`array-delete`，不消费整数组提取值。
+ *
+ * 判定管线：闸门三条件（fail closed）→ 载体域事实守卫 → 载荷域守卫 → op 域规则
+ * （与 legacy 边界支逐字一致：不 clamp、拒越界 no-op、批量 values[]/count 一次判定、
+ * 空批量恒等）→ insert 逐新值过 `plan.node.element`（issue path
+ * `[...arrayPath, index+j, ...原生相对 path]`，与全量路径逐字节兼容）/ delete 仅域规则
+ * （O(1)，从不读取元素值）。复杂度结构性 O(k)：任何路径都不随 `facts.length` 增长。
+ *
+ * 返回 `ValidateResult` 直出（无 `proposedBoundary`——决策 3：fast-path 提交省略边界
+ * 重投影）。同步、纯函数、不抛错（E100 同款崩溃边界）；只读 `derived`/`plan`/`facts`/
+ * `payload`，不修改任何输入。调用方职责：闸门前置 `plan.kind === 'array'` ∧
+ * `plan.node.kind === 'array'`（接缝对违约计划 fail closed，不静默接受）。
+ */
+export function applyElementwiseArrayMutation(
+  derived: DerivedSchema,
+  plan: MutationBoundaryPlan,
+  facts: ArrayCarrierFacts,
+  payload: ElementwiseArrayMutationPayload,
+): ValidateResult {
+  return wrapElementwise(() => {
+    // —— ① 闸门（ADR 0033 决策 1 双条件 + relPath 结构前提；违约计划 fail closed）——
+    if (plan.kind !== 'array' || plan.relPath.length !== 0) {
+      return singleIssue(
+        `逐元素数组校验仅服务 planMutationBoundary 的 array-* 计划（要求 kind=array 且 relPath 为空；实际 kind=${plan.kind}、relPath 长度=${plan.relPath.length}）；其他计划请走 applyMutationAtBoundary`,
+        [...plan.prefix, ...plan.relPath],
+      );
+    }
+    const node = plan.node;
+    if (node.kind !== 'array') {
+      return singleIssue(
+        `逐元素数组校验要求边界值节点为 array（实际 ${node.kind}）；union 数组目标永久走 applyMutationAtBoundary 整体验证（ADR 0033 决策 1）`,
+        [...plan.prefix, ...plan.relPath],
+      );
+    }
+    const arrayPath = [...plan.prefix];
+    // —— ② 载体域事实守卫：length = Y.Array.length 的 O(1) 投影 ——
+    if (!isSafeNonNegInt(facts.length)) {
+      return singleIssue('逐元素数组校验的载体域事实非法：length 必须是非负安全整数', arrayPath);
+    }
+    const length = facts.length;
+    // —— ③ op 域规则 + 载荷域守卫（域 message 逐字复用 legacy；批量一次判定）——
+    if (payload.op === 'array-insert') {
+      if (!isSafeNonNegInt(payload.index) || !Array.isArray(payload.values)) {
+        return singleIssue('逐元素数组校验载荷非法：array-insert 要求 index 为非负安全整数、values 为数组', arrayPath);
+      }
+      if (payload.index > length) {
+        // 越界拒绝、不 clamp（与 legacy 边界支同式同文案）
+        return singleIssue('array-insert index 越界（不 clamp）', [...arrayPath, payload.index]);
+      }
+      const issues: ValidateIssue[] = [];
+      for (let j = 0; j < payload.values.length; j++) {
+        // 中间态不参与：新值只过 element 子 schema，不从重建数组中读取
+        const sub = validateSubtree(derived.values, node.element, payload.values[j]);
+        if (sub.ok) continue;
+        for (const issue of sub.issues) {
+          issues.push({ message: issue.message, path: [...arrayPath, payload.index + j, ...issue.path] });
+        }
+      }
+      return issues.length === 0 ? { ok: true } : { ok: false, issues };
+    }
+    // array-delete：仅域规则（O(1)），不触碰元素值（决策 2/4——触达面 = 载体 + 变更区间）
+    if (!isSafeNonNegInt(payload.index) || !isSafeNonNegInt(payload.count)) {
+      return singleIssue('逐元素数组校验载荷非法：array-delete 要求 index 与 count 为非负安全整数', arrayPath);
+    }
+    if (payload.index >= length || payload.index + payload.count > length) {
+      // 越界 no-op 拒绝、不 clamp（与 legacy 边界支同式同文案）
+      return singleIssue('array-delete 范围越界（不 clamp、不接受越界 no-op）', [...arrayPath, payload.index]);
+    }
+    return { ok: true };
+  });
+}
+
+/** wrapElementwise 专用崩溃边界（E100 同款文案；结果形直出，无 proposedBoundary）。 */
+function wrapElementwise(fn: () => ValidateResult): ValidateResult {
+  try {
+    return fn();
+  } catch (err) {
+    const detail = err instanceof Error ? err.message : String(err);
+    return { ok: false, issues: [{ message: `VFSL-E100: 内部错误（意外异常）: ${detail}`, path: [] }] };
   }
 }

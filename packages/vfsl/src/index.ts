@@ -22,6 +22,10 @@
  *   形状校验 → 方言断言 → parseVfsl(text)；同步、纯函数、不抛错；
  * - `validatePatch` 与数组写入校验（issue #53）：结构守卫 + 最近结构边界重建，
  *   复用 validateLogicalSnapshot 的值 schema 解释器；同步、纯函数、不抛错；
+ * - `applyElementwiseArrayMutation(derived, plan, facts, payload)`（issue #435 /
+ *   ADR 0033）：数组逐元素校验接缝——在 element 子 schema + 载体长度 O(1) 事实 +
+ *   新值/区间上结算 array-insert/array-delete，不消费整数组提取值（union 数组目标
+ *   永久走 legacy 轨）；返回 ValidateResult 直出；同步、纯函数、不抛错；
  * - `getCompiled(input)` → `{ ok: true; module; derived } | { ok: false; issues:
  *   SchemaParseIssue[] }`——DocScope 编译缓存门面（issue #54 / H3）：信封或文本 →
  *   按**文本内容哈希**（sha-256，包内纯 TS 单射字节化）查进程级缓存，命中零
@@ -121,7 +125,10 @@ export function matchPattern(compiled: CompiledPattern, input: string): boolean 
 // 结构守卫 + 最近结构边界重建整值校验（与 validateLogicalSnapshot 共用解释器）。
 // issue #237：mutation 边界规划（planMutationBoundary）与边界尺度重建/校验
 // （applyMutationAtBoundary）——doc-runtime 写热路径的增量形态（additive 扩展，
-// 既有导出逐字节不变）。
+// 既有导出逐字节不变）。issue #435 / ADR 0033 决策 1/2/4：数组逐元素校验接缝
+// （applyElementwiseArrayMutation + ArrayCarrierFacts + ElementwiseArrayMutationPayload）
+// ——fast path 在「element 子 schema + 载体长度 O(1) 事实 + 新值/区间」上结算
+// array-insert/array-delete，不消费整数组提取值；union 数组目标永久走 legacy 轨。
 export {
   validatePatch,
   validateAppendToArray,
@@ -129,11 +136,14 @@ export {
   validateDeleteFromArray,
   planMutationBoundary,
   applyMutationAtBoundary,
+  applyElementwiseArrayMutation,
 } from './validate-patch.js';
 export type {
   MutationBoundaryOp,
   MutationBoundaryPlan,
   BoundaryMutationPayload,
+  ArrayCarrierFacts,
+  ElementwiseArrayMutationPayload,
 } from './validate-patch.js';
 
 // Issue #272 / ADR-0016：读路径语义 schema 投影解析（公开同步纯函数；namespace-runtime

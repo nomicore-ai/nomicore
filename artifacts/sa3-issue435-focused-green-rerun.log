@@ -1,0 +1,13 @@
+Testing types with tsc and vue-tsc is an experimental feature.
+Breaking changes might not follow SemVer, please pin Vitest's version when using it.
+
+ RUN  v3.2.7 /home/wangjian/nomicore-fix-issue-435
+
+ ✓ packages/vfsl/test/issue-435-elementwise-array-control.test.ts (17 tests) 17ms
+ ✓ packages/vfsl/test/issue-435-elementwise-array-contract.test.ts (21 tests) 16ms
+
+ Test Files  2 passed (2)
+      Tests  38 passed (38)
+Type Errors  no errors
+   Start at  12:39:03
+   Duration  639ms (transform 220ms, setup 0ms, collect 302ms, tests 33ms, environment 0ms, prepare 101ms)

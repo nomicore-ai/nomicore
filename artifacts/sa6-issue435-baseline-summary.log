@@ -1,0 +1,5 @@
+=== BASELINE HEAD f6b27da8eadc5cad3bf65c728094767ecb8c601b 2026-09-22T03:45:59Z ===
+--- root typecheck ---
+TYPECHECK_EXIT:0
+--- root test ---
+TEST_EXIT:0

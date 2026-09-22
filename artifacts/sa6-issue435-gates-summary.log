@@ -1,0 +1,11 @@
+=== PRE-CONTRACT BASELINE (issue-435 files held out) 2026-09-22T03:54:02Z ===
+--- pnpm typecheck ---
+PRE_TYPECHECK_EXIT:0
+--- pnpm test ---
+PRE_TEST_EXIT:0
+4
+=== POST-CONTRACT (contract/control/test-d in place) 2026-09-22T04:01:31Z ===
+--- pnpm typecheck ---
+POST_TYPECHECK_EXIT:2
+--- pnpm test ---
+POST_TEST_EXIT:1
