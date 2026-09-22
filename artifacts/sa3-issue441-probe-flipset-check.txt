@@ -1,0 +1,28 @@
+expected (design 12.1):
+G1a
+G1a2
+G1b
+G1c
+G1d
+G1e
+G1f
+G1g
+G1i
+G4a
+G4b
+G4c
+actual (probe):
+G1a
+G1a2
+G1b
+G1c
+G1d
+G1e
+G1f
+G1g
+G1i
+G4a
+G4b
+G4c
+diff (empty = exact match):
+EXACT_MATCH

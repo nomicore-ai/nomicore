@@ -1,0 +1,26 @@
+=== focused round 1 ===
+ ✓ packages/namespace-registry/test/issue-442-lease-record-e2e-control.test.ts (4 tests) 37ms
+
+ Test Files  2 passed (2)
+      Tests  33 passed (33)
+Type Errors  no errors
+   Start at  20:19:24
+   Duration  1.26s (transform 499ms, setup 0ms, collect 813ms, tests 165ms, environment 0ms, prepare 85ms)
+
+=== focused round 2 ===
+ ✓ packages/namespace-registry/test/issue-442-lease-record-e2e-control.test.ts (4 tests) 36ms
+
+ Test Files  2 passed (2)
+      Tests  33 passed (33)
+Type Errors  no errors
+   Start at  20:19:26
+   Duration  1.24s (transform 496ms, setup 0ms, collect 804ms, tests 166ms, environment 0ms, prepare 82ms)
+
+=== focused round 3 ===
+ ✓ packages/namespace-registry/test/issue-442-lease-record-e2e-control.test.ts (4 tests) 36ms
+
+ Test Files  2 passed (2)
+      Tests  33 passed (33)
+Type Errors  no errors
+   Start at  20:19:27
+   Duration  1.27s (transform 503ms, setup 0ms, collect 818ms, tests 166ms, environment 0ms, prepare 98ms)

@@ -1,0 +1,454 @@
+Testing types with tsc and vue-tsc is an experimental feature.
+Breaking changes might not follow SemVer, please pin Vitest's version when using it.
+
+ RUN  v3.2.7 /home/wangjian/nomicore-fix-issue-442/.worktrees/issue-442-baseline
+
+ ❯ packages/namespace-registry/test/issue-442-lease-record-e2e-contract.test.ts (29 tests | 15 failed) 201ms
+   × issue #442 AC1 — raw 污染不再阻断未触达目标键的 Record/封闭对象写删（ADR 0034 决策 4） > A1 污染 sibling entry（载体错位）→ Record set 目标键合法即成功、污染保留、恰 1 update 34ms
+     → expected { ok: false, issues: [ { …(2) } ] } to deeply equal { ok: true }
+   × issue #442 AC1 — raw 污染不再阻断未触达目标键的 Record/封闭对象写删（ADR 0034 决策 4） > A2 同污染 → Record delete 既有键成功、污染保留、恰 1 update 9ms
+     → expected { ok: false, issues: [ { …(2) } ] } to deeply equal { ok: true }
+   × issue #442 AC1 — raw 污染不再阻断未触达目标键的 Record/封闭对象写删（ADR 0034 决策 4） > A3 同污染 → delete 污染键自身成功（delete 不读旧值）、恰 1 update 4ms
+     → expected { ok: false, issues: [ { …(2) } ] } to deeply equal { ok: true }
+   × issue #442 AC1 — raw 污染不再阻断未触达目标键的 Record/封闭对象写删（ADR 0034 决策 4） > A4 兄弟 entry 值非法（qty:string）→ set 目标键不受连带拒绝、污染不修复 6ms
+     → expected { ok: false, issues: [ { …(2) } ] } to deeply equal { ok: true }
+   × issue #442 AC1 — raw 污染不再阻断未触达目标键的 Record/封闭对象写删（ADR 0034 决策 4） > A5 兄弟键违约（codes.nope）→ set 目标键不受连带拒绝、违约键保留 5ms
+     → expected { ok: false, issues: [ { …(2) } ] } to deeply equal { ok: true }
+   × issue #442 AC1 — raw 污染不再阻断未触达目标键的 Record/封闭对象写删（ADR 0034 决策 4） > A6 封闭对象 delete optional @ 兄弟字段载体错位 → 成功、恰 1 update、污染保留 4ms
+     → expected { ok: false, issues: [ { …(2) } ] } to deeply equal { ok: true }
+   × issue #442 AC1 — raw 污染不再阻断未触达目标键的 Record/封闭对象写删（ADR 0034 决策 4） > A7 封闭对象 delete unknown 标量 @ 兄弟字段载体错位 → 成功、恰 1 update 3ms
+     → expected { ok: false, issues: [ { …(2) } ] } to deeply equal { ok: true }
+   × issue #442 AC1 — raw 污染不再阻断未触达目标键的 Record/封闭对象写删（ADR 0034 决策 4） > A8 封闭对象 delete 必填字段 @ 兄弟字段污染 → 静态理由逐字拒绝 + 零写入零 update（message 级判别） 4ms
+     → expected 'Yjs 载体错位（ROOT.deep）：期望 Y.Map，实际 plain…' to be '缺少必填字段 "req"' // Object.is equality
+   × issue #442 AC1 — raw 污染不再阻断未触达目标键的 Record/封闭对象写删（ADR 0034 决策 4） > A9 Record 值位 union（blobs）兄弟载体错位 → 仍走 fast path 成功、污染保留 6ms
+     → expected { ok: false, issues: [ { …(2) } ] } to deeply equal { ok: true }
+   × issue #442 AC1 — raw 污染不再阻断未触达目标键的 Record/封闭对象写删（ADR 0034 决策 4） > A10 深层 Record（outer.inner）兄弟污染 → 深层写成功、路径语义不变、污染保留 4ms
+     → expected { ok: false, issues: [ { …(2) } ] } to deeply equal { ok: true }
+   × issue #442 AC1 — raw 污染不再阻断未触达目标键的 Record/封闭对象写删（ADR 0034 决策 4） > A11 批量信封内 Record set @ 兄弟污染 → 批内两键写入 + 单事务单 update 3ms
+     → expected { ok: false, …(1) } to deeply equal { ok: true }
+   ✓ issue #442 AC2 — 域规则与 issue 路径逐字不变 + 非法输入零写入（ADR 0034 决策 5） > B1 Record set 新值非法 → 逐字 message + path [...mapPath, key, …值内路径]、零写入零 update 3ms
+   ✓ issue #442 AC2 — 域规则与 issue 路径逐字不变 + 非法输入零写入（ADR 0034 决策 5） > B2 Record 键 Pattern 违约 → 逐字 message + path 指向违约键本身、零写入零 update 2ms
+   ✓ issue #442 AC2 — 域规则与 issue 路径逐字不变 + 非法输入零写入（ADR 0034 决策 5） > B3 delete 不存在键 → no-op 逐字拒绝 + 零写入 2ms
+   ✓ issue #442 AC2 — 域规则与 issue 路径逐字不变 + 非法输入零写入（ADR 0034 决策 5） > B4 封闭对象必填字段 delete → 静态逐字拒绝 + 零写入 2ms
+   ✓ issue #442 AC2 — 域规则与 issue 路径逐字不变 + 非法输入零写入（ADR 0034 决策 5） > B5 封闭对象 unknown 标量字段 delete → 允许（静态规则不变） 3ms
+   ✓ issue #442 AC2 — 域规则与 issue 路径逐字不变 + 非法输入零写入（ADR 0034 决策 5） > B6 封闭对象 optional 字段 delete 允许、重复 delete 落到 no-op 逐字拒绝 9ms
+   ✓ issue #442 AC2 — 域规则与 issue 路径逐字不变 + 非法输入零写入（ADR 0034 决策 5） > B7 触达面内载体位（ROOT.tasks 本身非 Y.Map）→ 逐字拒绝、path []、零写入零 update 7ms
+   ✓ issue #442 AC2 — 域规则与 issue 路径逐字不变 + 非法输入零写入（ADR 0034 决策 5） > B8 深层 Record 非法新值 → issue 路径跨深度 rebase 正确 + 零写入 2ms
+   × issue #442 AC3 — union map 位端到端行为与性能路径不变（ADR 0034 决策 1 双轨） > U3 n=64：Record fast 轨读计数 ≤8；union map 位 legacy 轨读计数 ≥ n（全量边界校验仍在） 9ms
+     → fast 轨读计数应 O(k)（≤8），实际 {"valueReads":259,"presenceReads":0}: expected 259 to be less than or equal to 8
+   × issue #442 AC3 — union map 位端到端行为与性能路径不变（ADR 0034 决策 1 双轨） > U4 Record set：n=64 与 n=256 读计数均 ≤8 且相等（与 n 解耦） 8ms
+     → n=64 读计数应 ≤8，实际 {"valueReads":259,"presenceReads":0}: expected 259 to be less than or equal to 8
+   ✓ issue #442 AC4 — Record 值位为 union 时端到端仍走 fast path（ADR 0034 决策 1） > V1 值位 union 两支成员新值均接受（clean） 3ms
+   ✓ issue #442 AC4 — Record 值位为 union 时端到端仍走 fast path（ADR 0034 决策 1） > V2 值位 union 非法值 → 恰 2 条联合成员 issue 逐字拒绝 + 零写入零 update 2ms
+   × issue #442 AC4 — Record 值位为 union 时端到端仍走 fast path（ADR 0034 决策 1） > V3 值位 union 的 Record set：n=64 与 n=256 读计数均 ≤8 且相等（不阻断 fast path） 14ms
+     → n=64 读计数应 ≤8，实际 {"valueReads":259,"presenceReads":0}: expected 259 to be less than or equal to 8
+   ✓ issue #442 AC5 — fast path 提交的 committed update bytes 记录形态不变（ADR 0011/0014） > E1 恰 1 条 root-mutation committed effect:update + inline carrier 重放为真事务增量、不物化 ROOT 19ms
+   ✓ issue #442 AC5 — fast path 提交的 committed update bytes 记录形态不变（ADR 0011/0014） > E2 Record 写与标量写的记录键集与 carrier 键集逐键同构 14ms
+   ✓ issue #442 AC6 — fast path 提交经 replication apply 在对端收敛（ADR 0010） > R1 owned update 收敛 + diff 定点 + session 状态/方向/角色/远端 id 不变 12ms
+   ✓ issue #442 AC6 — fast path 提交经 replication apply 在对端收敛（ADR 0010） > R2 owned update 为最小增量（空 doc 不物化 ROOT）；一次提交恰一事件、两笔恰两事件 3ms
+   × issue #442 AC6 — fast path 提交经 replication apply 在对端收敛（ADR 0010） > R3 污染在场（peer bootstrap 自含污染）→ 复制后对端既得新值又保留污染（非整 map 重写） 4ms
+     → expected { ok: false, issues: [ { …(2) } ] } to deeply equal { ok: true }
+ ✓ packages/namespace-registry/test/issue-442-lease-record-e2e-control.test.ts (4 tests) 47ms
+
+⎯⎯⎯⎯⎯⎯ Failed Tests 15 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  packages/namespace-registry/test/issue-442-lease-record-e2e-contract.test.ts > issue #442 AC1 — raw 污染不再阻断未触达目标键的 Record/封闭对象写删（ADR 0034 决策 4） > A1 污染 sibling entry（载体错位）→ Record set 目标键合法即成功、污染保留、恰 1 update
+AssertionError: expected { ok: false, issues: [ { …(2) } ] } to deeply equal { ok: true }
+
+- Expected
++ Received
+
+  {
+-   "ok": true,
++   "issues": [
++     {
++       "message": "Yjs 载体错位（ROOT.t9）：期望 Y.Map，实际 plain value",
++       "path": [
++         "t9",
++       ],
++     },
++   ],
++   "ok": false,
+  }
+
+ ❯ expectOk packages/namespace-registry/test/issue-442-lease-record-e2e-contract.test.ts:59:18
+     57| /** ok:true 判别成员（成功面恒 `{ok:true}`）。 */
+     58| function expectOk(result: unknown): void {
+     59|   expect(result).toEqual({ ok: true });
+       |                  ^
+     60| }
+     61|
+ ❯ packages/namespace-registry/test/issue-442-lease-record-e2e-contract.test.ts:126:5
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/15]⎯
+
+ FAIL  packages/namespace-registry/test/issue-442-lease-record-e2e-contract.test.ts > issue #442 AC1 — raw 污染不再阻断未触达目标键的 Record/封闭对象写删（ADR 0034 决策 4） > A2 同污染 → Record delete 既有键成功、污染保留、恰 1 update
+AssertionError: expected { ok: false, issues: [ { …(2) } ] } to deeply equal { ok: true }
+
+- Expected
++ Received
+
+  {
+-   "ok": true,
++   "issues": [
++     {
++       "message": "Yjs 载体错位（ROOT.t9）：期望 Y.Map，实际 plain value",
++       "path": [
++         "t9",
++       ],
++     },
++   ],
++   "ok": false,
+  }
+
+ ❯ expectOk packages/namespace-registry/test/issue-442-lease-record-e2e-contract.test.ts:59:18
+     57| /** ok:true 判别成员（成功面恒 `{ok:true}`）。 */
+     58| function expectOk(result: unknown): void {
+     59|   expect(result).toEqual({ ok: true });
+       |                  ^
+     60| }
+     61|
+ ❯ packages/namespace-registry/test/issue-442-lease-record-e2e-contract.test.ts:140:5
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/15]⎯
+
+ FAIL  packages/namespace-registry/test/issue-442-lease-record-e2e-contract.test.ts > issue #442 AC1 — raw 污染不再阻断未触达目标键的 Record/封闭对象写删（ADR 0034 决策 4） > A3 同污染 → delete 污染键自身成功（delete 不读旧值）、恰 1 update
+AssertionError: expected { ok: false, issues: [ { …(2) } ] } to deeply equal { ok: true }
+
+- Expected
++ Received
+
+  {
+-   "ok": true,
++   "issues": [
++     {
++       "message": "Yjs 载体错位（ROOT.t9）：期望 Y.Map，实际 plain value",
++       "path": [
++         "t9",
++       ],
++     },
++   ],
++   "ok": false,
+  }
+
+ ❯ expectOk packages/namespace-registry/test/issue-442-lease-record-e2e-contract.test.ts:59:18
+     57| /** ok:true 判别成员（成功面恒 `{ok:true}`）。 */
+     58| function expectOk(result: unknown): void {
+     59|   expect(result).toEqual({ ok: true });
+       |                  ^
+     60| }
+     61|
+ ❯ packages/namespace-registry/test/issue-442-lease-record-e2e-contract.test.ts:152:5
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[3/15]⎯
+
+ FAIL  packages/namespace-registry/test/issue-442-lease-record-e2e-contract.test.ts > issue #442 AC1 — raw 污染不再阻断未触达目标键的 Record/封闭对象写删（ADR 0034 决策 4） > A4 兄弟 entry 值非法（qty:string）→ set 目标键不受连带拒绝、污染不修复
+AssertionError: expected { ok: false, issues: [ { …(2) } ] } to deeply equal { ok: true }
+
+- Expected
++ Received
+
+  {
+-   "ok": true,
++   "issues": [
++     {
++       "message": "类型不匹配：期望 number，实际 string",
++       "path": [
++         "tasks",
++         "t9",
++         "qty",
++       ],
++     },
++   ],
++   "ok": false,
+  }
+
+ ❯ expectOk packages/namespace-registry/test/issue-442-lease-record-e2e-contract.test.ts:59:18
+     57| /** ok:true 判别成员（成功面恒 `{ok:true}`）。 */
+     58| function expectOk(result: unknown): void {
+     59|   expect(result).toEqual({ ok: true });
+       |                  ^
+     60| }
+     61|
+ ❯ packages/namespace-registry/test/issue-442-lease-record-e2e-contract.test.ts:163:5
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[4/15]⎯
+
+ FAIL  packages/namespace-registry/test/issue-442-lease-record-e2e-contract.test.ts > issue #442 AC1 — raw 污染不再阻断未触达目标键的 Record/封闭对象写删（ADR 0034 决策 4） > A5 兄弟键违约（codes.nope）→ set 目标键不受连带拒绝、违约键保留
+AssertionError: expected { ok: false, issues: [ { …(2) } ] } to deeply equal { ok: true }
+
+- Expected
++ Received
+
+  {
+-   "ok": true,
++   "issues": [
++     {
++       "message": "Record 键 \"nope\" 不满足 Pattern 正则 /^(id-[0-9]+)$/",
++       "path": [
++         "codes",
++         "nope",
++       ],
++     },
++   ],
++   "ok": false,
+  }
+
+ ❯ expectOk packages/namespace-registry/test/issue-442-lease-record-e2e-contract.test.ts:59:18
+     57| /** ok:true 判别成员（成功面恒 `{ok:true}`）。 */
+     58| function expectOk(result: unknown): void {
+     59|   expect(result).toEqual({ ok: true });
+       |                  ^
+     60| }
+     61|
+ ❯ packages/namespace-registry/test/issue-442-lease-record-e2e-contract.test.ts:177:5
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[5/15]⎯
+
+ FAIL  packages/namespace-registry/test/issue-442-lease-record-e2e-contract.test.ts > issue #442 AC1 — raw 污染不再阻断未触达目标键的 Record/封闭对象写删（ADR 0034 决策 4） > A6 封闭对象 delete optional @ 兄弟字段载体错位 → 成功、恰 1 update、污染保留
+AssertionError: expected { ok: false, issues: [ { …(2) } ] } to deeply equal { ok: true }
+
+- Expected
++ Received
+
+  {
+-   "ok": true,
++   "issues": [
++     {
++       "message": "Yjs 载体错位（ROOT.deep）：期望 Y.Map，实际 plain value",
++       "path": [
++         "deep",
++       ],
++     },
++   ],
++   "ok": false,
+  }
+
+ ❯ expectOk packages/namespace-registry/test/issue-442-lease-record-e2e-contract.test.ts:59:18
+     57| /** ok:true 判别成员（成功面恒 `{ok:true}`）。 */
+     58| function expectOk(result: unknown): void {
+     59|   expect(result).toEqual({ ok: true });
+       |                  ^
+     60| }
+     61|
+ ❯ packages/namespace-registry/test/issue-442-lease-record-e2e-contract.test.ts:191:5
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[6/15]⎯
+
+ FAIL  packages/namespace-registry/test/issue-442-lease-record-e2e-contract.test.ts > issue #442 AC1 — raw 污染不再阻断未触达目标键的 Record/封闭对象写删（ADR 0034 决策 4） > A7 封闭对象 delete unknown 标量 @ 兄弟字段载体错位 → 成功、恰 1 update
+AssertionError: expected { ok: false, issues: [ { …(2) } ] } to deeply equal { ok: true }
+
+- Expected
++ Received
+
+  {
+-   "ok": true,
++   "issues": [
++     {
++       "message": "Yjs 载体错位（ROOT.deep）：期望 Y.Map，实际 plain value",
++       "path": [
++         "deep",
++       ],
++     },
++   ],
++   "ok": false,
+  }
+
+ ❯ expectOk packages/namespace-registry/test/issue-442-lease-record-e2e-contract.test.ts:59:18
+     57| /** ok:true 判别成员（成功面恒 `{ok:true}`）。 */
+     58| function expectOk(result: unknown): void {
+     59|   expect(result).toEqual({ ok: true });
+       |                  ^
+     60| }
+     61|
+ ❯ packages/namespace-registry/test/issue-442-lease-record-e2e-contract.test.ts:203:5
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[7/15]⎯
+
+ FAIL  packages/namespace-registry/test/issue-442-lease-record-e2e-contract.test.ts > issue #442 AC1 — raw 污染不再阻断未触达目标键的 Record/封闭对象写删（ADR 0034 决策 4） > A8 封闭对象 delete 必填字段 @ 兄弟字段污染 → 静态理由逐字拒绝 + 零写入零 update（message 级判别）
+AssertionError: expected 'Yjs 载体错位（ROOT.deep）：期望 Y.Map，实际 plain…' to be '缺少必填字段 "req"' // Object.is equality
+
+Expected: "缺少必填字段 "req""
+Received: "Yjs 载体错位（ROOT.deep）：期望 Y.Map，实际 plain value"
+
+ ❯ expectRejected packages/namespace-registry/test/issue-442-lease-record-e2e-contract.test.ts:84:30
+     82|   const issues = issueList(result);
+     83|   expect(issues.length).toBeGreaterThan(0);
+     84|   expect(issues[0]!.message).toBe(message);
+       |                              ^
+     85|   expect(issues[0]!.path).toEqual([...path]);
+     86| }
+ ❯ packages/namespace-registry/test/issue-442-lease-record-e2e-contract.test.ts:219:5
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[8/15]⎯
+
+ FAIL  packages/namespace-registry/test/issue-442-lease-record-e2e-contract.test.ts > issue #442 AC1 — raw 污染不再阻断未触达目标键的 Record/封闭对象写删（ADR 0034 决策 4） > A9 Record 值位 union（blobs）兄弟载体错位 → 仍走 fast path 成功、污染保留
+AssertionError: expected { ok: false, issues: [ { …(2) } ] } to deeply equal { ok: true }
+
+- Expected
++ Received
+
+  {
+-   "ok": true,
++   "issues": [
++     {
++       "message": "Yjs 载体错位（ROOT.b9）：期望 Y.Map，实际 plain value",
++       "path": [
++         "b9",
++       ],
++     },
++   ],
++   "ok": false,
+  }
+
+ ❯ expectOk packages/namespace-registry/test/issue-442-lease-record-e2e-contract.test.ts:59:18
+     57| /** ok:true 判别成员（成功面恒 `{ok:true}`）。 */
+     58| function expectOk(result: unknown): void {
+     59|   expect(result).toEqual({ ok: true });
+       |                  ^
+     60| }
+     61|
+ ❯ packages/namespace-registry/test/issue-442-lease-record-e2e-contract.test.ts:229:5
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[9/15]⎯
+
+ FAIL  packages/namespace-registry/test/issue-442-lease-record-e2e-contract.test.ts > issue #442 AC1 — raw 污染不再阻断未触达目标键的 Record/封闭对象写删（ADR 0034 决策 4） > A10 深层 Record（outer.inner）兄弟污染 → 深层写成功、路径语义不变、污染保留
+AssertionError: expected { ok: false, issues: [ { …(2) } ] } to deeply equal { ok: true }
+
+- Expected
++ Received
+
+  {
+-   "ok": true,
++   "issues": [
++     {
++       "message": "Yjs 载体错位（ROOT.n9）：期望 Y.Map，实际 plain value",
++       "path": [
++         "n9",
++       ],
++     },
++   ],
++   "ok": false,
+  }
+
+ ❯ expectOk packages/namespace-registry/test/issue-442-lease-record-e2e-contract.test.ts:59:18
+     57| /** ok:true 判别成员（成功面恒 `{ok:true}`）。 */
+     58| function expectOk(result: unknown): void {
+     59|   expect(result).toEqual({ ok: true });
+       |                  ^
+     60| }
+     61|
+ ❯ packages/namespace-registry/test/issue-442-lease-record-e2e-contract.test.ts:243:5
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[10/15]⎯
+
+ FAIL  packages/namespace-registry/test/issue-442-lease-record-e2e-contract.test.ts > issue #442 AC1 — raw 污染不再阻断未触达目标键的 Record/封闭对象写删（ADR 0034 决策 4） > A11 批量信封内 Record set @ 兄弟污染 → 批内两键写入 + 单事务单 update
+AssertionError: expected { ok: false, …(1) } to deeply equal { ok: true }
+
+- Expected
++ Received
+
+  {
+-   "ok": true,
++   "issues": [
++     {
++       "message": "Yjs 载体错位（ROOT.t9）：期望 Y.Map，实际 plain value",
++       "path": [
++         "t9",
++       ],
++     },
++     {
++       "message": "Yjs 载体错位（ROOT.t9）：期望 Y.Map，实际 plain value",
++       "path": [
++         "t9",
++       ],
++     },
++   ],
++   "ok": false,
+  }
+
+ ❯ expectOk packages/namespace-registry/test/issue-442-lease-record-e2e-contract.test.ts:59:18
+     57| /** ok:true 判别成员（成功面恒 `{ok:true}`）。 */
+     58| function expectOk(result: unknown): void {
+     59|   expect(result).toEqual({ ok: true });
+       |                  ^
+     60| }
+     61|
+ ❯ packages/namespace-registry/test/issue-442-lease-record-e2e-contract.test.ts:261:5
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[11/15]⎯
+
+ FAIL  packages/namespace-registry/test/issue-442-lease-record-e2e-contract.test.ts > issue #442 AC3 — union map 位端到端行为与性能路径不变（ADR 0034 决策 1 双轨） > U3 n=64：Record fast 轨读计数 ≤8；union map 位 legacy 轨读计数 ≥ n（全量边界校验仍在）
+AssertionError: fast 轨读计数应 O(k)（≤8），实际 {"valueReads":259,"presenceReads":0}: expected 259 to be less than or equal to 8
+ ❯ packages/namespace-registry/test/issue-442-lease-record-e2e-contract.test.ts:392:7
+    390|       tasksReads.valueReads,
+    391|       `fast 轨读计数应 O(k)（≤8），实际 ${JSON.stringify(tasksReads)}`,
+    392|     ).toBeLessThanOrEqual(8);
+       |       ^
+    393|     expect(
+    394|       maybeReads.valueReads,
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[12/15]⎯
+
+ FAIL  packages/namespace-registry/test/issue-442-lease-record-e2e-contract.test.ts > issue #442 AC3 — union map 位端到端行为与性能路径不变（ADR 0034 决策 1 双轨） > U4 Record set：n=64 与 n=256 读计数均 ≤8 且相等（与 n 解耦）
+AssertionError: n=64 读计数应 ≤8，实际 {"valueReads":259,"presenceReads":0}: expected 259 to be less than or equal to 8
+ ❯ packages/namespace-registry/test/issue-442-lease-record-e2e-contract.test.ts:411:7
+    409|       smallReads.valueReads,
+    410|       `n=64 读计数应 ≤8，实际 ${JSON.stringify(smallReads)}`,
+    411|     ).toBeLessThanOrEqual(8);
+       |       ^
+    412|     expect(
+    413|       bigReads.valueReads,
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[13/15]⎯
+
+ FAIL  packages/namespace-registry/test/issue-442-lease-record-e2e-contract.test.ts > issue #442 AC4 — Record 值位为 union 时端到端仍走 fast path（ADR 0034 决策 1） > V3 值位 union 的 Record set：n=64 与 n=256 读计数均 ≤8 且相等（不阻断 fast path）
+AssertionError: n=64 读计数应 ≤8，实际 {"valueReads":259,"presenceReads":0}: expected 259 to be less than or equal to 8
+ ❯ packages/namespace-registry/test/issue-442-lease-record-e2e-contract.test.ts:467:7
+    465|       smallReads.valueReads,
+    466|       `n=64 读计数应 ≤8，实际 ${JSON.stringify(smallReads)}`,
+    467|     ).toBeLessThanOrEqual(8);
+       |       ^
+    468|     expect(
+    469|       bigReads.valueReads,
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[14/15]⎯
+
+ FAIL  packages/namespace-registry/test/issue-442-lease-record-e2e-contract.test.ts > issue #442 AC6 — fast path 提交经 replication apply 在对端收敛（ADR 0010） > R3 污染在场（peer bootstrap 自含污染）→ 复制后对端既得新值又保留污染（非整 map 重写）
+AssertionError: expected { ok: false, issues: [ { …(2) } ] } to deeply equal { ok: true }
+
+- Expected
++ Received
+
+  {
+-   "ok": true,
++   "issues": [
++     {
++       "message": "Yjs 载体错位（ROOT.t9）：期望 Y.Map，实际 plain value",
++       "path": [
++         "t9",
++       ],
++     },
++   ],
++   "ok": false,
+  }
+
+ ❯ expectOk packages/namespace-registry/test/issue-442-lease-record-e2e-contract.test.ts:59:18
+     57| /** ok:true 判别成员（成功面恒 `{ok:true}`）。 */
+     58| function expectOk(result: unknown): void {
+     59|   expect(result).toEqual({ ok: true });
+       |                  ^
+     60| }
+     61|
+ ❯ packages/namespace-registry/test/issue-442-lease-record-e2e-contract.test.ts:594:5
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[15/15]⎯
+
+
+ Test Files  1 failed | 1 passed (2)
+      Tests  15 failed | 18 passed (33)
+Type Errors  no errors
+   Start at  20:21:08
+   Duration  2.01s (transform 849ms, setup 0ms, collect 1.34s, tests 248ms, environment 0ms, prepare 126ms)
+
+BASELINE_FOCUSED_EXIT=1

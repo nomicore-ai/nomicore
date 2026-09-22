@@ -6,6 +6,9 @@
  * vfsl 保持无 Yjs 依赖。issue #435（ADR 0033 决策 1/2/4）在本文件再追加纯函数接缝
  * applyElementwiseArrayMutation：在「element 子 schema + 载体长度 O(1) 事实 + 新值/区间」
  * 上结算 array-insert/array-delete，不消费整数组提取值（union 数组目标永久走 legacy 轨）。
+ * issue #440（ADR 0034 决策 1/2/4）在本文件再追加纯函数接缝 applyElementwiseEntryMutation：
+ * 在「schema 静态事实 + 目标键位在场性 O(1) 事实 + 新值」上结算非 union Record 位
+ * set/delete 与封闭对象字段 delete，不消费整 map / 父对象提取值（union map 位永久走 legacy 轨）。
  * ADR 0002「结构 → 值」两步判定：
  *
  * ① 结构守卫（§3.2）：结构树节点集游走（ADR 0003 §3「任一成员出现即存在」；
@@ -1143,4 +1146,144 @@ function wrapElementwise(fn: () => ValidateResult): ValidateResult {
     const detail = err instanceof Error ? err.message : String(err);
     return { ok: false, issues: [{ message: `VFSL-E100: 内部错误（意外异常）: ${detail}`, path: [] }] };
   }
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// issue #440 / ADR 0034：Record 与封闭对象 delete 的逐 entry 校验接缝（fast path——
+// schema 静态事实 + 目标键位在场性 O(1) 事实 + 新值；不消费整 map / 父对象提取值）
+// ═══════════════════════════════════════════════════════════════════════════
+
+/**
+ * entry 载体域事实（ADR 0034 决策 1/2）：目标键位在场性 O(1) 投影——不含其他 entry /
+ * 父值。调用方（doc-runtime 接线面）从 live 载体读出 `Y.Map.has(key)` / 父对象
+ * `Object.hasOwn` 同义事实后传入；vfsl 侧不引入 Yjs 运行时关切（包纪律）。
+ */
+export type EntryCarrierFacts = { readonly has: boolean };
+
+/**
+ * 逐 entry mutation 载荷：字段与 `BoundaryMutationPayload` 同名支逐字一致；词表恰两支
+ * （`array-*` 仍走 `applyElementwiseArrayMutation`）。
+ */
+export type ElementwiseEntryMutationPayload =
+  | { op: 'set'; value: unknown }
+  | { op: 'delete' };
+
+/**
+ * 封闭对象字段 delete 的静态必填判定（ADR 0034 决策 2；不读父值）：镜像 `validate.ts`
+ * 封闭对象形态支 (1) 的次序与语义——optional 包装先查（仅字段位出现）；ref 解析后
+ * `scalar ∧ type='unknown'` 跳过（缺席视同接受的现行语义保留）；其余一律必填，
+ * `缺少必填字段` 文案与 `validateObject` 逐字同源。手造计划的未声明字段 fail closed
+ * （规划层不可达：`planMutationBoundary` 对未知字段在结构面即拒）。
+ */
+function judgeClosedObjectDelete(
+  derived: DerivedSchema,
+  node: Extract<ValueSchema, { kind: 'object' }>,
+  key: string,
+  entryPath: Array<string | number>,
+): ValidateResult {
+  const field = node.fields.find((f) => f.name === key);
+  if (field === undefined) {
+    return singleIssue(
+      `逐 entry 校验的 parent 计划目标字段未在封闭对象声明表中（手造计划 fail closed）：${key}`,
+      entryPath,
+    );
+  }
+  if (field.value.kind === 'optional') return { ok: true };
+  const inner = walkRefChain(field.value, valueLens(derived.values));
+  if (inner.kind === 'scalar' && inner.type === 'unknown') return { ok: true };
+  return singleIssue(`缺少必填字段 "${key}"`, entryPath);
+}
+
+/**
+ * Record / 封闭对象 delete 的逐 entry mutation 判定（issue #440 / ADR 0034 决策 1/2/4）：
+ * 在「schema 静态事实（plan）+ 目标键位在场性 O(1) 事实（`{has}`）+ 载荷」上结算——
+ * 不消费整 map / 父对象提取值（触达面 = 载体 + 目标键位）。
+ *
+ * 判定管线：闸门四条件（kind ∈ {record,parent} ∧ relPath 为单段 string 目标键 ∧ 边界值
+ * 节点为 object ∧ kind↔形态一致；违约计划 fail closed）→ 载体域事实守卫 → 载荷词表守卫
+ * → op 域规则：
+ * - Record set = 键 Pattern + 新值过值 schema（单 entry 合成视图过共享解释器
+ *   `validateSubtree`，旧值不读）——键/值 issue、pattern 引擎错误族、截断与预算经
+ *   `validate.ts` 单源继承，issue 路径 rebase 为 `[...mapPath, key, ...值内路径]`
+ *   （与全量路径逐字节兼容）；
+ * - Record delete = 仅在场/no-op 域规则（`has=false` 拒 no-op；`has=true` 空对象合法 ⇒
+ *   成功），不查键 Pattern、不触碰其他 entry（O(1)）；
+ * - 封闭对象 delete = 静态必填判定（optional ∨ `unknown` 标量 → 允许；否则拒绝
+ *   `缺少必填字段 "${key}"`），不读父值。
+ *
+ * 返回 `ValidateResult` 直出（无 `proposedBoundary`——决策 3：fast-path 提交省略边界
+ * 重投影）。同步、纯函数、不抛错（E100 同款崩溃边界）；只读 `derived`/`plan`/`facts`/
+ * `payload`，不修改任何输入。调用方职责：闸门前置计划形状（接缝对违约计划 fail closed，
+ * 不静默接受；union map 位永久走 `applyMutationAtBoundary` 整体验证）。
+ */
+export function applyElementwiseEntryMutation(
+  derived: DerivedSchema,
+  plan: MutationBoundaryPlan,
+  facts: EntryCarrierFacts,
+  payload: ElementwiseEntryMutationPayload,
+): ValidateResult {
+  return wrapElementwise(() => {
+    // —— ① 闸门（ADR 0034 决策 1/2；违约计划 fail closed——响亮 issue，不抛、不静默 ok）——
+    const targetPath = [...plan.prefix, ...plan.relPath];
+    const key = plan.relPath.length === 1 ? plan.relPath[0] : undefined;
+    if ((plan.kind !== 'record' && plan.kind !== 'parent') || typeof key !== 'string') {
+      return singleIssue(
+        `逐 entry 校验仅服务 planMutationBoundary 的 record/parent 计划（要求 kind∈{record,parent} 且 relPath 为单段 string 目标键；实际 kind=${plan.kind}、relPath 长度=${plan.relPath.length}）；union map 位与其他计划请走 applyMutationAtBoundary，数组目标请走 applyElementwiseArrayMutation`,
+        targetPath,
+      );
+    }
+    const node = plan.node;
+    if (node.kind !== 'object') {
+      return singleIssue(
+        `逐 entry 校验要求边界值节点为 object（实际 ${node.kind}）；union 容器目标永久走 applyMutationAtBoundary 整体验证（ADR 0034 决策 1）`,
+        targetPath,
+      );
+    }
+    const hasKeySlot = node.fields.some((field) => field.name === '<key>');
+    if (plan.kind === 'record' ? !hasKeySlot : hasKeySlot) {
+      return singleIssue(
+        "逐 entry 校验的 record 计划要求 Record 形态（object 节点含 '<key>' 槽）、parent 计划要求封闭对象形态（无 '<key>' 槽）——违约计划 fail closed",
+        targetPath,
+      );
+    }
+    // —— ② 载体域事实守卫：has = 目标键位在场性（Y.Map.has / Object.hasOwn，O(1)）——
+    const has: unknown = (facts as { readonly has?: unknown } | null | undefined)?.has;
+    if (typeof has !== 'boolean') {
+      return singleIssue('逐 entry 校验的载体域事实非法：has 必须是布尔值（目标键位在场性，O(1)）', [...plan.prefix]);
+    }
+    // —— ③ 载荷词表守卫（array-* 走数组接缝；封闭对象 set 是 target 位整值替换）——
+    const raw = payload as { readonly op?: unknown; readonly value?: unknown } | null | undefined;
+    const op: unknown = raw?.op;
+    if (op !== 'set' && op !== 'delete') {
+      return singleIssue(
+        "逐 entry 校验载荷非法：词表恰 {op:'set';value}|{op:'delete'}（array-* 请走 applyElementwiseArrayMutation）",
+        [...plan.prefix],
+      );
+    }
+    const entryPath = [...plan.prefix, key];
+    // —— ④ 分派（entryPath = [...mapPath/父路径, key]，与全量路径逐字节兼容）——
+    if (plan.kind === 'parent') {
+      if (op === 'set') {
+        return singleIssue(
+          '封闭对象字段 set 是 kind=target 整值替换（旧值不读），不适用逐 entry 接缝；请走 applyMutationAtBoundary',
+          entryPath,
+        );
+      }
+      if (!has) return singleIssue('delete 目标键不存在（拒绝 no-op）', entryPath);
+      return judgeClosedObjectDelete(derived, node, key, entryPath);
+    }
+    if (op === 'delete') {
+      // 仅域规则：空对象合法 ⇒ 删除永不使 Record 非法；不查键 Pattern、不触碰其他 entry
+      return has ? { ok: true } : singleIssue('delete 目标键不存在（拒绝 no-op）', entryPath);
+    }
+    // Record set：单 entry 合成视图过共享解释器（键 Pattern + 新值；旧值不读）。计算键展开
+    // 使 `'__proto__'` 落自有属性（文件既定纪律），Record 形态不做字段名查表（除 '<key>' 槽）。
+    const proposed: Record<string, unknown> = { [key]: raw?.value };
+    const sub = validateSubtree(derived.values, node, proposed);
+    if (sub.ok) return { ok: true };
+    return {
+      ok: false,
+      issues: sub.issues.map((issue) => ({ message: issue.message, path: [...plan.prefix, ...issue.path] })),
+    };
+  });
 }

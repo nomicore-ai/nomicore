@@ -1,0 +1,125 @@
+
+ RUN  v3.2.7 /home/wangjian/nomicore-fix-issue-440
+
+ ❯ packages/vfsl/test/issue-440-elementwise-entry-contract.test.ts (26 tests | 4 failed) 34ms
+   ✓ #440 A 公共接缝（经包公共入口） > A1 新导出在场且是函数（公共面唯一入口 = src/index.ts） 1ms
+   ✓ #440 A 公共接缝（经包公共入口） > A2 合法 Record set 返回 ValidateResult 的 ok 支（`{ok:true}` 直出、无 result 包装、纯函数） 2ms
+   ✓ #440 B Record set 逐 entry 校验 > B1 每条 fast-path Record 路径：新键 / 既有键整值替换（合法值）均通过 2ms
+   ✓ #440 B Record set 逐 entry 校验 > B2 非法新值写入前拒绝：issue 路径 = [...mapPath, key, ...值内路径]（items 规范锚 + oracle 逐字节） 1ms
+   × #440 B Record set 逐 entry 校验 > B3 键 Pattern 违规（合法值）：message/path 与全量路径逐字节一致 5ms
+     → expected true to be false // Object.is equality
+   × #440 B Record set 逐 entry 校验 > B4 键 Pattern 违规 + 非法新值：两 issue、序 = 键先值后（全收集语义），与 oracle 逐字节一致 2ms
+     → expected [ [ 'codes', 'nope', 'qty' ] ] to deeply equal [ [ 'codes', 'nope' ], …(1) ]
+   ✓ #440 B Record set 逐 entry 校验 > B5 Record 值位为 union 不影响 fast path（blobs: Record<string, Item | Alt> 逐字复现 union 仲裁） 1ms
+   ✓ #440 B Record set 逐 entry 校验 > B6 旧值不读：同一 payload 下 has 真/假判决逐字节相同；目标键位旧值非法不阻断（整值替换） 1ms
+   ✓ #440 B Record set 逐 entry 校验 > B7 嵌套 Record 路径 rebase：issue 路径使用容器绝对路径（outer.inner） 0ms
+   ✓ #440 C Record delete 仅域规则判定 > C1 缺席键拒 no-op：message/path 与现行逐字一致 0ms
+   ✓ #440 C Record delete 仅域规则判定 > C2 在场键 delete 全部通过（空对象合法 ⇒ 删除永不使 Record 变非法） 0ms
+   ✓ #440 C Record delete 仅域规则判定 > C3 不触碰其他 entry：同 has 事实下干净基线与邻位污染基线判决逐字节相同 0ms
+   ✓ #440 C Record delete 仅域规则判定 > C4 目标键本身违反 keyPattern 但存在：delete 照常成功（delete 不查键 Pattern） 0ms
+   ✓ #440 C Record delete 仅域规则判定 > C5 缺席键即使违反 keyPattern 也只报 no-op（域规则先于 schema 判定） 0ms
+   ✓ #440 D 封闭对象 delete 静态必填判定（不读父值） > D1 必填且非 unknown 标量 → 拒绝（message/path 逐字一致；两 parent 路径全矩阵） 1ms
+   ✓ #440 D 封闭对象 delete 静态必填判定（不读父值） > D2 optional / unknown 标量字段 → 允许（与 oracle 逐字节一致） 0ms
+   ✓ #440 D 封闭对象 delete 静态必填判定（不读父值） > D3 字段缺席（has=false）→ 拒 no-op（必填性无关的域规则） 0ms
+   ✓ #440 D 封闭对象 delete 静态必填判定（不读父值） > D4 静态性（数据无关）：目标字段值形态不影响判决（必填拒绝 / optional 允许） 0ms
+   ✓ #440 D 封闭对象 delete 静态必填判定（不读父值） > D5 不读父值 / 同胞不重验：同 has 事实下干净基线与同胞污染基线判决逐字节相同 0ms
+   ✓ #440 D 封闭对象 delete 静态必填判定（不读父值） > D6 嵌套封闭对象路径 rebase：issue 路径使用父对象绝对路径（panel.node） 0ms
+   × #440 E 一致性 fixture（ADR 0034 决策 5） > E1 全用例：逐 entry 判定与全量整体验证的接受/拒绝及 issue 内容逐字节一致 3ms
+     → P-codes-set-bad-key-legal-value（键 Pattern 违规 + 合法值 → 仅键 issue（键违规不阻断值校验，无值 issue））逐 entry={"ok":true,"issues":[]} 全量={"ok":false,"issues":[{"message":"Record 键 \"nope\" 不满足 Pattern 正则 /^(id-[0-9]+)$/","path":["codes","nope"]}]}: expected '{"ok":true,"issues":[]}' to be '{"ok":false,"issues":[{"message":"Rec…' // Object.is equality
+   ✓ #440 E 一致性 fixture（ADR 0034 决策 5） > E2 比较判据敏感：触达面组（污染在目标键位之外）上目标判决与全量 oracle 逐字节可分 1ms
+   × #440 E 一致性 fixture（ADR 0034 决策 5） > E3 触达面目标行为：目标键位合法即成功；拒绝时只报目标键位（不连带邻位污染） 1ms
+     → X-codes-set-bad-key-on-polluted（目标键 Pattern 违规照常拒绝，但只报目标键位（不连带邻位污染））: expected true to be false // Object.is equality
+   ✓ #440 F fast path 闸门 fail closed > F1 闸门前提：record 计划 = kind=record ∧ node 为 Record 形态（含 <key> 槽）；parent 计划 = kind=parent ∧ 封闭对象形态 10ms
+   ✓ #440 F fast path 闸门 fail closed > F2 union map 位（maybe）永久 legacy：节点 kind=union ⇒ 新接缝不静默接受 0ms
+   ✓ #440 F fast path 闸门 fail closed > F3 非闸门计划（target / array / 手造 kind / relPath ≠ [key]）一律 fail closed（不静默 ok） 0ms
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 4 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  packages/vfsl/test/issue-440-elementwise-entry-contract.test.ts > #440 B Record set 逐 entry 校验 > B3 键 Pattern 违规（合法值）：message/path 与全量路径逐字节一致
+AssertionError: expected true to be false // Object.is equality
+
+- Expected
++ Received
+
+- false
++ true
+
+ ❯ packages/vfsl/test/issue-440-elementwise-entry-contract.test.ts:160:23
+    158|     const span = { op: 'set', value: ivLegal('item') } as const;
+    159|     const result = callOf(planFor(derived, ['codes', 'nope'], 'set'), …
+    160|     expect(result.ok).toBe(false);
+       |                       ^
+    161|     if (result.ok) return;
+    162|     expect(result.issues).toHaveLength(1);
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/4]⎯
+
+ FAIL  packages/vfsl/test/issue-440-elementwise-entry-contract.test.ts > #440 B Record set 逐 entry 校验 > B4 键 Pattern 违规 + 非法新值：两 issue、序 = 键先值后（全收集语义），与 oracle 逐字节一致
+AssertionError: expected [ [ 'codes', 'nope', 'qty' ] ] to deeply equal [ [ 'codes', 'nope' ], …(1) ]
+
+- Expected
++ Received
+
+  [
+    [
+      "codes",
+      "nope",
+-   ],
+-   [
+-     "codes",
+-     "nope",
+      "qty",
+    ],
+  ]
+
+ ❯ packages/vfsl/test/issue-440-elementwise-entry-contract.test.ts:174:46
+    172|     expect(result.ok).toBe(false);
+    173|     if (result.ok) return;
+    174|     expect(result.issues.map((i) => i.path)).toEqual([['codes', 'nope'…
+       |                                              ^
+    175|     const c = caseOf(['codes'], 'nope', {}, payload);
+    176|     expect(verdictBytes(verdictOf(c))).toBe(verdictBytes(oracleOf(c)));
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/4]⎯
+
+ FAIL  packages/vfsl/test/issue-440-elementwise-entry-contract.test.ts > #440 E 一致性 fixture（ADR 0034 决策 5） > E1 全用例：逐 entry 判定与全量整体验证的接受/拒绝及 issue 内容逐字节一致
+AssertionError: P-codes-set-bad-key-legal-value（键 Pattern 违规 + 合法值 → 仅键 issue（键违规不阻断值校验，无值 issue））逐 entry={"ok":true,"issues":[]} 全量={"ok":false,"issues":[{"message":"Record 键 \"nope\" 不满足 Pattern 正则 /^(id-[0-9]+)$/","path":["codes","nope"]}]}: expected '{"ok":true,"issues":[]}' to be '{"ok":false,"issues":[{"message":"Rec…' // Object.is equality
+
+Expected: "{"ok":false,"issues":[{"message":"Record 键 \"nope\" 不满足 Pattern 正则 /^(id-[0-9]+)$/","path":["codes","nope"]}]}"
+Received: "{"ok":true,"issues":[]}"
+
+ ❯ packages/vfsl/test/issue-440-elementwise-entry-contract.test.ts:350:116
+    348|       const oracle = oracleOf(c);
+    349|       const target = verdictOf(c);
+    350|       expect(verdictBytes(target), `${c.id}（${c.note}）逐 entry=${verdic…
+       |                                                                                                                    ^
+    351|       checked += 1;
+    352|     }
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[3/4]⎯
+
+ FAIL  packages/vfsl/test/issue-440-elementwise-entry-contract.test.ts > #440 E 一致性 fixture（ADR 0034 决策 5） > E3 触达面目标行为：目标键位合法即成功；拒绝时只报目标键位（不连带邻位污染）
+AssertionError: X-codes-set-bad-key-on-polluted（目标键 Pattern 违规照常拒绝，但只报目标键位（不连带邻位污染））: expected true to be false // Object.is equality
+
+- Expected
++ Received
+
+- false
++ true
+
+ ❯ packages/vfsl/test/issue-440-elementwise-entry-contract.test.ts:370:47
+    368|     for (const c of touchSurfaceCases) {
+    369|       const target = verdictOf(c);
+    370|       expect(target.ok, `${c.id}（${c.note}）`).toBe(c.expectTarget === …
+       |                                               ^
+    371|       expect(issuesConfinedToTargetKey(target, planForCase(derived, c)…
+    372|     }
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[4/4]⎯
+
+
+ Test Files  1 failed (1)
+      Tests  4 failed | 22 passed (26)
+   Start at  16:48:58
+   Duration  459ms (transform 225ms, setup 0ms, collect 277ms, tests 34ms, environment 0ms, prepare 51ms)
+
