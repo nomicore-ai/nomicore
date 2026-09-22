@@ -1,0 +1,12 @@
+=== SA6 type dry-run: scratch file declares the pinned signature and runs the exact test-d assertions ===
+--- tsc -p packages/vfsl/tsconfig.json（临时含 __sa6-scratch-type-dryrun.ts）---
+packages/vfsl/test/issue-435-elementwise-array.test-d.ts(16,10): error TS2305: Module '"../src/index.js"' has no exported member 'applyElementwiseArrayMutation'.
+packages/vfsl/test/issue-435-elementwise-array.test-d.ts(18,15): error TS2305: Module '"../src/index.js"' has no exported member 'ArrayCarrierFacts'.
+packages/vfsl/test/issue-435-elementwise-array.test-d.ts(18,34): error TS2305: Module '"../src/index.js"' has no exported member 'ElementwiseArrayMutationPayload'.
+packages/vfsl/test/issue-435-elementwise-array.test-d.ts(24,45): error TS2349: This expression is not callable.
+  Type 'ExpectFunction<any>' has no call signatures.
+packages/vfsl/test/issue-435-elementwise-array.test-d.ts(51,1): error TS2578: Unused '@ts-expect-error' directive.
+packages/vfsl/test/issue-435-elementwise-array.test-d.ts(53,1): error TS2578: Unused '@ts-expect-error' directive.
+packages/vfsl/test/issue-435-elementwise-array.test-d.ts(55,1): error TS2578: Unused '@ts-expect-error' directive.
+EXIT:2
+--- 结论：scratch 文件零报错（期望值/负面夹具全部命中）；剩余报错全在 test-d（能力缺口 TS2305 及其下游）---

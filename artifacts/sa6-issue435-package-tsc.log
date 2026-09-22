@@ -1,0 +1,8 @@
+packages/vfsl/test/issue-435-elementwise-array.test-d.ts(16,10): error TS2305: Module '"../src/index.js"' has no exported member 'applyElementwiseArrayMutation'.
+packages/vfsl/test/issue-435-elementwise-array.test-d.ts(18,15): error TS2305: Module '"../src/index.js"' has no exported member 'ArrayCarrierFacts'.
+packages/vfsl/test/issue-435-elementwise-array.test-d.ts(18,34): error TS2305: Module '"../src/index.js"' has no exported member 'ElementwiseArrayMutationPayload'.
+packages/vfsl/test/issue-435-elementwise-array.test-d.ts(24,45): error TS2349: This expression is not callable.
+  Type 'ExpectFunction<any>' has no call signatures.
+packages/vfsl/test/issue-435-elementwise-array.test-d.ts(51,1): error TS2578: Unused '@ts-expect-error' directive.
+packages/vfsl/test/issue-435-elementwise-array.test-d.ts(53,1): error TS2578: Unused '@ts-expect-error' directive.
+packages/vfsl/test/issue-435-elementwise-array.test-d.ts(55,1): error TS2578: Unused '@ts-expect-error' directive.

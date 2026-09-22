@@ -1,0 +1,178 @@
+Testing types with tsc and vue-tsc is an experimental feature.
+Breaking changes might not follow SemVer, please pin Vitest's version when using it.
+
+ RUN  v3.2.7 /home/wangjian/nomicore-fix-issue-435
+
+ ❯ packages/vfsl/test/issue-435-elementwise-array-contract.test.ts (21 tests | 6 failed) 22ms
+   ✓ #435 A 公共接缝（经包公共入口） > A1 新导出在场且是函数（公共面唯一入口 = src/index.ts） 1ms
+   ✓ #435 A 公共接缝（经包公共入口） > A2 合法 insert 返回 ValidateResult 的 ok 支（`{ok:true}`，纯函数、无副作用） 1ms
+   ✓ #435 B array-insert 逐新值过 element 子 schema > B1 每条 fast-path 数组路径：合法新值插入（头部/尾部）通过 1ms
+   × #435 B array-insert 逐新值过 element 子 schema > B2 非法新元素在任一位置被拒绝，issue 路径 = [...arrayPath, index+j, ...elementPath]（items 规范锚） 7ms
+     → expected [ 'items', 3, 'qty' ] to deeply equal [ 'items', 2, 'qty' ]
+   × #435 B array-insert 逐新值过 element 子 schema > B3 批量两处非法 → 两 issue，序 = 插入后位置升序（批量一次判定、中间态不参与） 1ms
+     → expected [ [ 'items', 2, 'qty' ], …(1) ] to deeply equal [ [ 'items', 1, 'qty' ], …(1) ]
+   × #435 B array-insert 逐新值过 element 子 schema > B4 整批拒绝语义：任一非法新值 ⇒ 整批 ok:false（无部分接受分支） 1ms
+     → expected 3 to be 2 // Object.is equality
+   × #435 B array-insert 逐新值过 element 子 schema > B5 嵌套数组路径 rebase：issue 路径使用数组绝对路径（nested.inner） 1ms
+     → expected [ 'nested', 'inner', 2, 'qty' ] to deeply equal [ 'nested', 'inner', 1, 'qty' ]
+   ✓ #435 B array-insert 逐新值过 element 子 schema > B6 空批量（values: []）在合法 index 上 = 恒等 → ok:true 0ms
+   × #435 B array-insert 逐新值过 element 子 schema > B7 全容器形联合元素（variants: YArray<Item | Alt>）与全标量形联合元素（scalars）逐元素判定与整体一致 1ms
+     → expected [ 'variants', 2, 'n' ] to deeply equal [ 'variants', 1, 'n' ]
+   ✓ #435 C array-insert 域规则（不 clamp；域规则逐字一致） > C1 index === length（append 位）接受；index = length + 1 拒绝且 message/path 与现行逐字一致 1ms
+   ✓ #435 C array-insert 域规则（不 clamp；域规则逐字一致） > C2 不 clamp：index 远超 length 时拒绝而非截断插入 0ms
+   ✓ #435 D array-delete 仅域规则判定（O(1)，不触碰元素值） > D1 合法删除（单元素 / 整段 / 整数组）通过 0ms
+   ✓ #435 D array-delete 仅域规则判定（O(1)，不触碰元素值） > D2 index >= length（越界 no-op）拒绝且 message/path 与现行逐字一致 1ms
+   ✓ #435 D array-delete 仅域规则判定（O(1)，不触碰元素值） > D3 index + count > length（范围越界）拒绝且不 clamp（path 指向 index） 0ms
+   ✓ #435 D array-delete 仅域规则判定（O(1)，不触碰元素值） > D4 ADR 0033 决策 4：污染数组（变更区间外非法元素）delete 照常成功——触达面收窄 1ms
+   ✓ #435 D array-delete 仅域规则判定（O(1)，不触碰元素值） > D5 delete 判定不消费元素值：同 length 的污染基线与合法基线判决完全相同 1ms
+   × #435 E 一致性 fixture（ADR 0033 决策 5） > E1 全用例：逐元素判定与全量整体验证的接受/拒绝及 issue 内容逐字节一致 1ms
+     → P-items-insert-illegal-first（非法新元素在插入后位置 index+0）逐元素={"ok":false,"issues":[{"message":"期望整数区间 [0, 100]，实际 101","path":["items",1,"qty"]}]} 全量={"ok":false,"issues":[{"message":"期望整数区间 [0, 100]，实际 101","path":["items",0,"qty"]}]}: expected '{"ok":false,"issues":[{"message":"期望整…' to be '{"ok":false,"issues":[{"message":"期望整…' // Object.is equality
+   ✓ #435 E 一致性 fixture（ADR 0033 决策 5） > E2 比较判据敏感：污染 delete 上目标判决与全量 oracle 逐字节可分（E1 非恒真） 0ms
+   ✓ #435 F fast path 闸门 fail closed > F1 闸门前提：6 条数组路径的 plan.kind=array 且边界值节点 kind=array（node.element 在场） 0ms
+   ✓ #435 F fast path 闸门 fail closed > F2 union 数组目标（uarr: YArray<Item> | YArray<string>）永久 legacy：节点 kind=union ⇒ 新接缝不静默接受 0ms
+   ✓ #435 F fast path 闸门 fail closed > F3 非 array 计划（kind=target，数组值整体替换位）⇒ fail closed（不静默 ok） 0ms
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 6 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  packages/vfsl/test/issue-435-elementwise-array-contract.test.ts > #435 B array-insert 逐新值过 element 子 schema > B2 非法新元素在任一位置被拒绝，issue 路径 = [...arrayPath, index+j, ...elementPath]（items 规范锚）
+AssertionError: expected [ 'items', 3, 'qty' ] to deeply equal [ 'items', 2, 'qty' ]
+
+- Expected
++ Received
+
+  [
+    "items",
+-   2,
++   3,
+    "qty",
+  ]
+
+ ❯ packages/vfsl/test/issue-435-elementwise-array-contract.test.ts:132:36
+    130|     if (result.ok) return;
+    131|     expect(result.issues).toHaveLength(1);
+    132|     expect(result.issues[0]!.path).toEqual(['items', 2, 'qty']);
+       |                                    ^
+    133|   });
+    134|
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/6]⎯
+
+ FAIL  packages/vfsl/test/issue-435-elementwise-array-contract.test.ts > #435 B array-insert 逐新值过 element 子 schema > B3 批量两处非法 → 两 issue，序 = 插入后位置升序（批量一次判定、中间态不参与）
+AssertionError: expected [ [ 'items', 2, 'qty' ], …(1) ] to deeply equal [ [ 'items', 1, 'qty' ], …(1) ]
+
+- Expected
++ Received
+
+  [
+    [
+      "items",
+-     1,
++     2,
+      "qty",
+    ],
+    [
+      "items",
+-     3,
++     4,
+      "qty",
+    ],
+  ]
+
+ ❯ packages/vfsl/test/issue-435-elementwise-array-contract.test.ts:145:46
+    143|     expect(result.ok).toBe(false);
+    144|     if (result.ok) return;
+    145|     expect(result.issues.map((i) => i.path)).toEqual([['items', 1, 'qt…
+       |                                              ^
+    146|   });
+    147|
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/6]⎯
+
+ FAIL  packages/vfsl/test/issue-435-elementwise-array-contract.test.ts > #435 B array-insert 逐新值过 element 子 schema > B4 整批拒绝语义：任一非法新值 ⇒ 整批 ok:false（无部分接受分支）
+AssertionError: expected 3 to be 2 // Object.is equality
+
+- Expected
++ Received
+
+- 2
++ 3
+
+ ❯ packages/vfsl/test/issue-435-elementwise-array-contract.test.ts:155:62
+    153|     if (result.ok) return;
+    154|     // 合法新值不得被单独报告为 issue（issue 只指向非法新元素）
+    155|     for (const issue of result.issues) expect(issue.path[1]).toBe(2);
+       |                                                              ^
+    156|   });
+    157|
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[3/6]⎯
+
+ FAIL  packages/vfsl/test/issue-435-elementwise-array-contract.test.ts > #435 B array-insert 逐新值过 element 子 schema > B5 嵌套数组路径 rebase：issue 路径使用数组绝对路径（nested.inner）
+AssertionError: expected [ 'nested', 'inner', 2, 'qty' ] to deeply equal [ 'nested', 'inner', 1, 'qty' ]
+
+- Expected
++ Received
+
+  [
+    "nested",
+    "inner",
+-   1,
++   2,
+    "qty",
+  ]
+
+ ❯ packages/vfsl/test/issue-435-elementwise-array-contract.test.ts:164:36
+    162|     expect(result.ok).toBe(false);
+    163|     if (result.ok) return;
+    164|     expect(result.issues[0]!.path).toEqual(['nested', 'inner', 1, 'qty…
+       |                                    ^
+    165|   });
+    166|
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[4/6]⎯
+
+ FAIL  packages/vfsl/test/issue-435-elementwise-array-contract.test.ts > #435 B array-insert 逐新值过 element 子 schema > B7 全容器形联合元素（variants: YArray<Item | Alt>）与全标量形联合元素（scalars）逐元素判定与整体一致
+AssertionError: expected [ 'variants', 2, 'n' ] to deeply equal [ 'variants', 1, 'n' ]
+
+- Expected
++ Received
+
+  [
+    "variants",
+-   1,
++   2,
+    "n",
+  ]
+
+ ❯ packages/vfsl/test/issue-435-elementwise-array-contract.test.ts:179:60
+    177|     const badVariant = callOf(derived, variants, [{ label: 'l', n: 0 }…
+    178|     expect(badVariant.ok).toBe(false);
+    179|     if (!badVariant.ok) expect(badVariant.issues[0]!.path).toEqual(['v…
+       |                                                            ^
+    180|
+    181|     const scalars = planFor(derived, ['scalars'], 'array-insert');
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[5/6]⎯
+
+ FAIL  packages/vfsl/test/issue-435-elementwise-array-contract.test.ts > #435 E 一致性 fixture（ADR 0033 决策 5） > E1 全用例：逐元素判定与全量整体验证的接受/拒绝及 issue 内容逐字节一致
+AssertionError: P-items-insert-illegal-first（非法新元素在插入后位置 index+0）逐元素={"ok":false,"issues":[{"message":"期望整数区间 [0, 100]，实际 101","path":["items",1,"qty"]}]} 全量={"ok":false,"issues":[{"message":"期望整数区间 [0, 100]，实际 101","path":["items",0,"qty"]}]}: expected '{"ok":false,"issues":[{"message":"期望整…' to be '{"ok":false,"issues":[{"message":"期望整…' // Object.is equality
+
+Expected: "{"ok":false,"issues":[{"message":"期望整数区间 [0, 100]，实际 101","path":["items",0,"qty"]}]}"
+Received: "{"ok":false,"issues":[{"message":"期望整数区间 [0, 100]，实际 101","path":["items",1,"qty"]}]}"
+
+ ❯ packages/vfsl/test/issue-435-elementwise-array-contract.test.ts:287:112
+    285|       const oracle = legacyVerdict(derived, plan, c.base, c.payload);
+    286|       const target = verdictOf(derived, plan, c.base, c.payload);
+    287|       expect(verdictBytes(target), `${c.id}（${c.note}）逐元素=${verdictByt…
+       |                                                                                                                ^
+    288|       checked += 1;
+    289|     }
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[6/6]⎯
+
+
+ Test Files  1 failed (1)
+      Tests  6 failed | 15 passed (21)
+Type Errors  no errors
+   Start at  12:38:58
+   Duration  448ms (transform 214ms, setup 0ms, collect 260ms, tests 22ms, environment 0ms, prepare 49ms)
