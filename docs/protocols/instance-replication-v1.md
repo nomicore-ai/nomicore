@@ -1087,3 +1087,68 @@ namespace 域白名单**（`stableNamespaceCode('NSRT-FATAL-SCHEMA-REARM-INVALID
   完整收敛）；发送侧 hub 的 `chunked-update-sent`/`chunked-update-acked` 恰一不受接收侧
   degraded 影响（R21 改道无 degraded 例外）。
 
+
+## 24. Hub edge/session 缝契约：γ 异步形态（ADR 0032 附录 A4）
+
+本节是 **host-facing 契约，非 wire 契约**（体例同 §23）：wire 格式与协议语义零变化，本节约束的是宿主在 edge 与 SessionHost 之间装配异步字节传输时必须满足的性质。决策权威 = ADR 0032 附录 A4；本节是规范文本。α（进程内组合）与 β（`createHubSessionHost` 同步宿主 pipe）形态不受本节影响，行为逐字节不变。
+
+### 24.1 载体与拓扑
+
+γ = session↔edge 缝的显式异步形态：SessionHost 可运行在与 edge 不同的线程（如 worker_threads），中间由宿主异步字节传输（如 MessageChannel）承载。缝上只过 `Uint8Array` 帧与纯 JSON 消息；nomicore 不引入 worker_threads / MessageChannel / MessagePort 的任何依赖或类型，传输实现完全属宿主。每 (connectionKey, namespaceId) 会话使用**一对专用通道**（每方向一条逻辑流）。
+
+### 24.2 宿主传输义务（验收清单）
+
+1. 每 (connectionKey, namespaceId) 会话一对专用通道；
+2. 每方向 FIFO：不丢、不重、不乱序；
+3. **回执条款**：edge 在出站 mux 盖章点**同步**把 `receipt` 投入该会话的入站通道（先于处理后续 socket 数据）——由此「回执恒先于引用该序的 ACK 到达 session」成为结构事实（因果：对端须先收帧才回 ACK）；
+4. tag 由 session 侧分配，会话域内单调唯一，纯 JSON；
+5. 载荷 = `Uint8Array` 帧 + 纯 JSON 控制消息；
+6. 违反 1–3 = 宿主 bug → 响亮收口，不允许静默降级（无缓冲重排、无重试、无第二套准入管线）。
+
+### 24.3 缝消息词汇（append-only 闭集合）
+
+| 方向 | 消息 | 语义 |
+|---|---|---|
+| session→edge | `frame{tag, bytes, lane}` | 出站 namespace 域帧（`sequence=0` 占位，edge 在 mux 点重写帧字节 `[8..12]`，wire 逐字节不变）；`lane ∈ {'control','data'}` |
+| session→edge | `settled{namespaceId}` | 通道终态恰一次（drain 提前完成判据；ADR 0032 A1 既有） |
+| session→edge | `connection-fatal{code}` | 通道→连接收口（code→WS close code 映射单点留在 edge；既有） |
+| edge→session | `frame{bytes}` | 入站 namespace 域帧（sequence 已由 edge 校验，session 不得重检） |
+| edge→session | `receipt{tag, sequence}` | **序回执**：`tag` 对应帧在 mux 点被分配的 wire 序（序号事实回传，非接纳信号——A4.6） |
+| edge→session | `close` | 连接收口（幂等；session 侧 pending 整体冲刷 + 通道 quiesce） |
+| edge→session | `terminateUnauthorized` | revoke 链（幂等；不溯及已推帧） |
+
+**缝上无拒纳信号、无闸门信号、无信用词汇**（§24.5）；无 sent/deferred/rejected 判别（#234 三态不上缝，ADR 0032 A4.6）。
+
+### 24.4 序号回执与发送记账
+
+出站 wire sequence 纪律不变（§3：每连接、从 1 起、严格递增、全连接共享单一序号空间；分配单点 = edge 出站 mux）。session 侧发送记账为两相：
+
+- **pending**：帧携 tag 过缝即入 pending 集；pending 计入 `maxInFlightUpdates` 窗口（窗口占用自推送时刻起算）；
+- **登记**：`receipt` 到达，tag→seq 换键不换槽，入 in-flight 账（ACK 结算、ackTimeout 锚定与单体内核同构）；
+- 保序条款（§24.2.3）保证 `UPDATE_ACK` / `BOOTSTRAP_ACK` / `SYNC_APPLIED` 到达 session 时对应回执已登记——`ACK_STATE_VIOLATION` 判别、`bootstrapSnapshotSeq` 与 `ownStep2Seq` 两锚的因果不变量与单体同构成立；两锚的中间态为三值（未发 / pending / 已盖章）。
+
+### 24.5 流控、拒纳与内存安全
+
+**流控只由 edge 单点负责**；session 不过问闸门与连接状态（无前置检查、无状态镜像），乐观发送。
+
+- edge 及时消费管道——管道不成为蓄水池；连接账本投影（§17 严格接纳口径）越界即 `CONNECTION_BACKPRESSURE`（close 1011）收口整条连接：无逐帧拒纳、无 deferred、无 ns 级 `send-failed` resync；
+- **与 β 的显式行为差**：β 的 data 账本溢出 = ns 级 `send-failed` resync、连接存活；γ = 连接级死亡（ADR 0032 A4.3）；β 行为不变；
+- 单帧超连接级上限（与拥塞无关）= 配置错误 → 响亮收口 + 诊断；
+- 内存安全链逐跳有界：session 队列（§17 queue-overflow 纪律）→ 管道（edge 及时消费）→ edge 账本（`maxQueuedBytesPerConnection`，默认 8 MiB）→ 越界即死；慢连接出站最坏账 = `maxQueuedBytesPerConnection` + `maxQueuedControlBytes` 后连接死亡释放；
+- 分块 transfer 无「洞中」形态：连接存活 ⟹ 每只 chunk 已盖章；连接死亡 ⟹ 通道 quiesce 整体 abort，重连恢复（§10.3、ADR 0013/0022 的 abort 语义不变）；
+- OPEN 准入水位（≤16 早期帧/连接、≤4 并发 OPEN）与 pending 水位**定性为故障参数**：打穿 = 宿主传输异常 = 响亮收口，不作流控调参。
+
+### 24.6 pacing 与公平性
+
+session 自驱 drain：触发点 = 入队 / ACK 到达 / transfer 末 chunk 回执；推完即停、禁 busy loop（pacing 非流控）。edge 按到达序盖章——§17 连接级 round-robin（data 每轮每 namespace 最多一帧）是单体 listen 形态的拉取机械，**γ 不保持跨 session 轮转公平性**（显式接受，ADR 0032 A4.4）：重 namespace 的分块突发可排在轻 namespace 的小 update 之前并瞬时压占共享预算。`sendQueueMs` 口径 = 仅 session 队内等待（§23.1 的发送记账投影语义在 γ 下同此口径）。
+
+### 24.7 生命周期规则
+
+edge 决定收口（close / 1011 / connection-fatal）时刻起，session→edge 方向后到的一切（帧、settled、任何消息）静默丢弃；`close` 沿同道 FIFO 送达；session 收 `close` 即 pending 集整体冲刷（按未发送清算）+ 通道 quiesce（§21 停机语义不变）。`terminateUnauthorized` 不溯及信号到达前已推的帧（revoke 与单体语义一致）。`settled` 晚到只使 drain 多等，`closeTimeoutMs` 强制逃生舱兜底（§18 参数不动）。
+
+### 24.8 观测口径（§23 的 γ 补充）
+
+- `update-sent` 发射点 = edge 盖章点（§23.1 发射侧归属不变）；`update-acked` / chunked 族事件在 session 回执/结算点；
+- `ackLatencyMs` 的 t0 = 推送时刻（含管道与 edge 等待，口径略宽于 β 的盖章时刻）；
+- 跨线程 observer 事件**无全序**：edge 侧与 session 侧事件的相对到达顺序不作契约承诺，§23 金标型「事件序列逐字不变」断言的适用域 = α/β；
+- `maxConcurrentAssembliesPerConnection` 的 per-session 计数口径沿用 §17 分片形态登记，不随 γ 变化。
