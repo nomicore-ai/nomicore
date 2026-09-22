@@ -1,0 +1,42 @@
+# issue #437 SA6 收尾核对（2026-09-22T07:17:20Z）
+
+## 生产实现零改动
+(empty above = zero production diff)
+git diff exit: 0
+
+## 工作树
+/home/wangjian/nomicore                7317237 [main]
+/home/wangjian/nomicore-fix-issue-437  02c7cfb [mabf/issue-437]
+worktrees dir:
+
+## 新增文件（untracked）
+?? artifacts/sa6-issue437-baseline-focused.log
+?? artifacts/sa6-issue437-baseline-stability-1.log
+?? artifacts/sa6-issue437-baseline-stability-2.log
+?? artifacts/sa6-issue437-baseline-stability-3.log
+?? artifacts/sa6-issue437-cleanup-check.log
+?? artifacts/sa6-issue437-coverage-census.log
+?? artifacts/sa6-issue437-head-focused.log
+?? artifacts/sa6-issue437-head-stability-1.log
+?? artifacts/sa6-issue437-head-stability-2.log
+?? artifacts/sa6-issue437-head-stability-3.log
+?? artifacts/sa6-issue437-head-stability-4.log
+?? artifacts/sa6-issue437-head-stability-5.log
+?? artifacts/sa6-issue437-head-typecheck.log
+?? artifacts/sa6-issue437-post-root-test.log
+?? artifacts/sa6-issue437-post-typecheck.log
+?? artifacts/sa6-issue437-probe.log
+?? artifacts/sa6-issue437-typecheck-tests.log
+?? packages/namespace-registry/test/issue-437-lease-array-e2e-contract.test.ts
+?? packages/namespace-registry/test/issue-437-lease-array-e2e-control.test.ts
+?? packages/namespace-registry/test/issue-437-lease-array-e2e-fixture.ts
+?? wiki/raw/task_issue-437.md
+?? wiki/raw/task_issue-437_sa6_capability_probe.mts
+?? wiki/raw/task_issue-437_sa6_contract.md
+
+## 新产物 md5
+62de8c3109d5bce2dffe328034e2129c  packages/namespace-registry/test/issue-437-lease-array-e2e-contract.test.ts
+34f5003938b3db5a3b1c8f97a9c4f034  packages/namespace-registry/test/issue-437-lease-array-e2e-control.test.ts
+9fa5995f24833b96ec848ca654ccb1dc  packages/namespace-registry/test/issue-437-lease-array-e2e-fixture.ts
+3b647b42dda08554d679efacbbb42674  wiki/raw/task_issue-437_sa6_capability_probe.mts
+e02b9f5d06461291749cd624b525ea83  wiki/raw/task_issue-437_sa6_contract.md
