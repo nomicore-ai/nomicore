@@ -222,6 +222,18 @@ _Avoid_: 为历史 wire 形态保留双形态切换或新增 capability、新旧
 端点的实现代际，与协议版本正交、**非 protocol 版本**语义——`envelopeVersion` 恒 1、HELLO `protocolVersions` 不因代际变化（协议 §3 两层版本独立）；代际差异仅在 HELLO capability 协商的 wire 位上可见。v1 代际 = 不含 `CAP_CHUNKED_UPDATE` 的旧实现（HELLO 恒发 `optionalCapabilities=0`，收到 `0x42` 帧按未知消息码 connection fatal 拒绝）；v2 代际 = 支持 `CAP_CHUNKED_UPDATE` 的现实现。协议 §22 互通矩阵按代际组合刻画回落行为（v1 peer ↔ v2 hub、v2 peer ↔ v1 hub、v2 ↔ v2 协商分块）。
 _Avoid_: 把 v2 代际误读为协议版本 2 / 用代际推断 `envelopeVersion` 或 `protocolVersions` 变化
 
+**复制 Edge（replication edge）**:
+（ADR 0032）Hub 侧复制协议连接级半边的可独立实例化模块：持有 socket 生命周期、envelope/sequence 纪律、HELLO 与 capability 协商、liveness、GOAWAY/reauth、连接级背压与 OPEN 准入（全解码 + authorize + sink 路由），按路由键契约把 namespace 域帧转发给 SessionHost；不持有 Registry、不驱动 session、连接级帧从不上缝。单体 listen 模式 = Edge 与 SessionHost 的进程内组合，协议状态机单份实现。连接级半边另有**宿主公共出面** `createHubReplicationEdge`（普通工厂、非 Cordis 插件、无 Registry 依赖）：`accept(transport, { token })` 与 `acceptTrusted(transport, identity)` 双入口接纳已升级的 socket，每次 accept 分配一个 Edge 连接句柄（含 `connectionKey`）；OPEN 准入管线（pending 有界缓冲、并发 OPEN 上界、sink 解析失败响亮连接收口）是 Edge 的规范职责，授权通过后经宿主回调 `resolveSessionSink(connectionKey, namespaceId, authorization)` 解析每 (连接, namespace) 会话 sink；出站 sequence 盖章经句柄 `egress` 对外可见。
+_Avoid_: 把 edge 当薄 socket adapter（它是协议状态机）、宿主自实现连接级协议（= fork）、edge 解码 OPEN/ERROR 以外的 namespace payload、在宿主缝外自建连接级准入管线（pending 缓冲/并发 OPEN 上界/解析失败收口）
+
+**SessionHost（复制会话宿主）**:
+（ADR 0032）Hub 侧复制协议 namespace 级半边：每 (连接, namespace) 一个 HubSession，承载 channel 全部状态机（OPEN 矩阵/Registry open/ReplicationSession 驱动/出站合并/收口），经 Uint8Array 帧缝与 edge 对接——入站帧已被 edge 校验 sequence、出站帧以 sequence=0 占位由 edge 盖章；authorize 不在此调用，消费 edge 传入的预授权投影。session 对象随连接存活（终态不拆）。公共工厂轨 `createHubSessionHost`（经 `src/index.ts` 导出）的 `open()` 描述子为纯 JSON（`connectionKey`/`remoteInstanceId`/`namespaceId`/edge 已结算 ok-投影/`selectedCapabilities`/可选 `connectionId`），句柄提供 `handleFrame`（字节入帧）/`onFrame`（出站 sink，同步回传被分配 wire 序）/`onSignal`/`terminateUnauthorized`/`close`；denied/throw 不过公共缝，由 edge 侧处置；内部进程内 splice（`createHubSessionSink`）仍以 `openAdmission` 拉取结局。插件轨 `createHubReplicationPlugin({ listen: false })`（**仅精确 `false`** 选择该模式）在零 listener 下发布 `ctx.nomicoreHubSessionHost`（`requireHubSessionHost`）——即本工厂面 + `status`/`stop` 生命周期包装，不再要求 `tokens`/`authorization`/`verifyToken`/`authorize` 配置（认证授权是 edge 侧职责），且**不提供** `nomicoreHubReplication`（两服务入口并存属非法形态：listen 模式恒不提供 SessionHost 服务）。
+_Avoid_: session 侧重检入站 sequence、把连接级帧推入 session、session 感知 drain 窗口、引入 worker_threads/MessagePort 类型、把公共描述子喂入 authorize/transport 面、以 falsy/缺省表达免 listen（仅精确 `false` 合法）、两服务入口并存
+
+**路由键契约（routing-key contract）**:
+（ADR 0032）edge 帧 demux 依赖的 wire 布局事实集：namespace 域帧的 namespaceId 恒在定偏移（文法固定 35 字节 ASCII ⟹ varString 长度前缀恒 1 字节；UPDATE_CHUNK 因 kind 首字段偏移 +1），OPEN 走全解码、ERROR 特例有界 mini-decode；与 codec 字段序同步维护，由结构性守卫测试锁死。提取成本 O(帧头)，与 payload 大小无关。
+_Avoid_: 完整 payload 解析取路由键、为路由改 wire 格式、向全部 session 广播路由
+
 **实例角色（instance role）**:
 实例身份中不可变的 hub/peer 拓扑角色；生产 composition root 配置一次，由 Instance service 同时提供给 Registry 与 transport。peer 实例的本地 replaceSchema/enableReplication/bumpReplicationEpoch 以稳定角色权限错误拒绝，session 的 localRole 必须等于实例角色。
 _Avoid_: 运行期角色切换、Registry 与 transport 分别配置角色、peer 本地修改 SCHEMA 或复制身份

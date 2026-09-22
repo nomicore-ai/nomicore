@@ -1,0 +1,38 @@
+Testing types with tsc and vue-tsc is an experimental feature.
+Breaking changes might not follow SemVer, please pin Vitest's version when using it.
+
+ RUN  v3.2.7 /home/wangjian/nomicore-fix-issue-424
+
+ ✓ packages/ws-replication/test/ws-replication-issue424-auth-parity.test.ts > issue #424 AC1 — 授权等价性矩阵（单体 listen vs 分片形态） > AUTH-C1 通过形态：控制帧 hex 逐帧相等（HELLO_ACK#1 / OPEN_OK#2 / OPEN_OK#4）、骨架相等、BOOTSTRAP_SNAPSHOT#3 文档语义相等 30ms
+ ✓ packages/ws-replication/test/ws-replication-issue424-auth-parity.test.ts > issue #424 AC1 — 授权等价性矩阵（单体 listen vs 分片形态） > AUTH-C2 拒绝形态（NAMESPACE_UNAUTHORIZED）：全轨迹 hex 逐帧相等；分片侧零会话（未授权 OPEN 不过缝） 11ms
+ ✓ packages/ws-replication/test/ws-replication-issue424-auth-parity.test.ts > issue #424 AC1 — 授权等价性矩阵（单体 listen vs 分片形态） > AUTH-C3 authorizer 抛错（INTERNAL_ERROR）：全轨迹 hex 逐帧相等；分片侧零会话；连接存活（namespace 域错误非连接 fatal） 6ms
+ ✓ packages/ws-replication/test/ws-replication-issue424-auth-parity.test.ts > issue #424 AC1 — 授权等价性矩阵（单体 listen vs 分片形态） > AUTH-C4 闩锁期重 OPEN 拒答：恰一帧 NAMESPACE_REOPEN_REQUIRES_RECONNECT 逐字节与单体相等；authorize 不重复（恰一次） 7ms
+ ✓ packages/ws-replication/test/ws-replication-issue424-auth-parity.test.ts > issue #424 AC1 — 授权等价性矩阵（单体 listen vs 分片形态） > AUTH-C5 负控：parity 断言非恒真——(a) 单体 vs 单体（独立文档）全轨迹不等、(b) pass 单体 vs deny 分片控制帧不等、(c) deny 零会话 vs pass 恰一会话 17ms
+ ✓ packages/ws-replication/test/ws-replication-issue424-auth-parity.test.ts > issue #424 AC1 — 授权等价性矩阵（单体 listen vs 分片形态） > NC2 通过形态 live 后重 OPEN → OPEN_OK×2（非闩锁拒答）；对照 deny 形态恰一帧拒答 9ms
+ ✓ packages/ws-replication/test/ws-replication-issue424-auth-parity.test.ts > issue #424 AC1 — 授权等价性矩阵（单体 listen vs 分片形态） > NC4 协商形态（CAP_CHUNKED_UPDATE）：parity 仍成立；HELLO_ACK.selectedCapabilities 与描述子 selectedCapabilities 均携带协商位 8ms
+ ✓ packages/ws-replication/test/ws-replication-issue424-cross-seam-round.test.ts > issue #424 AC2 — 跨缝完整协议回合（boot adopt 装配） > ROUND-C1 非协商形态：adopt 装配前提成立；OPEN_OK×1 + BOOTSTRAP_SNAPSHOT×1 + peer BOOTSTRAP_ACK×1（回指）；SYNC 三段齐备；live；hub/peer 文档收敛 30ms
+ ✓ packages/ws-replication/test/ws-replication-issue424-cross-seam-round.test.ts > issue #424 AC2 — 跨缝完整协议回合（boot adopt 装配） > ROUND-C2 非协商形态：live 双向——peer 写 → UPDATE×1 + UPDATE_ACK（回指入站序）+ hub ROOT 更新；hub 写 → UPDATE×1 + peer ROOT 更新（零 resync） 14ms
+ ✓ packages/ws-replication/test/ws-replication-issue424-cross-seam-round.test.ts > issue #424 AC2 — 跨缝完整协议回合（boot adopt 装配） > ROUND-C3 非协商形态：CLOSE_NAMESPACE×1 → CLOSE_OK×1（回指）+ settled 信号恰一次（经缝转发） 7ms
+ ✓ packages/ws-replication/test/ws-replication-issue424-cross-seam-round.test.ts > issue #424 AC2 — 跨缝完整协议回合（boot adopt 装配） > ROUND-C4 协商形态（chunkedUpdate:true）：C1~C3 全回合复跑成立；HELLO_ACK 与会话描述子均携带 CAP_CHUNKED_UPDATE 协商位 14ms
+ ✓ packages/ws-replication/test/ws-replication-issue424-cross-seam-round.test.ts > issue #424 AC2 — 跨缝完整协议回合（boot adopt 装配） > ROUND 收尾（boot 形态 TERM 面）：close 幂等（同 promise）+ 会话全收口 + hub scheduler pending 不增 + 零新出站 + 零 unhandled rejection 7ms
+ ✓ packages/ws-replication/test/ws-replication-issue424-multi-worker.test.ts > issue #424 AC3 — 一条连接多 namespace 分属多 session host 实例 > SHARD-C1 路由：resolveSessionSink 对 A/B 各恰一次；A 会话只在 w0、B 只在 w1；描述子 connectionKey 相同（同一连接） 24ms
+ ✓ packages/ws-replication/test/ws-replication-issue424-multi-worker.test.ts > issue #424 AC3 — 一条连接多 namespace 分属多 session host 实例 > SHARD-C2 demux/mux：出站帧覆盖 A/B；每 ns OPEN_OK 恰一；每 ns 内部按协议序（OPEN_OK → BOOTSTRAP_SNAPSHOT） 9ms
+ ✓ packages/ws-replication/test/ws-replication-issue424-multi-worker.test.ts > issue #424 AC3 — 一条连接多 namespace 分属多 session host 实例 > SHARD-C3 负控（NC1）：从未 OPEN 的 ns 帧 → 合成 NAMESPACE_STATE_VIOLATION、零新会话、连接存活、不落任一 worker；两形态逐字节相等 12ms
+ ✓ packages/ws-replication/test/ws-replication-issue424-multi-worker.test.ts > issue #424 AC3 — 一条连接多 namespace 分属多 session host 实例 > SEQ-C1 出站序：`[8..12]` 大端 = 1..N 严格递增（无跳/重/回退）；每 ns 首帧序 = OPEN 注入序；同工厂第二连接首帧序 = 1 6ms
+ ✓ packages/ws-replication/test/ws-replication-issue424-lifecycle.test.ts > issue #424 AC4/AC5 — 连接终结传播与经 edge 入口的 revoke/reauth > TERM-C1 终结传播：connection.close() → state=closed；两 worker 会话 closeCalls 各 ≥1（经 onConnectionClosed 投影）；此后显式推进 30s 零新出站 24ms
+ ✓ packages/ws-replication/test/ws-replication-issue424-lifecycle.test.ts > issue #424 AC4/AC5 — 连接终结传播与经 edge 入口的 revoke/reauth > TERM-C2 无泄漏：close 后 worker scheduler pending 不增；handle.close() 幂等（同 promise）；零 unhandled rejection 5ms
+ ✓ packages/ws-replication/test/ws-replication-issue424-lifecycle.test.ts > issue #424 AC4/AC5 — 连接终结传播与经 edge 入口的 revoke/reauth > TERM-C3 负控（连接隔离）：同一 host 两条连接各自持 ns；关闭其一 → 另一连接会话零 close、零新出站 8ms
+ ✓ packages/ws-replication/test/ws-replication-issue424-lifecycle.test.ts > issue #424 AC4/AC5 — 连接终结传播与经 edge 入口的 revoke/reauth > REVOKE-C1 revoke 路由：terminate 恰一次；wire 出现 ns ERROR(NAMESPACE_UNAUTHORIZED)；末帧与单体 revoke(instanceIdentity, ns) 逐字节相等 5ms
+ ✓ packages/ws-replication/test/ws-replication-issue424-lifecycle.test.ts > issue #424 AC4/AC5 — 连接终结传播与经 edge 入口的 revoke/reauth > REVOKE-C2 跨 worker 零外溢：revoke B → B terminate 恰一次、A terminateCalls=0 且 wire 零 A 的 ERROR 帧 4ms
+ ✓ packages/ws-replication/test/ws-replication-issue424-lifecycle.test.ts > issue #424 AC4/AC5 — 连接终结传播与经 edge 入口的 revoke/reauth > REVOKE-C3 幂等无副作用：未知/已终态 ns 的 revoke 无副作用 resolve；重复 revoke 恒 resolve 4ms
+ ✓ packages/ws-replication/test/ws-replication-issue424-lifecycle.test.ts > issue #424 AC4/AC5 — 连接终结传播与经 edge 入口的 revoke/reauth > REAUTH-C1 drain 提前完成：beginReauth → GOAWAY(REAUTH_REQUIRED, drainTimeoutMs>0) 恰一帧；CLOSE_NAMESPACE → settled → close(1001)（零 deadline 推进） 4ms
+ ✓ packages/ws-replication/test/ws-replication-issue424-lifecycle.test.ts > issue #424 AC4/AC5 — 连接终结传播与经 edge 入口的 revoke/reauth > REAUTH-C2 阴性对照：同脚本不发起 reauth → 连接不关闭（1001 归因于 drain 收口） 2ms
+ ✓ packages/ws-replication/test/ws-replication-issue424-lifecycle.test.ts > issue #424 AC4/AC5 — 连接终结传播与经 edge 入口的 revoke/reauth > SD-2(b) 退化负控：宿主登记缺失（factory 直连 accept）→ HELLO_ACK×1 + 连接级 ERROR(INTERNAL_ERROR)×1 + close(1011,protocol-error) + 零会话（响亮收口） 2ms
+
+ Test Files  4 passed (4)
+      Tests  25 passed (25)
+Type Errors  no errors
+   Start at  10:33:47
+   Duration  2.34s (transform 723ms, setup 0ms, collect 1.44s, tests 274ms, environment 1ms, prepare 186ms)
+
+EXIT=0

@@ -1,0 +1,51 @@
+[SA7-DATAFLOW] route=env step=head node=v24.13.0
+[SA7-DATAFLOW] route=R1 step=pass.hello_ack seq=1 skeleton=HELLO_ACK#1
+[SA7-DATAFLOW] route=R1/R2 step=pass.parity 控制帧逐字节=等；骨架=等；数据帧文档语义=等；控制帧=3 数据帧=1
+[SA7-DATAFLOW] route=R1/R2 step=pass.full_trace_hex DIFFER
+[SA7-DATAFLOW] route=R2 step=pass.authorize monoCalls=1 shardCalls=1
+[SA7-DATAFLOW] route=R2 step=pass.resolve_sink sessions=1 opens=1 resolves=["ns-9f1236b88414cfb5bb16f93c73a78f13:w0"]
+[SA7-DATAFLOW] route=R2 step=pass.connection state=ready hubClose=undefined
+[SA7-DATAFLOW] route=R1 step=deny.hello_ack seq=1 skeleton=HELLO_ACK#1
+[SA7-DATAFLOW] route=R1/R2 step=deny.parity 控制帧逐字节=等；骨架=等；数据帧文档语义=等；控制帧=3 数据帧=0
+[SA7-DATAFLOW] route=R1/R2 step=deny.full_trace_hex equal
+[SA7-DATAFLOW] route=R2 step=deny.authorize monoCalls=1 shardCalls=1
+[SA7-DATAFLOW] route=R2 step=deny.resolve_sink sessions=0 opens=0 resolves=[]
+[SA7-DATAFLOW] route=R2 step=deny.connection state=ready hubClose=undefined
+[SA7-DATAFLOW] route=R1 step=throw.hello_ack seq=1 skeleton=HELLO_ACK#1
+[SA7-DATAFLOW] route=R1/R2 step=throw.parity 控制帧逐字节=等；骨架=等；数据帧文档语义=等；控制帧=3 数据帧=0
+[SA7-DATAFLOW] route=R1/R2 step=throw.full_trace_hex equal
+[SA7-DATAFLOW] route=R2 step=throw.authorize monoCalls=1 shardCalls=1
+[SA7-DATAFLOW] route=R2 step=throw.resolve_sink sessions=0 opens=0 resolves=[]
+[SA7-DATAFLOW] route=R2 step=throw.connection state=ready hubClose=undefined
+[SA7-DATAFLOW] route=R4 step=seq.first_conn count=5 values=[1,2,3,4,5] strictlyIncreasing1toN=true
+[SA7-DATAFLOW] route=R4 step=seq.sink_returns mirrorOfStamp=[2,3,4,5]
+[SA7-DATAFLOW] route=R2/R3 step=demux_mux ns=ns-9f1236b…→w0 [OPEN_OK#2 BOOTSTRAP_SNAPSHOT#3] | ns=ns-02c6ebb…→w1 [OPEN_OK#4 BOOTSTRAP_SNAPSHOT#5]
+[SA7-DATAFLOW] route=R2 step=resolve_sink resolves=["ns-9f1236b88414cfb5bb16f93c73a78f13:w0","ns-02c6ebbcfbcad9dc7289b30b5078e32b:w1"] connectionKeys=["hub-omega-conn-0"]
+[SA7-DATAFLOW] route=R4 step=seq.second_conn key=hub-omega-conn-1 firstConnKey=hub-omega-conn-0 firstSeqs=[1]
+[SA7-DATAFLOW] route=R6 step=revoke.parity lastFrameHexEqual=true shardLast=ERROR(NAMESPACE_UNAUTHORIZED)#4
+[SA7-DATAFLOW] route=R6 step=revoke.session terminateCalls=1 closeCalls=0
+[SA7-DATAFLOW] route=R5 step=reauth.goaway reasonCode=REAUTH_REQUIRED drainTimeoutMs=5000 goawayCount=1
+[SA7-DATAFLOW] route=R5 step=reauth.drain_early settled=["settled:ns-9f1236b88414cfb5bb16f93c73a78f13"] closeOk=1 hubClose={"code":1001,"reason":"hub-reauth"} timerFires=0
+[SA7-DATAFLOW] route=R5 step=reauth.negative goaways=0 hubClose=undefined state=ready
+[SA7-DATAFLOW] route=R6 step=term.close firstState=closed secondState=ready
+[SA7-DATAFLOW] route=R6 step=term.sessions A{closeCalls=1,terminateCalls=0} B{closeCalls=0,terminateCalls=0}
+[SA7-DATAFLOW] route=R6 step=term.quiescence framesOneBefore=3 after=3 framesTwoBefore=3 after=3 pendingA=0/2 pendingB=0/2
+[SA7-DATAFLOW] route=R2 step=sd2b.degenerate registryEntries=0 skeleton=HELLO_ACK#1 ERROR(INTERNAL_ERROR)#2 hubClose={"code":1011,"reason":"protocol-error"} sessions=0
+[SA7-DATAFLOW] route=R7 step=adopt.premise workerRegistry===hubNode.registry=true chunked=undefined
+[SA7-DATAFLOW] route=R7 step=round.hub_to_peer HELLO_ACK#1 OPEN_OK#2 BOOTSTRAP_SNAPSHOT#3 SYNC_STEP1#4 SYNC_STEP2#5 SYNC_APPLIED#6
+[SA7-DATAFLOW] route=R8 step=round.bootstrap snapshotSeq=3 bootstrapAckAcked=3 state=live
+[SA7-DATAFLOW] route=R8 step=round.peer_to_hub peerUpdateSeq=7 ackedSequence=7 hubRootN=7
+[SA7-DATAFLOW] route=R8 step=round.hub_to_peer newHubUpdates=1 peerRootN=43 state=live
+[SA7-DATAFLOW] route=R8 step=round.convergence encodeStateAsUpdateEqual=true
+[SA7-DATAFLOW] route=R5 step=round.close closeReqSeq=9 closeOkAcked=9 settledSignals=["settled:ns-00000000000000000000000000000001"]
+[SA7-DATAFLOW] route=R6 step=round.teardown closeIdempotentSamePromise=true closeCalls=[1] pendingBefore=0 pendingAfter=0 framesBefore=9 framesAfter=9 unhandled=0
+[SA7-DATAFLOW] route=R7 step=adopt.premise workerRegistry===hubNode.registry=true chunked=true
+[SA7-DATAFLOW] route=R7 step=round.hub_to_peer HELLO_ACK#1 OPEN_OK#2 BOOTSTRAP_SNAPSHOT#3 SYNC_STEP1#4 SYNC_STEP2#5 SYNC_APPLIED#6
+[SA7-DATAFLOW] route=R8 step=round.bootstrap snapshotSeq=3 bootstrapAckAcked=3 state=live
+[SA7-DATAFLOW] route=R8 step=round.peer_to_hub peerUpdateSeq=7 ackedSequence=7 hubRootN=7
+[SA7-DATAFLOW] route=R8 step=round.hub_to_peer newHubUpdates=1 peerRootN=43 state=live
+[SA7-DATAFLOW] route=R8 step=round.convergence encodeStateAsUpdateEqual=true
+[SA7-DATAFLOW] route=R5 step=round.close closeReqSeq=9 closeOkAcked=9 settledSignals=["settled:ns-00000000000000000000000000000001"]
+[SA7-DATAFLOW] route=R6 step=round.teardown closeIdempotentSamePromise=true closeCalls=[1] pendingBefore=0 pendingAfter=0 framesBefore=9 framesAfter=9 unhandled=0
+[SA7-DATAFLOW] route=done step=all_scenarios completed
+EXIT=0

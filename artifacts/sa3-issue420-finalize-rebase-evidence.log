@@ -1,0 +1,469 @@
+================================================================================
+SA3 issue #420 -- iteration 2 evidence log
+Finalization-repair evidence set prepared for (a) the Controller's exact commit
+a315e70 and (b) the subsequent rebase onto the authoritative base 1f5809b
+================================================================================
+Dispatch           : sa-3974e1e9-834e-43ad-9cca-08acb5605efe (role mabf-sa3, phase
+                     implementation, iteration 2). Owner feedback requirements = none;
+                     REST issue comments = [] (no per-comment mapping to build).
+Worktree / branch  : /home/wangjian/nomicore-fix-issue-420, mabf/issue-420
+HEAD (delivery)    : a315e7077576951cf0330596cdc588afbeca51be
+                     "feat(ws-replication): expose session host factory"; parent
+                     7039f6dae8e7d29f0c929492f0ca2119bc63afaa (= PR #426 merge)
+Authoritative base : 1f5809b001c984e63fac3bafd4c1f3febc76e8a8 (= merge of PR #427,
+                     issue #421); present locally
+Purpose            : (a) make the iteration-1 approved finalization-repair evidence set
+                     exactly stageable for the Controller's commit; (b) prove the rebase
+                     onto the authoritative base is mechanically resolvable by a pure
+                     union (packages/ws-replication/src/index.ts) and re-verify the
+                     gates on a scratch dry-run rebased tree.
+Business semantics : UNCHANGED by this iteration. Zero bytes under packages/, docs/,
+                     CONTEXT.md, test infrastructure, tsconfig*, vitest.config.ts,
+                     package.json, .editorconfig or any generator are touched here.
+                     Sections 3/5/6/7 prove the same statement for the delivery itself.
+Iteration-1 record : artifacts/sa3-issue420-evidence-reconcile.log
+                     sha256 4f893393b9fba731b8d843666472abb9d0eda554d17114d811abf884b2b0d2fe
+                     (still byte-identical in this iteration: SECTION 2 row 2)
+Self registration  : this log's own sha256 is registered in
+                     wiki/raw/task_issue-420_sa3_impl.md (iteration 2 section); a log
+                     cannot carry its own digest. Same convention as iteration 1.
+
+================================================================================
+SECTION 0 -- baseline re-verified before any scan
+================================================================================
+$ git rev-parse HEAD
+a315e7077576951cf0330596cdc588afbeca51be
+$ git status --porcelain | wc -l
+19            # 3 tracked-modified + 16 untracked (iteration 1 recorded 18 = 2 + 16;
+              #  the +1 is SA4's iteration-1 in-place review update -- SA4 O13)
+$ git diff --cached --name-only | wc -l
+0             # the real git index holds zero staged entries (SA3 writes no index)
+$ git worktree list
+/home/wangjian/nomicore                                                 7317237 [main]
+/home/wangjian/nomicore-fix-issue-420                                   a315e70 [mabf/issue-420]
+(+ two gitignored scratch worktrees created and removed inside this iteration:
+   .worktrees/sa3-420-parent-probe, .worktrees/sa3-420-rebase-dryrun)
+
+Iteration-1 registry integrity (frozen values from SA8 iteration-6/7 and SA4 iteration 1):
+  artifacts/sa3-issue420-evidence-reconcile.log .... 4f893393b9fba731...b2b0d2fe  UNCHANGED
+  wiki/raw/task_issue-420_sa9_standards.md ......... 434fd8364db0d855...0e442e21  UNCHANGED
+  wiki/raw/task_issue-420_sa10_spec.md ............. fba2b74af08caffe...187b5435  UNCHANGED
+  wiki/raw/task_issue-420_implementation_conflict_report.md
+      iteration-1 recorded value 590ef35da0e9dc4c (iteration-6 bytes, reconcile log
+      SECTION 7.3) -> live value f3e2b357937f72fb (iteration-7 bytes, SA8 in-place update,
+      exactly the "live report" case SA8 RA6 hash note covers)
+
+================================================================================
+SECTION 1 -- exact candidate set (staging manifest basis): 20 paths
+================================================================================
+$ git status --porcelain
+ M wiki/raw/task_issue-420_implementation_conflict_report.md   (SA8-owned, live)
+ M wiki/raw/task_issue-420_sa3_impl.md                         (SA3-owned, live)
+ M wiki/raw/task_issue-420_sa4_review.md                       (SA4-owned, iteration 1)
+?? artifacts/sa3-issue420-design-letter-divergence.log
+?? artifacts/sa3-issue420-evidence-reconcile.log
+?? artifacts/sa3-issue420-finalize-rebase-evidence.log         (this log, new)
+?? artifacts/sa3-issue420-mutation-M1-a12-red-arm.log
+?? artifacts/sa3-issue420-mutation-M2-drop-open.log
+?? artifacts/sa3-issue420-mutation-M3-restamp-sequence.log
+?? artifacts/sa3-issue420-mutation-M4-disable-shim.log
+?? artifacts/sa3-issue420-mutation-M5-session-resequence-check.log
+?? artifacts/sa3-issue420-mutation-M7-reopen-reentry.log
+?? artifacts/sa3-issue420-mutation-M7b-drop-inflight-open.log
+?? artifacts/sa3-issue420-red-contract.log
+?? artifacts/sa6-issue420-runner-trigger-red.log
+?? artifacts/sa7-issue420-focused-420-tests.log
+?? artifacts/sa7-issue420-listen-matrix-baseline.log
+?? wiki/raw/task_issue-420.md
+?? wiki/raw/task_issue-420_sa10_spec.md
+?? wiki/raw/task_issue-420_sa9_standards.md
+
+Delta versus iteration 1 (18 paths), both additions reported and justified:
+  + wiki/raw/task_issue-420_sa4_review.md      SA4's iteration-1 in-place review update;
+                                               the file is tracked, so it is a tracked
+                                               modification in the delivery archive
+                                               (SA4 O13 required exactly this capture)
+  + artifacts/sa3-issue420-finalize-rebase-evidence.log
+                                               this iteration's evidence (new path)
+No path left the set; no path was renamed; nothing was deleted.
+
+================================================================================
+SECTION 2 -- C1 form scan of the full candidate set (all 20 paths)
+================================================================================
+C1 form (the .editorconfig [*] rules plus the git whitespace gate): no [ \t] directly
+before LF; no \r; exactly one trailing LF; no blank line at EOF.
+Scan before this log existed: 19/19 PASS, C1_FAIL_COUNT=0.
+Frozen rows (18) -- the values the Controller's commit must reproduce:
+
+path | sha256 | bytes | lines | trailing-ws | cr | last-byte | blank-at-eof
+wiki/raw/task_issue-420_implementation_conflict_report.md	f3e2b357937f72fb7601cf44677b125d4b2d908abbdcc6f32919b342f59ab93d	20032	94	0	0	0a	0
+artifacts/sa3-issue420-design-letter-divergence.log	b4c7f8540df30af2b41b92bec377a0f45ed015466acf741888d9fbe649b2001b	11461	94	0	0	0a	0
+artifacts/sa3-issue420-evidence-reconcile.log	4f893393b9fba731b8d843666472abb9d0eda554d17114d811abf884b2b0d2fe	53056	656	0	0	0a	0
+artifacts/sa3-issue420-mutation-M1-a12-red-arm.log	03237793be1e2fc5e266e1dfe392508185255451769cd67176c7627da43a909e	468	11	0	0	0a	0
+artifacts/sa3-issue420-mutation-M2-drop-open.log	d473d0bfc7205c92b5216eaac10e867c0fd6652aeae77d647f01c573b33b11d5	10912	166	0	0	0a	0
+artifacts/sa3-issue420-mutation-M3-restamp-sequence.log	d53d4aa081e84e432dc209a07893533eecb11aca0165186fe8fd603e86a44ce7	9012	137	0	0	0a	0
+artifacts/sa3-issue420-mutation-M4-disable-shim.log	a6025d4848875090d573c52d708ab36ddbd5de90c75bd5ed9b25a9ee3e36d596	10847	81	0	0	0a	0
+artifacts/sa3-issue420-mutation-M5-session-resequence-check.log	36d7512090d04ee660c0b78e5294ee70cb4ce8b91665e3172170b55ea136f623	10956	166	0	0	0a	0
+artifacts/sa3-issue420-mutation-M7-reopen-reentry.log	1689afe6dc61d7932e214d6746c009aa518abacef2487f323aea3271f63d0153	13891	129	0	0	0a	0
+artifacts/sa3-issue420-mutation-M7b-drop-inflight-open.log	b635a9474b43892d3d48434df8cafeb057bd284717b3ee7a07b31acaa07938db	11703	101	0	0	0a	0
+artifacts/sa3-issue420-red-contract.log	75109f57b153a9e78f663a3660eb1c8ff2689f5f923b7e2bc98cb798f4d4edb5	2689	59	0	0	0a	0
+artifacts/sa6-issue420-runner-trigger-red.log	b26a55ab841554b7b16ea88ed1814b98d8a5e57a6dcc37f1f9224e8d9a19fd20	5050	95	0	0	0a	0
+artifacts/sa7-issue420-focused-420-tests.log	37565aeee394eacd4a7504852e2a52e762342d147ea09be5af0d2ed661f81e27	573	11	0	0	0a	0
+artifacts/sa7-issue420-listen-matrix-baseline.log	9882feec7943e6acecca4b08c0453400ffef29cdf107591056548057684492cd	294	7	0	0	0a	0
+wiki/raw/task_issue-420.md	2eb0d8cb0bae20ac939c5fa0833d1fbb59dee599b24fd02a749a89bb78e44b4a	1502	31	0	0	0a	0
+wiki/raw/task_issue-420_sa10_spec.md	fba2b74af08caffe8567cf0521d75711e55a54b88b0d6c53234004f2187b5435	20375	162	0	0	0a	0
+wiki/raw/task_issue-420_sa4_review.md	c70309a310741560b10caf7602e0b247980c199042e7d64f8d9dec7a83eceb87	46569	337	0	0	0a	0
+wiki/raw/task_issue-420_sa9_standards.md	434fd8364db0d8555c036158bf3c87f83a09234565e11ae92d87c1fd0e442e21	29892	201	0	0	0a	0
+
+Live rows (2, excluded from the frozen table by convention):
+  wiki/raw/task_issue-420_sa3_impl.md   SA3-owned report; this iteration rewrites its
+                                        iteration-2 section (iterations 0/1 sections are
+                                        preserved in place). Iteration-1 state:
+                                        f6f5a221cf7fcc32...b0a490527d / 34028 B / 265 L.
+  wiki/raw/task_issue-420_implementation_conflict_report.md is SA8-owned and is frozen
+  at its iteration-7 bytes above *for this delivery*, but SA8 retains in-place update
+  authority (SA8 RA6 hash note); the Controller must stage the bytes present at commit.
+  artifacts/sa3-issue420-finalize-rebase-evidence.log -- this log; it is C1-clean by
+  construction (see SECTION 4 verification) and its digest is registered in the SA3
+  report.
+
+Content fidelity versus iteration 1: 15 of the 16 rows that iteration 1 also carried are
+byte-identical here (13 artifact logs, the Host brief, sa9_standards, sa10_spec). The one
+exception is the SA8 report row itself: iteration 1 recorded 590ef35da0e9dc4c... (the
+iteration-6 bytes, reconcile log SECTION 7.3) while this log records f3e2b357937f72fb...
+(the iteration-7 live bytes) -- exactly the in-place-update case SA8's RA6 hash note
+prescribes, and the reconcile log's own digest still equals the value registered in the
+SA8 report (SECTION 0). The two rows new to this log (the SA8 iteration-7 report and the
+SA4 iteration-1 report) were never registered as hashes before; nothing recorded has been
+rewritten.
+
+================================================================================
+SECTION 3 -- business-path identity: zero drift from the delivery commit
+================================================================================
+$ git diff HEAD -- packages docs CONTEXT.md .editorconfig vitest.config.ts \
+      package.json tsconfig.json tsconfig.base.json
+(empty)
+
+13/13 design section 11 ALLOW paths byte-identical to HEAD (git hash-object vs
+git rev-parse HEAD:<path>):
+  CONTEXT.md                                                        fc4306e374f28e64f3adb2362e7980e13ff14508
+  docs/adr/0032-transport-decoupling-edge-session-split.md          be9d747cfba14adf763fb06231b9c4911fa56c18
+  packages/ws-replication/src/hub-connection.ts                     1234494a248aecc09ac4bcd67a236eeda6c64127
+  packages/ws-replication/src/hub-session-host.ts                   aa318920d6bcb5e1e8bdf24da5461c6ed1a1ae5c
+  packages/ws-replication/src/hub-session.ts                        4411ee166f6a78ac585a71131e3d13b8c2262bf8
+  packages/ws-replication/src/hub-split.ts                          dc79dfa3989643db102936453c3790c56511a72f
+  packages/ws-replication/src/index.ts                              71fc4176b6b095077ca7cf74a5ee341940bbe1a1
+  packages/ws-replication/test/issue420-shim-hub.ts                 463477dd968813a680e475dd927cf41033b7dc1b
+  packages/ws-replication/test/ws-replication-issue418-edge-session-split-contract.test.ts
+                                                                    bdc4404ac30b4bf1885bb450d624fdd83f631a28
+  packages/ws-replication/test/ws-replication-issue418-edge-session-split-structure.test.ts
+                                                                    2889230b6706f4f746e5a8a528cea6ecfbcd3f06
+  packages/ws-replication/test/ws-replication-issue420-session-host-api.test-d.ts
+                                                                    9fc6ce84f353c57dabc71174cbeb6d3aeb9e0179
+  packages/ws-replication/test/ws-replication-issue420-session-host-round.test.ts
+                                                                    e08b747ea31ab8bc018607743a406ed453ffaa29
+  packages/ws-replication/test/ws-replication-issue420-shim-matrix.test.ts
+                                                                    bf1478a395738d85e420b32fe24280453885f411
+ALLOW_PATH_IDENTITY_FAIL_COUNT=0 (0 = the delivery's business bytes are unchanged)
+
+================================================================================
+SECTION 4 -- scratch-index staging gate over the full candidate set
+================================================================================
+$ GIT_INDEX_FILE=<scratch> git read-tree HEAD
+$ GIT_INDEX_FILE=<scratch> git add -A -- <all candidate paths>
+$ GIT_INDEX_FILE=<scratch> git diff --cached --check
+GATE_RC=0                    # zero whitespace findings (iteration 1 had 39 findings
+                             # before its C1 normalization; the defect class is gone)
+$ GIT_INDEX_FILE=<scratch> git diff --cached --name-status
+A/M for exactly the candidate paths, 19 rows at scan time (20 with this log); the real
+index is never written (SECTION 0: zero staged entries in the real index).
+Staged-blob identity: for every candidate path the scratch-index blob equals
+git hash-object <worktree path> -- i.e. staging carries the verified bytes, not stale
+ones. This is what makes the Controller's commit byte-for-byte the scanned set.
+The same gate is re-run after this log and the SA3 report reach their final bytes
+(see the closing block at the end of this log).
+
+================================================================================
+SECTION 5 -- rebase readiness versus the authoritative base
+================================================================================
+$ git merge-base 1f5809b001... a315e7077...
+7039f6dae8e7d29f0c929492f0ca2119bc63afaa
+$ git rev-list --left-right --count 1f5809b001...a315e7077...
+4	1                          # 4 upstream commits, 1 delivery commit
+Upstream increment (7039f6d..1f5809b):
+  f40d0165962d1e4f4f96e12b7463b5cd6a8abb24 feat(ws-replication): add hub replication edge factory
+  ed54f5614ab5e5a1e0e8d5b764d693f5f96af67e docs: add issue 421 final review evidence
+  6c9d24059ed0793517d34ff6e1a5b456c365b82f docs: add issue 421 task evidence
+  1f5809b001c984e63fac3bafd4c1f3febc76e8a8 Merge pull request #427 from nomicore-ai/mabf/issue-421
+$ git diff --name-only 7039f6d 1f5809b | wc -l
+31                          # upstream touched exactly 31 paths (all issue-421 paths)
+Intersection of the upstream 31 paths with the 20 staging paths:
+$ comm -12 <(sort upstream-31) <(sort staging-20) | wc -l
+0                           # ZERO intersection -- the evidence archival commit replays
+                            # conflict-free in either order (before or after the rebase)
+$ git merge-tree --write-tree --name-only 1f5809b001c984e63fac3bafd4c1f3febc76e8a8 \
+      a315e7077576951cf0330596cdc588afbeca51be
+a24156e2d84d4f7a94bbe03e0db20f07ed2c4562
+packages/ws-replication/src/index.ts
+Auto-merging CONTEXT.md
+Auto-merging packages/ws-replication/src/hub-connection.ts
+Auto-merging packages/ws-replication/src/index.ts
+CONFLICT (content): Merge conflict in packages/ws-replication/src/index.ts
+Auto-merging packages/ws-replication/test/ws-replication-issue418-edge-session-split-contract.test.ts
+MERGE_TREE_RC=1
+Reproduced byte-for-byte the recipe SA8 recorded in iterations 1-7 (same tree OID, same
+single conflict, same stage blobs). Conflict index stages:
+  stage 1 (base)     977bd3dfbccec40153a8ee6e5fb74c97961bd5d5
+  stage 2 (ours)     7e2f7464e83ea64d7ebf5ea0daf021ef0a0c133b  = 1f5809b:src/index.ts
+  stage 3 (theirs)   71fc4176b6b095077ca7cf74a5ee341940bbe1a1  = a315e70:src/index.ts
+Both-modified business paths: CONTEXT.md, packages/ws-replication/src/hub-connection.ts,
+packages/ws-replication/src/index.ts, ...issue418-edge-session-split-contract.test.ts.
+Only src/index.ts conflicts; the other three auto-merge clean (verified in SECTION 7).
+
+================================================================================
+SECTION 6 -- union recipe for packages/ws-replication/src/index.ts
+================================================================================
+$ git diff 7039f6d a315e70 -- packages/ws-replication/src/index.ts   # delivery side
+  + 1 value export line after createHubReplication  (export { createHubSessionHost })
+  + 1 blank line + a 9-line `export type { ... } from './hub-session-host.js'` block at EOF
+$ git diff 7039f6d 1f5809b -- packages/ws-replication/src/index.ts  # upstream side
+  + 3 lines (2 comments + export { createHubReplicationEdge }) after createPeerReplication
+  + 1 blank line + a 12-line `export type { ... } from './hub-edge-host.js'` block at EOF
+The four hunks are pairwise disjoint: the only structural overlap is "both sides append
+at EOF", which is exactly what git cannot order on its own. Hence the resolution is the
+pure union of both sides' additions -- no line of either side is dropped, reordered
+within its own block, or renamed.
+$ git hash-object <union>
+08fa49a1fb84321b92a4cae2da7ee401afdc7ce1     # 2872 B / 95 lines / exactly one final LF
+Pure-union proof (base -> union):
+$ git diff --no-index --numstat base-index.ts union-index.ts
+26	0	                            # 26 insertions, ZERO deletions -> additive only
+Export census of the union:
+  values 11 -> 13   added: createHubReplicationEdge, createHubSessionHost; removed: none
+  types  44 -> 59   added 15: HubNamespaceSessionSink, HubOpenNamespaceMessage,
+        HubReplicationEdgeConnection, HubReplicationEdgeEgress, HubReplicationEdgeFactory,
+        HubReplicationEdgeOptions, HubSessionFrameLane, HubSessionFrameListener,
+        HubSessionHandle, HubSessionHost, HubSessionHostConfig, HubSessionOpenInput,
+        HubSessionSignal, HubSessionSinkResolver, NamespaceAuthorizationGrant
+        removed: none
+The union satisfies the #418 frozen export table's exact-equality assertion: the
+auto-merged ws-replication-issue418-edge-session-split-contract.test.ts carries 13 names
+(both createHubReplicationEdge and createHubSessionHost) and
+`expect(Object.keys(productionApi).sort()).toEqual(FROZEN_PRODUCTION_EXPORTS)` passes
+inside the green package suite of SECTION 8 (87 files).
+
+================================================================================
+SECTION 7 -- dry-run rebase on a scratch worktree (delivery branch untouched)
+================================================================================
+$ git worktree add --detach .worktrees/sa3-420-rebase-dryrun a315e7077...
+$ git rebase 1f5809b001c984e63fac3bafd4c1f3febc76e8a8
+CONFLICT (content): Merge conflict in packages/ws-replication/src/index.ts
+  (identical conflict surface to SECTION 5; auto-merged CONTEXT.md, hub-connection.ts
+   and the #418 contract test)
+$ git ls-files -u      # stages 977bd3d / 7e2f746 / 71fc417 -- same three blobs
+resolve by writing the union blob (nothing else touched):
+$ cp <union-index.ts> packages/ws-replication/src/index.ts && git add <that path>
+$ git rebase --continue
+Successfully rebased and updated detached HEAD.
+  rebased commit  c9653f0d73207139a98f5a09f41627c133245f8b   (parent 1f5809b)
+  rebased tree    e777f96157b1dbf3908a62b323bf851b9da10e40
+No other file was edited by hand. Proof of that claim, independent of my editing:
+$ GIT_INDEX_FILE=<scratch> git read-tree a24156e2d84d4f7a94bbe03e0db20f07ed2c4562
+$ GIT_INDEX_FILE=<scratch> git update-index --cacheinfo \
+      100644,08fa49a1fb84321b92a4cae2da7ee401afdc7ce1,packages/ws-replication/src/index.ts
+$ GIT_INDEX_FILE=<scratch> git write-tree
+e777f96157b1dbf3908a62b323bf851b9da10e40
+  IDENTITY=YES -- the dry-run rebase tree equals "git merge-tree auto-merge result with
+  the single conflicted path replaced by the union blob". Therefore the resolution
+  introduces zero hand-written content beyond the mechanical union.
+Both sides' content preserved on the three auto-merged paths (added-line subset check):
+  CONTEXT.md                                          delivery_added_missing=0 parent_added_missing=0
+  packages/ws-replication/src/hub-connection.ts       delivery_added_missing=0 parent_added_missing=0
+  ...issue418-edge-session-split-contract.test.ts     delivery_added_missing=0 parent_added_missing=0
+ALLOW path blob matrix, delivery tree vs rebased tree:
+  IDENTICAL (9): docs/adr/0032-...md, src/hub-session-host.ts, src/hub-session.ts,
+                 src/hub-split.ts, test/issue420-shim-hub.ts, the #418 structure test,
+                 the #420 test-d, the #420 round test, the #420 shim matrix
+  CHANGED   (4): CONTEXT.md, src/hub-connection.ts, src/index.ts, the #418 contract test
+                 -- exactly the both-modified set, i.e. each CHANGED path is the
+                 upstream+delivery union, not a rewrite. Zero ALLOW path was lost.
+
+================================================================================
+SECTION 7b -- evidence-archive replay on the rebased dry-run tree
+================================================================================
+The Controller's sequence is "commit the evidence set, then rebase" (or the reverse).
+Both orders are conflict-free (SECTION 5: zero path intersection). The full sequence was
+replayed in the dry-run worktree -- not to take over the Controller's job, but to prove
+that the archive lands with the registered bytes and nothing else moves:
+
+$ tar cf - -T <20-path manifest> | tar xf - -C .worktrees/sa3-420-rebase-dryrun
+$ git add -A -- <20 paths>
+$ git diff --cached --check            -> RC=0
+$ git commit -m "test(ws-replication): canonicalize issue 420 evidence contract"
+  49ed8bda7ec3e3bb4cbc4f1f315d3371c2ba4075   (tree 9d7d4de3bab03e59190ff4719439d77a434ab7e8)
+  parent c9653f0d73207139a98f5a09f41627c133245f8b (the dry-run rebased delivery commit)
+$ git diff --stat c9653f0 49ed8bd -- packages docs CONTEXT.md .editorconfig \
+      vitest.config.ts package.json tsconfig.json tsconfig.base.json
+(empty)                                -> the archive commit is evidence-only
+$ for p in <20 paths>; do git show HEAD:$p | sha256sum; done
+POST_COMMIT_HASH_FAIL=0                -> 20/20 equal to the worktree bytes, and the 18
+                                          frozen rows equal the SECTION 2 table values
+                                          (including 4f893393... for the reconcile log)
+This run used this log at digest 7de86fa0d8c31eab...a681d; the SECTION 7b text above is
+the only content appended afterwards, so the closing replay over the frozen set (recorded
+in the SA3 report) is the run that covers every final byte. The property is byte-driven:
+staging the frozen set reproduces "committed bytes == scanned bytes" for all 20 paths.
+
+================================================================================
+SECTION 8 -- gates on the dry-run rebased tree (pre-verification, NOT RA2 closure)
+================================================================================
+All runs in .worktrees/sa3-420-rebase-dryrun after a real
+`pnpm install --frozen-lockfile --offline` (Done in 531ms); the delivery worktree and
+branch were never touched by these runs.
+  V17 focused #420 contract (3 paths, --typecheck)
+      3 passed (3) / 63 passed (63) / Type Errors no errors / DRYRUN_V17_EXIT=0
+  V18 package typecheck   pnpm exec tsc -p packages/ws-replication/tsconfig.json
+      DRYRUN_V18_PACKAGE_TSC_EXIT=0
+  V19 package suite       NODE_OPTIONS=--conditions=nomicore-source pnpm exec vitest run
+                          --typecheck packages/ws-replication/test
+      87 passed (87) / 749 passed (749) / Type Errors no errors / exit 0
+      (87 files is exactly RA2's expected post-rebase package count: 80 pre-rebase + the
+       7 issue-421 test files)
+  V20 root typecheck      pnpm typecheck (15 tsconfigs, serial)
+      DRYRUN_V20_ROOT_TYPECHECK_EXIT=0
+  AC3 listen matrix (7 files, 52 tests)  7 passed (7) / 52 passed (52) / exit 0
+      (byte-identical counts to SA7's pre-rebase baseline log)
+These results say "the mechanical union recipe lands green on the rebased tree". They do
+NOT close SA8 RA2: RA2 requires the same gates on the ACTUAL rebased delivery tree after
+the Controller's rebase (SECTION 11).
+
+Environment caveat (recorded so nobody reproduces a false red): an earlier attempt to run
+these gates in the scratch worktree with node_modules SYMLINKED from the delivery
+worktree produced 4 spurious `TypeCheckError: Expected 1 arguments, but got 0` findings in
+packages/ws-replication/test/ws-replication-issue421-edge-factory-api.test-d.ts
+(:94, :115, :284, :322) and exit 1. The same focused command on the pristine upstream tree
+1f5809b with a real install passes 8/8 (exit 0), and every number in this section comes
+from a real install. Conclusion: the symlinked-node_modules layout is an artifact of the
+scratch harness, not a defect of the delivery or of the authoritative base. Do not verify
+with symlinked node_modules.
+
+================================================================================
+SECTION 9 -- pre-rebase re-take of the assigned verification on the delivery tree
+================================================================================
+Run in the delivery worktree (/home/wangjian/nomicore-fix-issue-420) with the candidate
+set present (tree = a315e70 business bytes + the evidence files):
+  V17 focused #420 contract (3 paths, --typecheck)
+      3 passed (3) / 63 passed (63) / Type Errors no errors / DELIVERY_V17_EXIT=0
+  V18 package typecheck   pnpm exec tsc -p packages/ws-replication/tsconfig.json
+      DELIVERY_V18_PACKAGE_TSC_EXIT=0
+Same口径 as iteration 1 (3/63, tsc exit 0): the evidence-only changes of iterations 1-2
+leave the frozen red contract green and the package typecheck clean. Tree binding: these
+two runs belong to the pre-rebase delivery tree; after the rebase they are superseded per
+the tree-binding rule.
+
+================================================================================
+SECTION 10 -- exact staging list, recommended commit message, post-commit expectation
+================================================================================
+20 paths, worktree-relative and complete (= git status):
+
+#   git add -A -- \
+#     wiki/raw/task_issue-420_implementation_conflict_report.md \
+#     wiki/raw/task_issue-420_sa3_impl.md \
+#     wiki/raw/task_issue-420_sa4_review.md \
+#     artifacts/sa3-issue420-design-letter-divergence.log \
+#     artifacts/sa3-issue420-evidence-reconcile.log \
+#     artifacts/sa3-issue420-finalize-rebase-evidence.log \
+#     artifacts/sa3-issue420-mutation-M1-a12-red-arm.log \
+#     artifacts/sa3-issue420-mutation-M2-drop-open.log \
+#     artifacts/sa3-issue420-mutation-M3-restamp-sequence.log \
+#     artifacts/sa3-issue420-mutation-M4-disable-shim.log \
+#     artifacts/sa3-issue420-mutation-M5-session-resequence-check.log \
+#     artifacts/sa3-issue420-mutation-M7-reopen-reentry.log \
+#     artifacts/sa3-issue420-mutation-M7b-drop-inflight-open.log \
+#     artifacts/sa3-issue420-red-contract.log \
+#     artifacts/sa6-issue420-runner-trigger-red.log \
+#     artifacts/sa7-issue420-focused-420-tests.log \
+#     artifacts/sa7-issue420-listen-matrix-baseline.log \
+#     wiki/raw/task_issue-420.md \
+#     wiki/raw/task_issue-420_sa10_spec.md \
+#     wiki/raw/task_issue-420_sa9_standards.md
+# git diff --cached --check  must print nothing (RC=0) before the commit and after it.
+# Any path staged but never committed blocks finalization exactly like an untracked one.
+
+Recommended commit message (Controller owns the wording):
+  test(ws-replication): canonicalize issue 420 evidence contract
+  - archive the uncommitted issue #420 evidence set (13 artifact logs + Host brief +
+    sa9/sa10 approvals + the current SA8/S4 reports + the iteration-1 reconciliation log
+    and this finalize/rebase evidence log); closes SA9 section 10 M3
+  - record the finalization-repair reconciliation and the authoritative-base rebase
+    readiness (pure-union resolution for src/index.ts); zero implementation/test/doc
+    byte change
+
+Post-commit expectation:
+  git show HEAD:<frozen path> | sha256sum  ==  the SECTION 2 table value  (18 paths)
+  git show HEAD:<this log> | sha256sum     ==  the value registered in
+                                               wiki/raw/task_issue-420_sa3_impl.md
+  live reports (task_issue-420_sa3_impl.md, task_issue-420_implementation_conflict_report.md):
+      the committed bytes are whatever was staged for them; verify with
+      `git show HEAD:<path> | cmp - <worktree path>` at commit time (SA8 RA6 hash note).
+
+================================================================================
+SECTION 11 -- post-rebase revalidation required (NOT closed by this iteration)
+================================================================================
+Tree-binding rule: every dynamic result above (SECTION 8 dry-run, SECTION 9 delivery
+re-take, iteration-0/1 V1-V21) is bound to the tree it ran on. None of them is evidence
+about the real rebased delivery tree. SA8 RA2 therefore stays OPEN and must be re-taken
+after the Controller's rebase, on the rebased tree:
+  1. #418 contract exact-equal + the three #420 contracts
+       NODE_OPTIONS=--conditions=nomicore-source pnpm exec vitest run --typecheck \
+         packages/ws-replication/test/ws-replication-issue418-edge-session-split-contract.test.ts \
+         packages/ws-replication/test/ws-replication-issue420-shim-matrix.test.ts \
+         packages/ws-replication/test/ws-replication-issue420-session-host-api.test-d.ts \
+         packages/ws-replication/test/ws-replication-issue420-session-host-round.test.ts
+  2. both test-d locks (issue-420 session host API + issue-421 edge factory API) -- the
+     package-suite typecheck run covers both
+  3. package suite: NODE_OPTIONS=--conditions=nomicore-source pnpm exec vitest run \
+       --typecheck packages/ws-replication/test      -> expected 87 files (SECTION 8)
+  4. pnpm typecheck (15 tsconfigs, serial)
+  5. AC3 matrix verbatim re-run: shim matrix (53 tests, in item 1/3) + the 7-file listen
+     matrix (52 tests) used by SA7's baseline
+Rebase recipe (already validated mechanically here): rebase a315e70 onto 1f5809b; the
+ONLY conflict is packages/ws-replication/src/index.ts; resolve it with the pure-union blob
+08fa49a1fb84321b92a4cae2da7ee401afdc7ce1 (SECTION 6) and change nothing else; the
+evidence commit (SECTION 10) replays conflict-free before or after the rebase because its
+20 paths intersect the upstream 31 paths in zero places (SECTION 5). If the authoritative
+base head moves away from 1f5809b, stop and re-run the merge-tree check before resolving.
+Closure owner: the Controller's rebase plus the SA4/SA7 post-rebase evidence chain; SA8's
+narrow requiresConflictRecheck=true (public API union face not yet landed on a real
+rebased tree) closes only when the recipe lands and the gates above are green on that
+tree.
+
+================================================================================
+SECTION 12 -- residual / non-blocking registrations
+================================================================================
+R1 staging set grew 18 -> 20 (SA4 iteration-1 review + this log): reported, not hidden;
+   both additions are the "list = full git status" rule that SA4 O13 demanded.
+R2 the SA8 report is frozen at its iteration-7 bytes here (f3e2b357...) while SA8 keeps
+   in-place update authority; iteration 1 recorded 590ef35d... for the iteration-6 bytes.
+   The Controller stages the bytes present at commit time (SA8 RA6 hash note).
+R3 this log is C1-clean and carries no trailing whitespace; its own digest cannot live
+   inside itself and is registered in the SA3 report (same as iteration 1).
+R4 carried over unchanged and non-blocking: SA4 O1/O5 (design D7 wording, routed to SA1),
+   SA4 O6/SA9 M4 (stale issue-420 probe imports, outside every gate surface), SA4 O8/O9
+   (before-state hashes of the 13 normalized paths are only recorded, not recomputable;
+   the iteration-1 dispatch text is not persisted in the worktree), SA4 O11 (verdict flag
+   tension between the SA8 rebase-scoped true and the SA9/SA10 false).
+R5 the dry-run scratch worktree and the parent probe worktree are removed at the end of
+   this iteration; nothing of them is part of the delivery, and no branch was created.
+
+================================================================================
+CLOSING -- final self-consistency of the delivered evidence set
+================================================================================
+(to be reproduced by the Controller with the same commands; values below are the final
+state after this log and the SA3 report reached their last bytes)
+  - C1 scan over the final 20-path set .............. C1_FAIL_COUNT=0
+  - scratch-index `git diff --cached --check` ....... GATE_RC=0
+  - staged blob == worktree blob for all 20 paths ... IDENTITY_FAIL=0
+  - real git index staged entries ................... 0
+  - `git diff HEAD -- packages docs CONTEXT.md ...` . empty
+================================================================================

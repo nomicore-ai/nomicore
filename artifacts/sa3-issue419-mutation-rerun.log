@@ -1,0 +1,57 @@
+# SA3 RK-C6 gate — SA6 mutation sensitivity re-run (issue #419)
+# 2026-09-21T14:53:41Z
+$ NODE_OPTIONS=--conditions=nomicore-source pnpm exec tsx wiki/raw/task_issue-419_sa6_route_key_mutation_driver.mts
+probe=wiki/raw/task_issue-419_sa6_route_key_probe.mts  src=packages/replication-protocol/src
+EXPECTED M1-domain-field-order :: RESYNC_REQUIRED：reasonCode 写到 namespaceId 之前（namespace 域字段序漂移）
+    exit=1 failed=[P1.domain-fixed-offset,P4.differential-window] expected=[P1.domain-fixed-offset,P4.differential-window]
+    FAIL P1.domain-fixed-offset :: RESYNC_REQUIRED: prefix@20 = 11 ≠ 0x23
+    FAIL P4.differential-window :: RESYNC_REQUIRED: 差分值域起点 36 ≠ 24
+EXPECTED M2-chunk-kind-order :: UPDATE_CHUNK：namespaceId 写到 kind 之前（kind 首字段漂移）
+    exit=1 failed=[NC2.registry-scope-partition,P2.update-chunk-kind-first,P4.differential-window] expected=[NC2.registry-scope-partition,P2.update-chunk-kind-first,P4.differential-window]
+    FAIL P2.update-chunk-kind-first :: kind0/first: kind@20 = 35 ≠ 0
+    FAIL P4.differential-window :: UPDATE_CHUNK/kind0: 差分值域起点 24 ≠ 25
+    FAIL NC2.registry-scope-partition :: UPDATE_CHUNK 首字节是 kind，不得被 [21..56) 规则误纳
+EXPECTED M3-error-field-order :: ERROR：namespaceId 块写到 relatedSequence 块之前（ERROR 字段序漂移）
+    exit=1 failed=[P3.error-field-order] expected=[P3.error-field-order]
+    FAIL P3.error-field-order :: conn/related: namespaceId 值长度 ≠ 35
+EXPECTED M4-domain-leading-field :: UPDATE：namespaceId 之前插入新前导字段（定偏移整体位移 1 字节）
+    exit=1 failed=[P1.domain-fixed-offset,P4.differential-window] expected=[P1.domain-fixed-offset,P4.differential-window]
+    FAIL P1.domain-fixed-offset :: UPDATE: prefix@20 = 0 ≠ 0x23
+    FAIL P4.differential-window :: UPDATE: 差分值域起点 25 ≠ 24
+EXPECTED NM1-neutral-refactor :: 负控：SYNC_APPLIED 的 ackedSequence 从 writeVarUint32 改为等价 writeVarUint（字节恒等，探针必须全绿）
+    exit=0 failed=[] expected=[] (负控：必须保持全绿)
+EXPECTED NM2-connection-value-change :: 负控：GOAWAY（连接级）drainTimeoutMs 值改变——路由键布局不动，探针必须全绿（守卫不得越界到连接级语义）
+    exit=0 failed=[] expected=[] (负控：必须保持全绿)
+MUTATION_RESULT 6/6 expected
+EXIT=0
+
+## Round 2
+# 2026-09-21T14:53:57Z
+probe=wiki/raw/task_issue-419_sa6_route_key_probe.mts  src=packages/replication-protocol/src
+EXPECTED M1-domain-field-order :: RESYNC_REQUIRED：reasonCode 写到 namespaceId 之前（namespace 域字段序漂移）
+    exit=1 failed=[P1.domain-fixed-offset,P4.differential-window] expected=[P1.domain-fixed-offset,P4.differential-window]
+    FAIL P1.domain-fixed-offset :: RESYNC_REQUIRED: prefix@20 = 11 ≠ 0x23
+    FAIL P4.differential-window :: RESYNC_REQUIRED: 差分值域起点 36 ≠ 24
+EXPECTED M2-chunk-kind-order :: UPDATE_CHUNK：namespaceId 写到 kind 之前（kind 首字段漂移）
+    exit=1 failed=[NC2.registry-scope-partition,P2.update-chunk-kind-first,P4.differential-window] expected=[NC2.registry-scope-partition,P2.update-chunk-kind-first,P4.differential-window]
+    FAIL P2.update-chunk-kind-first :: kind0/first: kind@20 = 35 ≠ 0
+    FAIL P4.differential-window :: UPDATE_CHUNK/kind0: 差分值域起点 24 ≠ 25
+    FAIL NC2.registry-scope-partition :: UPDATE_CHUNK 首字节是 kind，不得被 [21..56) 规则误纳
+EXPECTED M3-error-field-order :: ERROR：namespaceId 块写到 relatedSequence 块之前（ERROR 字段序漂移）
+    exit=1 failed=[P3.error-field-order] expected=[P3.error-field-order]
+    FAIL P3.error-field-order :: conn/related: namespaceId 值长度 ≠ 35
+EXPECTED M4-domain-leading-field :: UPDATE：namespaceId 之前插入新前导字段（定偏移整体位移 1 字节）
+    exit=1 failed=[P1.domain-fixed-offset,P4.differential-window] expected=[P1.domain-fixed-offset,P4.differential-window]
+    FAIL P1.domain-fixed-offset :: UPDATE: prefix@20 = 0 ≠ 0x23
+    FAIL P4.differential-window :: UPDATE: 差分值域起点 25 ≠ 24
+EXPECTED NM1-neutral-refactor :: 负控：SYNC_APPLIED 的 ackedSequence 从 writeVarUint32 改为等价 writeVarUint（字节恒等，探针必须全绿）
+    exit=0 failed=[] expected=[] (负控：必须保持全绿)
+EXPECTED NM2-connection-value-change :: 负控：GOAWAY（连接级）drainTimeoutMs 值改变——路由键布局不动，探针必须全绿（守卫不得越界到连接级语义）
+    exit=0 failed=[] expected=[] (负控：必须保持全绿)
+MUTATION_RESULT 6/6 expected
+EXIT=0
+
+## scratch cleanup check
+ls: cannot access '.scratch/sa6-419': No such file or directory
+(cleaned)
+vfsl-v1-parser

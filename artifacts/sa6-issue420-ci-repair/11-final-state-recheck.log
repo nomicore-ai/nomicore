@@ -1,0 +1,13 @@
+# final state recheck 2026-09-21T23:12:19Z
+HEAD=5a4049d87bb3d244abed910e1bd372949501515c
+--- tracked-file status (expect empty) ---
+--- sha256 of the two repaired files (must equal HEAD blobs) ---
+160565873bf980c0ee1042d699fc9da890ee74743222139097e095a60395681e  packages/ws-replication/test/ws-replication-issue423-observer-emission-split.test.ts
+778d2461f0421027c25c17bd817327dcccf14b3a53b4f92efa2e728852e0183c  packages/ws-replication/test/ws-replication-issue423-sa7-dynamic.test.ts
+160565873bf980c0ee1042d699fc9da890ee74743222139097e095a60395681e  -
+778d2461f0421027c25c17bd817327dcccf14b3a53b4f92efa2e728852e0183c  -
+--- production file sha256 (hub-session.ts) vs HEAD blob ---
+805f99e9611aa05db409722bbc0b9a985bd5f47dd13c9f64b18a76563adcf531  packages/ws-replication/src/hub-session.ts
+805f99e9611aa05db409722bbc0b9a985bd5f47dd13c9f64b18a76563adcf531  -
+--- untracked entries added by this round ---
+?? artifacts/sa6-issue420-ci-repair/

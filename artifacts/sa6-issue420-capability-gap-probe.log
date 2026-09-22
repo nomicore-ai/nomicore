@@ -1,0 +1,18 @@
+INFO head 7039f6dae8e7d29f0c929492f0ca2119bc63afaa
+INFO publicEntryExports ["DEFAULT_REPLICATION_BACKOFF","DEFAULT_REPLICATION_LIMITS","DEFAULT_REPLICATION_TIMEOUTS","NOMICORE_HUB_REPLICATION_SERVICE","NOMICORE_PEER_REPLICATION_SERVICE","createHubReplication","createHubReplicationPlugin","createPeerReplication","createPeerReplicationPlugin","requireHubReplication","requirePeerReplication"]
+PASS A.public.createHubSessionHost.absent {"typeof":"undefined"}
+PASS A.public.createHubNamespaceSession.absent {"typeof":"undefined"}
+PASS A.public.createHubSession.absent {"typeof":"undefined"}
+PASS B.negativeControl.createHubReplication {}
+PASS B.negativeControl.createPeerReplication {}
+PASS B.negativeControl.createHubReplicationPlugin {}
+INFO hubSessionModuleExports ["createHubSessionHost"]
+INFO hubEdgeModuleExports ["createHubReplicationEdge"]
+INFO hubSplitModuleExports []
+PASS C.spliceFactoryConstructible {"own":["config","channels","channelHost","closeTail"]}
+INFO internalSpliceSurface ["__defineGetter__","__defineSetter__","__lookupGetter__","__lookupSetter__","__proto__","channelHost","channels","close","closeTail","config","dataFacetOf","encodePlaceholder","hasOwnProperty","isPrototypeOf","namespaceFrame","openNamespace","propertyIsEnumerable","pullAuthorization","sendControl","sendData","sendUpdateChunk","terminateNamespace","toLocaleString","toString","valueOf","withChannel"]
+PASS C.spliceHasNoByteInbound {"handleFrame":false,"onFrame":false,"decodedInbound":["openNamespace","namespaceFrame"]}
+PASS C.splitModuleZeroRuntimeExports {"runtimeExports":[]}
+INFO portMembersTouchedByOpen ["observerPresent","onChannelSettled","openAdmission","sendControlFrame"]
+PASS D.noShardFactoryInPublicEntry {"shardLike":0}
+PROBE_RESULT 10/10 passed; capability gap CONFIRMED (public SessionHost factory absent)

@@ -1,0 +1,169 @@
+SA3 issue #420 — rebase 前工作树准备证据（iteration 3）
+================================================================================
+dispatch      : sa-f36d0903-db28-46ce-9bcf-396d3d8ae18f
+role/phase    : mabf-sa3 / implementation / iteration 3
+worktree      : /home/wangjian/nomicore-fix-issue-420（branch mabf/issue-420）
+授权目标      : 把 mabf/issue-420 重放到 Parent PR #416 当前 head
+                25c51cd45a3e4ec1cf8bcdbdcb33ff1f13d1b0df
+边界声明      : 本迭代零 rebase、零 commit、零 push、零 PR、零业务字节改动
+                （packages/ apps/ domains/ docs/ tests/ scripts/ CONTEXT.md 全空 diff）。
+                本文件只登记「工作树证据审计 + 卫生门 + 派生缓存修复 + 精确暂存清单」。
+生成时刻      : 2026-09-22 06:15 +0800（CST）
+--------------------------------------------------------------------------------
+§0 身份与登记值（本轮亲验）
+  HEAD                              = 52a9e56534d56a75127207b2b9044afa8c3a27b0
+  HEAD 父链                         = 9d2500dd84f59c0bfaa94c53eb1e9966cec82b42 -> 1f5809b001c984e63fac3bafd4c1f3febc76e8a8
+  merge-base(HEAD, 授权父基)        = 1f5809b001c984e63fac3bafd4c1f3febc76e8a8
+  授权父基（origin/spec/415-replication-transport-decoupling）
+                                    = 25c51cd45a3e4ec1cf8bcdbdcb33ff1f13d1b0df
+  授权父基对象类型                  = commit
+  授权父基 log -1                   = 25c51cd45a3e4ec1cf8bcdbdcb33ff1f13d1b0df 2026-09-22 05:49:26 +0800 Merge pull request #428 from nomicore-ai/mabf/issue-423
+  待重放 commit 数（base..HEAD）    = 2
+  待重放 commit 列表：
+      52a9e56534d56a75127207b2b9044afa8c3a27b0
+      9d2500dd84f59c0bfaa94c53eb1e9966cec82b42
+  交付 commit 的并集 blob（index.ts）= 08fa49a1fb84321b92a4cae2da7ee401afdc7ce1
+  授权并集 blob（SA8 iteration 5 钉死值）
+                                    = 08fa49a1fb84321b92a4cae2da7ee401afdc7ce1
+  登记并集 blob 逐位相等            = YES
+  交付 commit 树 OID                = e777f96157b1dbf3908a62b323bf851b9da10e40
+
+§1 脏集清点（git status --porcelain -uall）
+  1.1 本迭代 SA3 写入前实测脏面 = 恰 3 条 tracked-modified 活报告编辑：
+      M wiki/raw/task_issue-420_implementation_conflict_report.md   （SA8 iteration 5 conflict-gate 终认，06:08）
+      M wiki/raw/task_issue-420_sa9_standards.md   （SA9 rebase 后标准复审，05:53）
+      M wiki/raw/task_issue-420_sa10_spec.md   （SA10 rebase 后 spec 复审，05:55）
+  1.2 本迭代 SA3 追加产物 = 2 条（本文件 + wiki/raw/task_issue-420_sa3_impl.md 原位更新），合计可提交面 5 条（§4）。
+  1.3 当前全量 git status --porcelain -uall：
+       M wiki/raw/task_issue-420_implementation_conflict_report.md
+       M wiki/raw/task_issue-420_sa10_spec.md
+       M wiki/raw/task_issue-420_sa9_standards.md
+      ?? artifacts/sa3-issue420-rebase-prep-25c51cd.log
+      非忽略未跟踪条目数（'??' 计数） = 1
+      暂存面（git diff --cached --stat） = 0 行（0 = index 干净）
+      stash 列表                      = 0 条（0 = 无隐藏证据）
+      注：上列快照取自本文件生成时刻；SA3 报告 wiki/raw/task_issue-420_sa3_impl.md 在本文件之后
+      原位更新，故快照中尚未出现其 ' M' 条目。终态脏面 = 5 条（3 条非 SA3 证据 + 本文件 +
+      该报告），实测见 SA3 报告 iteration 3 的 V22/V27。
+  1.4 判定：三条报告编辑均为归档 commit（52a9e56534d56a75127207b2b9044afa8c3a27b0，05:42:26）之后
+      产生的活性证据（时间上均晚于归档、且互不矛盾：SA9/SA10 审 1f5809b 基 rebased 交付、
+      SA8 iteration 5 审父基前移后的 25c51cd 二段路线）⇒ 属有效证据，须保留并入档；
+      全树不存在需删除/回退的无效或陈旧证据；无暂存残留、无 stash 影子、
+      无 .orig/.rej/.swp/.tmp 残片、无其它未跟踪垃圾（除本文件）。
+
+§2 可提交证据的字节身份与 C1 卫生门（Host 精确口径）
+  2.1 HEAD blob vs worktree blob：
+      task_issue-420_implementation_conflict_report.md         HEAD=e3d4dfd905165aa0 WORKTREE=41059d32542630e7 CHANGED
+      task_issue-420_sa9_standards.md                          HEAD=8cc96dd2f46cf145 WORKTREE=7aeaca21bb991728 CHANGED
+      task_issue-420_sa10_spec.md                              HEAD=f34962c3be7cdbdb WORKTREE=8a8806b5b1aa4e6c CHANGED
+      （三路径均 CHANGED = 归档后确有新字节；git ls-files -v 四路径标志均 H）
+      git ls-files -v: H H H H
+  2.2 C1 卫生门（与 Host MabfLocalFinalizer.whitespaceViolations / normalizeTextWhitespace
+      逐字节同口径：逐行 /[ \t]+$/、EOF 空行、CR、NUL、末尾 LF）：
+      wiki/raw/task_issue-420_implementation_conflict_report.md: trailing_ws_lines=0 blank_line_at_eof=False cr=0 nul=False ends_with_LF=True
+      wiki/raw/task_issue-420_sa9_standards.md: trailing_ws_lines=0 blank_line_at_eof=False cr=0 nul=False ends_with_LF=True
+      wiki/raw/task_issue-420_sa10_spec.md: trailing_ws_lines=0 blank_line_at_eof=False cr=0 nul=False ends_with_LF=True
+      wiki/raw/task_issue-420_sa3_impl.md: trailing_ws_lines=0 blank_line_at_eof=False cr=0 nul=False ends_with_LF=True
+      本文件为活文档，不参与上式自指扫描；其末稿字节的 C1 复扫（生成后实测）与
+      三条证据的 sha256 登记见 §2.4 与 SA3 报告 Verification 表。
+  2.3 git diff --check 逐路径（新增行空白门 = Controller 暂存门）：
+      git diff --check -- wiki/raw/task_issue-420_implementation_conflict_report.md => RC=0
+      git diff --check -- wiki/raw/task_issue-420_sa9_standards.md => RC=0
+      git diff --check -- wiki/raw/task_issue-420_sa10_spec.md => RC=0
+  2.4 三条证据 sha256（worktree 字节，暂存时应逐位相同）：
+      ef51259997f52432e790f089fed15f88ec46e0e2ad25976c6366a55069a9b60c  wiki/raw/task_issue-420_implementation_conflict_report.md
+      1d39b8faf59b64d35491f63a26a8c63a0c1cbc2ce90b4ab7e13004c30044fb8f  wiki/raw/task_issue-420_sa9_standards.md
+      7ba35533827c2bf5b3276f0e956165c4448182a529f5c3265019f2ef694741f9  wiki/raw/task_issue-420_sa10_spec.md
+  2.5 判定：全部可提交证据 C1 全清 ⇒ Controller 暂存/提交后不会触发 Host
+      的 MABF_FINALIZE_REPAIR_REQUIRED 归一化或 clean-worktree 阻断面。
+
+§3 授权 rebase 的机械预演（零冲突预测的独立重取，不采信 SA8 自述）
+  3.1 交付级 merge-tree（ours=25c51cd45a3e4ec1cf8bcdbdcb33ff1f13d1b0df, theirs=9d2500dd84f59c0bfaa94c53eb1e9966cec82b42）
+      tree = 7b5c1cbc3bb77ea98e7b8669f09896624fde76c4
+      RC=0  输出行数=1（1 = 仅 tree OID，零冲突记录）
+  3.2 全 tip merge-tree（ours=25c51cd45a3e4ec1cf8bcdbdcb33ff1f13d1b0df, theirs=52a9e56534d56a75127207b2b9044afa8c3a27b0）
+      tree = 2cee6d03f05fb61f12a37c2a9a41170e60fbef86
+      RC=0  输出行数=1（1 = 仅 tree OID，零冲突记录）
+  3.3 合并树内并集路径不动点：index.ts blob = 08fa49a1fb84321b92a4cae2da7ee401afdc7ce1
+      （== 登记并集 blob ⇒ 父侧未触碰该路径，原样过继，旧手工并集配方作废）
+  3.4 重叠路径（交付 base..9d2500dd84f59c0bfaa94c53eb1e9966cec82b42 × 父增量 base..25c51cd45a3e4ec1cf8bcdbdcb33ff1f13d1b0df）：
+      docs/adr/0032-transport-decoupling-edge-session-split.md
+      packages/ws-replication/src/hub-session.ts
+      packages/ws-replication/src/hub-split.ts
+  3.5 证据面 × 父增量路径交集（须为空）：
+      父增量路径数 = 23；待归档证据路径数 = 5（§4）
+      交集 = []
+      （空 ⇒ 归档 commit 与交付重放的顺序无关）
+  3.6 预演结论：git rebase --onto 25c51cd45a3e4ec1cf8bcdbdcb33ff1f13d1b0df 1f5809b001c984e63fac3bafd4c1f3febc76e8a8 mabf/issue-420
+      重放恰 2 commit（52a9e56534d56a75127207b2b9044afa8c3a27b0、9d2500dd84f59c0bfaa94c53eb1e9966cec82b42），预期零冲突、零手工消解；
+      落树后 index.ts blob 应为 08fa49a1fb84321b92a4cae2da7ee401afdc7ce1。
+
+§4 Controller 归档暂存集（精确路径 = 本迭代可提交面，5 条）
+  wiki/raw/task_issue-420_implementation_conflict_report.md
+      （SA8 iteration 5 conflict-gate 终认；tracked-modified）
+  wiki/raw/task_issue-420_sa9_standards.md
+      （SA9 rebase 后标准复审 approve；tracked-modified）
+  wiki/raw/task_issue-420_sa10_spec.md
+      （SA10 rebase 后 spec 复审 approve；tracked-modified）
+  wiki/raw/task_issue-420_sa3_impl.md
+      （SA3 原位更新：iteration 3 节；tracked-modified）
+  artifacts/sa3-issue420-rebase-prep-25c51cd.log
+      （本文件；SA3 iteration 3 证据；untracked）
+  说明：前 3 条为 SA8/SA9/SA10 生产者持有的活报告编辑，SA3 只审计、不改其字节；
+        后 2 条为本迭代 SA3 固定产物面。活文档的提交字节以 Controller 暂存时为准
+        （SA8 RA6 hash 口径注记）。
+  暂存命令：git add -A -- <上列 5 条>；随后 git diff --cached --check 须 RC=0。
+
+§5 派生缓存修复（陈旧 commit-graph 使可达性遍历 fatal）
+  5.1 修复前实测原文（本轮修复前，逐字记录）：
+      $ git rev-list --count --all
+      error: commit 02e873021852b4fc665c6676b2f0719fcb241d11 exists in commit-graph but not in the object database
+      fatal: Failed to traverse parents of commit f02f040679d43c4420bbaee0727df1f042728924
+      （exit 128）
+      $ git commit-graph verify
+      error: Could not read 001ff80e4200669aacff7ae01069cac3b7869d7b
+      failed to parse commit 001ff80e4200669aacff7ae01069cac3b7869d7b from object database for commit-graph
+      ... (多行同类) ...（exit 2）
+  5.2 仓库形态：partial clone（remote.origin.promisor=true、remote.origin.partialclonefilter=blob:none）
+      ⇒ 缺失提交按需惰性取回；陈旧 graph 在对象未回填时使 --all 遍历 fatal（SA8 §2-9 环境注记同源）。
+  5.3 处置（备份 -> 重建 -> 验证）：
+      graph 路径            = /home/wangjian/nomicore/.git/objects/info/commit-graph
+      before sha256         = 4bede9ae54d9dae2f19e554b238691c8025c7f3410748715a38a3c7632ab5739
+      before size/mtime     = 18032 B / Aug 30 17:33（备份 /tmp/sa3prep/commit-graph.bak）
+      after  sha256         = 637e9c5d12f44bb8f7554c79a39e2bd3db3fa615fe3a2ca85b3f032be4da549a
+      after  size           = 20792 B
+      命令                  = git commit-graph write --reachable --no-progress
+      git commit-graph verify after => exit 0
+      git rev-list --count --all after => 328（exit 0）
+  5.4 边界：只替换派生缓存（.git 元数据），refs/HEAD/对象库零变化：
+      refs 快照 sha256 = 2b1007c4695e3c49d8c56c4b1139229b3331c68caa9111c6f42c5a3e25ca67fb
+      HEAD = 52a9e56534d56a75127207b2b9044afa8c3a27b0（= 派工时值）
+
+§6 边界事实复核（本迭代零 git 生命周期操作）
+  git rev-parse HEAD                 = 52a9e56534d56a75127207b2b9044afa8c3a27b0
+  git diff --cached --stat 行数      = 0（index 干净）
+  git stash list 条数                = 0
+  业务面 diff 条数                   = 0（0 = 零业务字节改动）
+  reflog HEAD@{0}                    = 52a9e56 rebase (finish): returning to refs/heads/mabf/issue-420
+  git status --porcelain -uall：
+       M wiki/raw/task_issue-420_implementation_conflict_report.md
+       M wiki/raw/task_issue-420_sa10_spec.md
+       M wiki/raw/task_issue-420_sa9_standards.md
+      ?? artifacts/sa3-issue420-rebase-prep-25c51cd.log
+      （同上：本行块为本文件生成时刻快照；SA3 报告的原位更新在其后 —— 终态 5 条脏面见 SA3 报告 V22/V27。）
+
+§7 移交配方（Controller 执行；SA3 角色禁 add/commit/rebase）
+  首选（与 Controller skill「先创建本地 commit 再进入 base/review 环」及 SA8 RA6' 一致）：
+    git add -A -- wiki/raw/task_issue-420_implementation_conflict_report.md wiki/raw/task_issue-420_sa9_standards.md wiki/raw/task_issue-420_sa10_spec.md wiki/raw/task_issue-420_sa3_impl.md artifacts/sa3-issue420-rebase-prep-25c51cd.log
+    git diff --cached --check          # 须 RC=0
+    git commit -m "chore: archive issue 420 round evidence before 25c51cd rebase"
+    git rebase --onto 25c51cd45a3e4ec1cf8bcdbdcb33ff1f13d1b0df 1f5809b001c984e63fac3bafd4c1f3febc76e8a8 mabf/issue-420
+    git rev-parse HEAD~1:packages/ws-replication/src/index.ts   # 须 = 08fa49a1fb84321b92a4cae2da7ee401afdc7ce1
+  备选（Host MabfPreFinalizationRebaser 同款 stash 事务，脏树可用；之后仍须归档 commit，
+        否则 Host finalize 的 clean-worktree 门会拒绝）：
+    git stash push --include-untracked --message mabf-pre-finalization:issue-420
+    git rebase --onto 25c51cd45a3e4ec1cf8bcdbdcb33ff1f13d1b0df 1f5809b001c984e63fac3bafd4c1f3febc76e8a8 mabf/issue-420
+    git stash pop --index
+  父基校验：若 head 再前移（!= 25c51cd45a3e4ec1cf8bcdbdcb33ff1f13d1b0df）先停，按 SA8 RA1'/RA4' 重新 merge-tree 复认。
+--------------------------------------------------------------------------------
+END OF LOG

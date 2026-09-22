@@ -1,31 +1,24 @@
 /**
- * hub-connection —— `createHubReplication`：accept/HELLO/hub 连接 FSM + 帧分发
- * （§4.2/§6/§15.2）。per-(connection, namespace) 通道见 hub-namespace.ts。
+ * hub-connection —— `createHubReplication`：accept/HELLO 门 + 服务面 + **单体 listen 的
+ * 进程内组合根**（ADR 0032 决策 1；设计 §7 D7）。
+ *
+ * issue #418：连接级半边 = `createHubReplicationEdge`（hub-edge.ts），namespace 级半边 =
+ * `createHubSessionSink`（hub-session.ts，内部 splice）——本模块按认证门序分配 edge，并由 edge 在构造期
+ * 以 `sessionFactory` 装配 session（缝 = 函数调用，协议状态机单份）。服务面（accept/
+ * acceptTrusted/revoke/requestReauth/close/dropConnection）与校验链原样保留。
+ *
+ * OPEN 时序（设计 §7 D5/D7）：edge 在首个 OPEN **到达点**建 admission 台账并立即投递
+ * session（同步建通道 + `startOpen` = HEAD 时序），通道内的 authorize shim 经
+ * `port.openAdmission` **异步拉取** edge 侧唯一真实 authorize 的结算结局——本模块只负责
+ * 组合（注入 authorize 与 Registry），不感知该机制。
  */
 import type { DuplexTransport, HubUpgradeRequest, UpgradeIdentity } from './types.js';
-import {
-  CAP_CHUNKED_UPDATE,
-  selectCapabilities,
-  selectProtocolVersion,
-  type ReplicationMessage,
-} from '@nomicore/replication-protocol';
-import {
-  decodeInbound,
-  namespaceFieldViolation,
-  OutboundQueue,
-  connectionErrorFrame,
-  namespaceErrorFrame,
-  codecFieldLimits,
-} from './frame-io.js';
-import { startLiveness } from './liveness.js';
-import { HubNamespaceChannel, type HubChannelHost } from './hub-namespace.js';
-import { ConnectionSender } from './backpressure.js';
-import type { ChunkedTransferPiece } from './update-transfer.js';
-import { dispatchReplicationObserver, safeNow, stableConnectionCode } from './observer.js';
+import { dispatchReplicationObserver } from './observer.js';
+import { createHubReplicationEdge, type HubReplicationEdge } from './hub-edge.js';
+import { createHubSessionSink } from './hub-session.js';
 import type { NamespaceRegistry } from '@nomicore/namespace-registry';
 import type {
   HubConnection,
-  HubConnectionState,
   HubReplication,
   HubReplicationOptions,
   NamespaceAuthorizer,
@@ -36,6 +29,11 @@ import type {
 } from './types.js';
 import type { ReplicationTimer } from './types.js';
 import { resolveLimits, resolveTimeouts } from './defaults.js';
+// issue #421（设计 §7-D1 选项 α）：有界早到帧 admission 单点搬迁至
+// `hub-upgrade-admission.ts`（逐字搬迁），本模块与 edge 公共工厂（`hub-edge-host.ts`）
+// 共享同一实现——#190「同一机制单点」保持；本模块运行时导出面不变（import 不进
+// `Object.keys(hubConnectionModule)`）。
+import { installEarlyFrameAdmission } from './hub-upgrade-admission.js';
 import {
   isValidInstanceId,
   validateHubOptions,
@@ -46,121 +44,6 @@ import {
   validateChunkedSyncDiffChain,
   validateChunkedTransferChain,
 } from './validate.js';
-
-/**
- * 早到帧缓冲的条数界（模块常数，非配置 knob——HELLO 是唯一合法早到帧，守规矩的
- * peer 恰发 1 帧，16 为充裕余量；累计字节由「单帧界 limits.maxFrameBytes × 条数界」
- * 导出：≤ 16×maxFrameBytes）。
- *
- * 权威指向（#172 双标注）：帧限拒绝对外语义（条数越界 → WS 1008 / 单帧超界 →
- * WS 1009，close reason 恒 'upgrade-frame-limit'）以 docs/protocols/
- * instance-replication-v1.md 为唯一 wire contract（§14 WS close code 分类）。
- * 历史证据（立法沿革）：phase5 issue #138 设计 §3.2 R2 A2（早到帧有界化）+
- * R3 N1（同步重放型 transport 句柄安全）——wiki/raw 非规范，仅沿革记录。
- */
-const MAX_EARLY_FRAMES = 16;
-
-/** issue #243（DD-1.2）：hub 支持集（编译期冻结常量，源自 replication-protocol
- *  CAP_CHUNKED_UPDATE=0x1）。onHello 以 selectCapabilities(required, optional,
- *  SUPPORTED) 单点计算交集——hub 侧零配置门（ADR「取交集」字面）。 */
-const HUB_SUPPORTED_CAPABILITIES = CAP_CHUNKED_UPDATE;
-
-/**
- * issue #190：两 upgrade 入口（accept 门 3 / acceptTrusted 门 2）共享的有界早到帧
- * admission 单点。
- *
- * 权威指向（#172 双标注）：帧限拒绝对外语义（1009/1008 close-code 分类 +
- * auth-upgrade-rejected reason 闭集 frame-too-large/early-frame-limit）以
- * docs/protocols/instance-replication-v1.md 为唯一权威（§14 wire close-code 分类；
- * §23 observer reason 闭集——local seam）。历史证据（立法沿革）：phase5 issue #138
- * 设计 §3.2 R2 A2（早到帧有界化）+ R3 N1（同步重放型 transport 句柄安全）——
- * wiki/raw 非规范，仅沿革记录。
- *
- * 纪律（帧到达同步段、push 之前执行）：
- * - 幂等拒绝早退：拒绝后重放循环内后续帧直接 return（零保留零重放）；
- * - 单帧界：bytes.byteLength > limits.maxFrameBytes → 拒绝（§14 → 1009）；
- * - 条数界：frames.length >= MAX_EARLY_FRAMES（第 17 帧）→ 拒绝（policy → 1008）；
- * - 拒绝效果 = 置标志 + close(…, 'upgrade-frame-limit') + emit 帧限 reason（经注入回调）；
- * - 摘监听统一延后到注册完成后的同步收口段（R3 N1：no-op 句柄使 detach 任意时刻安全）。
- *
- * 资源账：保留上界 = MAX_EARLY_FRAMES × maxFrameBytes + 常数数组开销。
- */
-interface EarlyFrameAdmission {
-  /** 有界缓冲（≤16 帧，每帧 ≤ maxFrameBytes）——分配时随连接注入构造尾重放。 */
-  readonly frames: Uint8Array[];
-  /** admission 拒绝已发生（帧限或外部 markRejected）——迟归/后续帧不复活。 */
-  isRejected(): boolean;
-  /** 外部标记拒绝（accept() auth timer 超时路径专用；无副作用——close/emit 由调用方路径自理）。 */
-  markRejected(): void;
-  /** 接纳窗口内对端已断（onClose 观察）。 */
-  isEarlyClosed(): boolean;
-  /** 幂等摘除两监听（重放期内调用 = 无害 no-op，R3 N1）。 */
-  detach(): void;
-}
-
-function installEarlyFrameAdmission(
-  transport: DuplexTransport,
-  limits: ResolvedLimits,
-  emitFrameLimitRejected: (reason: 'frame-too-large' | 'early-frame-limit') => void,
-): EarlyFrameAdmission {
-  const frames: Uint8Array[] = [];
-  const state = { rejected: false, earlyClosed: false };
-  // R3 N1（一行级，原样保留）：off 句柄 no-op 初始化——同步重放型 transport
-  // （TcpTransport 实存形态：onMessage 注册即同步重放积压、重放先于 return/句柄赋值，
-  // sa7-r2-transport:132-144）上，积压帧可在赋值语句完成前触发本 listener 的拒绝路径；
-  // no-op 句柄使 detach 在【任意时刻】安全（重放期内调用 = 无害 no-op），注册完成后
-  // 重赋真句柄。拒绝的【效果】（置标志 + close）在重放期内照常生效；【摘监听】统一
-  // 延后到注册完成后的同步段收口——不再从 transport.onMessage(...) 调用点同步抛
-  // TypeError（那会使 async accept 的 promise reject，违反 §8.2 硬不变量，且异常展开
-  // 会流产重放循环——pendingFrames 已 splice、余帧丢失、transport 未按设计关闭）。
-  let offMessage: () => void = () => {};
-  let offClose: () => void = () => {};
-  const detach = (): void => { offMessage(); offClose(); }; // 幂等（重复摘除零副作用）
-  offMessage = transport.onMessage((bytes) => {
-    if (state.rejected) return; // 已拒（重放循环内后续帧）——幂等早退
-    if (bytes.byteLength > limits.maxFrameBytes) {
-      // 单帧界：复用既有 limit（ADR 0010「最大 WS frame」）；§14 语义 → 1009
-      state.rejected = true;
-      closeAdmission(transport, 1009, 'upgrade-frame-limit'); // §3.4 守卫版 close
-      emitFrameLimitRejected('frame-too-large');
-      return;
-    }
-    if (frames.length >= MAX_EARLY_FRAMES) {
-      // 条数界：第 17 帧即拒（policy）→ 1008
-      state.rejected = true;
-      closeAdmission(transport, 1008, 'upgrade-frame-limit');
-      emitFrameLimitRejected('early-frame-limit');
-      return;
-    }
-    frames.push(bytes); // 唯一保留点——三检全过才保留
-  });
-  offClose = transport.onClose(() => { state.earlyClosed = true; });
-  return {
-    frames,
-    isRejected: () => state.rejected,
-    markRejected: () => { state.rejected = true; },
-    isEarlyClosed: () => state.earlyClosed,
-    detach,
-  };
-}
-
-/**
- * 拒绝路径 close 守卫（#190 唯一超越「原样收敛」的强化）：admission 拒绝时 transport
- * 契约外形态（close 抛出）不得经 onMessage(...) 调用点展开——那会流产同步重放循环
- * 且 reject 调用方 promise（acceptTrusted 唯一生产 caller 为 fire-and-forget，
- * apps/yjs-server/src/app.ts:274 → unhandledRejection 进程级风险）。守卫吞异常后
- * 拒绝效果已生效（标志已置、事件仍发），残局归 transport 所有者；与
- * apps/yjs-server/src/index.ts:364-368 safeCloseTransport「吞二次异常」同款纪律。
- * 契约内 transport（close 不抛，全部现存 fixture/生产 adapter）行为零变化。
- */
-function closeAdmission(transport: DuplexTransport, code: number, reason: string): void {
-  try {
-    transport.close(code, reason);
-  } catch {
-    // transport 契约外形态（close 抛出）：拒绝效果已生效（标志已置、事件仍发）——
-    // 残局归 transport 所有者；与 index.ts safeCloseTransport「吞二次异常」同款纪律。
-  }
-}
 
 export function createHubReplication(options: HubReplicationOptions): HubReplication {
   return new HubReplicationImpl(options);
@@ -176,13 +59,13 @@ interface HubInternals {
   readonly timeouts: ResolvedTimeouts;
   readonly observer: ReplicationObserver | undefined;
   readonly clock: ReplicationClock | undefined;
-  dropConnection(connection: HubConnectionImpl): void;
+  dropConnection(connection: HubReplicationEdge): void;
 }
 
 class HubReplicationImpl implements HubReplication {
   private readonly limits: ResolvedLimits;
   private readonly timeouts: ResolvedTimeouts;
-  private readonly connectionList: HubConnectionImpl[] = [];
+  private readonly connectionList: HubReplicationEdge[] = [];
   private closed = false;
   private connectionCounter = 0;
   private closeTail: Promise<void> = Promise.resolve();
@@ -339,9 +222,8 @@ class HubReplicationImpl implements HubReplication {
     }
 
     // ── 分配：认证身份随连接注入；早到帧在构造尾部按序重放（§3.3）──
-    const connection = new HubConnectionImpl(
-      this.internals, transport, this.connectionCounter++, instanceId as string, admission.frames,
-    );
+    // 单体 listen = edge + session 的进程内组合（ADR 0032 决策 1；D7）
+    const connection = this.createEdge(transport, instanceId as string, admission.frames);
     this.connectionList.push(connection);
     return connection;
   }
@@ -386,13 +268,7 @@ class HubReplicationImpl implements HubReplication {
     }
     // 分配（§3.3 唯一顺序基准：先摘早到监听 → 检查 → 构造）
     admission.detach();
-    const connection = new HubConnectionImpl(
-      this.internals,
-      transport,
-      this.connectionCounter++,
-      identity.peerInstanceId,
-      admission.frames,
-    );
+    const connection = this.createEdge(transport, identity.peerInstanceId, admission.frames);
     this.connectionList.push(connection);
     return connection;
   }
@@ -442,704 +318,47 @@ class HubReplicationImpl implements HubReplication {
     return this.closeTail;
   }
 
-  private dropConnection(connection: HubConnectionImpl): void {
+  /** 单体 listen 的进程内组合（D7）：edge 构造序与现状 `HubConnectionImpl` 构造序逐点对应
+   *  （内部状态 → sender/outbound → port → session = sessionFactory(port) → hello timer →
+   *  transport 订阅 → 早到帧重放）。 */
+  private createEdge(
+    transport: DuplexTransport,
+    peerInstanceId: string,
+    earlyFrames: readonly Uint8Array[],
+  ): HubReplicationEdge {
+    const internals = this.internals;
+    let connection: HubReplicationEdge | undefined;
+    connection = createHubReplicationEdge({
+      transport,
+      timer: internals.timer,
+      limits: internals.limits,
+      timeouts: internals.timeouts,
+      ...(internals.observer !== undefined ? { observer: internals.observer } : {}),
+      ...(internals.clock !== undefined ? { clock: internals.clock } : {}),
+      instanceId: internals.instanceId,
+      peerInstanceId,
+      connectionCounter: this.connectionCounter++,
+      authorize: internals.authorize,
+      earlyFrames,
+      sessionFactory: (port) =>
+        createHubSessionSink({
+          port,
+          registry: internals.registry,
+          instanceId: internals.instanceId,
+          peerInstanceId,
+          timer: internals.timer,
+          limits: internals.limits,
+          timeouts: internals.timeouts,
+        }),
+      onConnectionDropped: () => {
+        if (connection !== undefined) this.dropConnection(connection);
+      },
+    });
+    return connection;
+  }
+
+  private dropConnection(connection: HubReplicationEdge): void {
     const index = this.connectionList.indexOf(connection);
     if (index >= 0) this.connectionList.splice(index, 1);
   }
-}
-
-class HubConnectionImpl implements HubConnection {
-  state: HubConnectionState = 'handshaking';
-  peerInstanceId: string | undefined;
-  /** 协议 §6.2 专用 observability id（HELLO 完成时捕获；此前 undefined——事件可选字段）。 */
-  private connectionIdValue: string | undefined;
-  private readonly outbound: OutboundQueue;
-  /** 连接级发送调度（§6.3；每连接实例一个，随 transport 生命周期）。 */
-  private readonly sender: ConnectionSender;
-  private expectedSeq = 1;
-  private readonly channels = new Map<string, HubNamespaceChannel>();
-  private readonly helloHandle: unknown;
-  private closedFlag = false;
-  private settleTail: Promise<void> = Promise.resolve();
-  /** 定向 reauthentication 的 GOAWAY drain 状态；Hub service close 不进入该窗口。 */
-  private drainActive = false;
-  private drainDeadline: unknown | undefined;
-  private readonly channelHost: HubChannelHost;
-  private readonly transportSubscribers: Array<() => void> = [];
-  private stopLiveness: (() => void) | undefined;
-  /** issue #243（DD-1.2）：本连接的会话协商状态——onHello 单点计算后捕获（HELLO 前 0）。
-   *  连接对象单握手生命周期，无复位面。 */
-  private negotiatedCapabilitiesValue = 0;
-  /** issue #175：reauth 已发起（连接级幂等守卫——重复 requestReauth 零重复 GOAWAY）。 */
-  private reauthRequested = false;
-  /** issue #175：reauth drain deadline 句柄（§8 timer 纪律：必须可清——stale fire 零副作用）。 */
-  private reauthDeadlineHandle: unknown | undefined;
-  /** issue #244（D3）：连接级入站方向（peer→hub）并发 assembly 槽位——每 (连接, 入站
-   *  方向) 上限 = limits.maxConcurrentAssembliesPerConnection（缺省 4）。集合随连接对象
-   *  生命周期消亡，无独立清理面；通道 busy→idle 经 endInboundAssembly 幂等归还。 */
-  private readonly inboundAssemblySlots = new Set<string>();
-
-  constructor(
-    private readonly hub: HubInternals,
-    private readonly transport: DuplexTransport,
-    private readonly connId: number,
-    /** D1 分配时绑定的认证身份（授权键权威来源——§3.2/§4/§5.1）。 */
-    readonly authenticatedInstanceId: string,
-    /** §3.2 认证期早到帧缓冲（构造尾部按序重放——§3.3 唯一基准：先摘早到监听 → 构造 → 重放）。 */
-    earlyFrames: readonly Uint8Array[],
-  ) {
-    this.outbound = new OutboundQueue(
-      (bytes) => {
-        if (!transport.closed) transport.send(bytes);
-      },
-      hub.limits,
-      () => this.onSequenceExhausted(transport),
-      (info) => this.sender.onEmitted(info),
-    );
-    this.sender = new ConnectionSender({
-      limits: hub.limits,
-      timer: hub.timer,
-      ackTimeoutMs: hub.timeouts.ackTimeoutMs,
-      readBufferedAmount: () => this.readBufferedAmount(),
-      emitControl: (message) => this.outbound.sendControl(message),
-      emitData: (message) => this.outbound.emit(message),
-      facetOf: (namespaceId) => this.channels.get(namespaceId)?.sendFacet,
-      isEmitAllowed: () => !this.closedFlag,
-      onBackpressureExhausted: () => this.connectionFatal('CONNECTION_BACKPRESSURE', 1011),
-      onSendPaused: (bufferedAmount) => this.emitWaterEvent('send-paused', bufferedAmount),
-      onSendResumed: (bufferedAmount) => this.emitWaterEvent('send-resumed', bufferedAmount),
-    });
-    this.channelHost = {
-      limits: hub.limits,
-      timeouts: hub.timeouts,
-      timer: hub.timer,
-      registry: hub.registry,
-      instanceId: hub.instanceId,
-      peerInstanceId: () => this.authenticatedInstanceId,
-      authorize: (instanceIdentity, namespaceId) => hub.authorize(instanceIdentity, namespaceId),
-      sendControl: (message) => this.sendControlChecked(message),
-      sendData: (namespaceId, bytes) => this.sendData(namespaceId, bytes),
-      // issue #243（DD-3.5）：UPDATE_CHUNK 与 UPDATE 同一 data 出站点
-      sendUpdateChunk: (namespaceId, chunk) => this.sendUpdateChunk(namespaceId, chunk),
-      chunkedUpdateNegotiated: () => this.isChunkedNegotiated(),
-      dataGateOpen: () => this.sender.dataGateOpen(),
-      onDataQueued: (namespaceId) => this.sender.onDataQueued(namespaceId),
-      requestDataDrain: () => this.sender.requestDrain(),
-      connectionFatal: (code, wsCloseCode) => this.connectionFatal(code, wsCloseCode ?? 1002),
-      onChannelSettled: (_namespaceId) => this.maybeFinishDrainEarly(),
-      // issue #244（D3）：连接级并发 assembly 准入——幂等（同 ns 已占槽恒 true；
-      // 重复首 chunk 防御由 assembler 状态机承接）+ 满额拒纳（缺省 4 → 第 5 个 → VIOLATION）
-      tryBeginInboundAssembly: (namespaceId) => {
-        if (this.inboundAssemblySlots.has(namespaceId)) return true;
-        if (
-          this.inboundAssemblySlots.size >=
-          hub.limits.maxConcurrentAssembliesPerConnection
-        ) {
-          return false;
-        }
-        this.inboundAssemblySlots.add(namespaceId);
-        return true;
-      },
-      endInboundAssembly: (namespaceId) => {
-        this.inboundAssemblySlots.delete(namespaceId); // 幂等（重复 clear/多挂点汇合零副作用）
-      },
-      observerPresent: () => this.connectionObserver() !== undefined,
-      emitObserver: (event) => dispatchReplicationObserver(this.connectionObserver(), event),
-      connectionId: () => this.connectionIdValue,
-      // issue #231：send-failed 诊断上下文（观测面只读投影；emitResyncRequired 仅在
-      // observer 在场时调用——无 observer 零读取）
-      connectionState: () => this.state,
-      bufferedAmount: () => this.observableBufferedAmount(),
-      // B1：时钟采样经 safeNow 折叠（throw → dormant undefined，零协议外溢）
-      now: () => (this.connectionObserver() !== undefined ? safeNow(() => hub.clock?.now()) : undefined),
-    };
-    this.helloHandle = hub.timer.setTimeout(() => {
-      if (this.state === 'handshaking') {
-        this.connectionFatal('HELLO_TIMEOUT', 1002);
-      }
-    }, hub.timeouts.helloTimeoutMs);
-    this.transportSubscribers.push(
-      transport.onMessage((bytes) => this.onMessage(bytes)),
-      transport.onClose(() => this.onTransportClosed()),
-    );
-    // 构造尾部重放（§3.3）：早到帧不绕过任何协议纪律——handshaking 态内非 HELLO 帧 →
-    // HELLO_REQUIRED fatal（:199-206 既有）；有界缓冲（≤16 帧）使重放同步段长度有界。
-    for (const bytes of earlyFrames) {
-      this.onMessage(bytes);
-    }
-  }
-
-  close(code?: number, reason?: string): void {
-    if (this.closedFlag) return;
-    this.closedFlag = true;
-    this.setConnState('closed');
-    this.clearDrainHandles(); // §4.6 路径 1：窗口期公共 close = force-close 逃生舱
-    this.sender.teardown(); // §8：poll timer 清零（连接收口必经点）
-    for (const channel of this.channels.values()) channel.quiesceConnection();
-    if (!this.transport.closed) {
-      this.transport.close(code ?? 1001, reason ?? 'hub-close');
-    }
-    void this.cleanupAll();
-  }
-
-  /** issue #175 AC1/AC2/AC4：定向 reauth——GOAWAY(REAUTH_REQUIRED, drain>0) + deadline 后
-   *  1001 收口。幂等（reauthRequested）；迟到/竞态（closedFlag）零副作用；绝不携带凭据
-   *  （AC7）。与 Hub service close 的区别：后者按 issue #229 不发送 GOAWAY、直接
-   *  close；本方法真正等待 drain 窗（closeTimeoutMs 预算）再收口（§6.3 L149「之后发送方以
-   *  WS 1001 关闭」）。 */
-  beginReauth(): void {
-    if (this.closedFlag || this.reauthRequested) return;
-    this.reauthRequested = true;
-    if (this.state === 'handshaking') {
-      // GOAWAY-before-ACK 是协议伤害：peer handshaking 门对非 HELLO_ACK 帧判
-      // CONNECTION_POLICY_VIOLATION（peer-connection.ts:277-279）——handshaking 分支
-      // 不发 GOAWAY，直接 close(1001)。该连接同样是匹配身份的连接
-      // （其 Upgrade 已用待轮换凭据认证），关闭 = 正确的 reauth 语义。
-      this.close(1001, 'hub-reauth');
-      return;
-    }
-    this.drainActive = true;
-    this.state = 'draining'; // 连接级可观测迁移；现有 namespace 到 deadline 前自然收口（§6.3 L148）
-    try {
-      this.outbound.sendControl({ // 收口路径直发豁免（同 connectionFatal
-        kind: 'GOAWAY', // 家族）：生命周期控制帧不允许被 data 背压额度否决
-        reasonCode: 'REAUTH_REQUIRED', // 稳定安全码，零凭据字段（AC7）
-        drainTimeoutMs: this.hub.timeouts.closeTimeoutMs, // drain 预算载体（§4.3，构造期验证 >0）
-      });
-    } catch {
-      this.close(1001, 'hub-reauth'); // framing 不可信 → fail-closed 直接收口（:336-338 同款）
-      return;
-    }
-    this.reauthDeadlineHandle = this.hub.timer.setTimeout(() => {
-      this.reauthDeadlineHandle = undefined;
-      if (this.closedFlag) return; // transport 断/hub.close 已收口 → stale fire 零副作用
-      this.close(1001, 'hub-reauth'); // 既有收口拓扑：teardown + quiesce + close + cleanupAll + drop
-    }, this.hub.timeouts.closeTimeoutMs);
-  }
-
-  /** §5.1 revoke 链第二层：HELLO 前无 channels → 天然 no-op。 */
-  revokeNamespace(namespaceId: string): Promise<void> {
-    const channel = this.channels.get(namespaceId);
-    if (channel === undefined) return Promise.resolve();
-    return channel.terminateUnauthorized();
-  }
-
-  /** 全部通道 cleanup 结算（HubReplication.close 等待）。 */
-  settle(): Promise<void> {
-    return this.settleAfterClose();
-  }
-
-  /** close()/onTransportClosed() 同步启动 cleanupAll 前，settleTail 仍可能是旧 resolved 值；
-   * 让一个微任务后再读取，锁住 reauth→hub.close 同 tick 的结算竞态。 */
-  private async settleAfterClose(): Promise<void> {
-    await Promise.resolve();
-    await this.settleTail;
-  }
-
-  /** issue #174 §4.3：drain 窗口提前完成观测——全部 channel 终态（或空）→ 立即收口。 */
-  private maybeFinishDrainEarly(): void {
-    if (!this.drainActive || this.closedFlag) return; // 非 drain 零开销；closedFlag 为第二道闸
-    for (const channel of this.channels.values()) {
-      const s = channel.state; // 公开字段，零新投影 API
-      if (s !== 'closed' && s !== 'conflicted' && s !== 'failed') return;
-    }
-    this.finishDrain(); // 全部终态（或 channels 空）→ 提前收口
-  }
-
-  /** issue #174 §4.4：drain 收口点——deadline/提前完成/对端关三入口合流（幂等）。
-   *  deadline fire 时【不检查任何 channel/apply 状态】——不等待未完成网络 ACK（AC4）。 */
-  private finishDrain(): void {
-    if (this.closedFlag || !this.drainActive) return;
-    this.clearDrainHandles();
-    this.close(1001, 'hub-reauth');
-  }
-
-  /** issue #174 §4.6-R2 单点：drain 复位 + deadline 句柄清理。幂等；四条连接终结路径共用。 */
-  private clearDrainHandles(): void {
-    this.drainActive = false;
-    if (this.drainDeadline !== undefined) {
-      this.hub.timer.clearTimeout(this.drainDeadline); // §8 句柄必清纪律
-      this.drainDeadline = undefined;
-    }
-  }
-
-  private onMessage(bytes: Uint8Array): void {
-    if (this.closedFlag) return;
-    let decoded: { header: { sequence: number }; message: ReplicationMessage };
-    try {
-      decoded = decodeInbound(bytes, {
-        expectedSequence: this.expectedSeq,
-        maxFrameBytes: this.hub.limits.maxFrameBytes,
-        // issue #243（DD-1.4）：decode 门控透传——握手期 0，ready 后 = onHello 捕获的
-        // selectCapabilities 交集结果。
-        selectedCapabilities: this.negotiatedCapabilitiesValue,
-      });
-    } catch (err) {
-      const code = (err as { code?: string }).code ?? 'MALFORMED_FRAME';
-      this.connectionFatal(code, wsCloseCodeFor(code));
-      return;
-    }
-    this.expectedSeq = decoded.header.sequence + 1;
-    const message = decoded.message;
-    if (this.state === 'handshaking') {
-      if (message.kind === 'HELLO') {
-        this.onHello(message);
-        return;
-      }
-      this.connectionFatal('HELLO_REQUIRED', 1002);
-      return;
-    }
-    // GOAWAY drain 开始后仍需分发到 drain 专用门：它只保留自然 CLOSE/CLOSE_OK、
-    // 已接纳 apply 的必要 ACK 与 ERROR 收口；其余 namespace frame 不再进入 channel。
-    this.dispatchReady(message, decoded.header.sequence);
-  }
-
-  private onHello(message: {
-    peerInstanceId: string;
-    expectedHubInstanceId: string;
-    protocolVersions: number[];
-    requiredCapabilities: number;
-    optionalCapabilities: number;
-    connectionNonce: Uint8Array;
-  }): void {
-    if (this.state !== 'handshaking') {
-      this.connectionFatal('CONNECTION_POLICY_VIOLATION', 1008);
-      return;
-    }
-    // D2（§4）：HELLO 自声明身份必须等于认证身份（token 绑定的可信身份，一层↔二层绑定）；
-    // 恒等失败 → INSTANCE_IDENTITY_MISMATCH（connection/config/1008，零新错误码）
-    if (message.peerInstanceId !== this.authenticatedInstanceId) {
-      this.connectionFatal('INSTANCE_IDENTITY_MISMATCH', 1008);
-      return;
-    }
-    if (message.expectedHubInstanceId !== this.hub.instanceId) {
-      this.connectionFatal('INSTANCE_IDENTITY_MISMATCH', 1008);
-      return;
-    }
-    const version = selectProtocolVersion(message.protocolVersions, [1]);
-    if (version === null) {
-      this.connectionFatal('UNSUPPORTED_PROTOCOL_VERSION', 1002);
-      return;
-    }
-    // issue #243（DD-1.2）：capability 交集单点（replace 原 requiredCapabilities!==0 直判）——
-    // required 超集（ok=false）→ 既有 UNSUPPORTED_CAPABILITY 拒绝；否则 selected =
-    // optional ∩ SUPPORTED 写入 HELLO_ACK 并捕获为会话协商状态。
-    const negotiated = selectCapabilities(
-      message.requiredCapabilities,
-      message.optionalCapabilities,
-      HUB_SUPPORTED_CAPABILITIES,
-    );
-    if (!negotiated.ok) {
-      this.connectionFatal('UNSUPPORTED_CAPABILITY', 1002);
-      return;
-    }
-    this.negotiatedCapabilitiesValue = negotiated.selected;
-    this.peerInstanceId = this.authenticatedInstanceId;
-    this.connectionIdValue = `${this.hub.instanceId}-conn-${this.connId}`;
-    this.setConnState('ready');
-    if (this.transport.ping !== undefined && this.transport.onPong !== undefined) {
-      this.stopLiveness = startLiveness({
-        timer: this.hub.timer,
-        pingIntervalMs: this.hub.timeouts.pingIntervalMs,
-        pongTimeoutMs: this.hub.timeouts.pongTimeoutMs,
-        ping: this.transport.ping,
-        onPong: this.transport.onPong,
-        // issue #238 §6（H1 判别探针）：observer + clock + ping/onPong 三者齐备才武装；
-        // 任一缺席 → 零额外状态、零额外调度（dormant 等价）。
-        ...(this.hub.clock !== undefined && this.connectionObserver() !== undefined
-          ? {
-              delayProbe: {
-                now: () => (this.connectionObserver() !== undefined ? safeNow(() => this.hub.clock?.now()) : undefined),
-                sample: (delayMs) => {
-                  const observer = this.connectionObserver();
-                  if (observer === undefined) return;
-                  dispatchReplicationObserver(observer, {
-                    type: 'event-loop-delay-sampled',
-                    side: 'hub',
-                    ...(this.connectionIdValue !== undefined
-                      ? { connectionId: this.connectionIdValue }
-                      : {}),
-                    delayMs,
-                  });
-                },
-              },
-            }
-          : {}),
-        // issue #170 R1：pong 超时 = §18 L524 临时失败——close(1001)、零 ERROR 帧
-        //（§13.1 注册表无 liveness 错误码；不得发明未注册码）。
-        onPongTimeout: () => this.onLivenessLost(),
-      });
-    }
-    // N1：§16 行 1「HELLO_ACK 解除」——HELLO 握手完成的同步段解除 hello timer
-    //（原实现永不 clear：每连接多挂一个 helloTimeoutMs 空 timer）。
-    this.hub.timer.clearTimeout(this.helloHandle);
-    const connectionId = `${this.hub.instanceId}-conn-${this.connId}`;
-    this.sendControlChecked({
-      kind: 'HELLO_ACK',
-      hubInstanceId: this.hub.instanceId,
-      protocolVersion: version,
-      selectedCapabilities: this.negotiatedCapabilitiesValue, // issue #243：交集结果（缺省 0 = v1）
-      connectionNonce: message.connectionNonce,
-      connectionId,
-    });
-  }
-
-  private dispatchReady(message: ReplicationMessage, sequence: number): void {
-    // GOAWAY drain 专用接纳门：namespace 不再接纳任何可能启动协议工作或进入 apply
-    // 的 frame。CLOSE_NAMESPACE/CLOSE_OK 保留自然握手；ACK/ERROR 仅结算 drain 前已发送
-    // 的工作。协议没有通用「draining」错误码，因此除 OPEN 复用既有 reconnect 错误外，
-    // 其余新工作静默丢弃，避免发明错误码或把正常在途帧升级为连接 fatal。
-    if (this.drainActive) {
-      switch (message.kind) {
-        case 'OPEN_NAMESPACE':
-          // REAUTH_REQUIRED 窗口零响应，避免认证失效后泄露 namespace 观测。
-          return;
-        case 'BOOTSTRAP_ACK':
-        case 'SYNC_STEP1':
-        case 'SYNC_STEP2':
-        case 'RESYNC_REQUIRED':
-        case 'UPDATE':
-        case 'UPDATE_CHUNK': // issue #243（DD-5）：chunk 帧与会启动新协议工作的 namespace 帧
-          // 同列——reauth drain 窗口不得进入 channel（防注入在 drain 期开新 assembly）。
-          return;
-        default:
-          break;
-      }
-    }
-    switch (message.kind) {
-      case 'HELLO':
-      case 'HELLO_ACK':
-      case 'OPEN_OK':
-      case 'BOOTSTRAP_SNAPSHOT':
-      case 'IDENTITY_CHANGED':
-        // 方向纪律（R2.1 澄清）：hub 收到 hub→peer 方向专用帧 → 连接策略拒绝（§6）
-        this.connectionFatal('CONNECTION_POLICY_VIOLATION', 1008);
-        return;
-      case 'OPEN_NAMESPACE':
-        this.onOpenNamespace(message);
-        return;
-      case 'BOOTSTRAP_ACK':
-        this.withChannel(message.namespaceId, (c) => c.onBootstrapAck({ ackedSequence: message.ackedSequence }));
-        return;
-      case 'SYNC_STEP1':
-        this.withChannel(message.namespaceId, (c) => c.onSyncStep1({ ...message, sequence }));
-        return;
-      case 'SYNC_STEP2':
-        this.withChannel(message.namespaceId, (c) => c.onSyncStep2({ ...message, sequence }));
-        return;
-      case 'SYNC_APPLIED':
-        this.withChannel(message.namespaceId, (c) => c.onSyncApplied(message));
-        return;
-      case 'RESYNC_REQUIRED':
-        this.withChannel(message.namespaceId, (c) => c.onResyncReceived());
-        return;
-      case 'UPDATE': {
-        const violation = namespaceFieldViolation(message, codecFieldLimits(this.hub.limits));
-        this.withChannel(message.namespaceId, (c) => {
-          if (violation !== undefined) {
-            c.onFieldViolation(violation);
-            return;
-          }
-          c.onUpdate({ update: message.update, sequence });
-        });
-        return;
-      }
-      case 'UPDATE_ACK':
-        this.withChannel(message.namespaceId, (c) => c.onUpdateAck(message));
-        return;
-      case 'CLOSE_NAMESPACE':
-        this.withChannel(message.namespaceId, (c) => c.onCloseRequest({ ...message, sequence }));
-        return;
-      case 'CLOSE_OK':
-        // hub 不发 CLOSE（CLOSE 恒由 peer 发起）；收到即方向异常
-        this.withChannel(message.namespaceId, (c) => c.onErrorFrame({ code: 'NAMESPACE_STATE_VIOLATION' }));
-        return;
-      case 'ERROR':
-        if (message.namespaceId !== undefined) {
-          const channel = this.channels.get(message.namespaceId);
-          if (channel !== undefined) channel.onErrorFrame(message);
-        }
-        return;
-      case 'GOAWAY':
-        this.connectionFatal('CONNECTION_POLICY_VIOLATION', 1008);
-        return;
-      case 'UPDATE_CHUNK':
-        // issue #243（DD-5）：切片 1 的类型兼容占位替换——协商位透传正确时本分支可
-        // 到达（未协商仍由 decode 门控收口 1002）；转发通道做 detached assembly
-        //（withChannel 对未知 ns 回 NAMESPACE_STATE_VIOLATION ERROR）。
-        this.withChannel(message.namespaceId, (c) => c.onUpdateChunk({ ...message, sequence }));
-        return;
-      default: {
-        const never: never = message;
-        void never;
-        return;
-      }
-    }
-  }
-
-  private onOpenNamespace(message: {
-    namespaceId: string;
-    hasLocalReplica: boolean;
-    replicationId?: string;
-    replicationEpoch?: number;
-  }): void {
-    let channel = this.channels.get(message.namespaceId);
-    if (channel === undefined) {
-      channel = new HubNamespaceChannel(this.channelHost, message.namespaceId);
-      this.channels.set(message.namespaceId, channel);
-      channel.startOpen(message);
-      return;
-    }
-    channel.onOpen(message);
-  }
-
-  private withChannel(namespaceId: string, fn: (c: HubNamespaceChannel) => void): void {
-    const channel = this.channels.get(namespaceId);
-    if (channel === undefined) {
-      try {
-        this.sendControlChecked({
-          kind: 'ERROR',
-          code: 'NAMESPACE_STATE_VIOLATION',
-          safeMessage: 'protocol error: NAMESPACE_STATE_VIOLATION',
-          namespaceId,
-        });
-      } catch {
-        // 连接已收口；忽略
-      }
-      if (this.connectionObserver() !== undefined) {
-        dispatchReplicationObserver(this.connectionObserver(), {
-          type: 'namespace-error',
-          side: 'hub',
-          ...(this.connectionIdValue !== undefined ? { connectionId: this.connectionIdValue } : {}),
-          namespaceId,
-          code: 'NAMESPACE_STATE_VIOLATION',
-          direction: 'sent',
-        });
-      }
-      return;
-    }
-    fn(channel);
-  }
-
-  private onTransportClosed(): void {
-    if (this.closedFlag) return;
-    this.closedFlag = true;
-    this.setConnState('closed');
-    this.clearDrainHandles(); // §4.6 路径 2：对端已关 = 窗口无服务对象
-    this.sender.teardown();
-    void this.cleanupAll();
-  }
-
-  private async cleanupAll(): Promise<void> {
-    // issue #175：reauth deadline 句柄单点清理（覆盖 close/onTransportClosed/
-    // connectionFatal/onSequenceExhausted 全部收口路径——§8.1 timer 纪律「句柄必须可清」）
-    if (this.reauthDeadlineHandle !== undefined) {
-      this.hub.timer.clearTimeout(this.reauthDeadlineHandle);
-      this.reauthDeadlineHandle = undefined;
-    }
-    for (const channel of this.channels.values()) channel.quiesceConnection();
-    this.stopLiveness?.();
-    this.stopLiveness = undefined;
-    for (const off of this.transportSubscribers.splice(0)) off();
-    const cleanups = [...this.channels.values()].map((channel) => channel.onConnectionClosed());
-    try {
-      this.settleTail = Promise.all(cleanups).then(() => undefined);
-      await this.settleTail;
-      this.hub.dropConnection(this);
-    } finally {
-      // cleanupAll 的 settleTail 在异常路径也已归一化，由 Hub close 等待。
-    }
-  }
-
-  private connectionFatal(code: string, wsCloseCode: number): void {
-    if (this.closedFlag) return;
-    this.clearDrainHandles(); // §4.6 路径 3（R2-M1）：drain 期 fatal 不留 timer 残留
-    this.sender.teardown();
-    try {
-      // §4.3 豁免（R2，SA2 #2）：收口 ERROR 直发 outbound——绕过 sender 额度判据
-      // （非耗尽场景下行为与经 sender 等价——控制帧本就不受阻，仅差额度记账，
-      // 而收口后额度无意义）；收口路径零递归。
-      this.outbound.sendControl(connectionErrorFrame(code));
-    } catch {
-      // best-effort；framing 已不可信
-    }
-    this.closedFlag = true;
-    this.setConnState('closed');
-    for (const channel of this.channels.values()) channel.quiesceConnection();
-    if (!this.transport.closed) {
-      this.transport.close(wsCloseCode, 'protocol-error');
-    }
-    if (this.connectionObserver() !== undefined) {
-      dispatchReplicationObserver(this.connectionObserver(), {
-        type: 'connection-failed',
-        side: 'hub',
-        ...(this.connectionIdValue !== undefined ? { connectionId: this.connectionIdValue } : {}),
-        code: stableConnectionCode(code),
-        wsCloseCode,
-      });
-    }
-    void this.cleanupAll();
-  }
-
-  /**
-   * 活性失联（临时类，协议 L524/§14/L42）：零 ERROR 帧——该错误码不在 connection
-   * 错误注册表（§13.1 append-only，活性是 WS 级事件非 wire 协议事件，不得扩表），
-   * close(1001) + 与 connectionFatal 同构的收口拓扑（ready → closed 直迁；hub 无
-   * dial/backoff——§15.2，重连责任在 peer，peer 侧对 1001 分类为临时失败 → backoff）。
-   */
-  private onLivenessLost(): void {
-    if (this.closedFlag) return; // 重入守卫（与 connectionFatal 同构）
-    this.sender.teardown(); // §8：poll timer 清零（连接收口必经点）
-    this.closedFlag = true; // 先置位：close 触发的 onClose 命中 onTransportClosed 早退
-    this.state = 'closed';
-    for (const channel of this.channels.values()) channel.quiesceConnection();
-    if (!this.transport.closed) {
-      this.transport.close(1001, 'pong-timeout');
-    }
-    void this.cleanupAll(); // stopLiveness + 摘 transport 监听 + channel cleanup + dropConnection
-  }
-
-  private sendControlChecked(message: ReplicationMessage): number {
-    // §4.3：保留额度判据在 sender.sendControl 单点（收口路径直发 outbound 豁免）。
-    return this.sender.sendControl(message);
-  }
-
-  /**
-   * data 帧（UPDATE）发送路径（§6.3，issue #137）：sender.tryEmitData（水位观察② +
-   * data 出队；序列号由 OutboundQueue.emit 单点分配）。
-   */
-  private sendData(namespaceId: string, bytes: Uint8Array): number {
-    return this.sender.tryEmitData({
-      kind: 'UPDATE',
-      namespaceId,
-      update: bytes,
-    });
-  }
-
-  /** issue #243（DD-3.5）：UPDATE_CHUNK 帧发送路径——与 UPDATE 同一 data 出站点。
-   *  issue #295 切片 2（D5/C6）：kind 首字段与绑定块透传 piece（kind=0 逐字节等价——
-   *  codec 本就编 0 且零绑定成员）。wire 协商位由控制器侧改道判据保证；本方法以
-   *  negotiated 位做纵深防御。 */
-  private sendUpdateChunk(namespaceId: string, chunk: ChunkedTransferPiece): number {
-    if (!this.isChunkedNegotiated()) return 0;
-    const transferKind = chunk.transferKind ?? 0;
-    const base = {
-      kind: 'UPDATE_CHUNK' as const,
-      // issue #295 切片 2：单形态 kind 首字段透传（kind=0 恒定逐字节等价）
-      transferKind,
-      namespaceId,
-      transferId: chunk.transferId,
-      chunkIndex: chunk.chunkIndex,
-      chunkCount: chunk.chunkCount,
-      totalBytes: chunk.totalBytes,
-      bytes: chunk.bytes,
-    };
-    // 绑定块透传（kind≠0 ∧ chunkIndex=0）；缺失成员由 codec 单形态规则响亮拒绝（MALFORMED_FRAME）
-    if (
-      transferKind === 1 &&
-      chunk.chunkIndex === 0 &&
-      chunk.replicationId !== undefined &&
-      chunk.replicationEpoch !== undefined
-    ) {
-      return this.sender.tryEmitData({
-        ...base,
-        replicationId: chunk.replicationId,
-        replicationEpoch: chunk.replicationEpoch,
-      });
-    }
-    if (transferKind === 2 && chunk.chunkIndex === 0 && chunk.syncRoundId !== undefined) {
-      return this.sender.tryEmitData({ ...base, syncRoundId: chunk.syncRoundId });
-    }
-    return this.sender.tryEmitData(base);
-  }
-
-  /** issue #243（DD-1.5）：wire 协商交集位判据（发送门与 decode 门共用同一判据）。 */
-  private isChunkedNegotiated(): boolean {
-    return (this.negotiatedCapabilitiesValue & CAP_CHUNKED_UPDATE) !== 0;
-  }
-
-  /** §4.2 鸭子类型读取 transport.bufferedAmount（属性形态；缺失/非法 → 0=无压力）。 */
-  private readBufferedAmount(): number {
-    return this.observableBufferedAmount() ?? 0;
-  }
-
-  /** issue #231 观测口径：与 §4.2 同一鸭子类型读取，但「缺面/非法」映射为 undefined
-   *  （事件字段缺失）而非 0——0 必须保持为真实读数语义（adapter 可观测时的无压力）。 */
-  private observableBufferedAmount(): number | undefined {
-    try {
-      const level = (this.transport as { readonly bufferedAmount?: unknown }).bufferedAmount;
-      return typeof level === 'number' && Number.isFinite(level) ? level : undefined;
-    } catch {
-      return undefined; // seam 契约：transport 契约是「number 属性或缺失」；非契约形态 = 不可观测
-    }
-  }
-
-  /** §4.1 R3/#11（R2-2 修订）：出站 uint32 耗尽（实践不可达）→ 直接 close(1008)。
-   *  framing 已不可信（§14 L391「否则直接 close」）：任何后续帧都只能以重复序列
-   *  0xffffffff 发送 ⇒ 违反 §1 不变量 2 / §3 L54 严格递增；故零出站帧（原 best-effort
-   *  ERROR 直发已删除——它正是重复序列号的唯一来源）。sender.teardown() 于 close 前
-   *  （既有）；closedFlag/state/cleanupAll 收口拓扑不变。 */
-  private onSequenceExhausted(transport: DuplexTransport): void {
-    if (transport.closed) return;
-    this.clearDrainHandles(); // §4.6 路径 4（R2-M1）：drain 期序列耗尽不留 timer 残留
-    this.sender.teardown();
-    if (!transport.closed) {
-      transport.close(1008, 'sequence-exhausted');
-    }
-    this.closedFlag = true;
-    this.setConnState('closed');
-    if (this.connectionObserver() !== undefined) {
-      dispatchReplicationObserver(this.connectionObserver(), {
-        type: 'connection-failed',
-        side: 'hub',
-        ...(this.connectionIdValue !== undefined ? { connectionId: this.connectionIdValue } : {}),
-        code: 'OUTBOUND_SEQUENCE_EXHAUSTED',
-        wsCloseCode: 1008,
-      });
-    }
-    void this.cleanupAll();
-  }
-
-  /** H10：hub 连接 FSM 唯一迁移点（原 5 处直赋收编；同态早退——边沿 exactly-once）。
-   *  初始 'handshaking' 不发射（无迁移即无事件）。 */
-  private setConnState(next: HubConnectionState): void {
-    if (this.state === next) return;
-    const from = this.state;
-    this.state = next;
-    if (this.connectionObserver() !== undefined) {
-      dispatchReplicationObserver(this.connectionObserver(), {
-        type: 'connection-state-changed',
-        side: 'hub',
-        ...(this.connectionIdValue !== undefined ? { connectionId: this.connectionIdValue } : {}),
-        from,
-        to: next,
-      });
-    }
-  }
-
-  private connectionObserver(): ReplicationObserver | undefined {
-    return this.hub.observer;
-  }
-
-  /** H15：连接级水位边沿事件（send-paused / send-resumed）。 */
-  private emitWaterEvent(
-    type: 'send-paused' | 'send-resumed',
-    bufferedAmount: number,
-  ): void {
-    const observer = this.connectionObserver();
-    if (observer === undefined) return;
-    dispatchReplicationObserver(observer, {
-      type,
-      side: 'hub',
-      ...(this.connectionIdValue !== undefined ? { connectionId: this.connectionIdValue } : {}),
-      bufferedAmount,
-    });
-  }
-}
-
-/** 连接级协议错误 → WS close code（§14 粗分类）。 */
-function wsCloseCodeFor(code: string): number {
-  if (code === 'FRAME_TOO_LARGE') return 1009;
-  if (code === 'INSTANCE_IDENTITY_MISMATCH' || code === 'CONNECTION_POLICY_VIOLATION') return 1008;
-  return 1002;
 }

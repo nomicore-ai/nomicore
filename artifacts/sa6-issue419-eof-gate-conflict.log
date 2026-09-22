@@ -1,0 +1,173 @@
+----------------------------------------------------------------
+SA6 issue #419 -- registered bytes vs staging gate: repro + repair verification
+C1 = .editorconfig [*] {end_of_line=lf, insert_final_newline=true, trim_trailing_whitespace=true}
+     + Git gate rules {blank-at-eol, blank-at-eof}; section 17 hashes are registered over C1.
+Owner comment REST snapshot = [] (empty; per dispatch) -- no owner requirements, comment IDs or
+timestamps exist to incorporate.
+worktree=/home/wangjian/nomicore-fix-issue-419
+HEAD=02abf662c8ab8689bc3e407921839d509539c802  git=2.43.0
+----------------------------------------------------------------
+SECTION 0 -- staged changeset and the red gate (real index, read-only)
+$ git status --porcelain -uall
+A  artifacts/sa3-issue419-f1-evidence-restore.log
+M  artifacts/sa6-issue419-runner-trigger.log
+M  wiki/raw/task_issue-419_implementation_conflict_report.md
+A  wiki/raw/task_issue-419_sa10_spec.md
+M  wiki/raw/task_issue-419_sa3_impl.md
+M  wiki/raw/task_issue-419_sa4_review.md
+A  wiki/raw/task_issue-419_sa9_standards.md
+?? .scratch/sa6-419-gate/report.raw
+?? wiki/raw/task_issue-419_sa6_whitespace_gate_check.sh
+$ git diff --cached --check
+artifacts/sa3-issue419-f1-evidence-restore.log:20: trailing whitespace.
++<{SP}
+artifacts/sa6-issue419-runner-trigger.log:70: new blank line at EOF.
+GATE_RC=2
+# Finding set is exactly 2, one per artifact; the rest of the staged changeset is clean:
+$ git diff --cached --check -- wiki/
+GATE_RC=0
+----------------------------------------------------------------
+SECTION 1 -- byte facts for the two staged artifacts
+$ sha256sum artifacts/sa6-issue419-runner-trigger.log artifacts/sa3-issue419-f1-evidence-restore.log
+96abbb72ecefdc3ad2b37bc8cfcdbb011e7c43b409c0b5f130c7a3e7a1b2e06c  artifacts/sa6-issue419-runner-trigger.log
+2932f2a773a4c0a6a30432983685b613bb51a16504fd61f9e376167002d974a3  artifacts/sa3-issue419-f1-evidence-restore.log
+$ wc -l -c artifacts/sa6-issue419-runner-trigger.log artifacts/sa3-issue419-f1-evidence-restore.log
+   70  4322 artifacts/sa6-issue419-runner-trigger.log
+  221 15421 artifacts/sa3-issue419-f1-evidence-restore.log
+  291 19743 total
+$ git hash-object artifacts/sa6-issue419-runner-trigger.log artifacts/sa3-issue419-f1-evidence-restore.log
+c183ba296bbb886931b1b2adc2e24d4f930f0d7a
+e4af259eb39de4a1298af7ac68e067e707bcd509
+$ git cat-file -s HEAD:<runner> ; git show HEAD:<runner> | sha256sum ; git show HEAD:<runner> | wc -l -c
+4321
+23787bf1a40c183b69c9903a4c26cedb0737b391f490fb5eb9156f361bfed372  -
+     69    4321
+$ git rev-parse HEAD:<runner>   # committed blob: the drift-free, gate-clean form
+46ff267d3451c22147b759002aee3345d09871a9
+$ tail -c 12 <runner> | od -c   # last bytes are ...s) LF LF => blank line 70 at EOF
+0000000   e   c   k       2   .   1   8   s   )  \n  \n
+0000014
+$ sed -n 20p <f1log> | od -c   # line 20 is <, SPACE, LF => trailing space (blank-at-eol)
+0000000   <      \n
+0000003
+$ grep -c CR <runner> <f1log>   # 0 0: end_of_line=lf holds, no CR bytes
+artifacts/sa6-issue419-runner-trigger.log:0
+artifacts/sa3-issue419-f1-evidence-restore.log:0
+----------------------------------------------------------------
+SECTION 2 -- rule discrimination (which gate rule fires; can the gate be silenced?)
+$ git -c core.whitespace=-blank-at-eof diff --cached --check
+# => only the f1 trailing-space finding survives: blank-at-eof rejects the registered original
+artifacts/sa3-issue419-f1-evidence-restore.log:20: trailing whitespace.
++<{SP}
+GATE_RC=2
+$ git -c core.whitespace=-blank-at-eol diff --cached --check
+# => only the EOF blank-line finding survives: blank-at-eol rejects the f1 log line 20
+artifacts/sa6-issue419-runner-trigger.log:70: new blank line at EOF.
+GATE_RC=2
+$ git -c core.whitespace=-blank-at-eol,-blank-at-eof diff --cached --check
+# Path B1 (silence the rules via config): green without touching any byte. REJECTED: it tampers
+# with the mandatory gate, contradicts committed .editorconfig, and leaves section 17 demanding
+# bytes that can never be committed.
+GATE_RC=0
+$ git -c core.attributesFile=<probe> diff --cached --check
+# Path B2 (per-path exemption via .gitattributes): same silencing, same rejection (needs design
+# authority; would blind the gate over every future artifacts/ change).
+GATE_RC=0
+# No override exists in the live repo:
+core.whitespace_set=no  tracked_gitattributes=0  tracked_editorconfig=1
+----------------------------------------------------------------
+SECTION 3 -- canonical form C1 applied to the two artifacts (byte-exact deltas)
+canon(<runner>) sha256=23787bf1a40c183b69c9903a4c26cedb0737b391f490fb5eb9156f361bfed372 lines=69 bytes=4321 blob=46ff267d3451c22147b759002aee3345d09871a9
+  registered C1 hash MATCH: YES
+  equals committed HEAD blob bytes: YES
+$ diff artifacts/sa6-issue419-runner-trigger.log <canon-runner>
+70d69
+<{SP}
+# => exactly one deleted line 70 (empty): the single final LF; no content byte changes
+  whitespace-stripped content sha256, raw vs C1: d612d99f52ab05db4b24386d91facef5eeb8abb1e5ffa25441eee259da008bb9 / d612d99f52ab05db4b24386d91facef5eeb8abb1e5ffa25441eee259da008bb9
+  legacy raw registration (superseded): 96abbb72ecefdc3ad2b37bc8cfcdbb011e7c43b409c0b5f130c7a3e7a1b2e06c (70 lines/4322 bytes, blob c183ba296bbb886931b1b2adc2e24d4f930f0d7a)
+canon(<f1log>)  sha256=3b861d2dc34eff92686d52d29e746acade673831769ca9226fd5835304b45c15 lines=221 bytes=15420 blob=0996a3249e81f201f57aafb8278f5a4e4b11948c
+  registered C1 hash MATCH: YES
+$ diff artifacts/sa3-issue419-f1-evidence-restore.log <canon-f1>
+20c20
+< <{SP}
+---
+> <
+# => exactly one changed line 20: < SPACE becomes < ; line count unchanged, -1 byte
+  byte delta: first_diff_offset_0based=1330 orig_byte=0x20 suffix_identical=YES
+  whitespace-stripped content sha256, raw vs C1: 97e319148f49c5f2e0bc340c951c36e13d4d8ba8f2792a8f329ff864f157549a / 97e319148f49c5f2e0bc340c951c36e13d4d8ba8f2792a8f329ff864f157549a
+  legacy raw registration (superseded): 2932f2a773a4c0a6a30432983685b613bb51a16504fd61f9e376167002d974a3 (221 lines/15421 bytes)
+----------------------------------------------------------------
+SECTION 4 -- negative controls and mutation sensitivity
+$ git diff --no-index --check /dev/null <canonical candidate>   # silent; rc 1 = bytes differ
+  canon-runner.log rc=1 (silent)
+  canon-f1.log     rc=1 (silent)
+# NC1: other section 17 assets are already canonical, i.e. the C1 rule does not blanket-fail logs
+  artifacts/sa6-issue419-probe-green.log canonical=YES sha256=1960c24a7011331f24f5c9ebb5f6951b17d2787b9dd3bddcb1edd5ffb5a1560a
+  artifacts/sa6-issue419-mutation-sensitivity.log canonical=YES sha256=c8f67f9bdf7d59211be5264950452713ca4844a111a7f9d0a6952089678accc8
+  artifacts/sa6-issue419-capability-gap.log canonical=YES sha256=b054b3c022cd7c5383c59980ab1a0fa93262e863459ed71c9b3b96edab63a175
+  artifacts/sa6-issue419-package-tsc-baseline.log canonical=YES sha256=1f23a7a0ed185aeb2df7f0ac660dcc430854e38ceaa9d9d68eecba038a5b24a4
+# MC1: canonical(runner) + one final LF must re-trip blank-at-eof
+/home/wangjian/nomicore-fix-issue-419/.scratch/sa6-419-gate/mut-runner.log:70: new blank line at EOF.
+  MUTATION_RC=3 sha256=96abbb72ecefdc3ad2b37bc8cfcdbb011e7c43b409c0b5f130c7a3e7a1b2e06c
+# MC2: canonical(f1) + the one removed space must re-trip blank-at-eol and restore the raw bytes
+/home/wangjian/nomicore-fix-issue-419/.scratch/sa6-419-gate/mut-f1.log:20: trailing whitespace.
++<{SP}
+  MUTATION_RC=3 sha256=2932f2a773a4c0a6a30432983685b613bb51a16504fd61f9e376167002d974a3 re-trip_equals_registered_raw=YES
+# => the gate assertion is sensitive to exactly the two bytes under repair, and the repair is minimal
+----------------------------------------------------------------
+SECTION 5 -- full staged changeset turns green on a PRIVATE COPY of the index
+real index = /home/wangjian/nomicore/.git/worktrees/nomicore-fix-issue-419/index (sha256=e9fcd77115076b5a8a2398f7017b53e85d80dde46e42173a353a8a320c6e0c78)
+$ GIT_INDEX_FILE=<copy> git diff --cached --check   # faithfulness control: must stay red
+artifacts/sa3-issue419-f1-evidence-restore.log:20: trailing whitespace.
++<{SP}
+artifacts/sa6-issue419-runner-trigger.log:70: new blank line at EOF.
+GATE_RC=2
+$ git hash-object -w <canon-f1>   # idempotent content-addressed blob 0996a3249e81f201f57aafb8278f5a4e4b11948c
+0996a3249e81f201f57aafb8278f5a4e4b11948c
+$ GIT_INDEX_FILE=<copy> git update-index --add --cacheinfo 100644,46ff267d3451c22147b759002aee3345d09871a9,artifacts/sa6-issue419-runner-trigger.log
+update_rc=0
+$ GIT_INDEX_FILE=<copy> git update-index --add --cacheinfo 100644,0996a3249e81f201f57aafb8278f5a4e4b11948c,artifacts/sa3-issue419-f1-evidence-restore.log
+update_rc=0
+$ GIT_INDEX_FILE=<copy> git diff --cached --check   # the mandatory gate, repaired
+GATE_RC=0
+$ GIT_INDEX_FILE=<copy> git diff --cached --stat
+ artifacts/sa3-issue419-f1-evidence-restore.log     | 221 +++++++++++++++++++
+ ...ask_issue-419_implementation_conflict_report.md | 110 +++++-----
+ wiki/raw/task_issue-419_sa10_spec.md               |  89 ++++++++
+ wiki/raw/task_issue-419_sa3_impl.md                | 111 +++++++++-
+ wiki/raw/task_issue-419_sa4_review.md              | 243 +++++++++++----------
+ wiki/raw/task_issue-419_sa9_standards.md           |  71 ++++++
+ 6 files changed, 666 insertions(+), 179 deletions(-)
+$ GIT_INDEX_FILE=<copy> git ls-files -s -- <both artifacts>
+100644 0996a3249e81f201f57aafb8278f5a4e4b11948c 0	artifacts/sa3-issue419-f1-evidence-restore.log
+100644 46ff267d3451c22147b759002aee3345d09871a9 0	artifacts/sa6-issue419-runner-trigger.log
+# => after the repair the commit no longer touches runner-trigger.log at all (C1 bytes == HEAD
+#    bytes); the f1 log enters in its C1 form. Real index untouched:
+real index sha256 after all work = e9fcd77115076b5a8a2398f7017b53e85d80dde46e42173a353a8a320c6e0c78  (unchanged => this evidence is non-mutating)
+----------------------------------------------------------------
+SECTION 6 -- repair path (Controller actions)
+R1  git restore --source=HEAD --staged --worktree -- artifacts/sa6-issue419-runner-trigger.log
+    # writes C1 bytes = committed HEAD blob 46ff267d3451c22147b759002aee3345d09871a9 / sha256 23787bf1a40c183b69c9903a4c26cedb0737b391f490fb5eb9156f361bfed372 (69 lines/4321 B)
+R2  perl -0pe s/[ \t]+(?=\n)//g;s/[ \t]+\z//;s/\n*\z/\n/ artifacts/sa3-issue419-f1-evidence-restore.log
+    # -1 byte at 0-based offset 1330 (line 20 "< " -> "<") => sha256 3b861d2dc34eff92686d52d29e746acade673831769ca9226fd5835304b45c15 (221 lines/15420 B)
+    git add -- artifacts/sa3-issue419-f1-evidence-restore.log
+R3  git add -- wiki/raw/task_issue-419_sa6_contract.md wiki/raw/task_issue-419_sa6_whitespace_gate_check.sh artifacts/sa6-issue419-eof-gate-conflict.log
+    # registry amendment + this script + this evidence log (log sha256 recorded in section 17)
+R4  git diff --cached --check   # expect rc=0, no output (proved above on the private index copy)
+R5  post-commit: git show HEAD:artifacts/sa6-issue419-runner-trigger.log | sha256sum == 23787bf1a40c183b69c9903a4c26cedb0737b391f490fb5eb9156f361bfed372
+    # supersedes the legacy expectation 96abbb72... in SA3 f1 log section 8/R1 and SA8 section 7-2
+R6  optional one-shot execution: bash wiki/raw/task_issue-419_sa6_whitespace_gate_check.sh --apply
+----------------------------------------------------------------
+INFERRED (not proven): the committed copy drifted (HEAD blob 46ff267d...) via a commit-time EOF
+canonicalizer; no such tool is observable from this worktree. PROVEN: HEAD bytes = registered raw
+bytes minus exactly one final LF, with all 69 content lines byte-identical.
+REJECTED ALTERNATIVES: B1 config silencing and B2 .gitattributes exemption (section 2); B3 excluding
+the asset from the commit (loses a registered evidence asset, leaves a dirty tree); B4/B5 accepting a
+red gate or keeping the raw hash authoritative (blocks the mandatory gate); B6 normalizing without
+re-registration (exactly the SA9 section 3-F1 defect).
+----------------------------------------------------------------
+RESULT: red gate reproduced (2 findings / 2 rules); C1 derived and proved minimal (runner -1 LF,
+f1 -1 space); C1 candidates gate-clean; full staged changeset green on the private index copy;
+real index and worktree artifacts untouched.
+----------------------------------------------------------------

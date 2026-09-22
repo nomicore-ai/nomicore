@@ -3,7 +3,11 @@
  * protocol §17/§18 + ADR-0010 #161/#172 修订节）。
  */
 export { createHubReplication } from './hub-connection.js';
+export { createHubSessionHost } from './hub-session-host.js';
 export { createPeerReplication } from './peer-connection.js';
+// issue #421（spec #415 T4；ADR 0032:41 后果节）：连接级半边的宿主公共工厂——普通工厂、
+// 非 Cordis 插件、无 Registry 依赖（append-only 新增；既有 11 个运行时导出零改名零删除）。
+export { createHubReplicationEdge } from './hub-edge-host.js';
 export {
   NOMICORE_HUB_REPLICATION_SERVICE,
   NOMICORE_PEER_REPLICATION_SERVICE,
@@ -12,6 +16,9 @@ export {
   requireHubReplication,
   requirePeerReplication,
 } from './plugin.js';
+// issue #422（spec #415 T5；ADR 0032:30/:64-66）：免 listen 模式的 SessionHost 服务面
+// （append-only 新增；既有导出零改名零删除）。
+export { NOMICORE_HUB_SESSION_HOST_SERVICE, requireHubSessionHost } from './plugin.js';
 export {
   DEFAULT_REPLICATION_BACKOFF,
   DEFAULT_REPLICATION_LIMITS,
@@ -34,6 +41,7 @@ export type {
   PeerReplicationService,
   PeerReplicationStatus,
 } from './plugin.js';
+export type { HubSessionHostService, HubSessionHostStatus } from './plugin.js';
 
 export type {
   ChunkedUpdateAbortReason,
@@ -67,3 +75,25 @@ export type {
   ReplicationTimeouts,
   UpgradeIdentity,
 } from './types.js';
+
+// issue #421：edge 公共工厂的类型面（发布即冻结 append-only；`ReplicationMessage` 不转出口
+// ——宿主 sink 实现可结构化推导，转出口反而扩大冻结面，设计 §7-D2 类型来源声明）。
+export type {
+  HubNamespaceSessionSink,
+  HubOpenNamespaceMessage,
+  HubReplicationEdgeConnection,
+  HubReplicationEdgeEgress,
+  HubReplicationEdgeFactory,
+  HubReplicationEdgeOptions,
+  HubSessionSinkResolver,
+  NamespaceAuthorizationGrant,
+} from './hub-edge-host.js';
+export type {
+  HubSessionFrameLane,
+  HubSessionFrameListener,
+  HubSessionHandle,
+  HubSessionHost,
+  HubSessionHostConfig,
+  HubSessionOpenInput,
+  HubSessionSignal,
+} from './hub-session-host.js';

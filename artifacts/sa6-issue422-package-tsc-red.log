@@ -1,0 +1,20 @@
+### SA6 issue-422 package tsc WITH contract paths present (HEAD=4ad13a35f782411d3c48096c31afa724f6eae067) — 2026-09-22T07:19:55+08:00
+### run: pnpm exec tsc -p packages/ws-replication/tsconfig.json
+packages/ws-replication/test/ws-replication-issue422-listen-false.test.ts(21,3): error TS2724: '"@nomicore/ws-replication"' has no exported member named 'requireHubSessionHost'. Did you mean 'createHubSessionHost'?
+packages/ws-replication/test/ws-replication-issue422-listen-false.test.ts(22,3): error TS2305: Module '"@nomicore/ws-replication"' has no exported member 'NOMICORE_HUB_SESSION_HOST_SERVICE'.
+packages/ws-replication/test/ws-replication-issue422-listen-false.test.ts(183,9): error TS2322: Type 'boolean' is not assignable to type 'Readonly<{ readonly host: string; readonly port: number; readonly path?: string; }>'.
+packages/ws-replication/test/ws-replication-issue422-listen-false.test.ts(215,9): error TS2322: Type 'boolean' is not assignable to type 'Readonly<{ readonly host: string; readonly port: number; readonly path?: string; }>'.
+packages/ws-replication/test/ws-replication-issue422-listen-false.test.ts(243,21): error TS7006: Parameter 'frame' implicitly has an 'any' type.
+packages/ws-replication/test/ws-replication-issue422-session-host-api.test-d.ts(15,3): error TS2724: '"@nomicore/ws-replication"' has no exported member named 'requireHubSessionHost'. Did you mean 'createHubSessionHost'?
+packages/ws-replication/test/ws-replication-issue422-session-host-api.test-d.ts(16,3): error TS2305: Module '"@nomicore/ws-replication"' has no exported member 'NOMICORE_HUB_SESSION_HOST_SERVICE'.
+packages/ws-replication/test/ws-replication-issue422-session-host-api.test-d.ts(20,8): error TS2724: '"@nomicore/ws-replication"' has no exported member named 'HubSessionHostService'. Did you mean 'HubSessionHost'?
+packages/ws-replication/test/ws-replication-issue422-session-host-api.test-d.ts(21,8): error TS2724: '"@nomicore/ws-replication"' has no exported member named 'HubSessionHostStatus'. Did you mean 'HubSessionHost'?
+packages/ws-replication/test/ws-replication-issue422-session-host-api.test-d.ts(29,41): error TS2344: Type 'Readonly<{ readonly host: string; readonly port: number; readonly path?: string; }>' does not satisfy the constraint '"Expected: ..., Actual: literal boolean: false"'.
+packages/ws-replication/test/ws-replication-issue422-session-host-api.test-d.ts(33,52): error TS2322: Type 'boolean' is not assignable to type 'Readonly<{ readonly host: string; readonly port: number; readonly path?: string; }>'.
+packages/ws-replication/test/ws-replication-issue422-session-host-api.test-d.ts(40,58): error TS2349: This expression is not callable.
+  Type 'Inverted<ExpectAny<any>>' has no call signatures.
+packages/ws-replication/test/ws-replication-issue422-session-host-api.test-d.ts(43,73): error TS2344: Type 'HubSessionHandle' does not satisfy the constraint '"Expected: ..., Actual: unknown"'.
+packages/ws-replication/test/ws-replication-issue422-session-host-api.test-d.ts(47,73): error TS2344: Type 'Promise<void>' does not satisfy the constraint '"Expected: ..., Actual: unknown"'.
+packages/ws-replication/test/ws-replication-issue422-session-host-api.test-d.ts(62,5): error TS2578: Unused '@ts-expect-error' directive.
+packages/ws-replication/test/ws-replication-issue422-session-host-api.test-d.ts(64,5): error TS2578: Unused '@ts-expect-error' directive.
+[tsc exit: 2]

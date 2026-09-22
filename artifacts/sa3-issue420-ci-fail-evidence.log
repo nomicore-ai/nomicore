@@ -1,0 +1,100 @@
+# CI failure evidence — PR #429 / commit 3f470fbcb6f10b0b26dced0fc05fceaec353494a
+# workflow run 35663498235 (https://github.com/nomicore-ai/nomicore/actions/runs/35663498235)
+# fetched via: gh run view --repo nomicore-ai/nomicore --job <job-id> --log-failed
+# raw logs are retrievable at the recorded job URLs; ANSI escapes / CI timestamp prefixes were
+# reduced to bare message lines and trailing whitespace was stripped (C1 normalization, zero semantics).
+
+## A. Failing jobs (5) — final conclusions of run 35663498235
+test (20, 1)	fail	1m11s	https://github.com/nomicore-ai/nomicore/actions/runs/35663498235/job/106543911555
+test (20, 6)	fail	53s	https://github.com/nomicore-ai/nomicore/actions/runs/35663498235/job/106543911524
+test (24, 1)	fail	1m21s	https://github.com/nomicore-ai/nomicore/actions/runs/35663498235/job/106543911521
+test (24, 6)	fail	1m4s	https://github.com/nomicore-ai/nomicore/actions/runs/35663498235/job/106543911700
+typecheck	fail	53s	https://github.com/nomicore-ai/nomicore/actions/runs/35663498235/job/106543911063
+codegen-freshness	pass	16s	https://github.com/nomicore-ai/nomicore/actions/runs/35663498235/job/106543911359
+contract-gates	pass	20s	https://github.com/nomicore-ai/nomicore/actions/runs/35663498235/job/106543911278
+packaging	pass	2m2s	https://github.com/nomicore-ai/nomicore/actions/runs/35663498235/job/106543911307
+test (20, 2)	pass	1m57s	https://github.com/nomicore-ai/nomicore/actions/runs/35663498235/job/106543911490
+test (20, 3)	pass	1m22s	https://github.com/nomicore-ai/nomicore/actions/runs/35663498235/job/106543911528
+test (20, 4)	pass	2m17s	https://github.com/nomicore-ai/nomicore/actions/runs/35663498235/job/106543911538
+test (20, 5)	pass	1m56s	https://github.com/nomicore-ai/nomicore/actions/runs/35663498235/job/106543911747
+test (24, 2)	pass	1m45s	https://github.com/nomicore-ai/nomicore/actions/runs/35663498235/job/106543911549
+test (24, 3)	pass	1m32s	https://github.com/nomicore-ai/nomicore/actions/runs/35663498235/job/106543911579
+test (24, 4)	pass	2m9s	https://github.com/nomicore-ai/nomicore/actions/runs/35663498235/job/106543911241
+test (24, 5)	pass	1m42s	https://github.com/nomicore-ai/nomicore/actions/runs/35663498235/job/106543911687
+
+## B. typecheck job 106543911063 — failed step: Typecheck (tsc)
+##[error]packages/ws-replication/test/ws-replication-issue423-observer-emission-split.test.ts(54,10): error TS2724: '"../src/hub-session.js"' has no exported member named 'createHubSessionHost'. Did you mean 'createHubSessionSink'?
+##[error]packages/ws-replication/test/ws-replication-issue423-observer-emission-split.test.ts(54,37): error TS2305: Module '"../src/hub-session.js"' has no exported member 'HubSessionHost'.
+##[error]packages/ws-replication/test/ws-replication-issue423-sa7-dynamic.test.ts(52,10): error TS2724: '"../src/hub-session.js"' has no exported member named 'createHubSessionHost'. Did you mean 'createHubSessionSink'?
+##[error]packages/ws-replication/test/ws-replication-issue423-sa7-dynamic.test.ts(52,37): error TS2305: Module '"../src/hub-session.js"' has no exported member 'HubSessionHost'.
+ ELIFECYCLE  Command failed with exit code 2.
+##[error]Process completed with exit code 2.
+
+
+## C. test (20, 1) — job 106543911555 (failed step: Test (shard 1/6))
+# affected file: packages/ws-replication/test/ws-replication-issue423-sa7-dynamic.test.ts
+ FAIL  packages/ws-replication/test/ws-replication-issue423-sa7-dynamic.test.ts > issue #423 SA7 D-SEAM1：缝上发送记账投影（session 半边，真实高分辨率时钟） > D-SEAM1a：同栈直发 ⇒ 缝上帧为占位序 UPDATE（[8..12]=0）、accounting 在场且为真实时钟域残差（<50ms）
+TypeError: (0 , createHubSessionHost) is not a function
+ FAIL  packages/ws-replication/test/ws-replication-issue423-sa7-dynamic.test.ts > issue #423 SA7 D-SEAM1：缝上发送记账投影（session 半边，真实高分辨率时钟） > D-SEAM1b：闸门关闭入队后真实驻留 120ms 再出站 ⇒ 缝上 sendQueueMs ≥ 100ms（真实队列驻留差值，非常数）
+TypeError: (0 , createHubSessionHost) is not a function
+ FAIL  packages/ws-replication/test/ws-replication-issue423-sa7-dynamic.test.ts > issue #423 SA7 D-SEAM1：缝上发送记账投影（session 半边，真实高分辨率时钟） > D-SEAM1c：无 clock 面 ⇒ 缝上 accounting === undefined（零对象构造；帧照常过缝）
+TypeError: (0 , createHubSessionHost) is not a function
+ Test Files  1 failed | 62 passed (63)
+##[error]TypeError: (0 , createHubSessionHost) is not a function
+##[error]TypeError: (0 , createHubSessionHost) is not a function
+##[error]TypeError: (0 , createHubSessionHost) is not a function
+##[error]Process completed with exit code 1.
+
+## C. test (24, 1) — job 106543911521 (failed step: Test (shard 1/6))
+# affected file: packages/ws-replication/test/ws-replication-issue423-sa7-dynamic.test.ts
+ FAIL  packages/ws-replication/test/ws-replication-issue423-sa7-dynamic.test.ts > issue #423 SA7 D-SEAM1：缝上发送记账投影（session 半边，真实高分辨率时钟） > D-SEAM1a：同栈直发 ⇒ 缝上帧为占位序 UPDATE（[8..12]=0）、accounting 在场且为真实时钟域残差（<50ms）
+TypeError: (0 , createHubSessionHost) is not a function
+ FAIL  packages/ws-replication/test/ws-replication-issue423-sa7-dynamic.test.ts > issue #423 SA7 D-SEAM1：缝上发送记账投影（session 半边，真实高分辨率时钟） > D-SEAM1b：闸门关闭入队后真实驻留 120ms 再出站 ⇒ 缝上 sendQueueMs ≥ 100ms（真实队列驻留差值，非常数）
+TypeError: (0 , createHubSessionHost) is not a function
+ FAIL  packages/ws-replication/test/ws-replication-issue423-sa7-dynamic.test.ts > issue #423 SA7 D-SEAM1：缝上发送记账投影（session 半边，真实高分辨率时钟） > D-SEAM1c：无 clock 面 ⇒ 缝上 accounting === undefined（零对象构造；帧照常过缝）
+TypeError: (0 , createHubSessionHost) is not a function
+ Test Files  1 failed | 62 passed (63)
+##[error]TypeError: (0 , createHubSessionHost) is not a function
+##[error]TypeError: (0 , createHubSessionHost) is not a function
+##[error]TypeError: (0 , createHubSessionHost) is not a function
+##[error]Process completed with exit code 1.
+
+## C. test (20, 6) — job 106543911524 (failed step: Test (shard 6/6))
+# affected file: packages/ws-replication/test/ws-replication-issue423-observer-emission-split.test.ts
+ FAIL  packages/ws-replication/test/ws-replication-issue423-observer-emission-split.test.ts > issue #423 EM-C1：发射侧归属 — edge 半边 > EM-C1e（session 半边负控）：独立 session host 零连接域事件（连接域事实不在 session）
+TypeError: (0 , createHubSessionHost) is not a function
+ Test Files  1 failed | 66 passed (67)
+##[error]TypeError: (0 , createHubSessionHost) is not a function
+ FAIL  packages/ws-replication/test/ws-replication-issue423-observer-emission-split.test.ts > issue #423 EM-C3：缺面 dormant — session 侧 shim 无 bufferedAmount/clock/ping-onPong > EM-C3a：shim 无 bufferedAmount → 发送失败事件该键**缺失**（非 0、非 undefined 值）
+TypeError: (0 , createHubSessionHost) is not a function
+ FAIL  packages/ws-replication/test/ws-replication-issue423-observer-emission-split.test.ts > issue #423 EM-C3：缺面 dormant — session 侧 shim 无 bufferedAmount/clock/ping-onPong > EM-C3b（正控）：bufferedAmount 可观测 → 该键在场且为真实读数（0 与 12 两取值）
+TypeError: (0 , createHubSessionHost) is not a function
+ FAIL  packages/ws-replication/test/ws-replication-issue423-observer-emission-split.test.ts > issue #423 EM-C3：缺面 dormant — session 侧 shim 无 bufferedAmount/clock/ping-onPong > EM-C3d：无 ping/onPong 面（session 侧无 liveness）→ 全生命周期零 event-loop-delay-sampled
+TypeError: (0 , createHubSessionHost) is not a function
+ FAIL  packages/ws-replication/test/ws-replication-issue423-observer-emission-split.test.ts > issue #423 EM-C4：出站 sequence 事件（update-sent）由 edge 盖章点发射 > EM-C4b：session 半边不再发射出站 sequence 事件（帧已出站，但 update-sent 不在 session 观测面）
+TypeError: (0 , createHubSessionHost) is not a function
+##[error]TypeError: (0 , createHubSessionHost) is not a function
+##[error]TypeError: (0 , createHubSessionHost) is not a function
+##[error]TypeError: (0 , createHubSessionHost) is not a function
+##[error]TypeError: (0 , createHubSessionHost) is not a function
+##[error]Process completed with exit code 1.
+
+## C. test (24, 6) — job 106543911700 (failed step: Test (shard 6/6))
+# affected file: packages/ws-replication/test/ws-replication-issue423-observer-emission-split.test.ts
+ FAIL  packages/ws-replication/test/ws-replication-issue423-observer-emission-split.test.ts > issue #423 EM-C1：发射侧归属 — edge 半边 > EM-C1e（session 半边负控）：独立 session host 零连接域事件（连接域事实不在 session）
+TypeError: (0 , createHubSessionHost) is not a function
+ FAIL  packages/ws-replication/test/ws-replication-issue423-observer-emission-split.test.ts > issue #423 EM-C3：缺面 dormant — session 侧 shim 无 bufferedAmount/clock/ping-onPong > EM-C3a：shim 无 bufferedAmount → 发送失败事件该键**缺失**（非 0、非 undefined 值）
+TypeError: (0 , createHubSessionHost) is not a function
+ Test Files  1 failed | 66 passed (67)
+ FAIL  packages/ws-replication/test/ws-replication-issue423-observer-emission-split.test.ts > issue #423 EM-C3：缺面 dormant — session 侧 shim 无 bufferedAmount/clock/ping-onPong > EM-C3b（正控）：bufferedAmount 可观测 → 该键在场且为真实读数（0 与 12 两取值）
+TypeError: (0 , createHubSessionHost) is not a function
+ FAIL  packages/ws-replication/test/ws-replication-issue423-observer-emission-split.test.ts > issue #423 EM-C3：缺面 dormant — session 侧 shim 无 bufferedAmount/clock/ping-onPong > EM-C3d：无 ping/onPong 面（session 侧无 liveness）→ 全生命周期零 event-loop-delay-sampled
+TypeError: (0 , createHubSessionHost) is not a function
+ FAIL  packages/ws-replication/test/ws-replication-issue423-observer-emission-split.test.ts > issue #423 EM-C4：出站 sequence 事件（update-sent）由 edge 盖章点发射 > EM-C4b：session 半边不再发射出站 sequence 事件（帧已出站，但 update-sent 不在 session 观测面）
+TypeError: (0 , createHubSessionHost) is not a function
+##[error]TypeError: (0 , createHubSessionHost) is not a function
+##[error]TypeError: (0 , createHubSessionHost) is not a function
+##[error]TypeError: (0 , createHubSessionHost) is not a function
+##[error]TypeError: (0 , createHubSessionHost) is not a function
+##[error]TypeError: (0 , createHubSessionHost) is not a function
+##[error]Process completed with exit code 1.

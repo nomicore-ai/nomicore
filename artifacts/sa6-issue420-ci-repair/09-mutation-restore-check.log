@@ -1,0 +1,5 @@
+# sha256 comparison before vs restored (expect identical):
+SHA256_IDENTICAL
+# tracked-file status after restore (expect empty):
+# stale binding re-verified absent in production tree:
+1

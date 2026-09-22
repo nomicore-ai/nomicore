@@ -1,0 +1,4 @@
+# package typecheck baseline — issue #419 SA6 (2026-09-21T14:29:11Z)
+$ pnpm exec tsc -p packages/replication-protocol/tsconfig.json  (= root 'pnpm typecheck' 的该包一环)
+(no diagnostics)
+EXIT=0

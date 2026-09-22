@@ -1,0 +1,221 @@
+# SA3 F1 repair — restore SA6 read-only evidence asset to its registered bytes (issue #419)
+# 2026-09-21T15:19:41Z  worktree=/home/wangjian/nomicore-fix-issue-419  HEAD=02abf66
+# Trigger: SA9 §3-F1 (MAJOR) — artifacts/sa6-issue419-runner-trigger.log was silently normalized
+# after SA3's 22:55:44 integrity check (SA6 §17 registered sha256 96abbb72ecefdc3a…).
+
+## 1. Forensic recovery of the original (registered) bytes
+$ # scan the object store for a blob whose sha256 equals the SA6 §17 registration
+warning: This repository uses promisor remotes. Some objects may not be loaded.
+FOUND_ORIGINAL_BLOB=c183ba296bbb886931b1b2adc2e24d4f930f0d7a size=4322 sha256=96abbb72ecefdc3ad2b37bc8cfcdbb011e7c43b409c0b5f130c7a3e7a1b2e06c
+$ git cat-file blob c183ba296bbb886931b1b2adc2e24d4f930f0d7a > /tmp/orig-runner-trigger.log
+96abbb72ecefdc3ad2b37bc8cfcdbb011e7c43b409c0b5f130c7a3e7a1b2e06c  /tmp/orig-runner-trigger.log
+  70 4322 /tmp/orig-runner-trigger.log
+
+## 2. Byte-level delta: committed bytes (HEAD) vs registered original
+$ sha256sum /tmp/committed-runner-trigger.log  # the drifted, committed bytes
+23787bf1a40c183b69c9903a4c26cedb0737b391f490fb5eb9156f361bfed372  /tmp/committed-runner-trigger.log
+  69 4321 /tmp/committed-runner-trigger.log
+$ diff /tmp/orig-runner-trigger.log /tmp/committed-runner-trigger.log
+70d69
+<
+DIFF_EXIT=1
+$ # => single deleted line 70 (empty): exactly ONE byte (the final LF of the trailing blank line)
+$ cmp -l /tmp/orig-runner-trigger.log /tmp/committed-runner-trigger.log | wc -l  # differences
+cmp: EOF on /tmp/committed-runner-trigger.log after byte 4321
+0
+
+## 3. Restoration: write the registered bytes back over the DENY-pinned asset
+$ git cat-file blob c183ba296bbb886931b1b2adc2e24d4f930f0d7a > artifacts/sa6-issue419-runner-trigger.log
+$ sha256sum artifacts/sa6-issue419-runner-trigger.log
+96abbb72ecefdc3ad2b37bc8cfcdbb011e7c43b409c0b5f130c7a3e7a1b2e06c  artifacts/sa6-issue419-runner-trigger.log
+$ git hash-object artifacts/sa6-issue419-runner-trigger.log   # must equal recovered blob
+c183ba296bbb886931b1b2adc2e24d4f930f0d7a
+$ wc -l -c artifacts/sa6-issue419-runner-trigger.log
+  70 4322 artifacts/sa6-issue419-runner-trigger.log
+
+## 4. Full SA6 §17 hash registry re-verification (7 assets, read-only)
+$ sha256sum wiki/raw/task_issue-419_sa6_route_key_probe.mts wiki/raw/task_issue-419_sa6_route_key_mutation_driver.mts artifacts/sa6-issue419-*.log
+b340dcd37681d9a5499d82647e9536de637addb1994baca0a874165d843e1407  wiki/raw/task_issue-419_sa6_route_key_probe.mts
+3631b43f29f3471bac6a8ea34cd74cfecd70af14e2a54b535b160132f4da0e19  wiki/raw/task_issue-419_sa6_route_key_mutation_driver.mts
+b054b3c022cd7c5383c59980ab1a0fa93262e863459ed71c9b3b96edab63a175  artifacts/sa6-issue419-capability-gap.log
+c8f67f9bdf7d59211be5264950452713ca4844a111a7f9d0a6952089678accc8  artifacts/sa6-issue419-mutation-sensitivity.log
+1f23a7a0ed185aeb2df7f0ac660dcc430854e38ceaa9d9d68eecba038a5b24a4  artifacts/sa6-issue419-package-tsc-baseline.log
+1960c24a7011331f24f5c9ebb5f6951b17d2787b9dd3bddcb1edd5ffb5a1560a  artifacts/sa6-issue419-probe-green.log
+96abbb72ecefdc3ad2b37bc8cfcdbb011e7c43b409c0b5f130c7a3e7a1b2e06c  artifacts/sa6-issue419-runner-trigger.log
+# registry (SA6 §17): b340dcd37681d9a5… / 3631b43f29f3471b… / 1960c24a7011331f… / c8f67f9bdf7d5921…
+#                     b054b3c022cd7c53… / 96abbb72ecefdc3a… / 1f23a7a0ed185aeb…
+
+## 5. Working-tree state after restoration
+$ git status --porcelain=v1 -- artifacts/ wiki/ packages/
+ M artifacts/sa6-issue419-runner-trigger.log
+?? artifacts/sa3-issue419-f1-evidence-restore.log
+?? wiki/raw/task_issue-419_sa10_spec.md
+?? wiki/raw/task_issue-419_sa9_standards.md
+$ git diff --stat -- artifacts/sa6-issue419-runner-trigger.log
+ artifacts/sa6-issue419-runner-trigger.log | 1 +
+ 1 file changed, 1 insertion(+)
+$ git diff -- packages/replication-protocol/src   # zero behavioural surface (gate 4)
+SRC_DIFF_EXIT=0
+$ sha256sum packages/replication-protocol/test/codec-route-key-guard.test.ts   # delivery untouched
+32aa83a5ffaa6a3c5499f7fbfc324e515d25e8b5b68fb2e2a503cf5d67e403d4  packages/replication-protocol/test/codec-route-key-guard.test.ts
+
+## 6. Delivery re-verification after restoration (unchanged delivery, fresh run)
+$ NODE_OPTIONS=--conditions=nomicore-source pnpm exec vitest run packages/replication-protocol/test/codec-route-key-guard.test.ts
+Testing types with tsc and vue-tsc is an experimental feature.
+Breaking changes might not follow SemVer, please pin Vitest's version when using it.
+
+ RUN  v3.2.7 /home/wangjian/nomicore-fix-issue-419
+
+ ✓ packages/replication-protocol/test/codec-route-key-guard.test.ts (19 tests) 21ms
+
+ Test Files  1 passed (1)
+      Tests  19 passed (19)
+Type Errors  no errors
+   Start at  23:19:50
+   Duration  289ms (transform 101ms, setup 0ms, collect 119ms, tests 21ms, environment 0ms, prepare 46ms)
+
+GUARD_EXIT=0
+$ NODE_OPTIONS=--conditions=nomicore-source pnpm exec vitest run --typecheck packages/replication-protocol
+Testing types with tsc and vue-tsc is an experimental feature.
+Breaking changes might not follow SemVer, please pin Vitest's version when using it.
+
+ RUN  v3.2.7 /home/wangjian/nomicore-fix-issue-419
+
+ ✓ packages/replication-protocol/test/codec-fuzz-property.test.ts (5 tests) 158ms
+ ✓ packages/replication-protocol/test/codec-roundtrip-truncation.test.ts (8 tests) 74ms
+ ✓ packages/replication-protocol/test/codec-route-key-guard.test.ts (19 tests) 26ms
+ ✓ packages/replication-protocol/test/codec-registries.test.ts (13 tests) 15ms
+ ✓ packages/replication-protocol/test/codec-messages-golden.test.ts (27 tests) 12ms
+ ✓ packages/replication-protocol/test/codec-issue242-ac-red.test.ts (29 tests) 22ms
+ ✓ packages/replication-protocol/test/codec-version-interop.test.ts (25 tests) 15ms
+ ✓ packages/replication-protocol/test/codec-malformed.test.ts (37 tests) 14ms
+ ✓  TS  packages/replication-protocol/test/codec-api.test-d.ts (8 tests)
+ ✓ packages/replication-protocol/test/codec-issue299-ac-red.test.ts (17 tests) 7ms
+ ✓ packages/replication-protocol/test/codec-issue246-doc-contract.test.ts (22 tests) 8ms
+ ✓ packages/replication-protocol/test/codec-envelope.test.ts (13 tests) 5ms
+ ✓ packages/replication-protocol/test/codec-package-contract.test.ts (5 tests) 7ms
+ ✓ packages/replication-protocol/test/codec-issue299-encode-symmetry.test.ts (5 tests) 6ms
+
+ Test Files  14 passed (14)
+      Tests  233 passed (233)
+Type Errors  no errors
+   Start at  23:19:51
+   Duration  2.93s (transform 218ms, setup 0ms, collect 538ms, tests 368ms, environment 2ms, prepare 642ms, typecheck 2.18s)
+
+PACKAGE_SUITE_EXIT=0
+$ pnpm exec tsc -p packages/replication-protocol/tsconfig.json
+TSC_EXIT=0
+
+## 7. Root cause / written explanation of the change content (SA9 §3-F1 + O1 closure)
+### 7.1 Exact change content (byte level)
+# Registered original (SA6 §17) : 4322 bytes / 70 lines / sha256 96abbb72…   <-- restored state
+# Drifted committed bytes        : 4321 bytes / 69 lines / sha256 23787bf1…
+# Delta = exactly one byte: the final LF that terminated the file-trailing blank line (line 70).
+# All 69 content lines (discovery run, 14-file/215-test suite, clean 13-file/214-test baseline, 2.72s)
+# are byte-identical in both versions => no result, count, conclusion or semantic statement was altered.
+### 7.2 Producer of the drift (inference from mtimes, not proof)
+$ # mtimes of every path in delivery commit 02abf66
+2026-09-21 22:55:25.951622945 +0800  2199  artifacts/sa3-issue419-guard-mutation-evidence.log
+2026-09-21 22:54:00.508952545 +0800  4757  artifacts/sa3-issue419-mutation-rerun.log
+2026-09-21 22:53:38.445779436 +0800  1800  artifacts/sa3-issue419-package-suite.log
+2026-09-21 22:56:18.834037862 +0800  1209  artifacts/sa3-issue419-scope-and-tsc.log
+2026-09-21 22:55:46.074780828 +0800  1825  artifacts/sa3-issue419-targeted-repeat.log
+2026-09-21 22:28:39.729017750 +0800  2020  artifacts/sa6-issue419-capability-gap.log
+2026-09-21 22:30:34.280916935 +0800  4468  artifacts/sa6-issue419-mutation-sensitivity.log
+2026-09-21 22:29:11.023263410 +0800  201  artifacts/sa6-issue419-package-tsc-baseline.log
+2026-09-21 22:28:11.482796028 +0800  1319  artifacts/sa6-issue419-probe-green.log
+2026-09-21 23:19:46.441072679 +0800  4322  artifacts/sa6-issue419-runner-trigger.log
+2026-09-21 22:53:24.853672789 +0800  43673  packages/replication-protocol/test/codec-route-key-guard.test.ts
+2026-09-21 23:05:33.003385853 +0800  1429  wiki/raw/task_issue-419.md
+2026-09-21 22:40:34.194625184 +0800  43760  wiki/raw/task_issue-419_design.md
+2026-09-21 22:45:39.982025025 +0800  16215  wiki/raw/task_issue-419_design_conflict_report.md
+2026-09-21 23:01:39.037550237 +0800  18718  wiki/raw/task_issue-419_implementation_conflict_report.md
+2026-09-21 22:50:15.110184018 +0800  25141  wiki/raw/task_issue-419_sa2_review.md
+2026-09-21 22:56:12.175985621 +0800  16753  wiki/raw/task_issue-419_sa3_impl.md
+2026-09-21 23:05:12.637226179 +0800  21195  wiki/raw/task_issue-419_sa4_review.md
+2026-09-21 22:30:40.724967520 +0800  31614  wiki/raw/task_issue-419_sa6_contract.md
+2026-09-21 22:30:22.390823603 +0800  9689  wiki/raw/task_issue-419_sa6_route_key_mutation_driver.mts
+2026-09-21 22:27:57.494686227 +0800  26836  wiki/raw/task_issue-419_sa6_route_key_probe.mts
+# Only two paths carry the commit timestamp 23:05:33 (ms apart, one batch): the SA6 asset and the Host
+# brief wiki/raw/task_issue-419.md. Their byte delta is the same one-byte EOF shape, consistent with an
+# EOF-newline normalization executed by a finalization step (no SA report records such an edit; the tool
+# is not identifiable from the worktree) => recorded as inference.
+### 7.3 SA9 O1 (8.12s claim) is independent of this drift
+$ grep -c "8.12" /tmp/orig-runner-trigger.log /tmp/committed-runner-trigger.log wiki/raw/task_issue-419_sa6_contract.md
+/tmp/orig-runner-trigger.log:0
+/tmp/committed-runner-trigger.log:0
+wiki/raw/task_issue-419_sa6_contract.md:2
+# The "8.12s first run" prose exists only in the SA6 contract L60; it is absent from BOTH byte-versions of
+# the log (§2 duration segment is byte-identical 2.87s in both). O1 is therefore a pre-existing contract
+# prose/first-run description mismatch, not an effect of the silent edit. Contract text is DENY (SA6-owned)
+# => SA3 does not edit it; this written statement is the disclosure SA9 §4-O1 asks for.
+
+## 8. Residual risk and recommended post-commit check (Controller / SA9)
+# R1: if the same EOF normalizer runs again during finalization, the restored byte can be stripped again.
+#     Post-commit check: git show HEAD:artifacts/sa6-issue419-runner-trigger.log | sha256sum
+#     expected 96abbb72ecefdc3ad2b37bc8cfcdbb011e7c43b409c0b5f130c7a3e7a1b2e06c
+#     (until this repair is committed, HEAD still carries the drifted 23787bf1… bytes).
+# R2: if R1 materialises, the only remaining SA9-sanctioned path is SA6/Controller re-registration of the
+#     normalized hash in SA6 §17 (DENY path, SA6 authority) — outside SA3 scope.
+# Scope note: the restored path is DENY-pinned read-only; this repair writes it byte-identically to the
+# SA6-registered artifact (git hash-object == c183ba29…, the exact blob SA6 produced), i.e. it removes the
+# DENY violation instead of extending it. No other DENY path is touched (see §5 status/diff above).
+
+### 7.2a Clarification on the mtime list above
+# The loop in §7.2 was re-run AFTER the §3 restoration, so the runner-trigger row now shows its
+# restoration mtime. The pre-restoration measurement (taken in this session immediately before §3) was:
+#   2026-09-21 23:05:33.002385845 +0800  4321  artifacts/sa6-issue419-runner-trigger.log
+#   2026-09-21 23:05:33.003385853 +0800  1429  wiki/raw/task_issue-419.md
+# i.e. exactly the two paths sharing the commit timestamp 23:05:33, as stated in §7.2 (and as recorded
+# independently in SA9 §3-F1 item 5). All other 19 paths kept their own authoring mtimes (22:27–23:05:12).
+
+## 9. Final state of the repair (hashes as of this log)
+96abbb72ecefdc3ad2b37bc8cfcdbb011e7c43b409c0b5f130c7a3e7a1b2e06c  artifacts/sa6-issue419-runner-trigger.log
+32aa83a5ffaa6a3c5499f7fbfc324e515d25e8b5b68fb2e2a503cf5d67e403d4  packages/replication-protocol/test/codec-route-key-guard.test.ts
+c183ba296bbb886931b1b2adc2e24d4f930f0d7a
+$ git status --porcelain=v1 -- artifacts/ packages/ wiki/raw/task_issue-419_sa3_impl.md
+ M artifacts/sa6-issue419-runner-trigger.log
+?? artifacts/sa3-issue419-f1-evidence-restore.log
+
+## 10. Uniqueness of the recovery source (no pre-existing copy of the asset)
+$ git worktree list
+/home/wangjian/nomicore                                     7635fd5 [main]
+/home/wangjian/nomicore-fix-issue-154                       d6617bb [fix/issue-154-on-docs-namespace-diagnostic-change-log]
+/home/wangjian/nomicore-fix-issue-155                       b86de55 [mabf/issue-155]
+/home/wangjian/nomicore-fix-issue-214                       afd50a0 [mabf/issue-214]
+/home/wangjian/nomicore-fix-issue-419                       02abf66 [mabf/issue-419]
+/home/wangjian/nomicore-refactor-pubtest-lifecycle--203356  cf665d8 [refactor/pubtest-lifecycle--203356]
+$ ls -la .scratch/   # SA6 scratch dir already removed; no copy of the asset
+total 12
+drwxrwxr-x  3 wangjian wangjian 4096 Sep 21 22:55 .
+drwxrwxr-x 14 wangjian wangjian 4096 Sep 21 22:23 ..
+drwxrwxr-x  2 wangjian wangjian 4096 Sep 21 22:21 vfsl-v1-parser
+$ grep -rl "runner trigger evidence" /tmp .scratch /home/wangjian/nomicore-fix-issue-419/artifacts 2>/dev/null
+/tmp/committed-runner-trigger.log
+/tmp/orig-runner-trigger.log
+/home/wangjian/nomicore-fix-issue-419/artifacts/sa3-issue419-f1-evidence-restore.log
+/home/wangjian/nomicore-fix-issue-419/artifacts/sa6-issue419-runner-trigger.log
+(hits above)
+# Only hits are the two derivatives created by this repair in §1/§2 (/tmp/orig-runner-trigger.log =
+# recovered registered bytes; /tmp/committed-runner-trigger.log = HEAD bytes) plus the asset itself =>
+# no pre-existing independent copy existed; the object-store blob was the only recovery source.
+
+## 11. Evidence log self-hash (after all sections)
+78d243ecdec1c2f2dc62a568d4f34ac6c84e82b8e820147e3c66c6a864861ea1  artifacts/sa3-issue419-f1-evidence-restore.log
+  204 14152 artifacts/sa3-issue419-f1-evidence-restore.log
+### 10a Clarification
+# The grep above also matches this evidence log itself (it quotes the phrase) and the asset. Complete hit
+# list = { this log, artifacts/sa6-issue419-runner-trigger.log, /tmp/orig-runner-trigger.log,
+# /tmp/committed-runner-trigger.log }; the two /tmp files are derivatives created by §1/§2 of this repair.
+# No other worktree, scratch dir or temp path held an independent copy before the repair.
+
+## 11b Final evidence log hash
+397f01343e54c2e176e777ee75e8fd2810992386c5cf8716722455b5bed416aa  artifacts/sa3-issue419-f1-evidence-restore.log
+  213 14777 artifacts/sa3-issue419-f1-evidence-restore.log
+
+### 11c Note on the §11b self-hash (tee stream buffering)
+# §11b's printed value was computed on the byte state available at that moment; the final block of the log was
+# flushed by the tee process substitution afterwards, so §11b's figure is NOT the final file hash.
+# This file is frozen after this line: its authoritative post-append sha256 / size are recorded in the SA3
+# report wiki/raw/task_issue-419_sa3_impl.md (Changed paths + iteration 1 verification table).
+# Independent check: sha256sum artifacts/sa3-issue419-f1-evidence-restore.log (see report for expected value).

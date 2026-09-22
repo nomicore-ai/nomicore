@@ -1,0 +1,11 @@
+HEAD=5a4049d87bb3d244abed910e1bd372949501515c
+### 03 package suite (ws-replication, 90 files)
+PACKAGE_SUITE_EXIT=0
+### 04 shard 1/6 (CI verbatim)
+shard 1/6: 63 files, ~130s estimated
+### 04 shard 6/6 (CI verbatim)
+shard 6/6: 67 files, ~130s estimated
+### 05 vitest --typecheck.only (CI Typecheck tests step)
+TYPECHECK_ONLY_EXIT=0
+ALL_DONE
+DRIVER_EXIT=0

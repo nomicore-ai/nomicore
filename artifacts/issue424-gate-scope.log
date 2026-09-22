@@ -1,0 +1,47 @@
+# issue #424 GATE-C3 证据（实现票：test-only 零生产/规范面触碰；文件冻结、报告落位后采集）
+# 时间：2026-09-22T02:19:55Z  HEAD：cab3e8c245ef189da1d823719370a68459939316
+
+## 段1 契约原命令：git diff --stat -- packages/ws-replication/src packages/replication-protocol/src
+(空输出 = 零 diff)
+
+## 段2 全 DENY 面：git status --short -- packages/replication-protocol packages/namespace-registry apps domains docs vitest.config.ts
+(空输出 = 零触碰)
+
+## 段3 全仓 status（只应见 ALLOW 面新增文件）
+?? artifacts/issue424-focused-determinism.log
+?? artifacts/issue424-gate-full-suite.log
+?? artifacts/issue424-gate-scope.log
+?? artifacts/issue424-gate-typecheck.log
+?? artifacts/sa6-issue424-baseline.log
+?? artifacts/sa6-issue424-mutation-sensitivity.log
+?? artifacts/sa6-issue424-probe-green.log
+?? artifacts/sa6-issue424-runner-trigger.log
+?? packages/ws-replication/test/issue424-sharded-hub.ts
+?? packages/ws-replication/test/ws-replication-issue424-auth-parity.test.ts
+?? packages/ws-replication/test/ws-replication-issue424-cross-seam-round.test.ts
+?? packages/ws-replication/test/ws-replication-issue424-lifecycle.test.ts
+?? packages/ws-replication/test/ws-replication-issue424-multi-worker.test.ts
+?? wiki/raw/task_issue-424.md
+?? wiki/raw/task_issue-424_conflict_report.md
+?? wiki/raw/task_issue-424_design.md
+?? wiki/raw/task_issue-424_design_conflict_report.md
+?? wiki/raw/task_issue-424_relevant_decisions.md
+?? wiki/raw/task_issue-424_sa2_review.md
+?? wiki/raw/task_issue-424_sa3_impl.md
+?? wiki/raw/task_issue-424_sa6_capability_probe.mts
+?? wiki/raw/task_issue-424_sa6_contract.md
+
+## 段4 交付文件（ALLOW LIST 内）
+artifacts/issue424-focused-determinism.log
+artifacts/issue424-gate-full-suite.log
+artifacts/issue424-gate-scope.log
+artifacts/issue424-gate-typecheck.log
+packages/ws-replication/test/issue424-sharded-hub.ts
+packages/ws-replication/test/ws-replication-issue424-auth-parity.test.ts
+packages/ws-replication/test/ws-replication-issue424-cross-seam-round.test.ts
+packages/ws-replication/test/ws-replication-issue424-lifecycle.test.ts
+packages/ws-replication/test/ws-replication-issue424-multi-worker.test.ts
+wiki/raw/task_issue-424_sa3_impl.md
+
+## 段5 纪律扫描（新文件零 skip/only/todo、零 env override、零深路径 src import）
+命中 0（纪律成立）

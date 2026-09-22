@@ -1,0 +1,656 @@
+================================================================================
+SA3 issue #420 -- iteration 1 (finalization repair): C1 reconciliation of the
+uncommitted delivery evidence set into the committed implementation delivery
+issue #420 / branch mabf/issue-420 / worktree /home/wangjian/nomicore-fix-issue-420
+dispatch=sa-ef1c290c-a552-4c83-a1ac-73ad3f806405 (mabf-sa3, phase=implementation, iteration=1)
+HEAD=a315e7077576951cf0330596cdc588afbeca51be  (feat(ws-replication): expose session host factory)
+git=2.43.0  node=v24.13.0
+Owner/Issue-comment REST snapshot = [] (empty, per dispatch) -- no owner requirements,
+comment IDs or timestamps exist to incorporate.
+
+Trigger: the finalization repair diagnostic (MABF_FINALIZE_REPAIR_REQUIRED,
+whitespaceViolations) over this delivery's still-uncommitted evidence set: staging that
+set reproduces 39 cached-gate findings (27 trailing-whitespace +
+12 blank-at-eof) across 13 evidence paths (SECTION 0).
+This iteration reconciles that evidence set into the established delivery: every path
+cited by the committed delivery reports (SA3/SA6/SA7) plus the round-approval wiki
+artifacts (SA9/SA10) and the Host brief become gate-clean and committable.
+
+C1 canonical form = .editorconfig [*] {end_of_line=lf, insert_final_newline=true,
+                    trim_trailing_whitespace=true} + gate rules {blank-at-eol, blank-at-eof}:
+                    (1) no [ \t] before any LF, (2) no [ \t] at EOF, (3) exactly one final LF.
+Authorization: this repair dispatch (reconcile the evidence set so it is committable)
+              + the established canonicalization precedent of issue #419 (commit bd75a2c).
+Business semantics: ZERO change to implementation/test/doc bytes -- packages/**, docs/**,
+                    CONTEXT.md and every ALLOW-LIST path keep byte identity with HEAD
+                    (SECTION 5). Only whitespace inside evidence artifacts changed.
+Index discipline: the real index is NOT written by this iteration (no git add/commit);
+                    all staging verification runs against a scratch index (GIT_INDEX_FILE).
+Embedding convention: trailing-whitespace runs quoted from command output are rendered as
+                    {WS} so that this log itself satisfies C1 (idempotent under C1).
+================================================================================
+
+SECTION 0 -- pre-state: candidate changeset, diagnostic reproduction, byte facts
+$ git status --porcelain=v1 --untracked-files=all
+ M wiki/raw/task_issue-420_implementation_conflict_report.md
+?? artifacts/sa3-issue420-design-letter-divergence.log
+?? artifacts/sa3-issue420-evidence-reconcile.log
+?? artifacts/sa3-issue420-mutation-M1-a12-red-arm.log
+?? artifacts/sa3-issue420-mutation-M2-drop-open.log
+?? artifacts/sa3-issue420-mutation-M3-restamp-sequence.log
+?? artifacts/sa3-issue420-mutation-M4-disable-shim.log
+?? artifacts/sa3-issue420-mutation-M5-session-resequence-check.log
+?? artifacts/sa3-issue420-mutation-M7-reopen-reentry.log
+?? artifacts/sa3-issue420-mutation-M7b-drop-inflight-open.log
+?? artifacts/sa3-issue420-red-contract.log
+?? artifacts/sa6-issue420-runner-trigger-red.log
+?? artifacts/sa7-issue420-focused-420-tests.log
+?? artifacts/sa7-issue420-listen-matrix-baseline.log
+?? wiki/raw/task_issue-420.md
+?? wiki/raw/task_issue-420_sa10_spec.md
+?? wiki/raw/task_issue-420_sa9_standards.md
+candidate_path_count=16  (the uncommitted issue #420 delivery evidence:
+  12 SA3/SA6/SA7 artifact logs + Host brief + SA9/SA10 approvals + SA8 implementation
+  conflict report updated after the delivery commit; this reconciliation log itself is
+  added to the candidate set in SECTION 7)
+
+# diagnostic reproduction: stage the whole candidate set into a scratch index and run
+# the mandatory cached gate over it (the real index is untouched)
+$ GIT_INDEX_FILE=/tmp/sa3-420-scratch-index git diff --cached --check
+artifacts/sa3-issue420-design-letter-divergence.log:95: new blank line at EOF.
+artifacts/sa3-issue420-mutation-M1-a12-red-arm.log:12: new blank line at EOF.
+artifacts/sa3-issue420-mutation-M2-drop-open.log:37: trailing whitespace.
++    269|{WS}
+artifacts/sa3-issue420-mutation-M2-drop-open.log:52: trailing whitespace.
++    269|{WS}
+artifacts/sa3-issue420-mutation-M2-drop-open.log:67: trailing whitespace.
++    269|{WS}
+artifacts/sa3-issue420-mutation-M2-drop-open.log:82: trailing whitespace.
++    269|{WS}
+artifacts/sa3-issue420-mutation-M2-drop-open.log:97: trailing whitespace.
++    269|{WS}
+artifacts/sa3-issue420-mutation-M2-drop-open.log:124: trailing whitespace.
++    269|{WS}
+artifacts/sa3-issue420-mutation-M2-drop-open.log:139: trailing whitespace.
++    269|{WS}
+artifacts/sa3-issue420-mutation-M2-drop-open.log:154: trailing whitespace.
++    269|{WS}
+artifacts/sa3-issue420-mutation-M2-drop-open.log:167: new blank line at EOF.
+artifacts/sa3-issue420-mutation-M3-restamp-sequence.log:35: trailing whitespace.
++    269|{WS}
+artifacts/sa3-issue420-mutation-M3-restamp-sequence.log:50: trailing whitespace.
++    269|{WS}
+artifacts/sa3-issue420-mutation-M3-restamp-sequence.log:65: trailing whitespace.
++    269|{WS}
+artifacts/sa3-issue420-mutation-M3-restamp-sequence.log:80: trailing whitespace.
++    269|{WS}
+artifacts/sa3-issue420-mutation-M3-restamp-sequence.log:95: trailing whitespace.
++    269|{WS}
+artifacts/sa3-issue420-mutation-M3-restamp-sequence.log:110: trailing whitespace.
++    269|{WS}
+artifacts/sa3-issue420-mutation-M3-restamp-sequence.log:125: trailing whitespace.
++    269|{WS}
+artifacts/sa3-issue420-mutation-M3-restamp-sequence.log:138: new blank line at EOF.
+artifacts/sa3-issue420-mutation-M4-disable-shim.log:82: new blank line at EOF.
+artifacts/sa3-issue420-mutation-M5-session-resequence-check.log:37: trailing whitespace.
++    269|{WS}
+artifacts/sa3-issue420-mutation-M5-session-resequence-check.log:52: trailing whitespace.
++    269|{WS}
+artifacts/sa3-issue420-mutation-M5-session-resequence-check.log:67: trailing whitespace.
++    269|{WS}
+artifacts/sa3-issue420-mutation-M5-session-resequence-check.log:82: trailing whitespace.
++    269|{WS}
+artifacts/sa3-issue420-mutation-M5-session-resequence-check.log:97: trailing whitespace.
++    269|{WS}
+artifacts/sa3-issue420-mutation-M5-session-resequence-check.log:124: trailing whitespace.
++    269|{WS}
+artifacts/sa3-issue420-mutation-M5-session-resequence-check.log:139: trailing whitespace.
++    269|{WS}
+artifacts/sa3-issue420-mutation-M5-session-resequence-check.log:154: trailing whitespace.
++    269|{WS}
+artifacts/sa3-issue420-mutation-M5-session-resequence-check.log:167: new blank line at EOF.
+artifacts/sa3-issue420-mutation-M7-reopen-reentry.log:130: new blank line at EOF.
+artifacts/sa3-issue420-mutation-M7b-drop-inflight-open.log:102: new blank line at EOF.
+artifacts/sa3-issue420-red-contract.log:60: new blank line at EOF.
+artifacts/sa6-issue420-runner-trigger-red.log:22: trailing whitespace.
++      5|{WS}
+artifacts/sa6-issue420-runner-trigger-red.log:34: trailing whitespace.
++      5|{WS}
+artifacts/sa6-issue420-runner-trigger-red.log:46: trailing whitespace.
++      5|{WS}
+artifacts/sa6-issue420-runner-trigger-red.log:82: trailing whitespace.
++      4|{WS}
+artifacts/sa7-issue420-focused-420-tests.log:12: new blank line at EOF.
+artifacts/sa7-issue420-listen-matrix-baseline.log:8: new blank line at EOF.
+wiki/raw/task_issue-420.md:32: new blank line at EOF.
+GATE_RC=2  (2 = whitespace findings, 0 = clean)
+DIAGNOSTIC_FINDINGS_TOTAL=39  (trailing-whitespace=27, blank-at-eof=12)
+DIAGNOSTIC_AFFECTED_PATHS=13
+
+# pre-state byte facts per candidate path
+# columns: path | sha256[:16] | bytes | lines | trailing-ws lines | blank-at-eof | last byte | CR | canon-net
+wiki/raw/task_issue-420_implementation_conflict_report.md	590ef35da0e9dc4c	33613	110	0	0	0a	0	0
+artifacts/sa3-issue420-design-letter-divergence.log	6022accc5312a3ac	11462	95	0	1	0a	0	1
+artifacts/sa3-issue420-mutation-M1-a12-red-arm.log	7d4676dc92ee01a3	469	12	0	1	0a	0	1
+artifacts/sa3-issue420-mutation-M2-drop-open.log	6361560ba4d7992e	10921	167	8	1	0a	0	1
+artifacts/sa3-issue420-mutation-M3-restamp-sequence.log	4475bc3a025996a1	9020	138	7	1	0a	0	1
+artifacts/sa3-issue420-mutation-M4-disable-shim.log	d0e080a70e35d6f9	10848	82	0	1	0a	0	1
+artifacts/sa3-issue420-mutation-M5-session-resequence-check.log	1050e2c52dd30697	10965	167	8	1	0a	0	1
+artifacts/sa3-issue420-mutation-M7-reopen-reentry.log	25d8b33ecd88fe93	13892	130	0	1	0a	0	1
+artifacts/sa3-issue420-mutation-M7b-drop-inflight-open.log	5fba2315da1fe3a3	11704	102	0	1	0a	0	1
+artifacts/sa3-issue420-red-contract.log	6401bbc17ad66c43	2690	60	0	1	0a	0	1
+artifacts/sa6-issue420-runner-trigger-red.log	5202a6c9b0c7e573	5054	95	4	0	0a	0	1
+artifacts/sa7-issue420-focused-420-tests.log	45d4e82b64d00fa4	574	12	0	1	0a	0	1
+artifacts/sa7-issue420-listen-matrix-baseline.log	de80fcf5835ff9f9	295	8	0	1	0a	0	1
+wiki/raw/task_issue-420.md	18f95b5d0011cf2d	1503	32	0	1	0a	0	1
+wiki/raw/task_issue-420_sa10_spec.md	fba2b74af08caffe	20375	162	0	0	0a	0	0
+wiki/raw/task_issue-420_sa9_standards.md	434fd8364db0d855	29892	201	0	0	0a	0	0
+# pre-state bytes of every candidate path snapshotted to /tmp/sa3-420-recon/before/ (read-only reference)
+
+SECTION 1 -- C1 normalization applied to the offending evidence paths (byte-exact)
+# offending set = candidate paths with trailing-ws > 0 or blank-at-eof = 1 (SECTION 0);
+# C1-clean candidate paths are left byte-identical.
+# command per offending path:
+#   perl -0777 -i -pe 's/[ \t]+(?=\n)//g; s/\n+\z/\n/' <path>
+offending_path_count=13
+$ perl -0777 -i -pe 's/[ \t]+(?=\n)//g; s/\n+\z/\n/' artifacts/sa3-issue420-design-letter-divergence.log
+$ perl -0777 -i -pe 's/[ \t]+(?=\n)//g; s/\n+\z/\n/' artifacts/sa3-issue420-mutation-M1-a12-red-arm.log
+$ perl -0777 -i -pe 's/[ \t]+(?=\n)//g; s/\n+\z/\n/' artifacts/sa3-issue420-mutation-M2-drop-open.log
+$ perl -0777 -i -pe 's/[ \t]+(?=\n)//g; s/\n+\z/\n/' artifacts/sa3-issue420-mutation-M3-restamp-sequence.log
+$ perl -0777 -i -pe 's/[ \t]+(?=\n)//g; s/\n+\z/\n/' artifacts/sa3-issue420-mutation-M4-disable-shim.log
+$ perl -0777 -i -pe 's/[ \t]+(?=\n)//g; s/\n+\z/\n/' artifacts/sa3-issue420-mutation-M5-session-resequence-check.log
+$ perl -0777 -i -pe 's/[ \t]+(?=\n)//g; s/\n+\z/\n/' artifacts/sa3-issue420-mutation-M7-reopen-reentry.log
+$ perl -0777 -i -pe 's/[ \t]+(?=\n)//g; s/\n+\z/\n/' artifacts/sa3-issue420-mutation-M7b-drop-inflight-open.log
+$ perl -0777 -i -pe 's/[ \t]+(?=\n)//g; s/\n+\z/\n/' artifacts/sa3-issue420-red-contract.log
+$ perl -0777 -i -pe 's/[ \t]+(?=\n)//g; s/\n+\z/\n/' artifacts/sa6-issue420-runner-trigger-red.log
+$ perl -0777 -i -pe 's/[ \t]+(?=\n)//g; s/\n+\z/\n/' artifacts/sa7-issue420-focused-420-tests.log
+$ perl -0777 -i -pe 's/[ \t]+(?=\n)//g; s/\n+\z/\n/' artifacts/sa7-issue420-listen-matrix-baseline.log
+$ perl -0777 -i -pe 's/[ \t]+(?=\n)//g; s/\n+\z/\n/' wiki/raw/task_issue-420.md
+  unchanged (already C1): wiki/raw/task_issue-420_implementation_conflict_report.md
+  unchanged (already C1): wiki/raw/task_issue-420_sa10_spec.md
+  unchanged (already C1): wiki/raw/task_issue-420_sa9_standards.md
+
+SECTION 2 -- content-preservation proof per normalized path (before vs after)
+# columns: path | before_sha[:16] | after_sha[:16] | bytes_before | bytes_after | delta_bytes |
+#          tw_before | tw_after | blank_eof_before | blank_eof_after | lines_before |
+#          lines_after | nonws_bytes_equal | rstrip_content_equal | changed_line_numbers
+artifacts/sa3-issue420-design-letter-divergence.log	6022accc5312a3ac	b4c7f8540df30af2	11462	11461	-1	0	0	1	0	95	94	YES	YES	-
+artifacts/sa3-issue420-mutation-M1-a12-red-arm.log	7d4676dc92ee01a3	03237793be1e2fc5	469	468	-1	0	0	1	0	12	11	YES	YES	-
+artifacts/sa3-issue420-mutation-M2-drop-open.log	6361560ba4d7992e	d473d0bfc7205c92	10921	10912	-9	8	0	1	0	167	166	YES	YES	37,52,67,82,97,124,139,154
+artifacts/sa3-issue420-mutation-M3-restamp-sequence.log	4475bc3a025996a1	d53d4aa081e84e43	9020	9012	-8	7	0	1	0	138	137	YES	YES	35,50,65,80,95,110,125
+artifacts/sa3-issue420-mutation-M4-disable-shim.log	d0e080a70e35d6f9	a6025d4848875090	10848	10847	-1	0	0	1	0	82	81	YES	YES	-
+artifacts/sa3-issue420-mutation-M5-session-resequence-check.log	1050e2c52dd30697	36d7512090d04ee6	10965	10956	-9	8	0	1	0	167	166	YES	YES	37,52,67,82,97,124,139,154
+artifacts/sa3-issue420-mutation-M7-reopen-reentry.log	25d8b33ecd88fe93	1689afe6dc61d793	13892	13891	-1	0	0	1	0	130	129	YES	YES	-
+artifacts/sa3-issue420-mutation-M7b-drop-inflight-open.log	5fba2315da1fe3a3	b635a9474b43892d	11704	11703	-1	0	0	1	0	102	101	YES	YES	-
+artifacts/sa3-issue420-red-contract.log	6401bbc17ad66c43	75109f57b153a9e7	2690	2689	-1	0	0	1	0	60	59	YES	YES	-
+artifacts/sa6-issue420-runner-trigger-red.log	5202a6c9b0c7e573	b26a55ab841554b7	5054	5050	-4	4	0	0	0	95	95	YES	YES	22,34,46,82
+artifacts/sa7-issue420-focused-420-tests.log	45d4e82b64d00fa4	37565aeee394eacd	574	573	-1	0	0	1	0	12	11	YES	YES	-
+artifacts/sa7-issue420-listen-matrix-baseline.log	de80fcf5835ff9f9	9882feec7943e6ac	295	294	-1	0	0	1	0	8	7	YES	YES	-
+wiki/raw/task_issue-420.md	18f95b5d0011cf2d	2eb0d8cb0bae20ac	1503	1502	-1	0	0	1	0	32	31	YES	YES	-
+# assertion: every row above reports nonws_bytes_equal=YES (no non-whitespace byte changed)
+# and rstrip_content_equal=YES (the ordered stream of rstrip'd non-empty content lines is
+# identical), so no result, count, path, verdict or conclusion text was altered.
+CONTENT_PRESERVATION_FAIL_COUNT=0
+
+SECTION 3 -- independent C1 verification of every candidate path (staged blob in scratch index)
+# columns: C1 scan | path | staged blob[:12] | trailing_ws | blank_at_eof | last_byte | CR | canon_net | worktree_eq_index
+PASS	wiki/raw/task_issue-420_implementation_conflict_report.md	44a2e21560f1	0	0	0a	0	0	YES
+PASS	artifacts/sa3-issue420-design-letter-divergence.log	4865980f0a73	0	0	0a	0	0	YES
+PASS	artifacts/sa3-issue420-mutation-M1-a12-red-arm.log	c9a35f4be086	0	0	0a	0	0	YES
+PASS	artifacts/sa3-issue420-mutation-M2-drop-open.log	1a00d81ae751	0	0	0a	0	0	YES
+PASS	artifacts/sa3-issue420-mutation-M3-restamp-sequence.log	5b712019a155	0	0	0a	0	0	YES
+PASS	artifacts/sa3-issue420-mutation-M4-disable-shim.log	e6ffb3a4efef	0	0	0a	0	0	YES
+PASS	artifacts/sa3-issue420-mutation-M5-session-resequence-check.log	1acdeb8598d4	0	0	0a	0	0	YES
+PASS	artifacts/sa3-issue420-mutation-M7-reopen-reentry.log	40b2714e9f0a	0	0	0a	0	0	YES
+PASS	artifacts/sa3-issue420-mutation-M7b-drop-inflight-open.log	f0f2a7f7b514	0	0	0a	0	0	YES
+PASS	artifacts/sa3-issue420-red-contract.log	04a9dc47c90a	0	0	0a	0	0	YES
+PASS	artifacts/sa6-issue420-runner-trigger-red.log	9e1371054711	0	0	0a	0	0	YES
+PASS	artifacts/sa7-issue420-focused-420-tests.log	b0c7210b8b9e	0	0	0a	0	0	YES
+PASS	artifacts/sa7-issue420-listen-matrix-baseline.log	cbef413082b3	0	0	0a	0	0	YES
+PASS	wiki/raw/task_issue-420.md	69f89786d9f6	0	0	0a	0	0	YES
+PASS	wiki/raw/task_issue-420_sa10_spec.md	f34962c3be7c	0	0	0a	0	0	YES
+PASS	wiki/raw/task_issue-420_sa9_standards.md	8cc96dd2f46c	0	0	0a	0	0	YES
+C1_SCAN_FAIL_COUNT=0
+
+SECTION 4 -- mandatory cached gate over the complete candidate changeset (scratch index)
+$ GIT_INDEX_FILE=/tmp/sa3-420-scratch-index git diff --cached --check
+GATE_RC=0  (2 = whitespace findings, 0 = clean)
+# staged changeset (name-status):
+A	artifacts/sa3-issue420-design-letter-divergence.log
+A	artifacts/sa3-issue420-mutation-M1-a12-red-arm.log
+A	artifacts/sa3-issue420-mutation-M2-drop-open.log
+A	artifacts/sa3-issue420-mutation-M3-restamp-sequence.log
+A	artifacts/sa3-issue420-mutation-M4-disable-shim.log
+A	artifacts/sa3-issue420-mutation-M5-session-resequence-check.log
+A	artifacts/sa3-issue420-mutation-M7-reopen-reentry.log
+A	artifacts/sa3-issue420-mutation-M7b-drop-inflight-open.log
+A	artifacts/sa3-issue420-red-contract.log
+A	artifacts/sa6-issue420-runner-trigger-red.log
+A	artifacts/sa7-issue420-focused-420-tests.log
+A	artifacts/sa7-issue420-listen-matrix-baseline.log
+A	wiki/raw/task_issue-420.md
+M	wiki/raw/task_issue-420_implementation_conflict_report.md
+A	wiki/raw/task_issue-420_sa10_spec.md
+A	wiki/raw/task_issue-420_sa9_standards.md
+
+SECTION 5 -- business-semantics preservation (zero delivery byte change)
+$ git diff HEAD --stat -- packages docs CONTEXT.md .editorconfig vitest.config.ts package.json tsconfig.base.json tsconfig.typecheck.json
+BUSINESS_DIFF_RC=0  (empty output above = zero business diff)
+$ git diff HEAD --name-only   # tracked worktree diff vs HEAD (untracked evidence is not listed here)
+wiki/raw/task_issue-420_implementation_conflict_report.md
+$ GIT_INDEX_FILE=/tmp/sa3-420-scratch-index git diff --cached HEAD --name-only -- packages docs CONTEXT.md
+STAGED_BUSINESS_PATH_COUNT=0  (0 = no business path staged)
+# per-ALLOW-LIST-path byte identity vs HEAD (13 paths of design section 11):
+IDENTICAL_TO_HEAD  packages/ws-replication/src/hub-session-host.ts  blob=aa318920d6bcb5e1e8bdf24da5461c6ed1a1ae5c
+IDENTICAL_TO_HEAD  packages/ws-replication/src/index.ts  blob=71fc4176b6b095077ca7cf74a5ee341940bbe1a1
+IDENTICAL_TO_HEAD  packages/ws-replication/src/hub-session.ts  blob=4411ee166f6a78ac585a71131e3d13b8c2262bf8
+IDENTICAL_TO_HEAD  packages/ws-replication/src/hub-connection.ts  blob=1234494a248aecc09ac4bcd67a236eeda6c64127
+IDENTICAL_TO_HEAD  packages/ws-replication/src/hub-split.ts  blob=dc79dfa3989643db102936453c3790c56511a72f
+IDENTICAL_TO_HEAD  packages/ws-replication/test/issue420-shim-hub.ts  blob=463477dd968813a680e475dd927cf41033b7dc1b
+IDENTICAL_TO_HEAD  packages/ws-replication/test/ws-replication-issue420-session-host-api.test-d.ts  blob=9fc6ce84f353c57dabc71174cbeb6d3aeb9e0179
+IDENTICAL_TO_HEAD  packages/ws-replication/test/ws-replication-issue420-session-host-round.test.ts  blob=e08b747ea31ab8bc018607743a406ed453ffaa29
+IDENTICAL_TO_HEAD  packages/ws-replication/test/ws-replication-issue420-shim-matrix.test.ts  blob=bf1478a395738d85e420b32fe24280453885f411
+IDENTICAL_TO_HEAD  packages/ws-replication/test/ws-replication-issue418-edge-session-split-contract.test.ts  blob=bdc4404ac30b4bf1885bb450d624fdd83f631a28
+IDENTICAL_TO_HEAD  packages/ws-replication/test/ws-replication-issue418-edge-session-split-structure.test.ts  blob=2889230b6706f4f746e5a8a528cea6ecfbcd3f06
+IDENTICAL_TO_HEAD  docs/adr/0032-transport-decoupling-edge-session-split.md  blob=be9d747cfba14adf763fb06231b9c4911fa56c18
+IDENTICAL_TO_HEAD  CONTEXT.md  blob=fc4306e374f28e64f3adb2362e7980e13ff14508
+ALLOW_PATH_IDENTITY_FAIL_COUNT=0  (0 = delivery bytes unchanged)
+
+SECTION 5 ends phase 1; SECTION 6 (delivery re-verification) and SECTION 7 (scope,
+justification, staging list, post-commit expectations) follow once the verification runs
+settle. SECTION 7 also re-runs the gate over the FULL final candidate set.
+================================================================================
+
+SECTION 6 -- delivery re-verification on the reconciled delivery (implementation bytes
+             unchanged: SECTION 5 shows byte identity with HEAD for all 13 ALLOW paths)
+# The reconciliation touches only whitespace inside evidence artifacts, so the frozen red
+# contract must still turn green and both typechecks must still pass. Commands per design
+# section 12 / SA6 section 12.0, run sequentially after SECTION 1-4 (no concurrent probes).
+
+### V17 focused red contract (3 files, --typecheck)
+$ NODE_OPTIONS=--conditions=nomicore-source pnpm exec vitest run --typecheck <3 issue-420 contract paths>
+Testing types with tsc and vue-tsc is an experimental feature.
+Breaking changes might not follow SemVer, please pin Vitest's version when using it.
+
+ RUN  v3.2.7 /home/wangjian/nomicore-fix-issue-420
+
+ ✓ packages/ws-replication/test/ws-replication-issue420-shim-matrix.test.ts (53 tests) 407ms
+ ✓  TS  packages/ws-replication/test/ws-replication-issue420-session-host-api.test-d.ts (0 test)
+ ✓ packages/ws-replication/test/ws-replication-issue420-session-host-round.test.ts (10 tests) 141ms
+
+ Test Files  3 passed (3)
+      Tests  63 passed (63)
+Type Errors  no errors
+   Start at  05:10:56
+   Duration  2.89s (transform 1.22s, setup 0ms, collect 1.91s, tests 548ms, environment 0ms, prepare 144ms, typecheck 2.80s)
+
+FOCUSED_EXIT=0
+### V18 package typecheck
+$ pnpm exec tsc -p packages/ws-replication/tsconfig.json
+PACKAGE_TSC_EXIT=0
+### V19 package suite
+$ NODE_OPTIONS=--conditions=nomicore-source pnpm exec vitest run --typecheck packages/ws-replication/test
+Testing types with tsc and vue-tsc is an experimental feature.
+Breaking changes might not follow SemVer, please pin Vitest's version when using it.
+
+ RUN  v3.2.7 /home/wangjian/nomicore-fix-issue-420
+
+ ✓  TS  packages/ws-replication/test/ws-replication-api.test-d.ts (17 tests)
+ ✓  TS  packages/ws-replication/test/ws-replication-issue299-api.test-d.ts (2 tests)
+ ✓  TS  packages/ws-replication/test/ws-replication-issue420-session-host-api.test-d.ts (0 test)
+stdout | packages/ws-replication/test/ws-replication-sa7-r1-transport-auth.test.ts > issue #138 SA7 R1：真实 TCP 认证窗口动态验证（SA4 D3/D4/D5） > D3-①条数界：未认证 socket 灌 40×1MiB → 第 17 帧即 close(1008)、零分配、后续帧零驻留（40MiB 上 wire 活外部内存增量 ≤24MiB）
+[SA7-DIAG] D3-① flood40MiB framesParsed=17 extDeltaAfterClose=17.1MiB rssDelta=75.2MiB
+
+stdout | packages/ws-replication/test/ws-replication-sa7-r1-transport-auth.test.ts > issue #138 SA7 R1：真实 TCP 认证窗口动态验证（SA4 D3/D4/D5） > D3-②封顶+回收：认证等待 helloTimeoutMs(2s) 到点 close(1008/upgrade-timeout)；16×1MiB 早到帧活外部内存驻留有界（8–40MiB ≪ 128MiB 结构界）、迟归验证器不复活、放行后驻留释放过半
+[SA7-DIAG] D3-② cap16MiB extHeldDelta=17.0MiB extReleasedDelta=1.0MiB rssRawPeak=39.8MiB rssSteady=39.7MiB rssFinal=-0.1MiB gc=expose-gc
+
+ ✓ packages/ws-replication/test/ws-replication-sa7-r1-transport-auth.test.ts (5 tests) 4277ms
+   ✓ issue #138 SA7 R1：真实 TCP 认证窗口动态验证（SA4 D3/D4/D5） > D3-①条数界：未认证 socket 灌 40×1MiB → 第 17 帧即 close(1008)、零分配、后续帧零驻留（40MiB 上 wire 活外部内存增量 ≤24MiB）  1025ms
+   ✓ issue #138 SA7 R1：真实 TCP 认证窗口动态验证（SA4 D3/D4/D5） > D3-②封顶+回收：认证等待 helloTimeoutMs(2s) 到点 close(1008/upgrade-timeout)；16×1MiB 早到帧活外部内存驻留有界（8–40MiB ≪ 128MiB 结构界）、迟归验证器不复活、放行后驻留释放过半  2537ms
+   ✓ issue #138 SA7 R1：真实 TCP 认证窗口动态验证（SA4 D3/D4/D5） > D3-③单帧界：首帧 > maxFrameBytes(8MiB) → close(1009)，零协议连接分配、零协议帧  317ms
+ ✓ packages/ws-replication/test/ws-replication-sa7-issue171-real-transport.test.ts (4 tests) 3644ms
+   ✓ SA7 RT-F1（issue #171，SA4 §4.1）：真实 TCP + 真实 timer 下 GOAWAY drain 窗口 removeTarget——deadline 关 socket 触发本地 onClose 后资源收口恰一次 > RT-F1：live → GOAWAY(RESTARTING) → 窗口内 removeTarget → deadline close(1001) 本地 onClose → lease-released 恰一次 + watchdog 零空转 + 字段清空  1812ms
+   ✓ SA7 RT-F1（issue #171，SA4 §4.1）：真实 TCP + 真实 timer 下 GOAWAY drain 窗口 removeTarget——deadline 关 socket 触发本地 onClose 后资源收口恰一次 > RT-G5：GOAWAY 收帧同步静默——drain 窗口内 peer 业务写零 UPDATE 出站；deadline 才关 transport；deadline 全量层处置 lease 恰一次  1547ms
+ ✓ packages/ws-replication/test/ws-replication-sa7-issue169-dynamic.test.ts (2 tests) 2292ms
+   ✓ issue #169 SA7-D2（SA4 动态重点 2）：Δ≡0 write-through-0 悬崖——真实 TCP 长寿命连接饱和签名 > D2：帧间 settle 节奏下累计 data 超过 cap → data 准入恒拒（RESYNC_REQUIRED 恢复环）/ UPDATE 字节平 / 零 1011、零 close（无终局信号）  2284ms
+ ✓ packages/ws-replication/test/ws-replication-sa7-175-dynamic.test.ts (6 tests) 2166ms
+   ✓ issue #175 SA7：主动 reauth 生命周期动态验证（SA4 六项动态重点） > D1（SA4 重点 1）：真实 TCP——requestReauth 后 peer 原始 socket 先收 GOAWAY(REAUTH_REQUIRED, drain>0) 再 socket-close；hub close=(1001,"hub-reauth")；全 wire 字节零 token；收口后 blocked 保持零重拨  2132ms
+ ✓ packages/ws-replication/test/ws-replication-sa7-issue170-real-transport.test.ts (2 tests) 1519ms
+   ✓ SA7 issue #170 真实 transport：pong 超时收口 → backoff 重拨 → hub 只留新连接 → 数据收敛（真实 TCP + 真实 timer） > 真实链路：死对端 pong 超时 close(1001) → 重拨后 hub.connections===1、旧传输零僵尸 ping/零 ws 抛错、新代健康、写值收敛  948ms
+   ✓ SA7 issue #170 真实 transport：pong 超时收口 → backoff 重拨 → hub 只留新连接 → 数据收敛（真实 TCP + 真实 timer） > A4 故障注入：适配器 ping() 首调抛错（socket 仍开放）→ liveness catch 吸收 → close(1001,pong-timeout) + backoff → 重连健康收敛（零未捕获异常）  569ms
+ ✓ packages/ws-replication/test/ws-replication-sa7-r2-transport.test.ts (2 tests) 1147ms
+   ✓ issue #137 R2 SA7：真实 transport control 额度边界抽样（真实 TCP + 真实 bufferedAmount） > A（存活侧）：真实暂停段 + 缺省 8MiB 额度内 control 流量（4 ns × 32 ACK = 128 ≈ 7.3KiB）——全部上 wire、零 ERROR、连接 ready  431ms
+   ✓ issue #137 R2 SA7：真实 transport control 额度边界抽样（真实 TCP + 真实 bufferedAmount） > B（耗尽侧）：真实暂停段 + 跨越显式 64KiB 对照额度的 control 流量（40 ns × 32 ACK = 1280 ≈ 73KiB）——恰 1 ERROR(CONNECTION_BACKPRESSURE) + close(1011) + peer backoff  713ms
+ ✓ packages/ws-replication/test/ws-replication-issue287-real-transport.test.ts (1 test) 381ms
+   ✓ issue #287 real-transport 抽样：真实 TCP 链路的 schema re-arm 全链路 > hub replaceSchema → 真实 wire UPDATE → peer 恰一 schema-rearm-applied（§23.3 字段面）→ 新 tools 业务写收敛；hub 侧零 re-arm 事件  380ms
+ ✓ packages/ws-replication/test/ws-replication-issue420-shim-matrix.test.ts (53 tests) 285ms
+ ✓ packages/ws-replication/test/ws-replication-issue243-real-transport.test.ts (1 test) 369ms
+   ✓ issue #243 AC7：真实 TCP + MemoryPersistence 1 Hub + 2 Peers（协商分块 + fan-out 分块镜像） > A 超限写 → hub 分块收齐 apply + 单 ACK；hub fan-out 分块到 B；回声抑制不回送 A  368ms
+ ✓ packages/ws-replication/test/ws-replication-observer-red.test.ts (32 tests) 231ms
+ ✓ packages/ws-replication/test/ws-replication-sa6-hardening-g3-g4-red.test.ts (16 tests) 243ms
+ ✓ packages/ws-replication/test/ws-replication-issue301-chunked-completeness-ac-red.test.ts (17 tests) 178ms
+ ✓ packages/ws-replication/test/ws-replication-issue244-sa7-dynamic.test.ts (11 tests) 176ms
+ ✓ packages/ws-replication/test/ws-replication-issue254-timeout-recovery.test.ts (5 tests) 191ms
+ ✓ packages/ws-replication/test/ws-replication-auth-lifecycle-red.test.ts (20 tests) 157ms
+ ✓ packages/ws-replication/test/ws-replication-issue172-contract-anchors.test.ts (16 tests) 170ms
+ ✓ packages/ws-replication/test/ws-replication-sa7-issue137-dynamic.test.ts (8 tests) 120ms
+ ✓ packages/ws-replication/test/ws-replication-issue137-r2-red.test.ts (9 tests) 141ms
+ ✓ packages/ws-replication/test/ws-replication-issue231-send-failure.test.ts (10 tests) 162ms
+ ✓ packages/ws-replication/test/ws-replication-issue243-chunked-live.test.ts (16 tests) 157ms
+ ✓ packages/ws-replication/test/ws-replication-issue244-slot-reclaim-regression.test.ts (3 tests) 156ms
+ ✓ packages/ws-replication/test/ws-replication-issue420-session-host-round.test.ts (10 tests) 97ms
+ ✓ packages/ws-replication/test/ws-replication-review-revisions-r1-r7-red.test.ts (14 tests) 125ms
+ ✓ packages/ws-replication/test/ws-replication-issue300-chunked-sync-ac-red.test.ts (12 tests) 122ms
+ ✓ packages/ws-replication/test/ws-replication-issue256-namespace-failed.test.ts (16 tests) 112ms
+ ✓ packages/ws-replication/test/ws-replication-r3-r4-regressions.test.ts (11 tests) 109ms
+ ✓ packages/ws-replication/test/ws-replication-issue287-schema-rearm.test.ts (13 tests) 133ms
+ ✓ packages/ws-replication/test/ws-replication-issue245-ac-red.test.ts (10 tests) 114ms
+ ✓ packages/ws-replication/test/ws-replication-issue244-ac-red.test.ts (14 tests) 110ms
+ ✓ packages/ws-replication/test/ws-replication-issue418-edge-session-split-contract.test.ts (17 tests) 98ms
+ ✓ packages/ws-replication/test/ws-replication-issue254-ac-red.test.ts (6 tests) 102ms
+ ✓ packages/ws-replication/test/ws-replication-sa7-dynamic.test.ts (6 tests) 97ms
+ ✓ packages/ws-replication/test/ws-replication-issue238-segmented-observation.test.ts (8 tests) 112ms
+ ✓ packages/ws-replication/test/ws-replication-sa7-hardening-dynamic.test.ts (8 tests) 91ms
+ ✓ packages/ws-replication/test/ws-replication-ac7-faults.test.ts (12 tests) 98ms
+ ✓ packages/ws-replication/test/ws-replication-issue230-incremental-mutation.test.ts (2 tests) 90ms
+ ✓ packages/ws-replication/test/ws-replication-reauth-lifecycle-red.test.ts (7 tests) 89ms
+ ✓ packages/ws-replication/test/ws-replication-issue176-red.test.ts (9 tests) 90ms
+ ✓ packages/ws-replication/test/ws-replication-sa7-round2-dynamic.test.ts (6 tests) 79ms
+ ✓ packages/ws-replication/test/ws-replication-ac6-resync-close.test.ts (7 tests) 84ms
+ ✓ packages/ws-replication/test/ws-replication-issue137-ac1-ac7-red.test.ts (4 tests) 80ms
+ ✓ packages/ws-replication/test/ws-replication-issue418-pending-window-matrix.test.ts (25 tests) 87ms
+ ✓ packages/ws-replication/test/ws-replication-plugin.test.ts (15 tests) 79ms
+ ✓ packages/ws-replication/test/ws-replication-ac5-live.test.ts (7 tests) 85ms
+ ✓ packages/ws-replication/test/ws-replication-spec-b1-b2-red.test.ts (5 tests) 76ms
+ ✓ packages/ws-replication/test/ws-replication-ac1-ac2-open.test.ts (12 tests) 79ms
+ ✓ packages/ws-replication/test/ws-replication-issue246-interop-matrix.test.ts (4 tests) 85ms
+ ✓ packages/ws-replication/test/ws-replication-periodic-reconcile.test.ts (5 tests) 68ms
+ ✓ packages/ws-replication/test/ws-replication-issue171-red.test.ts (5 tests) 68ms
+stdout | packages/ws-replication/test/ws-replication-issue239-repro.test.ts > issue #239：periodic reconciliation 语义 no-op 可观测（修复后语义，翻转断言） > 场景 1：已收敛副本 7 轮 periodic round —— bytes 恒非零但观察面明确报全 noop（roundId 关联 + 效果组）
+[issue239 repro] no-op round 1: hub sent/applied = [10]/[10] B, peer sent/applied = [10]/[10] B
+
+stdout | packages/ws-replication/test/ws-replication-issue239-repro.test.ts > issue #239：periodic reconciliation 语义 no-op 可观测（修复后语义，翻转断言） > 场景 1：已收敛副本 7 轮 periodic round —— bytes 恒非零但观察面明确报全 noop（roundId 关联 + 效果组）
+[issue239 repro] no-op round 2: hub sent/applied = [10]/[10] B, peer sent/applied = [10]/[10] B
+
+stdout | packages/ws-replication/test/ws-replication-issue239-repro.test.ts > issue #239：periodic reconciliation 语义 no-op 可观测（修复后语义，翻转断言） > 场景 1：已收敛副本 7 轮 periodic round —— bytes 恒非零但观察面明确报全 noop（roundId 关联 + 效果组）
+[issue239 repro] no-op round 3: hub sent/applied = [10]/[10] B, peer sent/applied = [10]/[10] B
+
+stdout | packages/ws-replication/test/ws-replication-issue239-repro.test.ts > issue #239：periodic reconciliation 语义 no-op 可观测（修复后语义，翻转断言） > 场景 1：已收敛副本 7 轮 periodic round —— bytes 恒非零但观察面明确报全 noop（roundId 关联 + 效果组）
+[issue239 repro] no-op round 4: hub sent/applied = [10]/[10] B, peer sent/applied = [10]/[10] B
+
+stdout | packages/ws-replication/test/ws-replication-issue239-repro.test.ts > issue #239：periodic reconciliation 语义 no-op 可观测（修复后语义，翻转断言） > 场景 1：已收敛副本 7 轮 periodic round —— bytes 恒非零但观察面明确报全 noop（roundId 关联 + 效果组）
+[issue239 repro] no-op round 5: hub sent/applied = [10]/[10] B, peer sent/applied = [10]/[10] B
+
+stdout | packages/ws-replication/test/ws-replication-issue239-repro.test.ts > issue #239：periodic reconciliation 语义 no-op 可观测（修复后语义，翻转断言） > 场景 1：已收敛副本 7 轮 periodic round —— bytes 恒非零但观察面明确报全 noop（roundId 关联 + 效果组）
+[issue239 repro] no-op round 6: hub sent/applied = [10]/[10] B, peer sent/applied = [10]/[10] B
+
+stdout | packages/ws-replication/test/ws-replication-issue239-repro.test.ts > issue #239：periodic reconciliation 语义 no-op 可观测（修复后语义，翻转断言） > 场景 1：已收敛副本 7 轮 periodic round —— bytes 恒非零但观察面明确报全 noop（roundId 关联 + 效果组）
+[issue239 repro] no-op round 7: hub sent/applied = [10]/[10] B, peer sent/applied = [10]/[10] B
+[issue239 repro] no-op 事件字段形状（去重）: ["connectionId,from,side,to,type","connectionId,from,namespaceId,side,to,type","bytes,connectionId,encodedUpdateBytes,namespaceId,side,syncRoundId,type","applyEffect,bytes,connectionId,encodedUpdateBytes,namespaceId,sequence,side,stateVectorAfterHash,stateVectorBeforeHash,stateVectorChanged,syncRoundId,type","from,side,to,type"]
+
+stdout | packages/ws-replication/test/ws-replication-issue239-repro.test.ts > issue #239：periodic reconciliation 语义 no-op 可观测（修复后语义，翻转断言） > 场景 2：静默漂移修复 round —— 观察面必须报 changed（与实测 SV 增量一一对应）；修复后 next round 回 noop（非粘滞）
+[issue239 repro] drift-repair round: hub sent/applied = [36]/[10] B, peer sent/applied = [10]/[36] B
+
+stdout | packages/ws-replication/test/ws-replication-issue239-repro.test.ts > issue #239：periodic reconciliation 语义 no-op 可观测（修复后语义，翻转断言） > 场景 2：静默漂移修复 round —— 观察面必须报 changed（与实测 SV 增量一一对应）；修复后 next round 回 noop（非粘滞）
+[issue239 repro] 修复后 no-op 事件字段形状（去重）: ["bytes,connectionId,encodedUpdateBytes,namespaceId,side,syncRoundId,type","applyEffect,bytes,connectionId,encodedUpdateBytes,namespaceId,sequence,side,stateVectorAfterHash,stateVectorBeforeHash,stateVectorChanged,syncRoundId,type","connectionId,from,namespaceId,side,to,type"]
+
+ ✓ packages/ws-replication/test/ws-replication-issue239-repro.test.ts (2 tests) 68ms
+ ✓ packages/ws-replication/test/ws-replication-issue243-ac-red.test.ts (6 tests) 70ms
+ ✓ packages/ws-replication/test/ws-replication-issue170-r1-r4-red.test.ts (7 tests) 67ms
+ ✓ packages/ws-replication/test/ws-replication-sa4-f1-f2-f3-red.test.ts (3 tests) 71ms
+ ✓ packages/ws-replication/test/ws-replication-sa6-hardening-g1-g2-red.test.ts (5 tests) 56ms
+ ✓ packages/ws-replication/test/ws-replication-ac4-reconcile.test.ts (5 tests) 71ms
+stdout | packages/ws-replication/test/ws-replication-issue233-repro.test.ts > issue #233 复现：超限 UPDATE 丢弃 + 全量 reconciliation 回退（现状刻画） > R1：单笔 20KB 合法写 → 零 UPDATE / resync 声明 / 同一载荷改走控制帧全量 diff
+[issue233 repro R1] {
+  "scenario": "R1 single 20KB write, maxUpdateBytes=8192",
+  "updateFramesCarryingBigWrite": 0,
+  "resyncRounds": 1,
+  "step2DiffBytesPeerToHub": [
+    2,
+    20029
+  ],
+  "wire": {
+    "peerToHub": {
+      "OPEN_NAMESPACE": {
+        "count": 1,
+        "bytes": 59
+      },
+      "BOOTSTRAP_ACK": {
+        "count": 1,
+        "bytes": 57
+      },
+      "SYNC_STEP1": {
+        "count": 2,
+        "bytes": 136
+      },
+      "SYNC_STEP2": {
+        "count": 2,
+        "bytes": 20151
+      },
+      "SYNC_APPLIED": {
+        "count": 2,
+        "bytes": 116
+      },
+      "RESYNC_REQUIRED": {
+        "count": 1,
+        "bytes": 76
+      }
+    },
+    "hubToPeer": {
+      "OPEN_OK": {
+        "count": 1,
+        "bytes": 91
+      },
+      "BOOTSTRAP_SNAPSHOT": {
+        "count": 1,
+        "bytes": 497
+      },
+      "SYNC_STEP1": {
+        "count": 2,
+        "bytes": 130
+      },
+      "SYNC_STEP2": {
+        "count": 2,
+        "bytes": 122
+      },
+      "SYNC_APPLIED": {
+        "count": 2,
+        "bytes": 116
+      }
+    }
+  }
+}
+
+stdout | packages/ws-replication/test/ws-replication-issue233-repro.test.ts > issue #233 复现：超限 UPDATE 丢弃 + 全量 reconciliation 回退（现状刻画） > R2：连续两笔大写 → 两轮 resync（持续大写重复触发完整 round）
+[issue233 repro R2] {"scenario":"R2 two consecutive 20KB writes","resyncRounds":2,"step2DiffBytesPeerToHub":[2,20029,20037],"wire":{"peerToHub":{"OPEN_NAMESPACE":{"count":1,"bytes":59},"BOOTSTRAP_ACK":{"count":1,"bytes":57},"SYNC_STEP1":{"count":3,"bytes":207},"SYNC_STEP2":{"count":3,"bytes":40249},"SYNC_APPLIED":{"count":3,"bytes":174},"RESYNC_REQUIRED":{"count":2,"bytes":152}},"hubToPeer":{"OPEN_OK":{"count":1,"bytes":91},"BOOTSTRAP_SNAPSHOT":{"count":1,"bytes":497},"SYNC_STEP1":{"count":3,"bytes":201},"SYNC_STEP2":{"count":3,"bytes":191},"SYNC_APPLIED":{"count":3,"bytes":174}}}}
+
+stdout | packages/ws-replication/test/ws-replication-issue233-repro.test.ts > issue #233 复现：超限 UPDATE 丢弃 + 全量 reconciliation 回退（现状刻画） > R3：diff 超 maxSyncDiffBytes → SYNC_DIFF_TOO_LARGE → namespace 终局 failed（大文档致命尾部）
+[issue233 repro R3] {"scenario":"R3 100KB write, maxSyncDiffBytes=32768","namespaceTerminalState":"failed","connectionState":"ready","wire":{"peerToHub":{"OPEN_NAMESPACE":{"count":1,"bytes":59},"BOOTSTRAP_ACK":{"count":1,"bytes":57},"SYNC_STEP1":{"count":2,"bytes":136},"SYNC_STEP2":{"count":1,"bytes":61},"SYNC_APPLIED":{"count":1,"bytes":58},"RESYNC_REQUIRED":{"count":1,"bytes":76},"ERROR":{"count":1,"bytes":117}},"hubToPeer":{"OPEN_OK":{"count":1,"bytes":91},"BOOTSTRAP_SNAPSHOT":{"count":1,"bytes":497},"SYNC_STEP1":{"count":2,"bytes":130},"SYNC_STEP2":{"count":2,"bytes":122},"SYNC_APPLIED":{"count":1,"bytes":58}}}}
+
+ ✓ packages/ws-replication/test/ws-replication-issue233-repro.test.ts (3 tests) 108ms
+ ✓ packages/ws-replication/test/ws-replication-issue300-bulk-edge-ac.test.ts (6 tests) 55ms
+stdout | packages/ws-replication/test/ws-replication-issue239-ac-red.test.ts > issue #239 验收契约（红灯）：periodic no-op 与有效同步的可观测性差异 > 场景 1：已收敛副本连续 periodic round —— 观察面必须报 roundId 关联 + 全 noop（SV/ROOT/META 不变，bytes 仍非零）
+[issue239 ac-red] no-op rounds=3 groups=4 periodicGroups=3 全部断言完成
+
+stdout | packages/ws-replication/test/ws-replication-issue239-ac-red.test.ts > issue #239 验收契约（红灯）：periodic no-op 与有效同步的可观测性差异 > 场景 2：hub 静默漂移 → 下一 periodic round 至少一侧 diff-applied 报 changed（与实测 SV 增量一致）并收敛
+[issue239 ac-red] hub-drift 修复 round：delta={"hub":false,"peer":true} changedEvents=1
+
+stdout | packages/ws-replication/test/ws-replication-issue239-ac-red.test.ts > issue #239 验收契约（红灯）：periodic no-op 与有效同步的可观测性差异 > 场景 2：hub 静默漂移 → 下一 periodic round 至少一侧 diff-applied 报 changed（与实测 SV 增量一致）并收敛
+[issue239 ac-red] hub-drift 修复后 no-op round：changedEvents=0
+
+ ✓ packages/ws-replication/test/ws-replication-issue239-ac-red.test.ts (2 tests) 53ms
+ ✓ packages/ws-replication/test/ws-replication-ac3-bootstrap.test.ts (4 tests) 51ms
+ ✓ packages/ws-replication/test/ws-replication-sa7-issue171-dynamic.test.ts (3 tests) 43ms
+ ✓ packages/ws-replication/test/ws-replication-issue168-hello-timeout-close-peer-red.test.ts (3 tests) 50ms
+ ✓ packages/ws-replication/test/ws-replication-issue418-edge-session-split-structure.test.ts (9 tests) 40ms
+ ✓ packages/ws-replication/test/ws-replication-issue238-repro.test.ts (1 test) 39ms
+ ✓ packages/ws-replication/test/ws-replication-issue169-backpressure-accounting-red.test.ts (19 tests) 39ms
+ ✓ packages/ws-replication/test/ws-replication-sa7-issue168-dynamic.test.ts (3 tests) 38ms
+ ✓ packages/ws-replication/test/ws-replication-sa7-r2-supplement.test.ts (1 test) 36ms
+ ✓ packages/ws-replication/test/ws-replication-sa7-issue170-minor3-observation.test.ts (1 test) 37ms
+ ✓ packages/ws-replication/test/ws-replication-issue282-schema-lifecycle.test.ts (1 test) 34ms
+ ✓ packages/ws-replication/test/ws-replication-issue171-blockers.test.ts (1 test) 29ms
+ ✓ packages/ws-replication/test/ws-replication-sa4-r4-1-red.test.ts (1 test) 41ms
+ ✓ packages/ws-replication/test/ws-replication-sa4-issue171-review-red.test.ts (1 test) 31ms
+ ✓ packages/ws-replication/test/ws-replication-issue243-sa7-dynamic.test.ts (17 tests) 28ms
+ ✓ packages/ws-replication/test/ws-replication-guard-proxy-consumption.test.ts (2 tests) 16ms
+ ✓ packages/ws-replication/test/ws-replication-issue299-ac-red.test.ts (7 tests) 13ms
+ ✓ packages/ws-replication/test/ws-replication-issue190-red.test.ts (4 tests) 7ms
+ ✓ packages/ws-replication/test/ws-replication-sa7-issue190-dynamic.test.ts (5 tests) 8ms
+ ✓ packages/ws-replication/test/ws-replication-issue190-guard.test.ts (1 test) 3ms
+
+ Test Files  80 passed (80)
+      Tests  651 passed (651)
+Type Errors  no errors
+   Start at  05:11:04
+   Duration  47.45s (transform 1.93s, setup 0ms, collect 14.26s, tests 22.02s, environment 10ms, prepare 3.49s, typecheck 2.75s)
+
+PACKAGE_SUITE_EXIT=0
+### V20 root typecheck
+$ pnpm typecheck
+
+> nomicore@0.1.0 typecheck /home/wangjian/nomicore-fix-issue-420
+> tsc -p packages/vfsl/tsconfig.json && tsc -p packages/vfsl-protocol/tsconfig.json && tsc -p packages/vfsl-codegen/tsconfig.json && tsc -p packages/persistence/tsconfig.json && tsc -p packages/dsh-persistence/tsconfig.json && tsc -p packages/doc-runtime/tsconfig.json && tsc -p packages/namespace-runtime/tsconfig.json && tsc -p packages/clock/tsconfig.json && tsc -p packages/instance/tsconfig.json && tsc -p packages/namespace-registry/tsconfig.json && tsc -p packages/namespace-api/tsconfig.json && tsc -p packages/namespace-diagnostic-log/tsconfig.json && tsc -p packages/replication-protocol/tsconfig.json && tsc -p packages/ws-replication/tsconfig.json && tsc -p apps/yjs-server/tsconfig.json
+
+ROOT_TYPECHECK_EXIT=0
+
+# derived result table (RC lines and vitest summaries above):
+ Test Files  3 passed (3)
+      Tests  63 passed (63)
+Type Errors  no errors
+FOCUSED_EXIT=0
+PACKAGE_TSC_EXIT=0
+ Test Files  80 passed (80)
+      Tests  651 passed (651)
+Type Errors  no errors
+PACKAGE_SUITE_EXIT=0
+ROOT_TYPECHECK_EXIT=0
+
+SECTION 7 -- scope, justification, staging list, post-commit expectations
+
+7.1 Scope and non-mutation statement
+* SA3 writes this iteration (worktree): 13 evidence paths C1-normalized (whitespace only,
+  SECTION 1-2), this reconciliation log (new), and the SA3 implementation report
+  wiki/raw/task_issue-420_sa3_impl.md (iteration-1 section). Nothing else.
+* real git index: ZERO writes by SA3 (no git add / git commit / git push); every staging
+  verification above ran against the scratch index /tmp/sa3-420-scratch-index.
+* business surfaces: packages/**, docs/**, CONTEXT.md, .editorconfig, vitest.config.ts,
+  package.json, tsconfig* -- zero worktree diff and zero staged diff vs HEAD (SECTION 5);
+  all 13 ALLOW-LIST paths byte-identical to HEAD.
+* evidence preservation: every normalized path keeps its non-whitespace bytes and its
+  ordered rstrip'd content-line stream (SECTION 2, content-preservation fail count 0), so
+  no recorded result, count, path, verdict or conclusion was altered; only the C1 defect
+  (trailing whitespace before LF / one trailing blank line at EOF) was removed.
+* no hash registry is broken: the issue #420 reports register no sha256 over these artifact
+  logs (grep of wiki/raw/task_issue-420*.md for 40/64-hex digests returns only commit OIDs
+  and HEAD refs, which whitespace normalization cannot affect); no #420 analogue of the
+  #419 SA6 section-17 hash registry exists.
+
+7.2 Justification -- why this set is the delivery evidence set
+# 13 of the 16 candidate paths are cited by commit-a315e70 delivery reports (git grep over
+# HEAD:wiki/raw/task_issue-420_{design,sa2_review,sa3_impl,sa4_review,sa6_contract,sa7_report}.md):
+  cited-in-HEAD-reports: task_issue-420_implementation_conflict_report.md  <-  HEAD:design,HEAD:sa7_report
+  cited-in-HEAD-reports: sa3-issue420-design-letter-divergence.log  <-  HEAD:sa3_impl,HEAD:sa4_review
+  cited-in-HEAD-reports: sa3-issue420-mutation-M1-a12-red-arm.log  <-  HEAD:sa3_impl,HEAD:sa4_review
+  cited-in-HEAD-reports: sa3-issue420-mutation-M2-drop-open.log  <-  HEAD:sa3_impl
+  cited-in-HEAD-reports: sa3-issue420-mutation-M3-restamp-sequence.log  <-  HEAD:sa3_impl
+  cited-in-HEAD-reports: sa3-issue420-mutation-M4-disable-shim.log  <-  HEAD:sa3_impl
+  cited-in-HEAD-reports: sa3-issue420-mutation-M5-session-resequence-check.log  <-  HEAD:sa3_impl
+  cited-in-HEAD-reports: sa3-issue420-mutation-M7-reopen-reentry.log  <-  HEAD:sa3_impl
+  cited-in-HEAD-reports: sa3-issue420-mutation-M7b-drop-inflight-open.log  <-  HEAD:sa3_impl
+  cited-in-HEAD-reports: sa3-issue420-red-contract.log  <-  HEAD:sa3_impl
+  cited-in-HEAD-reports: sa6-issue420-runner-trigger-red.log  <-  HEAD:design,HEAD:sa6_contract
+  cited-in-HEAD-reports: sa7-issue420-focused-420-tests.log  <-  HEAD:sa7_report
+  cited-in-HEAD-reports: sa7-issue420-listen-matrix-baseline.log  <-  HEAD:sa7_report
+  cited-in-HEAD-reports: task_issue-420.md  <-  HEAD:design,HEAD:sa2_review,HEAD:sa3_impl,HEAD:sa4_review,HEAD:sa6_contract,HEAD:sa7_report
+  round-input (not cited by a report): task_issue-420_sa10_spec.md
+  round-input (not cited by a report): task_issue-420_sa9_standards.md
+# The remaining three are the Host issue brief (wiki/raw/task_issue-420.md) and the review
+# round approvals (issue-420_sa9_standards.md = verdict approve, issue-420_sa10_spec.md):
+# the delivery convention of this repository commits them with the branch (#418: brief +
+# sa9 + sa10 + sa10_spec; #421: brief + sa9 + sa10).
+# SA9 standards review of this delivery already registered the gap this iteration closes:
+# SA9 section 10 item M3 -- 'commit evidence set incomplete: ... still untracked worktree
+# files ... recommend the finalize/commit side completes them in the same delivery archive'.
+# Census (this iteration): artifacts paths with 'issue420' in the path -- 29 committed at
+# HEAD vs 42 in the worktree (13 untracked, of which 12 are normalized here and the 13th is
+# this log); wiki/raw 'task_issue-420*' -- 10 committed at HEAD vs 13 in the worktree (brief
+# + SA9 + SA10 untracked); tracked worktree modification -- the SA8 implementation conflict
+# report (iteration 6, updated after the delivery commit).
+
+7.3 Final byte identity of every candidate path (post-reconciliation sha256)
+# columns: path | sha256 | bytes | lines | trailing-ws | blank-at-eof | last byte | CR | canon-net
+wiki/raw/task_issue-420_implementation_conflict_report.md	590ef35da0e9dc4c3a7c5283504efceef5e56fc183507be1149ed3787cdbd507	33613	110	0	0	0a	0	0
+artifacts/sa3-issue420-design-letter-divergence.log	b4c7f8540df30af2b41b92bec377a0f45ed015466acf741888d9fbe649b2001b	11461	94	0	0	0a	0	0
+artifacts/sa3-issue420-mutation-M1-a12-red-arm.log	03237793be1e2fc5e266e1dfe392508185255451769cd67176c7627da43a909e	468	11	0	0	0a	0	0
+artifacts/sa3-issue420-mutation-M2-drop-open.log	d473d0bfc7205c92b5216eaac10e867c0fd6652aeae77d647f01c573b33b11d5	10912	166	0	0	0a	0	0
+artifacts/sa3-issue420-mutation-M3-restamp-sequence.log	d53d4aa081e84e432dc209a07893533eecb11aca0165186fe8fd603e86a44ce7	9012	137	0	0	0a	0	0
+artifacts/sa3-issue420-mutation-M4-disable-shim.log	a6025d4848875090d573c52d708ab36ddbd5de90c75bd5ed9b25a9ee3e36d596	10847	81	0	0	0a	0	0
+artifacts/sa3-issue420-mutation-M5-session-resequence-check.log	36d7512090d04ee660c0b78e5294ee70cb4ce8b91665e3172170b55ea136f623	10956	166	0	0	0a	0	0
+artifacts/sa3-issue420-mutation-M7-reopen-reentry.log	1689afe6dc61d7932e214d6746c009aa518abacef2487f323aea3271f63d0153	13891	129	0	0	0a	0	0
+artifacts/sa3-issue420-mutation-M7b-drop-inflight-open.log	b635a9474b43892d3d48434df8cafeb057bd284717b3ee7a07b31acaa07938db	11703	101	0	0	0a	0	0
+artifacts/sa3-issue420-red-contract.log	75109f57b153a9e78f663a3660eb1c8ff2689f5f923b7e2bc98cb798f4d4edb5	2689	59	0	0	0a	0	0
+artifacts/sa6-issue420-runner-trigger-red.log	b26a55ab841554b7b16ea88ed1814b98d8a5e57a6dcc37f1f9224e8d9a19fd20	5050	95	0	0	0a	0	0
+artifacts/sa7-issue420-focused-420-tests.log	37565aeee394eacd4a7504852e2a52e762342d147ea09be5af0d2ed661f81e27	573	11	0	0	0a	0	0
+artifacts/sa7-issue420-listen-matrix-baseline.log	9882feec7943e6acecca4b08c0453400ffef29cdf107591056548057684492cd	294	7	0	0	0a	0	0
+wiki/raw/task_issue-420.md	2eb0d8cb0bae20ac939c5fa0833d1fbb59dee599b24fd02a749a89bb78e44b4a	1502	31	0	0	0a	0	0
+wiki/raw/task_issue-420_sa10_spec.md	fba2b74af08caffe8567cf0521d75711e55a54b88b0d6c53234004f2187b5435	20375	162	0	0	0a	0	0
+wiki/raw/task_issue-420_sa9_standards.md	434fd8364db0d8555c036158bf3c87f83a09234565e11ae92d87c1fd0e442e21	29892	201	0	0	0a	0	0
+
+7.4 Exact staging list for the finalization commit (18 paths, worktree-relative)
+#   git add -A -- \
+#     wiki/raw/task_issue-420_implementation_conflict_report.md \
+#     artifacts/sa3-issue420-design-letter-divergence.log \
+#     artifacts/sa3-issue420-mutation-M1-a12-red-arm.log \
+#     artifacts/sa3-issue420-mutation-M2-drop-open.log \
+#     artifacts/sa3-issue420-mutation-M3-restamp-sequence.log \
+#     artifacts/sa3-issue420-mutation-M4-disable-shim.log \
+#     artifacts/sa3-issue420-mutation-M5-session-resequence-check.log \
+#     artifacts/sa3-issue420-mutation-M7-reopen-reentry.log \
+#     artifacts/sa3-issue420-mutation-M7b-drop-inflight-open.log \
+#     artifacts/sa3-issue420-red-contract.log \
+#     artifacts/sa6-issue420-runner-trigger-red.log \
+#     artifacts/sa7-issue420-focused-420-tests.log \
+#     artifacts/sa7-issue420-listen-matrix-baseline.log \
+#     wiki/raw/task_issue-420.md \
+#     wiki/raw/task_issue-420_sa10_spec.md \
+#     wiki/raw/task_issue-420_sa9_standards.md \
+#     artifacts/sa3-issue420-evidence-reconcile.log \
+#     wiki/raw/task_issue-420_sa3_impl.md
+# The controller stages exactly this list (SA3 changed paths + fixed artifacts); a staged
+# path that is never committed blocks finalization exactly like an untracked one.
+# Recommended commit message (controller-owned wording):
+#   test(ws-replication): canonicalize issue 420 evidence contract
+#   - C1-normalize the uncommitted issue #420 evidence set (12 artifact logs + Host brief):
+#     strip trailing whitespace before LF and the single trailing blank line at EOF
+#     (whitespace only; non-whitespace bytes and content lines byte-identical)
+#   - add the round approvals (sa9_standards, sa10_spec), the Host brief and the current
+#     SA8 implementation conflict report to the delivery archive (closes SA9 section 10 M3)
+#   - record the reconciliation evidence log; zero implementation/test/doc byte change
+
+7.5 Post-commit expectations (controller / next reviewer)
+# git show HEAD:artifacts/sa3-issue420-evidence-reconcile.log | sha256sum
+#   -> the value recorded in the SA3 implementation report (frozen after this section)
+# git show HEAD:<each of the 16 paths> | sha256sum
+#   -> must equal the 7.3 table values (the commit must carry the C1 bytes, not the raw ones)
+# The C1 form is idempotent under trailing-newline/whitespace normalization (no trailing
+# whitespace, exactly one final LF), so a commit-time normalizer cannot re-drift these bytes
+# (contrast the #419 incident where the raw registered form carried a trailing blank line).
+
+7.6 Residual items and interactions (not closed by this reconciliation)
+* R1 (controller, SA8 RA2): the SA8 implementation conflict report carried by this delivery
+     (iteration 6) concludes 'rebase readiness' with requiresConflictRecheck=true (narrow,
+     union-only recipe for packages/ws-replication/src/index.ts). SA9/SA10 approvals on this
+     delivery record approve with requiresConflictRecheck=false against the committed SA8
+     iteration-0 report. This reconciliation only makes the current artifacts committable; it
+     neither performs nor pre-empts the rebase, and it changes no verdict text.
+* R2 (controller, SA8 RA2): if the branch is rebased onto 1f5809b, the tree under every piece
+     of dynamic evidence changes, so those evidences must be re-taken on the rebased tree --
+     the C1 byte form recorded here stays valid, the tree binding does not.
+* R3 (registered, non-blocking): SA6 probe .mts files still import the pre-rename
+     createHubSessionHost (SA3 deviation 2 / SA8 RA4'' / SA9 M4); they are outside every gate
+     include surface. No action in this iteration.
+* R4 (registered, non-blocking): SA9 M7 / SA4 O7 log hygiene (mutation logs without command
+     echo) -- this iteration records the normalization command per path (SECTION 1) but does
+     not rewrite historical log bodies beyond the C1 whitespace defects.
+================================================================================

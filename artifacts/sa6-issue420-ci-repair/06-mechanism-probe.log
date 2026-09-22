@@ -1,0 +1,14 @@
+INFO head 5a4049d87bb3d244abed910e1bd372949501515c
+INFO hubSessionModuleExports ["createHubSessionSink"]
+INFO publicEntryHasCreateHubSessionHost function
+PASS A.staleName.createHubSessionHost.absent {"typeof":"undefined"}
+PASS B.renamedFactory.present {"typeof":"function"}
+PASS B.internalSurface.exact {"keys":["createHubSessionSink"]}
+PASS C.publicFactory.present {"typeof":"function"}
+PASS C.publicFactory.distinctFromInternalSplice {"distinct":true}
+PASS D.negativeControl.edgeModule {}
+PASS D.negativeControl.publicEntry {}
+PASS D.staleBinding.callIsTypeError {"name":"TypeError","message":"sessionModule.createHubSessionHost is not a function"}
+PASS E.lineage.parentExportPresent {"rev":"25c51cd","line":"export function createHubSessionHost(config: HubSessionHostConfig): HubSessionHost {"}
+SUMMARY 9/9 PASS
+PROBE_EXIT=0

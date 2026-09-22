@@ -1,0 +1,181 @@
+================================================================================
+SA3 iteration 3 -- real git index reconciliation of the C1 runner-trigger asset
+issue #419 / branch mabf/issue-419 / worktree /home/wangjian/nomicore-fix-issue-419
+dispatch=sa-13381561-06c2-4e24-9307-44e9f0a92d0a (mabf-sa3, phase=implementation, iteration=3)
+HEAD=02abf662c8ab8689bc3e407921839d509539c802  git=2.43.0
+real index=/home/wangjian/nomicore/.git/worktrees/nomicore-fix-issue-419/index
+Issue-comment REST snapshot = [] (empty, per dispatch) -- no owner requirements,
+comment IDs or timestamps exist to incorporate.
+
+Task: the approved C1 repair (SA6 contract section 17 = C1 canonical registry; section 18.11
+R1/R2) had already been applied to the WORKTREE, but the real index still carried the
+pre-C1 raw runner-trigger asset (blob c183ba29..., 70 lines/4322 B, trailing blank line),
+so the mandatory cached whitespace gate `git diff --cached --check` failed at
+`artifacts/sa6-issue419-runner-trigger.log:70: new blank line at EOF.` (blank-at-eof).
+Action taken (dispatch-authorized, index only): apply the approved C1 worktree form of that
+single path to the real index. Nothing else was written to the index and no worktree asset
+byte was rewritten.
+================================================================================
+
+SECTION 0 -- PRE-STATE (real index, before the action; read-only)
+--- captured verbatim ---
+### PRE-STATE ###
+HEAD=02abf662c8ab8689bc3e407921839d509539c802
+REAL_INDEX_PATH=/home/wangjian/nomicore/.git/worktrees/nomicore-fix-issue-419/index
+REAL_INDEX_SHA256_PRE=b66c9ebbf74239452e6c6bc75af8a9d4cb212e9c2c0c82689c4da012af1edda4
+--- git ls-files -s (both assets) ---
+100644 0996a3249e81f201f57aafb8278f5a4e4b11948c 0	artifacts/sa3-issue419-f1-evidence-restore.log
+100644 c183ba296bbb886931b1b2adc2e24d4f930f0d7a 0	artifacts/sa6-issue419-runner-trigger.log
+--- staged blob for runner: raw? ---
+4322
+RAW_BLOB_SIZE_ABOVE(expect 4322)
+--- HEAD blob for runner ---
+4321
+HEAD_BLOB_SIZE_ABOVE(expect 4321)
+--- worktree runner hash-object ---
+46ff267d3451c22147b759002aee3345d09871a9
+--- gate (pre) ---
+artifacts/sa6-issue419-runner-trigger.log:70: new blank line at EOF.
+GATE_RC=2
+
+SECTION 1 -- ACTION and POST-STATE
+command: git add -- artifacts/sa6-issue419-runner-trigger.log
+  (worktree bytes already = HEAD blob 46ff267d...; this records that exact C1 form in the
+   index, i.e. the staged half of SA6 section 18.11 R1. No worktree file was rewritten.)
+--- captured verbatim ---
+### ACTION: git add -- artifacts/sa6-issue419-runner-trigger.log (apply C1 worktree form to real index) ###
+GIT_ADD_RC=0
+--- post git ls-files -s ---
+100644 0996a3249e81f201f57aafb8278f5a4e4b11948c 0	artifacts/sa3-issue419-f1-evidence-restore.log
+100644 46ff267d3451c22147b759002aee3345d09871a9 0	artifacts/sa6-issue419-runner-trigger.log
+--- post status --porcelain -uall ---
+A  artifacts/sa3-issue419-c1-staging-verification.log
+A  artifacts/sa3-issue419-f1-evidence-restore.log
+A  artifacts/sa6-issue419-eof-gate-conflict.log
+M  wiki/raw/task_issue-419_implementation_conflict_report.md
+A  wiki/raw/task_issue-419_sa10_spec.md
+M  wiki/raw/task_issue-419_sa3_impl.md
+M  wiki/raw/task_issue-419_sa4_review.md
+M  wiki/raw/task_issue-419_sa6_contract.md
+A  wiki/raw/task_issue-419_sa6_whitespace_gate_check.sh
+A  wiki/raw/task_issue-419_sa9_standards.md
+?? .scratch/sa3-419-iter3/post.log
+?? .scratch/sa3-419-iter3/pre.log
+--- post gate ---
+GATE_RC=0
+--- runner still in staged changeset? (expect empty) ---
+--- any staged entry equal to raw blob c183ba29? (expect empty) ---
+NONE_RAW_RUNNER_BLOB_STAGED
+--- staged changeset (name-status) ---
+A	artifacts/sa3-issue419-c1-staging-verification.log
+A	artifacts/sa3-issue419-f1-evidence-restore.log
+A	artifacts/sa6-issue419-eof-gate-conflict.log
+M	wiki/raw/task_issue-419_implementation_conflict_report.md
+A	wiki/raw/task_issue-419_sa10_spec.md
+M	wiki/raw/task_issue-419_sa3_impl.md
+M	wiki/raw/task_issue-419_sa4_review.md
+M	wiki/raw/task_issue-419_sa6_contract.md
+A	wiki/raw/task_issue-419_sa6_whitespace_gate_check.sh
+A	wiki/raw/task_issue-419_sa9_standards.md
+REAL_INDEX_SHA256_POST=257d6c10c66dc5922eb7c909e2258214b3e5165f2202409fcb26041b304ad254
+
+SECTION 2 -- INDEPENDENT C1 VERIFICATION of every staged path (staged blob, not the diff)
+--- captured verbatim ---
+### INDEPENDENT C1 VERIFICATION -- every path in the staged changeset ###
+rule: trailing_ws lines == 0; no blank line at EOF; last byte == LF; CR == 0; C1-normalization net change == 0; git diff --no-index --check silent (rc 1 = bytes differ only); worktree bytes == index bytes
+staged_path_count=10
+artifacts/sa3-issue419-c1-staging-verification.log             PASS blob=6a1e503b3e lines=294    bytes=24955   trailing_ws=0 blank_at_eof=0 last_byte=\n CR=0 canon_net=0 noindex_rc=1 wt_eq_idx=YES
+artifacts/sa3-issue419-f1-evidence-restore.log                 PASS blob=0996a3249e lines=221    bytes=15420   trailing_ws=0 blank_at_eof=0 last_byte=\n CR=0 canon_net=0 noindex_rc=1 wt_eq_idx=YES
+artifacts/sa6-issue419-eof-gate-conflict.log                   PASS blob=b3b4cdf676 lines=173    bytes=12258   trailing_ws=0 blank_at_eof=0 last_byte=\n CR=0 canon_net=0 noindex_rc=1 wt_eq_idx=YES
+wiki/raw/task_issue-419_implementation_conflict_report.md      PASS blob=b65c4bc76f lines=95     bytes=22158   trailing_ws=0 blank_at_eof=0 last_byte=\n CR=0 canon_net=0 noindex_rc=1 wt_eq_idx=YES
+wiki/raw/task_issue-419_sa10_spec.md                           PASS blob=67cc24c34a lines=89     bytes=19077   trailing_ws=0 blank_at_eof=0 last_byte=\n CR=0 canon_net=0 noindex_rc=1 wt_eq_idx=YES
+wiki/raw/task_issue-419_sa3_impl.md                            PASS blob=b60c43036e lines=384    bytes=48689   trailing_ws=0 blank_at_eof=0 last_byte=\n CR=0 canon_net=0 noindex_rc=1 wt_eq_idx=YES
+wiki/raw/task_issue-419_sa4_review.md                          PASS blob=45e2aef823 lines=197    bytes=22259   trailing_ws=0 blank_at_eof=0 last_byte=\n CR=0 canon_net=0 noindex_rc=1 wt_eq_idx=YES
+wiki/raw/task_issue-419_sa6_contract.md                        PASS blob=a93fccdba5 lines=479    bytes=55800   trailing_ws=0 blank_at_eof=0 last_byte=\n CR=0 canon_net=0 noindex_rc=1 wt_eq_idx=YES
+wiki/raw/task_issue-419_sa6_whitespace_gate_check.sh           PASS blob=00be34299f lines=324    bytes=20857   trailing_ws=0 blank_at_eof=0 last_byte=\n CR=0 canon_net=0 noindex_rc=1 wt_eq_idx=YES
+wiki/raw/task_issue-419_sa9_standards.md                       PASS blob=0a3bf1c600 lines=71     bytes=11289   trailing_ws=0 blank_at_eof=0 last_byte=\n CR=0 canon_net=0 noindex_rc=1 wt_eq_idx=YES
+STAGED_SET_ALL_C1_CLEAN_AND_FULLY_STAGED=YES
+C1_SCAN_FAIL_COUNT=0
+
+### MANDATORY GATE (real index, complete candidate changeset) ###
+GATE_RC=0
+
+SECTION 3 -- SA6 section 17 registry cross-check (read-only; C1 = canonical form)
+--- captured verbatim ---
+### SA6 §17 REGISTRY CROSS-CHECK (read-only) ###
+----------------------------------------------------------------
+REGISTRY CHECK -- section 17 rows vs computed bytes (read-only; C1 = canonical form)
+worktree=/home/wangjian/nomicore-fix-issue-419 HEAD=02abf662c8ab8689bc3e407921839d509539c802
+wiki/raw/task_issue-419_sa6_route_key_probe.mts            canonical sha256=b340dcd37681d9a5499d82647e9536de637addb1994baca0a874165d843e1407 registry=b340dcd37681d9a5499d82647e9536de637addb1994baca0a874165d843e1407 MATCH
+wiki/raw/task_issue-419_sa6_route_key_mutation_driver.mts  canonical sha256=3631b43f29f3471bac6a8ea34cd74cfecd70af14e2a54b535b160132f4da0e19 registry=3631b43f29f3471bac6a8ea34cd74cfecd70af14e2a54b535b160132f4da0e19 MATCH
+artifacts/sa6-issue419-probe-green.log                     canonical sha256=1960c24a7011331f24f5c9ebb5f6951b17d2787b9dd3bddcb1edd5ffb5a1560a registry=1960c24a7011331f24f5c9ebb5f6951b17d2787b9dd3bddcb1edd5ffb5a1560a MATCH
+artifacts/sa6-issue419-mutation-sensitivity.log            canonical sha256=c8f67f9bdf7d59211be5264950452713ca4844a111a7f9d0a6952089678accc8 registry=c8f67f9bdf7d59211be5264950452713ca4844a111a7f9d0a6952089678accc8 MATCH
+artifacts/sa6-issue419-capability-gap.log                  canonical sha256=b054b3c022cd7c5383c59980ab1a0fa93262e863459ed71c9b3b96edab63a175 registry=b054b3c022cd7c5383c59980ab1a0fa93262e863459ed71c9b3b96edab63a175 MATCH
+artifacts/sa6-issue419-package-tsc-baseline.log            canonical sha256=1f23a7a0ed185aeb2df7f0ac660dcc430854e38ceaa9d9d68eecba038a5b24a4 registry=1f23a7a0ed185aeb2df7f0ac660dcc430854e38ceaa9d9d68eecba038a5b24a4 MATCH
+-- runner-trigger.log: registry is over C1 (canonical projection of the working tree)
+   C1        sha256=23787bf1a40c183b69c9903a4c26cedb0737b391f490fb5eb9156f361bfed372 registry=23787bf1a40c183b69c9903a4c26cedb0737b391f490fb5eb9156f361bfed372 MATCH
+   HEAD blob 46ff267d3451c22147b759002aee3345d09871a9 sha256=23787bf1a40c183b69c9903a4c26cedb0737b391f490fb5eb9156f361bfed372 (committed bytes == C1: YES)
+   working-tree sha256=23787bf1a40c183b69c9903a4c26cedb0737b391f490fb5eb9156f361bfed372 = superseded raw registration 96abbb72ecefdc3ad2b37bc8cfcdbb011e7c43b409c0b5f130c7a3e7a1b2e06c MISMATCH
+-- f1 log: registry is over C1
+   C1        sha256=3b861d2dc34eff92686d52d29e746acade673831769ca9226fd5835304b45c15 registry=3b861d2dc34eff92686d52d29e746acade673831769ca9226fd5835304b45c15 MATCH
+   working-tree sha256=3b861d2dc34eff92686d52d29e746acade673831769ca9226fd5835304b45c15 = superseded raw registration 2932f2a773a4c0a6a30432983685b613bb51a16504fd61f9e376167002d974a3 MISMATCH
+wiki/raw/task_issue-419_sa6_whitespace_gate_check.sh       canonical sha256=b7e2011320efdc5d11729044c4c0eaa933667112aaa18000b797dc2e52656e73 registry=b7e2011320efdc5d11729044c4c0eaa933667112aaa18000b797dc2e52656e73 MATCH
+artifacts/sa6-issue419-eof-gate-conflict.log               canonical sha256=d152aeff053128d516cccf8a572595bb2f5658656f4c8452a3c9a00d622c529a registry=d152aeff053128d516cccf8a572595bb2f5658656f4c8452a3c9a00d622c529a MATCH
+-- git blob entries for the canonical forms
+   46ff267d3451c22147b759002aee3345d09871a9 artifacts/sa6-issue419-runner-trigger.log (C1)   0996a3249e81f201f57aafb8278f5a4e4b11948c artifacts/sa3-issue419-f1-evidence-restore.log (C1)
+----------------------------------------------------------------
+REGISTRY_RC=0
+
+### SCRATCH CLEANUP CHECK (registry mode is read-only) ###
+SCRATCH_ABSENT
+NOTE: the two "superseded raw ... MISMATCH" lines are EXPECTED: the worktree no longer holds
+the legacy raw forms. Every authoritative C1 registry row (10 rows) reports MATCH.
+
+SECTION 4 -- business semantics preservation
+--- captured verbatim ---
+### BUSINESS SEMANTICS PRESERVATION (source / test / docs byte-identity) ###
+$ git diff --stat -- packages/replication-protocol/src
+SRC_DIFF_RC=0 (empty output expected)
+$ git diff --cached --stat -- packages/replication-protocol/src
+SRC_CACHED_DIFF_RC=0 (empty output expected)
+$ git diff HEAD --stat -- packages docs CONTEXT.md .editorconfig vitest.config.ts
+SCOPE_DIFF_RC=0
+$ git diff --cached HEAD --name-only -- packages docs CONTEXT.md .editorconfig
+SCOPE_CACHED_RC=0 (empty = no business path staged)
+$ sha256sum packages/replication-protocol/test/codec-route-key-guard.test.ts
+32aa83a5ffaa6a3c5499f7fbfc324e515d25e8b5b68fb2e2a503cf5d67e403d4  packages/replication-protocol/test/codec-route-key-guard.test.ts
+743 packages/replication-protocol/test/codec-route-key-guard.test.ts
+--- guard contract (red-light contract) re-run: NODE_OPTIONS=--conditions=nomicore-source
+    pnpm exec vitest run packages/replication-protocol/test/codec-route-key-guard.test.ts ---
+ Test Files  1 passed (1)
+      Tests  19 passed (19)
+Type Errors  no errors
+   Duration  305ms (transform 108ms, setup 0ms, collect 129ms, tests 22ms, environment 0ms, prepare 49ms)
+GUARD_EXIT=0
+
+SECTION 5 -- scope and non-mutation statement
+* index writes by SA3 this iteration: exactly one entry (runner-trigger.log -> C1 blob
+  46ff267d...). No other index entry was modified by SA3; all other staged paths were
+  already staged in C1 form by the Controller.
+* worktree writes by SA3 this iteration: this evidence log, the SA3 implementation report
+  (wiki/raw/task_issue-419_sa3_impl.md), and nothing else. Runner/f1/SA6 asset bytes: zero.
+* no raw runner-trigger asset remains staged: the path is absent from the staged changeset
+  (index == HEAD), and no staged entry equals raw blob c183ba29... .
+* business surfaces: packages/**, docs/**, CONTEXT.md, .editorconfig, vitest.config.ts,
+  tsconfig*.json -- zero worktree diff and zero staged diff (section 4).
+* guard contract unchanged: sha256 32aa83a5ffaa6a3c5499f7fbfc324e515d25e8b5b68fb2e2a503cf5d67e403d4
+  (743 lines), 19/19 green, no type errors.
+* evidence preserved: SA6 section 17 assets (probe/driver/6 logs/script) all MATCH; the
+  legacy raw registrations remain documented as legacy/superseded.
+
+SECTION 6 -- post-commit expectations and follow-ups
+R5 (Controller, after commit):
+  git show HEAD:artifacts/sa6-issue419-runner-trigger.log | sha256sum
+    expected 23787bf1a40c183b69c9903a4c26cedb0737b391f490fb5eb9156f361bfed372
+  git show HEAD:artifacts/sa3-issue419-f1-evidence-restore.log | sha256sum
+    expected 3b861d2dc34eff92686d52d29e746acade673831769ca9226fd5835304b45c15
+The C1 form is idempotent under trailing-newline normalization (exactly one final LF), so the
+commit-time normalization inferred in SA6 section 18.7 cannot re-break it.
+This log carries no self-hash (it cannot contain its own digest); its sha256 and its C1
+self-check are recorded in the SA3 implementation report, computed after this file froze.
+================================================================================

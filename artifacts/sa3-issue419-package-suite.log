@@ -1,0 +1,30 @@
+# SA3 AC5 gate — package suite (issue #419)
+# 2026-09-21T14:53:35Z
+$ NODE_OPTIONS=--conditions=nomicore-source pnpm exec vitest run --typecheck packages/replication-protocol
+Testing types with tsc and vue-tsc is an experimental feature.
+Breaking changes might not follow SemVer, please pin Vitest's version when using it.
+
+ RUN  v3.2.7 /home/wangjian/nomicore-fix-issue-419
+
+ ✓ packages/replication-protocol/test/codec-fuzz-property.test.ts (5 tests) 163ms
+ ✓ packages/replication-protocol/test/codec-roundtrip-truncation.test.ts (8 tests) 89ms
+ ✓ packages/replication-protocol/test/codec-issue242-ac-red.test.ts (29 tests) 15ms
+ ✓ packages/replication-protocol/test/codec-route-key-guard.test.ts (19 tests) 22ms
+ ✓ packages/replication-protocol/test/codec-version-interop.test.ts (25 tests) 12ms
+ ✓ packages/replication-protocol/test/codec-issue299-ac-red.test.ts (17 tests) 9ms
+ ✓ packages/replication-protocol/test/codec-registries.test.ts (13 tests) 17ms
+ ✓ packages/replication-protocol/test/codec-messages-golden.test.ts (27 tests) 16ms
+ ✓ packages/replication-protocol/test/codec-malformed.test.ts (37 tests) 12ms
+ ✓  TS  packages/replication-protocol/test/codec-api.test-d.ts (8 tests)
+ ✓ packages/replication-protocol/test/codec-issue246-doc-contract.test.ts (22 tests) 7ms
+ ✓ packages/replication-protocol/test/codec-package-contract.test.ts (5 tests) 6ms
+ ✓ packages/replication-protocol/test/codec-issue299-encode-symmetry.test.ts (5 tests) 6ms
+ ✓ packages/replication-protocol/test/codec-envelope.test.ts (13 tests) 7ms
+
+ Test Files  14 passed (14)
+      Tests  233 passed (233)
+Type Errors  no errors
+   Start at  22:53:35
+   Duration  2.93s (transform 216ms, setup 0ms, collect 548ms, tests 381ms, environment 2ms, prepare 666ms, typecheck 2.38s)
+
+EXIT=0

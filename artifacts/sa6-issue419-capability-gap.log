@@ -1,0 +1,27 @@
+# capability-gap evidence — issue #419 route-key layout guard (SA6, HEAD 27e012b, 2026-09-21T14:28:39Z)
+
+## A. 路由键布局事实/偏移在 src 与 test 中的任何出现（src+test 全量）
+$ grep -rnE "21\.\.56|22\.\.57|NAMESPACE_DOMAIN|ROUTE_KEY|routeKey|NS_OFFSET|LAYOUT_|route-key" packages/replication-protocol/src packages/replication-protocol/test packages/ws-replication/src packages/ws-replication/test
+(no matches)
+
+## B. codec 源码是否暴露任何布局/偏移常量
+$ grep -rnE "OFFSET|LAYOUT" packages/replication-protocol/src
+(no matches)
+
+## C. 既有测试对帧字节偏移的断言面（仅 envelope 头 + UPDATE_CHUNK 首字节）
+$ grep -rnE "bytes\[(1|2)[0-9]\]|payload\[(0|1)\]|subarray\(20\)" packages/replication-protocol/test
+packages/replication-protocol/test/codec-issue299-ac-red.test.ts:285:      const payload = hexToBytes(golden.frameHex).subarray(20);
+packages/replication-protocol/test/codec-issue299-ac-red.test.ts:286:      const kindByte = payload[0];
+
+  ↑ 命中处语义（亲核阅读）：
+  - codec-envelope.test.ts:52-65 只逐个 offset 断言 20-byte 头（0/4/5/6/8/12/16）
+  - codec-issue299-ac-red.test.ts:285-290 只断言 UPDATE_CHUNK payload 首字节 ∈ {0,1,2}（帧 offset 20），未断言 namespaceId 偏移/长度前缀
+  - codec-messages-golden.test.ts 全帧十六进制等式（21 golden），不点名路由键事实
+
+## D. 任何 ERROR 字段序/走查守卫
+$ grep -rnE "walkError|field-order|namespaceId marker|relatedSequence marker" packages/replication-protocol/test
+packages/replication-protocol/test/codec-malformed.test.ts:143:  it('ERROR relatedSequence marker=02 → MALFORMED_FRAME', () => {
+packages/replication-protocol/test/codec-messages-golden.test.ts:296:    // relatedSequence marker 01 + 0c, namespaceId marker 01 + ns, safeMessage
+
+## E. ws-replication 侧路由键消费者（ADR 0032 edge）是否已存在
+(no matches — edge/SessionHost 拆分尚未实现，路由键布局事实无任何运行期消费者/登记点)

@@ -1,0 +1,101 @@
+Testing types with tsc and vue-tsc is an experimental feature.
+Breaking changes might not follow SemVer, please pin Vitest's version when using it.
+
+ RUN  v3.2.7 /home/wangjian/nomicore-fix-issue-420
+
+ ❯ packages/ws-replication/test/ws-replication-issue420-shim-matrix.test.ts (53 tests | 2 failed) 292ms
+   ✓ AC1/AC2：Peer target、Hub 授权与 OPEN 选择/拒绝 > 幸福路径：HELLO→OPEN(bootstrap)→OPEN_OK(mode 0)；wire 永不携带 owner；授权结果驱动 Hub 打开（HUB_OWNER 独立于 Peer localOwner） 31ms
+   ✓ AC1/AC2：Peer target、Hub 授权与 OPEN 选择/拒绝 > AC2 未授权：denied → NAMESPACE_UNAUTHORIZED（含缺失 namespace 也不泄露存在性） 2ms
+   ✓ AC1/AC2：Peer target、Hub 授权与 OPEN 选择/拒绝 > AC2 缺失：授权允许但 Hub 无该 namespace → NAMESPACE_NOT_FOUND 1ms
+   ✓ AC1/AC2：Peer target、Hub 授权与 OPEN 选择/拒绝 > AC2 禁用：namespace 存在但复制未启用 → REPLICATION_NOT_ENABLED 3ms
+   ✓ AC1/AC2：Peer target、Hub 授权与 OPEN 选择/拒绝 > AC2 谱系不符：replicationId 不一致 → REPLICATION_ID_MISMATCH → conflicted；本地副本不被覆盖 4ms
+   ✓ AC1/AC2：Peer target、Hub 授权与 OPEN 选择/拒绝 > AC2 epoch 不符：replicationEpoch 不一致 → REPLICATION_EPOCH_MISMATCH → conflicted 3ms
+   ✓ AC1/AC2：Peer target、Hub 授权与 OPEN 选择/拒绝 > AC2 读权限缺失：read:false → 与 denied 等价拒绝（授权结果即 OPEN 门禁） 5ms
+   ✓ AC1/AC2：Peer target、Hub 授权与 OPEN 选择/拒绝 > AC1 提交权限：submit:false → Hub 拒绝 peer UPDATE（零写入、无 UPDATE_ACK、namespace 收口）,不触发 Hub 侧 owner 泄漏 8ms
+   × AC1/AC2：Peer target、Hub 授权与 OPEN 选择/拒绝 > AC2/§7.1 重复 OPEN 合流：opening 中重复 OPEN 两个请求都收到 OPEN_OK 11ms
+     → expected [ { header: { …(6) }, …(1) } ] to have a length of 2 but got 1
+   ✓ AC1/AC2：Peer target、Hub 授权与 OPEN 选择/拒绝 > AC2/§16 closed/conflicted 后不得重开：conflicted 后同连接再 OPEN → NAMESPACE_REOPEN_REQUIRES_RECONNECT 3ms
+   ✓ AC1/AC2：Peer target、Hub 授权与 OPEN 选择/拒绝 > AC2/§19 未知 target：hub→peer 从未请求的 namespace OPEN → TARGET_NOT_REQUESTED 且不自动创建 5ms
+   ✓ AC1/AC2：Peer target、Hub 授权与 OPEN 选择/拒绝 > AC1 幂等 addTarget/removeTarget：重复 add 只发一个 OPEN；未知 remove 幂等；closed 后 add 重建连接 7ms
+   ✓ AC3：Bootstrap 单帧快照 / 排他导入 / ACK / 强制 reconciliation > 完整链路：OPEN_OK(0) → 恰一帧 BOOTSTRAP_SNAPSHOT（完整 update）→ BOOTSTRAP_ACK → 立即发起 round 1 9ms
+   ✓ AC3：Bootstrap 单帧快照 / 排他导入 / ACK / 强制 reconciliation > AC3/§8.1 超限：snapshot 超过 maxBootstrapBytes → BOOTSTRAP_TOO_LARGE（不分块、不 fallback） 2ms
+   ✓ AC3：Bootstrap 单帧快照 / 排他导入 / ACK / 强制 reconciliation > AC3/§8.1 并发 duplicate：导入竞态被占位 → BOOTSTRAP_FAILED，绝不覆盖既有副本 3ms
+   ✓ AC3：Bootstrap 单帧快照 / 排他导入 / ACK / 强制 reconciliation > AC3/§18 bootstrap timeout：快照丢失 → 收口 failed（瞬态）→ 本端重建连接 → 新 wire 合法重发快照 → 收敛 live（issue #254 方向 A） 6ms
+   ✓ AC4：双向 reconciliation 与 SYNC_APPLIED 门禁 > reconcile 幸福路径：OPEN(reconcile)→OPEN_OK(1)→双方 Step1/Step2/Applied→两侧数据互换→live 4ms
+   ✓ AC4：双向 reconciliation 与 SYNC_APPLIED 门禁 > AC4/§9.3 缺少对端 SYNC_APPLIED：只差一个确认仍不进入 live；reconcile timeout 收口 failed 后由本端重建连接回 live（issue #254 方向 A） 6ms
+   ✓ AC4：双向 reconciliation 与 SYNC_APPLIED 门禁 > AC4/§9.2 错序：round 开始前的 SYNC_STEP2 → SYNC_STATE_VIOLATION（round 永不开始） 3ms
+   ✓ AC4：双向 reconciliation 与 SYNC_APPLIED 门禁 > AC4/§9.1 重复 Step1（同 round）：每方向每 round 只允许一个 Step1 → SYNC_STATE_VIOLATION 5ms
+   ✓ AC4：双向 reconciliation 与 SYNC_APPLIED 门禁 > AC4/§9.3 空 diff：无新状态也完整走 Step2/Applied 并进入 live 3ms
+   ✓ AC5：Live UPDATE/UPDATE_ACK 与排序、dirty、fan-out、窗口 > UPDATE → Hub 单槽 apply+dirty → UPDATE_ACK（ackedSequence=UPDATE 的 sequence），Hub 数据收敛 5ms
+   ✓ AC5：Live UPDATE/UPDATE_ACK 与排序、dirty、fan-out、窗口 > ACK 语义：只在 sequenced live apply + dirty notification 完成后发出（saveDoc 门闩时序） 6ms
+   ✓ AC5：Live UPDATE/UPDATE_ACK 与排序、dirty、fan-out、窗口 > Hub 单 observer 多 session fan-out：A 的 update 不回送 A，B 收到 UPDATE 并 ACK，B 数据收敛 10ms
+   ✓ AC5：Live UPDATE/UPDATE_ACK 与排序、dirty、fan-out、窗口 > 滑动窗口：maxInFlightUpdates=2 时第三笔 UPDATE 被抑制；窗口收口后放行 10ms
+   ✓ AC5：Live UPDATE/UPDATE_ACK 与排序、dirty、fan-out、窗口 > 重复/已包含 update 仍正常 ACK（Yjs 幂等；不因重复而违反窗口/ACK 语义） 8ms
+   ✓ AC5：Live UPDATE/UPDATE_ACK 与排序、dirty、fan-out、窗口 > ACK_STATE_VIOLATION：未知 ackedSequence → connection fatal（ERROR + 关闭） 3ms
+   ✓ AC5：Live UPDATE/UPDATE_ACK 与排序、dirty、fan-out、窗口 > UPDATE_TOO_LARGE：live apply 前大小限制拒绝（零写入） 4ms
+   ✓ AC6：resync / ACK timeout / close / terminal ERROR / identity / socket loss / reconnect > RESYNC_REQUIRED：队列溢出 → needs-resync + RESYNC_REQUIRED；随后新 roundId 重收口到 live，丢弃增量由 diff 补齐 5ms
+   ✓ AC6：resync / ACK timeout / close / terminal ERROR / identity / socket loss / reconnect > ACK timeout：不重发同一 UPDATE；needs-resync → 新 round 响应触发 SEQUENCE_VIOLATION fatal → 重建后收敛（跨连接形态） 9ms
+   ✓ AC6：resync / ACK timeout / close / terminal ERROR / identity / socket loss / reconnect > 正常 close：removeTarget → CLOSE_NAMESPACE → CLOSE_OK(ackedSequence) → closed；不等待在途 ACK（无丢帧形态） 6ms
+   ✓ AC6：resync / ACK timeout / close / terminal ERROR / identity / socket loss / reconnect > terminal ERROR → failed：namespace 收口后不再有后续帧 4ms
+   ✓ AC6：resync / ACK timeout / close / terminal ERROR / identity / socket loss / reconnect > IDENTITY_CHANGED：Hub epoch bump → conflicted；META 不当普通 live UPDATE 应用；本地副本身份不变 4ms
+   ✓ AC6：resync / ACK timeout / close / terminal ERROR / identity / socket loss / reconnect > socket 断开：namespace → disconnected、无 outbox；重连后 state-vector round 修复断线写 6ms
+   ✓ AC6：resync / ACK timeout / close / terminal ERROR / identity / socket loss / reconnect > bootstrap 中断线：重连后从快照重新 bootstrap 到 live（竞态由新一次完整 snapshot 补齐） 4ms
+   ✓ AC7：fake-duplex 确定性故障注入 > 错序：OPEN_OK 之前的 UPDATE → NAMESPACE_STATE_VIOLATION（§7.2 OPEN 前不得收发 namespace 帧） 6ms
+   ✓ AC7：fake-duplex 确定性故障注入 > 重复控制帧：同 round 重复 SYNC_APPLIED → SYNC_STATE_VIOLATION（控制帧不靠幂等静默吞掉） 4ms
+   ✓ AC7：fake-duplex 确定性故障注入 > apply 失败：无法解码的 update → APPLY_FAILED 且 live 零写入（无 ACK） 3ms
+   ✓ AC7：fake-duplex 确定性故障注入 > degraded（hub 侧）：PERSISTENCE_DEGRADED 拒绝 peer update；恢复后 reconciliation 补齐 5ms
+   ✓ AC7：fake-duplex 确定性故障注入 > degraded（peer 侧）：hub→peer 仍内存 apply + saveDoc 登记；UPDATE_ACK 照发 3ms
+   ✓ AC7：fake-duplex 确定性故障注入 > cleanup 竞态：removeTarget 与在途 apply 并发——已接纳 apply 无条件完成，CLOSE_OK 只在 apply settle 后 4ms
+   ✓ AC7：fake-duplex 确定性故障注入 > cleanup 竞态：socket 断开与在途 apply 并发——已接纳 apply 无条件完成（drain） 3ms
+   ✓ AC7：fake-duplex 确定性故障注入 > cleanup 合流：并发 removeTarget ×2 → 合并到同一清理（恰一个 CLOSE 帧、两承诺同 settle） 2ms
+   ✓ AC7：fake-duplex 确定性故障注入 > 构造期响亮校验（§17）：maxInFlightUpdates<1 / lowWater>=highWater / maxUpdateBytes 超 frame 上限 → 同步 TypeError，绝不运行时 clamp 1ms
+   ✓ AC7：fake-duplex 确定性故障注入 > 保护检查（§20）：peer→hub SCHEMA 篡改 → PROTECTED_FIELD_MUTATION 且 live 零写入 3ms
+   ✓ AC7：fake-duplex 确定性故障注入 > 保护检查（§20）：peer→hub 复制身份 META 篡改 → PROTECTED_FIELD_MUTATION（身份不漂移） 4ms
+   ✓ AC7：fake-duplex 确定性故障注入 > 错误 round（§9.3）：不依赖 Yjs 幂等静默吞掉——SYNC_STATE_VIOLATION 5ms
+   ✓ issue #192：周期 reconciliation > 仅在 live 的间隔边界触发，并在完成后重新武装 9ms
+   ✓ issue #192：周期 reconciliation > 进行中的周期 round 不重叠 13ms
+   ✓ issue #192：周期 reconciliation > 修复未触发显式 resync 的静默 UPDATE 丢失 4ms
+   ✓ issue #192：周期 reconciliation > 重连取消旧代 timer，并从新 live 代际重新计时 5ms
+   ✓ issue #192：周期 reconciliation > stop 清理周期 timer，不复活 namespace 3ms
+   × @420 AC3 反空跑：shim 臂必须真的走了 shim 装配（非 listen 空转） > 反空跑：连接/会话/缝帧/拒绝路由计数 + 缝内非 OPEN 序非 0 + 生产信号面在场 3ms
+     → expected 0 to be greater than or equal to 1
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 2 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  packages/ws-replication/test/ws-replication-issue420-shim-matrix.test.ts > AC1/AC2：Peer target、Hub 授权与 OPEN 选择/拒绝 > AC2/§7.1 重复 OPEN 合流：opening 中重复 OPEN 两个请求都收到 OPEN_OK
+AssertionError: expected [ { header: { …(6) }, …(1) } ] to have a length of 2 but got 1
+
+- Expected
++ Received
+
+- 2
++ 1
+
+ ❯ packages/ws-replication/test/ws-replication-ac1-ac2-open.test.ts:236:38
+    234|     await settle();
+    235|     // 两个请求都收到应答（合流底层操作）
+    236|     expect(run.hubFrames('OPEN_OK')).toHaveLength(2);
+       |                                      ^
+    237|     expect(run.authorizer.calls.length).toBeGreaterThanOrEqual(1);
+    238|   });
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/2]⎯
+
+ FAIL  packages/ws-replication/test/ws-replication-issue420-shim-matrix.test.ts > @420 AC3 反空跑：shim 臂必须真的走了 shim 装配（非 listen 空转） > 反空跑：连接/会话/缝帧/拒绝路由计数 + 缝内非 OPEN 序非 0 + 生产信号面在场
+AssertionError: expected 0 to be greater than or equal to 1
+ ❯ packages/ws-replication/test/ws-replication-issue420-shim-matrix.test.ts:69:50
+     67|     expect(sum((probe) => probe.denialRouted)).toBeGreaterThanOrEqual(…
+     68|     expect(sum((probe) => probe.reopenForwarded)).toBeGreaterThanOrEqu…
+     69|     expect(sum((probe) => probe.pendingFlushed)).toBeGreaterThanOrEqua…
+       |                                                  ^
+     70|     expect(sum((probe) => probe.pendingOverflow)).toBe(0);
+     71|     // 公共句柄每 (连接, ns) 恰 1：重复 open() 会被工厂前置 throw 并被续体兜底为
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/2]⎯
+
+
+ Test Files  1 failed (1)
+      Tests  2 failed | 51 passed (53)
+Type Errors  no errors
+   Start at  03:26:45
+   Duration  1.48s (transform 733ms, setup 0ms, collect 1.01s, tests 292ms, environment 0ms, prepare 48ms)

@@ -1,0 +1,5 @@
+PASS A.zeroWorkerApiReferences {"grepHits":"","targets":["packages/ws-replication/src","packages/ws-replication/package.json"]}
+PASS B.d1_descriptorIsPureJson {"keys":["authorization","connectionId","connectionKey","namespaceId","remoteInstanceId","selectedCapabilities"],"jsonEqual":true}
+PASS B.negativeControl_d2_functionBearingDescriptorRejected {"injectedError":"DataCloneError"}
+PASS C.framesAreUint8Array {"isUint8Array":true,"placeholderSequence":0}
+PROBE_RESULT 4/4 passed; seam purity gate BASELINE GREEN (must remain after #420)

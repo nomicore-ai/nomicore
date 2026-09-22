@@ -1,0 +1,27 @@
+# SA3 gate — package tsc + zero src diff (issue #419)
+# 2026-09-21T14:53:41Z
+$ pnpm exec tsc -p packages/replication-protocol/tsconfig.json
+TSC_EXIT=0
+$ git diff --stat -- packages/replication-protocol/src
+SRC_DIFF_EXIT=0
+$ git status --porcelain
+?? .scratch/sa6-419/
+?? artifacts/sa3-issue419-mutation-rerun.log
+?? artifacts/sa3-issue419-package-suite.log
+?? artifacts/sa3-issue419-scope-and-tsc.log
+?? artifacts/sa6-issue419-capability-gap.log
+?? artifacts/sa6-issue419-mutation-sensitivity.log
+?? artifacts/sa6-issue419-package-tsc-baseline.log
+?? artifacts/sa6-issue419-probe-green.log
+?? artifacts/sa6-issue419-runner-trigger.log
+?? packages/replication-protocol/test/codec-route-key-guard.test.ts
+?? wiki/raw/task_issue-419.md
+?? wiki/raw/task_issue-419_design.md
+?? wiki/raw/task_issue-419_design_conflict_report.md
+?? wiki/raw/task_issue-419_sa2_review.md
+?? wiki/raw/task_issue-419_sa6_contract.md
+?? wiki/raw/task_issue-419_sa6_route_key_mutation_driver.mts
+?? wiki/raw/task_issue-419_sa6_route_key_probe.mts
+# guard file sha256 + final state
+# 2026-09-21T14:56:18Z
+32aa83a5ffaa6a3c5499f7fbfc324e515d25e8b5b68fb2e2a503cf5d67e403d4  packages/replication-protocol/test/codec-route-key-guard.test.ts

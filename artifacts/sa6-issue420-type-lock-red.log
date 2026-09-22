@@ -1,0 +1,16 @@
+artifacts/sa6-issue420-type-lock-probe/probe.ts(9,3): error TS2305: Module '"@nomicore/ws-replication"' has no exported member 'createHubSessionHost'.
+artifacts/sa6-issue420-type-lock-probe/probe.ts(10,8): error TS2305: Module '"@nomicore/ws-replication"' has no exported member 'HubSessionFrameLane'.
+artifacts/sa6-issue420-type-lock-probe/probe.ts(11,8): error TS2305: Module '"@nomicore/ws-replication"' has no exported member 'HubSessionFrameListener'.
+artifacts/sa6-issue420-type-lock-probe/probe.ts(12,8): error TS2305: Module '"@nomicore/ws-replication"' has no exported member 'HubSessionHandle'.
+artifacts/sa6-issue420-type-lock-probe/probe.ts(13,8): error TS2305: Module '"@nomicore/ws-replication"' has no exported member 'HubSessionHost'.
+artifacts/sa6-issue420-type-lock-probe/probe.ts(14,8): error TS2305: Module '"@nomicore/ws-replication"' has no exported member 'HubSessionHostConfig'.
+artifacts/sa6-issue420-type-lock-probe/probe.ts(15,8): error TS2305: Module '"@nomicore/ws-replication"' has no exported member 'HubSessionOpenInput'.
+artifacts/sa6-issue420-type-lock-probe/probe.ts(16,8): error TS2305: Module '"@nomicore/ws-replication"' has no exported member 'HubSessionSignal'.
+artifacts/sa6-issue420-type-lock-probe/probe.ts(48,44): error TS7006: Parameter 'frame' implicitly has an 'any' type.
+artifacts/sa6-issue420-type-lock-probe/probe.ts(48,51): error TS7006: Parameter 'frameLane' implicitly has an 'any' type.
+artifacts/sa6-issue420-type-lock-probe/probe.ts(51,49): error TS7006: Parameter 'frame' implicitly has an 'any' type.
+artifacts/sa6-issue420-type-lock-probe/probe.ts(61,1): error TS2578: Unused '@ts-expect-error' directive.
+artifacts/sa6-issue420-type-lock-probe/probe.ts(64,1): error TS2578: Unused '@ts-expect-error' directive.
+artifacts/sa6-issue420-type-lock-probe/probe.ts(66,1): error TS2578: Unused '@ts-expect-error' directive.
+artifacts/sa6-issue420-type-lock-probe/probe.ts(68,1): error TS2578: Unused '@ts-expect-error' directive.
+[tsc exit: 2]

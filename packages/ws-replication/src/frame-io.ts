@@ -109,10 +109,17 @@ export interface EmittedInfo {
 
 /** 单方向出站队列：控制帧恒先；序列号在 dequeue 发送时单点分配（R3/#7）。
  *  data 帧经 `emit`（ConnectionSender 出队点）；round-robin 公平轮转已由
- *  ConnectionSender + UpdateChannel 落地（§6.4——原 dataQueues/sendData 死代码删除）。 */
+ *  ConnectionSender + UpdateChannel 落地（§6.4——原 dataQueues/sendData 死代码删除）。
+ *
+ *  issue #418（ADR 0032 决策 2 / 设计 D3）：拆分后 **session 半边以 sequence=0 占位编码**、
+ *  edge 半边在本队列 `emitOne` 的 mux 点重写帧字节 `[8..12]`（大端）。序列分配仍是单一
+ *  事实源：message 形态（`sendControl`/`emit`，peer 侧与 edge 自有帧沿用）在入队/出队点
+ *  做占位编码后复用同一字节路径；byte 形态（`sendControlFrame`/`emitFrame`）由 session
+ *  半边提供已占位编码的帧字节。envelope sequence 是固定 4 字节大端字段 ⟹ 「占位编码 +
+ *  盖章」≡「按真实序列单次编码」逐字节相等（backpressure.measureFrame 同源事实）。 */
 export class OutboundQueue {
   private lastSeq = 0;
-  private readonly controlQueue: ReplicationMessage[] = [];
+  private readonly controlQueue: Uint8Array[] = [];
 
   constructor(
     private readonly emitRaw: (bytes: Uint8Array, sequence: number) => void,
@@ -128,15 +135,26 @@ export class OutboundQueue {
   /** 入队控制帧并立即排空（控制恒先于 data；序列在出队时分配）。返回**本帧自身**序列
    *  ——控制队列 FIFO，本帧必为本批最后发出的控制帧；drain 返回「最后发出的控制帧序」
    *  （数据帧随后派发会使 `lastSeq` 被污染——R1 修复：G2.1/G2.2 关联基准只认控制帧
-   *  自身序，不与数据帧派发序混同）。 */
+   *  自身序，不与数据帧派发序混同）。message 形态：入队时 sequence=0 占位编码（D3.2）。 */
   sendControl(message: ReplicationMessage): number {
-    this.controlQueue.push(message);
+    return this.sendControlFrame(this.encodePlaceholder(message));
+  }
+
+  /** 立即发送一条 data 帧（ConnectionSender 出队点）；返回分配的帧序。message 形态：
+   *  出队前 sequence=0 占位编码（D3.2；peer 侧与既有直构测试零改动）。 */
+  emit(message: ReplicationMessage): number {
+    return this.emitFrame(this.encodePlaceholder(message));
+  }
+
+  /** 字节形态控制帧（session 半边已占位编码）：控制 FIFO push + drain，返回本帧序。 */
+  sendControlFrame(frame: Uint8Array): number {
+    this.controlQueue.push(frame);
     return this.drain();
   }
 
-  /** 立即发送一条 data 帧（ConnectionSender 出队点）；返回分配的帧序。 */
-  emit(message: ReplicationMessage): number {
-    return this.emitOne(message, 'data');
+  /** 字节形态 data 帧（session 半边已占位编码）：立即出队。 */
+  emitFrame(frame: Uint8Array): number {
+    return this.emitOne(frame, 'data');
   }
 
   /** 排空控制队列（data 调度由 ConnectionSender 负责）。返回本批最后一个控制帧序列。 */
@@ -154,7 +172,16 @@ export class OutboundQueue {
     this.controlQueue.length = 0;
   }
 
-  private emitOne(message: ReplicationMessage, kind: 'control' | 'data'): number {
+  /** sequence=0 占位编码（message 形态包装；编码异常在此同步抛出——HEAD 同点行为）。 */
+  private encodePlaceholder(message: ReplicationMessage): Uint8Array {
+    return encodeMessage(message, {
+      sequence: 0,
+      maxFrameBytes: this.limits.maxFrameBytes,
+      limits: codecFieldLimits(this.limits),
+    });
+  }
+
+  private emitOne(bytes: Uint8Array, kind: 'control' | 'data'): number {
     if (this.lastSeq >= 0xffffffff) {
       // 出站 uint32 耗尽（实践不可达）：不回绕、不静默错序——响亮收口（§4.1 R3/#11）：
       // 触发连接层 best-effort connection ERROR + close(1008)；本出队不再发送。
@@ -162,14 +189,18 @@ export class OutboundQueue {
       throw new OutboundExhaustedError();
     }
     const sequence = this.lastSeq + 1;
-    const bytes = encodeMessage(message, {
-      sequence,
-      maxFrameBytes: this.limits.maxFrameBytes,
-      limits: codecFieldLimits(this.limits),
-    });
+    writeBe32At(bytes, 8, sequence); // 盖章单点（mux：连接级帧与 namespace 域帧共用）
     this.lastSeq = sequence;
     this.emitRaw(bytes, sequence);
     this.onEmitted({ kind, byteLength: bytes.byteLength });
     return sequence;
   }
+}
+
+/** 大端写入 uint32（envelope sequence 域 `[8..12]`，与 codec `writeBe32` 同构）。 */
+function writeBe32At(bytes: Uint8Array, offset: number, value: number): void {
+  bytes[offset] = (value >>> 24) & 0xff;
+  bytes[offset + 1] = (value >>> 16) & 0xff;
+  bytes[offset + 2] = (value >>> 8) & 0xff;
+  bytes[offset + 3] = value & 0xff;
 }
