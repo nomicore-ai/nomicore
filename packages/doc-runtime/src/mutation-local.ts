@@ -32,14 +32,33 @@
  *    S5 walk → S6 全量重建 → 换根导航 → S7 构造代码原样保留（永久回退，非待清理债）。
  *  S9 验证计划随之判别（install-facts / boundary；见 install-verify.ts VerifyPlan）。
  *
+ * issue #441 / ADR 0034 决策 1–4：record/parent 分支同样按闸门分流为**永久双轨**——
+ *  - fast path（`plan.kind ∈ {record,parent}` ∧ 边界值节点 kind=`object` ∧ 边界结构节点
+ *    kind=`map`，即声明类型为非 union Record 形态，或封闭对象 delete）：跳过 S5 整 map /
+ *    父值提取与 S6 全量重建 + `validateSubtree` 整体判定；载体检查 O(1)（F1）、目标键位
+ *    在场性 `Y.Map.has` O(1)（F2）、域规则 + 逐 entry 判定经 vfsl 接缝
+ *    `applyElementwiseEntryMutation` O(正则)/O(新值)（F3；Record set = 键 Pattern + 新值
+ *    schema、旧值不读；Record delete = `has` 拒 no-op；封闭对象 delete = 静态必填判定、
+ *    不读父值）、detached 构造复用 S7 O(新值)（F4）、提交形态（S8 单键最小 edit）不变；
+ *    触达面 = map/父载体本身 + 目标键位；S9 收窄为仅安装事实核（F5）；
+ *  - legacy 全量边界路径（union map 位 `Record<K,V> | 封闭对象`、union 穿越、两树分歧）：
+ *    既有 S5 walk → S6 全量重建 → S7 构造代码原样保留（永久回退，非待清理债），S9 双核
+ *    不变。Record **值位**为 union（`<key>` 槽值节点 kind=`union`）不阻断 fast path——
+ *    entry 整值替换、不读旧值判别（与数组案「元素 union 不阻断」同构）。
+ *
  * 模块边界：包内 @internal（不经 index.ts 公共入口导出）；全部拒绝先于任何
  * live Y.Doc 写（禁 write-then-undo——Owner 2026-09-05T16:08Z §4）。
  */
 import * as Y from 'yjs';
 import type { DerivedSchema, StructureNode } from '@nomicore/vfsl';
-import { applyElementwiseArrayMutation, applyMutationAtBoundary, planMutationBoundary } from '@nomicore/vfsl';
+import {
+  applyElementwiseArrayMutation,
+  applyElementwiseEntryMutation,
+  applyMutationAtBoundary,
+  planMutationBoundary,
+} from '@nomicore/vfsl';
 import type { BoundaryMutationPayload } from '@nomicore/vfsl';
-import type { ElementwiseArrayMutationPayload, ValidateResult } from '@nomicore/vfsl';
+import type { ElementwiseArrayMutationPayload, ElementwiseEntryMutationPayload, EntryCarrierFacts, ValidateResult } from '@nomicore/vfsl';
 import { carrierMismatchIssue, walk } from './extract.js';
 import { makeRefResolver } from './resolve.js';
 import { carrierOf, probeRoot } from './carrier.js';
@@ -270,6 +289,59 @@ export function prepareLocalMutation(derived: DerivedSchema, doc: Y.Doc, mutatio
       if (boundaryNav.kind === 'issue') return { kind: 'fail', issues: [boundaryNav.issue] };
       const boundaryLive = boundaryNav.live;
       const boundaryNode = boundaryNav.node;
+      // ── 闸门（ADR 0034 决策 1/2；双条件合取，均 O(1)、与数据规模无关）──────────────
+      // 条件一（值侧）：`plan.node` 已由 descendValues 归一化（非 ref/非 optional）——
+      //   union map 位（`Record<K,V> | 封闭对象`）在规划层首次穿越即冻结为 kind=`union`
+      //   （planMutationBoundary），结构上进不了本分支；Record **值位**为 union
+      //   （`<key>` 槽值节点 kind=`union`）不参与闸门条件（entry 整值替换、不读旧值判别）。
+      // 条件二（结构侧）：fast path 的 F1 载体检查与 F4 detached 构造依赖结构树 map 节点
+      //   （`mapChildNode`/`descendStructureNode` 查 `<key>` 槽）。两树由同一 schema 求值
+      //   产出，kinds 恒一致；不一致（仅手造派生物可达）时合取为假 → 回退 legacy
+      //   （失败方向是「多验证」而非「漏验证」，绝不误接管——镜像数组闸门）。
+      // 第三重锁：接缝 `applyElementwiseEntryMutation` 自身对违约计划（kind/relPath/
+      //   node.kind/`<key>` 槽形态）fail closed。闸门处 resolve 抛错（ref 环/缺名，仅手造
+      //   派生物可达）与 legacy walk 内 resolve 抛错同 try/同 catch/同分类（E204）。
+      const resolvedBoundary = resolve(boundaryNode);
+      if (plan.node.kind === 'object' && resolvedBoundary.kind === 'map') {
+        // ── fast path（ADR 0034 决策 1/2/3/4）：F1 载体 O(1) → F2 在场性 O(1) →
+        //    F3 接缝域规则 O(新值) → F4 detached 构造 O(新值) → F5 收窄验证计划 ──
+        // F1 载体检查：与 legacy S5 首错（walk 以 path [] 起步）同文案同 path——触达面
+        // 内的载体位仍响亮拒绝（ADR-0007 #237 条款 4(i)），零写入。
+        if (carrierOf(boundaryLive) !== 'Y.Map') {
+          return walkResultIssues(carrierMismatchIssue([], 'Y.Map', boundaryLive));
+        }
+        const parentMap = boundaryLive as Y.Map<unknown>;
+        const key = mutation.path[mutation.path.length - 1]!;
+        // F2 目标键位在场性事实（O(1)）——planner 保证 record/parent 计划 relPath 恒单段
+        // string（数字终段在 S3 即拒）；旧值一律不读。防御性 `as string` 与 legacy 同款。
+        const has = parentMap.has(key as string);
+        // F3 域规则 + 逐 entry 判定（接缝；set = 键 Pattern + 新值过值 schema，delete 不查
+        // 键 Pattern；旧值不读）——域 message/path 与 legacy 逐字一致，issue 路径 rebase
+        // 为 [...mapPath, key, ...值内路径]（#440 接缝保证）。
+        const entryFacts: EntryCarrierFacts = { has };
+        const payload: ElementwiseEntryMutationPayload = mutation.op === 'delete'
+          ? { op: 'delete' }
+          : { op: 'set', value: mutation.value };
+        const verdict = applyElementwiseEntryMutation(derived, plan, entryFacts, payload);
+        if (!verdict.ok) return { kind: 'fail', issues: issuesOf(verdict) };
+        // F4 detached 构造（仅 set；O(新值)——纯值 + schema 构造，零 live 读）——与 legacy
+        // 分支同一符号、同一 issue 路径构造（值位 union 由 buildUnion 试验构造）。
+        let commit: PreparedCommit;
+        let facts: BoundaryCommitFacts;
+        if (mutation.op === 'delete') {
+          commit = { kind: 'delete', parent: parentMap, key: key as string };
+          facts = { kind: 'delete', parent: parentMap, key: key as string };
+        } else {
+          const childNode = descendStructureNode(derived, mutation.path);
+          const built = buildDetachedValue(derived, childNode, mutation.value, mutation.path);
+          if (built.kind === 'issue') return failIssue(built.issue.path, built.issue.message);
+          commit = { kind: 'set', parent: parentMap, key: key as string, value: built.value };
+          facts = { kind: 'set', parent: parentMap, key: key as string, installed: built.value };
+        }
+        // F5 收窄验证计划：仅安装事实核（无 proposedBoundary 可比对——ADR 0034 决策 3）
+        return { kind: 'ok', commit, verify: { kind: 'install-facts', facts } };
+      }
+      // ── legacy 全量边界路径（union map 位 / union 穿越 / 两树分歧；代码与 HEAD 逐字一致）──
       // S5：边界局部提取（边界内既有载体/值域非法在此响亮拒绝）
       const walked = walk(boundaryNode, boundaryLive, [], resolve);
       if (walked.kind === 'issue') return walkResultIssues(walked.issue);

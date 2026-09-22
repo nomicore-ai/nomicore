@@ -5,7 +5,8 @@
  * checks → boundary-local extraction/rebuild/validation (vfsl
  * applyMutationAtBoundary) → detached construct → single guarded Yjs minimal
  * transaction → boundary-scoped post-commit verification (verifyPrepared: install-facts
- * for the non-union `T[]` fast path per ADR 0033 decision 3, boundary facts +
+ * for the non-union `T[]` fast path per ADR 0033 decision 3 and the non-union Record /
+ * closed-object-delete fast paths per ADR 0034 decision 3, boundary facts +
  * reprojection for the permanent legacy track).
  * The phase-1 precondition (committed ROOT legal before the call — logical
  * values + carrier topology) is documented in mutation-local.ts; the function
@@ -326,9 +327,9 @@ function prepareBatchMutation(
  * 与 prepare 内部同输入同结果）；折迭以合成 plan（apply 不消费 `kind`——见
  * `validate-patch.ts` 分支仅按 `mutation.op`）调用同一 `applyMutationAtBoundary`。
  * `target`/`array` 边界的 prefix 即操作自身写入位，严格前缀谓词天然零匹配（引理 3）。
- * issue #436：fast-path 数组项的验证计划为 `install-facts`（无 proposedBoundary）——
- * 按 `verify.kind` 判别直接跳过折迭；折迭输入侧（parsed 驱动）不变，legacy 边界项
- * 对批内数组足迹的吸收照旧。
+ * issue #436 / issue #441：fast-path 数组项与 record/parent 项的验证计划为 `install-facts`
+ * （无 proposedBoundary）——按 `verify.kind` 判别直接跳过折迭；折迭输入侧（parsed 驱动）
+ * 不变，legacy 边界项对批内数组/record 足迹的吸收照旧。
  * 合成失败（可达：union 成员 any-of 重叠使组合边界无成员可容——引理 4'）→ 聚合
  * issues、整体零写入（fail-closed；不得弱化为死代码，否则提交 schema 非法文档）。
  */
@@ -354,11 +355,13 @@ function composeBatchVerify(
     const plan = plans[i]!;
     if (plan === null) continue;
     const verify = items[i]!.verify;
-    // issue #436 / ADR 0033 决策 3：fast-path 数组项的计划为 `install-facts`（无
-    // proposedBoundary 可保护/折迭）→ 跳过折迭。折迭输入侧（下循环读 parsed[j] 重放
-    // 兄弟效果）不变：legacy 边界项对批内 fast-path 数组足迹的吸收照旧。正确性依据：
-    // fast path 仅产生于 kind=`array` 计划，其 prefix = 操作自身路径，E5 批内路径互不
-    // 嵌套 ⇒ 严格前缀谓词结构性零命中（引理 3，与 legacy 数组项同为零命中）。
+    // issue #436 / #441（ADR 0033/0034 决策 3）：fast-path 数组项与 record/parent 项的
+    // 计划为 `install-facts`（无 proposedBoundary 可保护/折迭）→ 跳过折迭。折迭输入侧
+    // （下循环读 parsed[j] 重放兄弟效果）不变：legacy 边界项对批内 fast-path 足迹的
+    // 吸收照旧。正确性依据：数组 fast 项 prefix = 操作自身路径 ⇒ 严格前缀谓词结构性零
+    // 命中（引理 3）；record/parent fast 项 prefix 可为 map 位（如 `tasks`），但批内
+    // 路径互不嵌套（E5）⇒ 兄弟操作写不同键（同键即同路径，被禁），不可能破坏该项自身
+    // 目标键位的安装事实（install-facts 只断言该 item 自己的键）。
     if (verify.kind !== 'boundary') continue;
     let composed = verify.input.proposedBoundary;
     for (let j = 0; j < parsed.length; j++) {

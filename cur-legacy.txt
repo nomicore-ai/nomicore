@@ -1,0 +1,41 @@
+      // ── legacy 全量边界路径（union map 位 / union 穿越 / 两树分歧；代码与 HEAD 逐字一致）──
+      // S5：边界局部提取（边界内既有载体/值域非法在此响亮拒绝）
+      const walked = walk(boundaryNode, boundaryLive, [], resolve);
+      if (walked.kind === 'issue') return walkResultIssues(walked.issue);
+      // S6：relPath 域规则 + 重建 + 整体校验
+      const payload: BoundaryMutationPayload = mutation.op === 'delete'
+        ? { op: 'delete' }
+        : { op: 'set', value: mutation.value };
+      const applied = applyMutationAtBoundary(derived, plan, walked.snapshot, payload);
+      if (!applied.ok) return { kind: 'fail', issues: issuesOf(applied.result) };
+      const key = mutation.path[mutation.path.length - 1]!;
+      const parentMap = boundaryLive as Y.Map<unknown>; // S5 已证 Y.Map 载体
+      let commit: PreparedCommit;
+      let facts: BoundaryCommitFacts;
+      if (mutation.op === 'delete') {
+        commit = { kind: 'delete', parent: parentMap, key: key as string };
+        facts = { kind: 'delete', parent: parentMap, key: key as string };
+      } else {
+        const childNode = descendStructureNode(derived, mutation.path);
+        const built = buildDetachedValue(derived, childNode, mutation.value, mutation.path);
+        if (built.kind === 'issue') return failIssue(built.issue.path, built.issue.message);
+        commit = { kind: 'set', parent: parentMap, key: key as string, value: built.value };
+        facts = { kind: 'set', parent: parentMap, key: key as string, installed: built.value };
+      }
+      return {
+        kind: 'ok',
+        commit,
+        verify: {
+          kind: 'boundary',
+          input: {
+            derived,
+            structureNode: boundaryNode,
+            boundaryLive,
+            proposedBoundary: applied.proposedBoundary,
+            facts,
+          },
+        },
+      };
+    }
+
+    case 'array': {

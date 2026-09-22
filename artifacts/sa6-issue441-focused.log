@@ -1,0 +1,514 @@
+Testing types with tsc and vue-tsc is an experimental feature.
+Breaking changes might not follow SemVer, please pin Vitest's version when using it.
+
+ RUN  v3.2.7 /home/wangjian/nomicore-fix-issue-441
+
+ ❯ packages/doc-runtime/test/issue-441-record-fastpath-contract.test.ts (18 tests | 18 failed) 202ms
+   × issue #441 FA — 非 union Record 位走 fast path（跳过整 map 提取/重建/重投影；ADR 0034 决策 1/4） > FA1 Record set：触达面外（兄弟 entry）载体污染不阻断，ok:true + 单 update + 污染保留 16ms
+     → expected { ok: false, issues: [ { …(2) } ] } to deeply equal { ok: true }
+   × issue #441 FA — 非 union Record 位走 fast path（跳过整 map 提取/重建/重投影；ADR 0034 决策 1/4） > FA2 Record delete（目标键干净）：触达面外污染不阻断，ok:true + 单 update + 污染保留 3ms
+     → expected { ok: false, issues: [ { …(2) } ] } to deeply equal { ok: true }
+   × issue #441 FA — 非 union Record 位走 fast path（跳过整 map 提取/重建/重投影；ADR 0034 决策 1/4） > FA3 Record delete（目标键自身即污染位）：删除照常成功（delete 不读该 entry 旧值） 5ms
+     → expected { ok: false, issues: [ { …(2) } ] } to deeply equal { ok: true }
+   × issue #441 FA — 非 union Record 位走 fast path（跳过整 map 提取/重建/重投影；ADR 0034 决策 1/4） > FA4 Record set：兄弟 entry 载体正确但值非法（S6 全量重校验面）→ 不阻断 4ms
+     → expected { ok: false, issues: [ { …(2) } ] } to deeply equal { ok: true }
+   × issue #441 FA — 非 union Record 位走 fast path（跳过整 map 提取/重建/重投影；ADR 0034 决策 1/4） > FA5 带 keyPattern 的 Record：兄弟键违约（键 Pattern 面）→ 不阻断目标键写入 2ms
+     → expected { ok: false, issues: [ { …(2) } ] } to deeply equal { ok: true }
+   × issue #441 FA — 非 union Record 位走 fast path（跳过整 map 提取/重建/重投影；ADR 0034 决策 1/4） > FA6 Record 值位为 union（blobs）：值位 union 不阻断 fast path（兄弟污染不连坐） 2ms
+     → expected { ok: false, issues: [ { …(2) } ] } to deeply equal { ok: true }
+   × issue #441 FA — 非 union Record 位走 fast path（跳过整 map 提取/重建/重投影；ADR 0034 决策 1/4） > FA7 深层 Record（outer.inner）：兄弟污染不阻断，路径语义不变 2ms
+     → expected { ok: false, issues: [ { …(2) } ] } to deeply equal { ok: true }
+   × issue #441 FA — 非 union Record 位走 fast path（跳过整 map 提取/重建/重投影；ADR 0034 决策 1/4） > FA8 批量信封：同一 Record map 的兄弟键写（触达面外污染）批内 ok:true + 单事务单 update 2ms
+     → expected { ok: false, …(1) } to deeply equal { ok: true }
+   × issue #441 FA-b — 封闭对象 delete 走 fast path（静态必填判定；ADR 0034 决策 2/4） > FA9 delete optional 字段：触达面外（兄弟字段）污染不阻断，ok:true + 单 update 2ms
+     → expected { ok: false, issues: [ { …(2) } ] } to deeply equal { ok: true }
+   × issue #441 FA-b — 封闭对象 delete 走 fast path（静态必填判定；ADR 0034 决策 2/4） > FA10 delete required 字段（兄弟污染在场）：静态必填判定拒绝（不再读父值转判载体错位） 2ms
+     → expected { ok: false, issues: [ { …(2) } ] } to deeply equal { ok: false, issues: [ { …(2) } ] }
+   × issue #441 FA-b — 封闭对象 delete 走 fast path（静态必填判定；ADR 0034 决策 2/4） > FA11 delete unknown 字段：静态判定允许（缺席视同接受的现行语义保留）+ 污染不连坐 1ms
+     → expected { ok: false, issues: [ { …(2) } ] } to deeply equal { ok: true }
+   × issue #441 FB — 单键写不再整 map 提取/重建/重投影（ADR 0034 决策 1/5） > FB1 Record set：live entry 值读计数 ≤ 2 且与 n 解耦（legacy 现状 n=512→2049 / n=4096→16385） 103ms
+     → n=512 值读计数应 ≈ 1（安装同一定位），实际 2049: expected 2049 to be less than or equal to 2
+   × issue #441 FB — 单键写不再整 map 提取/重建/重投影（ADR 0034 决策 1/5） > FB2 Record delete：live entry 值读计数 ≤ 2（在场性读 ≤ 2）且与 n 解耦（legacy 现状 n=512→2046） 50ms
+     → n=512 值读计数应 ≈ 0，实际 2046: expected 2046 to be less than or equal to 2
+   × issue #441 FB — 单键写不再整 map 提取/重建/重投影（ADR 0034 决策 1/5） > FB3 封闭对象 delete：父值读计数 ≤ 2 且与父字段数解耦（legacy 现状 4 字段→8 / 14 字段→28） 2ms
+     → 4 字段父对象值读计数应 ≈ 0: expected 8 to be less than or equal to 2
+   × issue #441 FC — fast-path 提交仅安装事实核（触达面外 observer 篡改不再 E201；已确认取舍） > FC1 Record set：兄弟键被 observer 同事务删除 → 不抛 fatal、ok:true、doc 保持篡改状态 2ms
+     → 触达面外篡改不应触发 fatal（实际 DOCRT-E201: mutation 边界安装后一致性校验偏离（边界 ROOT）：键 "ROOT" 读回键集 ["t0","t1"] 与对照安装读回键集 ["t0","t1","t2"] 不等——疑似 observer 删除（或插入后仲裁翻转）（ROOT）——疑似 observer 修改已安装边界；写入已提交，不回）: expected DocRuntimeFatalError: DOCRT-E201: mutatio… { …(2) } to be undefined
+   × issue #441 FC — fast-path 提交仅安装事实核（触达面外 observer 篡改不再 E201；已确认取舍） > FC2 Record delete：兄弟键被 observer 同事务删除 → 不抛 fatal、ok:true 1ms
+     → 触达面外篡改不应触发 fatal（实际 DOCRT-E201: mutation 边界安装后一致性校验偏离（边界 ROOT）：键 "ROOT" 读回键集 ["t1"] 与对照安装读回键集 ["t1","t2"] 不等——疑似 observer 删除（或插入后仲裁翻转）（ROOT）——疑似 observer 修改已安装边界；写入已提交，不回滚、不补偿，doc ）: expected DocRuntimeFatalError: DOCRT-E201: mutatio… { …(2) } to be undefined
+   × issue #441 FC — fast-path 提交仅安装事实核（触达面外 observer 篡改不再 E201；已确认取舍） > FC3 Record set：兄弟键被 observer 同事务“新增” → 不抛 fatal（键集不参与 fast path 验证） 1ms
+     → 触达面外篡改不应触发 fatal（实际 DOCRT-E201: mutation 边界安装后一致性校验偏离（边界 ROOT）：键 "ROOT" 读回键集 ["t0","t1","t2","t3"] 与对照安装读回键集 ["t0","t1","t2"] 不等——疑似 observer 删除（或插入后仲裁翻转）（ROOT）——疑似 observer 修改已安装边）: expected DocRuntimeFatalError: DOCRT-E201: mutatio… { …(2) } to be undefined
+   × issue #441 FC — fast-path 提交仅安装事实核（触达面外 observer 篡改不再 E201；已确认取舍） > FC4 封闭对象 delete：兄弟字段被 observer 同事务篡改 → 不抛 fatal、ok:true 1ms
+     → 触达面外篡改不应触发 fatal（实际 DOCRT-E201: mutation 边界安装后一致性校验偏离（边界 ROOT.deep）：边界重提取失败（Yjs 载体错位（ROOT.deep）：期望 Y.Map，实际 plain value）——已安装边界载体与结构树不符——疑似 observer 修改已安装边界；写入已提交，不回滚、不补偿，doc 保持 ob）: expected DocRuntimeFatalError: DOCRT-E201: mutatio… { …(2) } to be undefined
+ ✓ packages/doc-runtime/test/issue-441-record-fastpath-control.test.ts (27 tests) 68ms
+
+⎯⎯⎯⎯⎯⎯ Failed Tests 18 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  packages/doc-runtime/test/issue-441-record-fastpath-contract.test.ts > issue #441 FA — 非 union Record 位走 fast path（跳过整 map 提取/重建/重投影；ADR 0034 决策 1/4） > FA1 Record set：触达面外（兄弟 entry）载体污染不阻断，ok:true + 单 update + 污染保留
+AssertionError: expected { ok: false, issues: [ { …(2) } ] } to deeply equal { ok: true }
+
+- Expected
++ Received
+
+  {
+-   "ok": true,
++   "issues": [
++     {
++       "message": "Yjs 载体错位（ROOT.t2）：期望 Y.Map，实际 plain value",
++       "path": [
++         "t2",
++       ],
++     },
++   ],
++   "ok": false,
+  }
+
+ ❯ packages/doc-runtime/test/issue-441-record-fastpath-contract.test.ts:46:29
+     44|     const captured = withUpdates(fx.doc, () =>
+     45|       run(fx, { op: 'set', path: ['tasks', 't1'], value: item('ok', 1)…
+     46|     expect(captured.result).toEqual({ ok: true });
+       |                             ^
+     47|     expect(captured.count).toBe(1);
+     48|     expect(fx.tasks.get('t2')).toBe('oops'); // 未触达 entry 保持原样（不修复、不阻断）
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/18]⎯
+
+ FAIL  packages/doc-runtime/test/issue-441-record-fastpath-contract.test.ts > issue #441 FA — 非 union Record 位走 fast path（跳过整 map 提取/重建/重投影；ADR 0034 决策 1/4） > FA2 Record delete（目标键干净）：触达面外污染不阻断，ok:true + 单 update + 污染保留
+AssertionError: expected { ok: false, issues: [ { …(2) } ] } to deeply equal { ok: true }
+
+- Expected
++ Received
+
+  {
+-   "ok": true,
++   "issues": [
++     {
++       "message": "Yjs 载体错位（ROOT.t2）：期望 Y.Map，实际 plain value",
++       "path": [
++         "t2",
++       ],
++     },
++   ],
++   "ok": false,
+  }
+
+ ❯ packages/doc-runtime/test/issue-441-record-fastpath-contract.test.ts:56:29
+     54|     rawSet(fx.tasks, 't2', 'oops');
+     55|     const captured = withUpdates(fx.doc, () => run(fx, { op: 'delete',…
+     56|     expect(captured.result).toEqual({ ok: true });
+       |                             ^
+     57|     expect(captured.count).toBe(1);
+     58|     expect(fx.tasks.has('t1')).toBe(false);
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/18]⎯
+
+ FAIL  packages/doc-runtime/test/issue-441-record-fastpath-contract.test.ts > issue #441 FA — 非 union Record 位走 fast path（跳过整 map 提取/重建/重投影；ADR 0034 决策 1/4） > FA3 Record delete（目标键自身即污染位）：删除照常成功（delete 不读该 entry 旧值）
+AssertionError: expected { ok: false, issues: [ { …(2) } ] } to deeply equal { ok: true }
+
+- Expected
++ Received
+
+  {
+-   "ok": true,
++   "issues": [
++     {
++       "message": "Yjs 载体错位（ROOT.t2）：期望 Y.Map，实际 plain value",
++       "path": [
++         "t2",
++       ],
++     },
++   ],
++   "ok": false,
+  }
+
+ ❯ packages/doc-runtime/test/issue-441-record-fastpath-contract.test.ts:66:29
+     64|     rawSet(fx.tasks, 't2', 'oops');
+     65|     const captured = withUpdates(fx.doc, () => run(fx, { op: 'delete',…
+     66|     expect(captured.result).toEqual({ ok: true });
+       |                             ^
+     67|     expect(captured.count).toBe(1);
+     68|     expect(fx.tasks.has('t2')).toBe(false);
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[3/18]⎯
+
+ FAIL  packages/doc-runtime/test/issue-441-record-fastpath-contract.test.ts > issue #441 FA — 非 union Record 位走 fast path（跳过整 map 提取/重建/重投影；ADR 0034 决策 1/4） > FA4 Record set：兄弟 entry 载体正确但值非法（S6 全量重校验面）→ 不阻断
+AssertionError: expected { ok: false, issues: [ { …(2) } ] } to deeply equal { ok: true }
+
+- Expected
++ Received
+
+  {
+-   "ok": true,
++   "issues": [
++     {
++       "message": "类型不匹配：期望 number，实际 string",
++       "path": [
++         "tasks",
++         "t2",
++         "qty",
++       ],
++     },
++   ],
++   "ok": false,
+  }
+
+ ❯ packages/doc-runtime/test/issue-441-record-fastpath-contract.test.ts:76:29
+     74|     const captured = withUpdates(fx.doc, () =>
+     75|       run(fx, { op: 'set', path: ['tasks', 't1'], value: item('ok', 1)…
+     76|     expect(captured.result).toEqual({ ok: true });
+       |                             ^
+     77|     expect(captured.count).toBe(1);
+     78|     expect((fx.tasks.get('t2') as { get(k: string): unknown }).get('qt…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[4/18]⎯
+
+ FAIL  packages/doc-runtime/test/issue-441-record-fastpath-contract.test.ts > issue #441 FA — 非 union Record 位走 fast path（跳过整 map 提取/重建/重投影；ADR 0034 决策 1/4） > FA5 带 keyPattern 的 Record：兄弟键违约（键 Pattern 面）→ 不阻断目标键写入
+AssertionError: expected { ok: false, issues: [ { …(2) } ] } to deeply equal { ok: true }
+
+- Expected
++ Received
+
+  {
+-   "ok": true,
++   "issues": [
++     {
++       "message": "Record 键 \"nope\" 不满足 Pattern 正则 /^(id-[0-9]+)$/",
++       "path": [
++         "codes",
++         "nope",
++       ],
++     },
++   ],
++   "ok": false,
+  }
+
+ ❯ packages/doc-runtime/test/issue-441-record-fastpath-contract.test.ts:86:29
+     84|     const captured = withUpdates(fx.doc, () =>
+     85|       run(fx, { op: 'set', path: ['codes', 'id-2'], value: item('c2', …
+     86|     expect(captured.result).toEqual({ ok: true });
+       |                             ^
+     87|     expect(captured.count).toBe(1);
+     88|     expect(fx.codes.has('nope')).toBe(true);
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[5/18]⎯
+
+ FAIL  packages/doc-runtime/test/issue-441-record-fastpath-contract.test.ts > issue #441 FA — 非 union Record 位走 fast path（跳过整 map 提取/重建/重投影；ADR 0034 决策 1/4） > FA6 Record 值位为 union（blobs）：值位 union 不阻断 fast path（兄弟污染不连坐）
+AssertionError: expected { ok: false, issues: [ { …(2) } ] } to deeply equal { ok: true }
+
+- Expected
++ Received
+
+  {
+-   "ok": true,
++   "issues": [
++     {
++       "message": "Yjs 载体错位（ROOT.b1）：期望 Y.Map，实际 plain value",
++       "path": [
++         "b1",
++       ],
++     },
++   ],
++   "ok": false,
+  }
+
+ ❯ packages/doc-runtime/test/issue-441-record-fastpath-contract.test.ts:97:29
+     95|     const captured = withUpdates(fx.doc, () =>
+     96|       run(fx, { op: 'set', path: ['blobs', 'b2'], value: item('v', 5) …
+     97|     expect(captured.result).toEqual({ ok: true });
+       |                             ^
+     98|     expect(captured.count).toBe(1);
+     99|     expect(fx.blobs.get('b1')).toBe('oops');
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[6/18]⎯
+
+ FAIL  packages/doc-runtime/test/issue-441-record-fastpath-contract.test.ts > issue #441 FA — 非 union Record 位走 fast path（跳过整 map 提取/重建/重投影；ADR 0034 决策 1/4） > FA7 深层 Record（outer.inner）：兄弟污染不阻断，路径语义不变
+AssertionError: expected { ok: false, issues: [ { …(2) } ] } to deeply equal { ok: true }
+
+- Expected
++ Received
+
+  {
+-   "ok": true,
++   "issues": [
++     {
++       "message": "Yjs 载体错位（ROOT.n1）：期望 Y.Map，实际 plain value",
++       "path": [
++         "n1",
++       ],
++     },
++   ],
++   "ok": false,
+  }
+
+ ❯ packages/doc-runtime/test/issue-441-record-fastpath-contract.test.ts:107:29
+    105|     const captured = withUpdates(fx.doc, () =>
+    106|       run(fx, { op: 'set', path: ['outer', 'inner', 'n2'], value: item…
+    107|     expect(captured.result).toEqual({ ok: true });
+       |                             ^
+    108|     expect(captured.count).toBe(1);
+    109|     expect(fx.inner.get('n1')).toBe('oops');
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[7/18]⎯
+
+ FAIL  packages/doc-runtime/test/issue-441-record-fastpath-contract.test.ts > issue #441 FA — 非 union Record 位走 fast path（跳过整 map 提取/重建/重投影；ADR 0034 决策 1/4） > FA8 批量信封：同一 Record map 的兄弟键写（触达面外污染）批内 ok:true + 单事务单 update
+AssertionError: expected { ok: false, …(1) } to deeply equal { ok: true }
+
+- Expected
++ Received
+
+  {
+-   "ok": true,
++   "issues": [
++     {
++       "message": "Yjs 载体错位（ROOT.t2）：期望 Y.Map，实际 plain value",
++       "path": [
++         "t2",
++       ],
++     },
++     {
++       "message": "Yjs 载体错位（ROOT.t2）：期望 Y.Map，实际 plain value",
++       "path": [
++         "t2",
++       ],
++     },
++   ],
++   "ok": false,
+  }
+
+ ❯ packages/doc-runtime/test/issue-441-record-fastpath-contract.test.ts:123:29
+    121|         ],
+    122|       }));
+    123|     expect(captured.result).toEqual({ ok: true });
+       |                             ^
+    124|     expect(captured.count).toBe(1);
+    125|     expect(fx.tasks.get('t2')).toBe('oops');
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[8/18]⎯
+
+ FAIL  packages/doc-runtime/test/issue-441-record-fastpath-contract.test.ts > issue #441 FA-b — 封闭对象 delete 走 fast path（静态必填判定；ADR 0034 决策 2/4） > FA9 delete optional 字段：触达面外（兄弟字段）污染不阻断，ok:true + 单 update
+AssertionError: expected { ok: false, issues: [ { …(2) } ] } to deeply equal { ok: true }
+
+- Expected
++ Received
+
+  {
+-   "ok": true,
++   "issues": [
++     {
++       "message": "Yjs 载体错位（ROOT.deep）：期望 Y.Map，实际 plain value",
++       "path": [
++         "deep",
++       ],
++     },
++   ],
++   "ok": false,
+  }
+
+ ❯ packages/doc-runtime/test/issue-441-record-fastpath-contract.test.ts:136:29
+    134|     rawSet(fx.obj, 'deep', 5); // 兄弟字段载体错位
+    135|     const captured = withUpdates(fx.doc, () => run(fx, { op: 'delete',…
+    136|     expect(captured.result).toEqual({ ok: true });
+       |                             ^
+    137|     expect(captured.count).toBe(1);
+    138|     expect(fx.obj.has('opt')).toBe(false);
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[9/18]⎯
+
+ FAIL  packages/doc-runtime/test/issue-441-record-fastpath-contract.test.ts > issue #441 FA-b — 封闭对象 delete 走 fast path（静态必填判定；ADR 0034 决策 2/4） > FA10 delete required 字段（兄弟污染在场）：静态必填判定拒绝（不再读父值转判载体错位）
+AssertionError: expected { ok: false, issues: [ { …(2) } ] } to deeply equal { ok: false, issues: [ { …(2) } ] }
+
+- Expected
++ Received
+
+  {
+    "issues": [
+      {
+-       "message": "缺少必填字段 \"req\"",
++       "message": "Yjs 载体错位（ROOT.deep）：期望 Y.Map，实际 plain value",
+        "path": [
+-         "obj",
+-         "req",
++         "deep",
+        ],
+      },
+    ],
+    "ok": false,
+  }
+
+ ❯ packages/doc-runtime/test/issue-441-record-fastpath-contract.test.ts:146:29
+    144|     rawSet(fx.obj, 'deep', 5);
+    145|     const captured = withUpdates(fx.doc, () => run(fx, { op: 'delete',…
+    146|     expect(captured.result).toEqual({
+       |                             ^
+    147|       ok: false,
+    148|       issues: [{ message: '缺少必填字段 "req"', path: ['obj', 'req'] }],
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[10/18]⎯
+
+ FAIL  packages/doc-runtime/test/issue-441-record-fastpath-contract.test.ts > issue #441 FA-b — 封闭对象 delete 走 fast path（静态必填判定；ADR 0034 决策 2/4） > FA11 delete unknown 字段：静态判定允许（缺席视同接受的现行语义保留）+ 污染不连坐
+AssertionError: expected { ok: false, issues: [ { …(2) } ] } to deeply equal { ok: true }
+
+- Expected
++ Received
+
+  {
+-   "ok": true,
++   "issues": [
++     {
++       "message": "Yjs 载体错位（ROOT.deep）：期望 Y.Map，实际 plain value",
++       "path": [
++         "deep",
++       ],
++     },
++   ],
++   "ok": false,
+  }
+
+ ❯ packages/doc-runtime/test/issue-441-record-fastpath-contract.test.ts:158:29
+    156|     rawSet(fx.obj, 'deep', 5);
+    157|     const captured = withUpdates(fx.doc, () => run(fx, { op: 'delete',…
+    158|     expect(captured.result).toEqual({ ok: true });
+       |                             ^
+    159|     expect(captured.count).toBe(1);
+    160|     expect(fx.obj.has('unk')).toBe(false);
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[11/18]⎯
+
+ FAIL  packages/doc-runtime/test/issue-441-record-fastpath-contract.test.ts > issue #441 FB — 单键写不再整 map 提取/重建/重投影（ADR 0034 决策 1/5） > FB1 Record set：live entry 值读计数 ≤ 2 且与 n 解耦（legacy 现状 n=512→2049 / n=4096→16385）
+AssertionError: n=512 值读计数应 ≈ 1（安装同一定位），实际 2049: expected 2049 to be less than or equal to 2
+ ❯ packages/doc-runtime/test/issue-441-record-fastpath-contract.test.ts:188:70
+    186|     const at512 = recordSetReads(512);
+    187|     const at4096 = recordSetReads(4096);
+    188|     expect(at512.value, `n=512 值读计数应 ≈ 1（安装同一定位），实际 ${at512.value}`).t…
+       |                                                                      ^
+    189|     expect(at4096.value, `n=4096 值读计数应 ≈ 1（安装同一定位），实际 ${at4096.value}`…
+    190|     expect(at4096.value, `值读计数应由目标键位决定而非 n：n=512→${at512.value} vs n=4…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[12/18]⎯
+
+ FAIL  packages/doc-runtime/test/issue-441-record-fastpath-contract.test.ts > issue #441 FB — 单键写不再整 map 提取/重建/重投影（ADR 0034 决策 1/5） > FB2 Record delete：live entry 值读计数 ≤ 2（在场性读 ≤ 2）且与 n 解耦（legacy 现状 n=512→2046）
+AssertionError: n=512 值读计数应 ≈ 0，实际 2046: expected 2046 to be less than or equal to 2
+ ❯ packages/doc-runtime/test/issue-441-record-fastpath-contract.test.ts:197:62
+    195|     const at512 = recordDeleteReads(512);
+    196|     const at4096 = recordDeleteReads(4096);
+    197|     expect(at512.value, `n=512 值读计数应 ≈ 0，实际 ${at512.value}`).toBeLessT…
+       |                                                              ^
+    198|     expect(at4096.value, `n=4096 值读计数应 ≈ 0，实际 ${at4096.value}`).toBeLe…
+    199|     expect(at4096.value, `值读计数应由目标键位决定而非 n：n=512→${at512.value} vs n=4…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[13/18]⎯
+
+ FAIL  packages/doc-runtime/test/issue-441-record-fastpath-contract.test.ts > issue #441 FB — 单键写不再整 map 提取/重建/重投影（ADR 0034 决策 1/5） > FB3 封闭对象 delete：父值读计数 ≤ 2 且与父字段数解耦（legacy 现状 4 字段→8 / 14 字段→28）
+AssertionError: 4 字段父对象值读计数应 ≈ 0: expected 8 to be less than or equal to 2
+ ❯ packages/doc-runtime/test/issue-441-record-fastpath-contract.test.ts:216:65
+    214|     expect(wideCounted.result).toEqual({ ok: true });
+    215|
+    216|     expect(narrowCounted.counts.valueReads, '4 字段父对象值读计数应 ≈ 0').toBeLe…
+       |                                                                 ^
+    217|     expect(wideCounted.counts.valueReads, '14 字段父对象值读计数应 ≈ 0').toBeLes…
+    218|     expect(wideCounted.counts.valueReads, '父值读计数应由目标键位决定而非字段数')
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[14/18]⎯
+
+ FAIL  packages/doc-runtime/test/issue-441-record-fastpath-contract.test.ts > issue #441 FC — fast-path 提交仅安装事实核（触达面外 observer 篡改不再 E201；已确认取舍） > FC1 Record set：兄弟键被 observer 同事务删除 → 不抛 fatal、ok:true、doc 保持篡改状态
+AssertionError: 触达面外篡改不应触发 fatal（实际 DOCRT-E201: mutation 边界安装后一致性校验偏离（边界 ROOT）：键 "ROOT" 读回键集 ["t0","t1"] 与对照安装读回键集 ["t0","t1","t2"] 不等——疑似 observer 删除（或插入后仲裁翻转）（ROOT）——疑似 observer 修改已安装边界；写入已提交，不回）: expected DocRuntimeFatalError: DOCRT-E201: mutatio… { …(2) } to be undefined
+
+- Expected:
+undefined
+
++ Received:
+DocRuntimeFatalError {
+  "message": "DOCRT-E201: mutation 边界安装后一致性校验偏离（边界 ROOT）：键 \"ROOT\" 读回键集 [\"t0\",\"t1\"] 与对照安装读回键集 [\"t0\",\"t1\",\"t2\"] 不等——疑似 observer 删除（或插入后仲裁翻转）（ROOT）——疑似 observer 修改已安装边界；写入已提交，不回滚、不补偿，doc 保持 observer 留下的实际状态",
+  "committed": true,
+  "phase": "post-commit-verification",
+  "name": "DocRuntimeFatalError",
+}
+
+ ❯ packages/doc-runtime/test/issue-441-record-fastpath-contract.test.ts:237:77
+    235|     const thrown = capture(() => run(fx, { op: 'set', path: ['tasks', …
+    236|     const summary = summarizeThrown(thrown);
+    237|     expect(thrown, `触达面外篡改不应触发 fatal（实际 ${summary.message.slice(0, 160…
+       |                                                                             ^
+    238|     expect(fx.tasks.has('t2')).toBe(false);
+    239|     expect(logicalValueAt(fx.doc, ['tasks', 't1'])).toEqual(item('x', …
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[15/18]⎯
+
+ FAIL  packages/doc-runtime/test/issue-441-record-fastpath-contract.test.ts > issue #441 FC — fast-path 提交仅安装事实核（触达面外 observer 篡改不再 E201；已确认取舍） > FC2 Record delete：兄弟键被 observer 同事务删除 → 不抛 fatal、ok:true
+AssertionError: 触达面外篡改不应触发 fatal（实际 DOCRT-E201: mutation 边界安装后一致性校验偏离（边界 ROOT）：键 "ROOT" 读回键集 ["t1"] 与对照安装读回键集 ["t1","t2"] 不等——疑似 observer 删除（或插入后仲裁翻转）（ROOT）——疑似 observer 修改已安装边界；写入已提交，不回滚、不补偿，doc ）: expected DocRuntimeFatalError: DOCRT-E201: mutatio… { …(2) } to be undefined
+
+- Expected:
+undefined
+
++ Received:
+DocRuntimeFatalError {
+  "message": "DOCRT-E201: mutation 边界安装后一致性校验偏离（边界 ROOT）：键 \"ROOT\" 读回键集 [\"t1\"] 与对照安装读回键集 [\"t1\",\"t2\"] 不等——疑似 observer 删除（或插入后仲裁翻转）（ROOT）——疑似 observer 修改已安装边界；写入已提交，不回滚、不补偿，doc 保持 observer 留下的实际状态",
+  "committed": true,
+  "phase": "post-commit-verification",
+  "name": "DocRuntimeFatalError",
+}
+
+ ❯ packages/doc-runtime/test/issue-441-record-fastpath-contract.test.ts:249:77
+    247|     const thrown = capture(() => run(fx, { op: 'delete', path: ['tasks…
+    248|     const summary = summarizeThrown(thrown);
+    249|     expect(thrown, `触达面外篡改不应触发 fatal（实际 ${summary.message.slice(0, 160…
+       |                                                                             ^
+    250|     expect(fx.tasks.has('t0')).toBe(false);
+    251|     expect(fx.tasks.has('t2')).toBe(false);
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[16/18]⎯
+
+ FAIL  packages/doc-runtime/test/issue-441-record-fastpath-contract.test.ts > issue #441 FC — fast-path 提交仅安装事实核（触达面外 observer 篡改不再 E201；已确认取舍） > FC3 Record set：兄弟键被 observer 同事务“新增” → 不抛 fatal（键集不参与 fast path 验证）
+AssertionError: 触达面外篡改不应触发 fatal（实际 DOCRT-E201: mutation 边界安装后一致性校验偏离（边界 ROOT）：键 "ROOT" 读回键集 ["t0","t1","t2","t3"] 与对照安装读回键集 ["t0","t1","t2"] 不等——疑似 observer 删除（或插入后仲裁翻转）（ROOT）——疑似 observer 修改已安装边）: expected DocRuntimeFatalError: DOCRT-E201: mutatio… { …(2) } to be undefined
+
+- Expected:
+undefined
+
++ Received:
+DocRuntimeFatalError {
+  "message": "DOCRT-E201: mutation 边界安装后一致性校验偏离（边界 ROOT）：键 \"ROOT\" 读回键集 [\"t0\",\"t1\",\"t2\",\"t3\"] 与对照安装读回键集 [\"t0\",\"t1\",\"t2\"] 不等——疑似 observer 删除（或插入后仲裁翻转）（ROOT）——疑似 observer 修改已安装边界；写入已提交，不回滚、不补偿，doc 保持 observer 留下的实际状态",
+  "committed": true,
+  "phase": "post-commit-verification",
+  "name": "DocRuntimeFatalError",
+}
+
+ ❯ packages/doc-runtime/test/issue-441-record-fastpath-contract.test.ts:261:77
+    259|     const thrown = capture(() => run(fx, { op: 'set', path: ['tasks', …
+    260|     const summary = summarizeThrown(thrown);
+    261|     expect(thrown, `触达面外篡改不应触发 fatal（实际 ${summary.message.slice(0, 160…
+       |                                                                             ^
+    262|     expect(fx.tasks.has('t3')).toBe(true);
+    263|     expect(logicalValueAt(fx.doc, ['tasks', 't1'])).toEqual(item('x', …
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[17/18]⎯
+
+ FAIL  packages/doc-runtime/test/issue-441-record-fastpath-contract.test.ts > issue #441 FC — fast-path 提交仅安装事实核（触达面外 observer 篡改不再 E201；已确认取舍） > FC4 封闭对象 delete：兄弟字段被 observer 同事务篡改 → 不抛 fatal、ok:true
+AssertionError: 触达面外篡改不应触发 fatal（实际 DOCRT-E201: mutation 边界安装后一致性校验偏离（边界 ROOT.deep）：边界重提取失败（Yjs 载体错位（ROOT.deep）：期望 Y.Map，实际 plain value）——已安装边界载体与结构树不符——疑似 observer 修改已安装边界；写入已提交，不回滚、不补偿，doc 保持 ob）: expected DocRuntimeFatalError: DOCRT-E201: mutatio… { …(2) } to be undefined
+
+- Expected:
+undefined
+
++ Received:
+DocRuntimeFatalError {
+  "message": "DOCRT-E201: mutation 边界安装后一致性校验偏离（边界 ROOT.deep）：边界重提取失败（Yjs 载体错位（ROOT.deep）：期望 Y.Map，实际 plain value）——已安装边界载体与结构树不符——疑似 observer 修改已安装边界；写入已提交，不回滚、不补偿，doc 保持 observer 留下的实际状态",
+  "committed": true,
+  "phase": "post-commit-verification",
+  "name": "DocRuntimeFatalError",
+}
+
+ ❯ packages/doc-runtime/test/issue-441-record-fastpath-contract.test.ts:273:77
+    271|     const thrown = capture(() => run(fx, { op: 'delete', path: ['obj',…
+    272|     const summary = summarizeThrown(thrown);
+    273|     expect(thrown, `触达面外篡改不应触发 fatal（实际 ${summary.message.slice(0, 160…
+       |                                                                             ^
+    274|     expect(fx.obj.has('opt')).toBe(false);
+    275|     expect(fx.obj.get('deep')).toBe(5);
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[18/18]⎯
+
+
+ Test Files  1 failed | 1 passed (2)
+      Tests  18 failed | 27 passed (45)
+Type Errors  no errors
+   Start at  18:10:16
+   Duration  982ms (transform 260ms, setup 0ms, collect 426ms, tests 270ms, environment 0ms, prepare 87ms)

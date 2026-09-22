@@ -138,3 +138,22 @@ ADR-0008 #93/#132、本节先例）。除下列明示句外，本节其余条款
 > （`A[] | B[]`）与本节其余边界种类（union 穿越位、Record 位、delete 父 map 位）按本节
 > 原文逐字保持；载体形态违规（条款 4(i)）不受影响。ADR-0010 issue #237 修订节后备句的
 > 数组含义同步随 ADR 0033 决策 4 修订（该节已被其标题点名，无需另行注记）。
+
+### ADR 0034 修订注记（2026-09-22）
+
+授权链：ADR 0034（`docs/adr/0034-record-and-parent-elementwise-validation.md`，状态已接受，
+决策 1–4）+ `docs/AGENTS.md`「Amend or supersede prior decisions explicitly instead of
+silently contradicting them」义务句；沿本仓「显式修订节」惯例（ADR-0006 #64/#79、
+ADR-0008 #93/#132、本节先例）。除下列明示句外，本节其余条款维持原文效力。
+
+> 本节条款 1 的「只把该边界投影为局部 logical 值 → 在 detached 局部值上按 mutation 域规则
+> 重建」与条款 4(ii) 中的「Record 位」「delete 的父 map 位」字面，自 ADR 0034
+> （`docs/adr/0034-record-and-parent-elementwise-validation.md` 决策 1–4）起就**非 union
+> Record 位与封闭对象 delete**修订为：逐 entry / 静态校验（Record set 单键 Pattern + 新值
+> schema、旧值不读；Record delete `has` 拒 no-op；封闭对象 delete 必填性静态判定、不读父值）、
+> 触达面收窄为「map/父载体本身 + 目标键位」——未触达 entry/字段的既存损坏不再被普通写发现
+> （对污染 map 的写目标键合法即成功）；条款 7 的「Record……delete 父位按边界规模」成本句对该
+> 类目标相应为 O(新值)/O(1)。union 容器目标（如 `Record<K,V> | 封闭对象`）与 union 穿越、
+> 本节其余边界种类按本节原文逐字保持；载体形态违规（条款 4(i)）不受影响。ADR-0010 issue
+> #237 修订节后备句的 Record/父位含义同步随 ADR 0034 决策 4 修订（该节已被其标题点名，
+> 无需另行注记）。
