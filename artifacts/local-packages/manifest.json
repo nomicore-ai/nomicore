@@ -12,6 +12,6 @@
   "@nomicore/namespace-registry": "nomicore-namespace-registry-0.3.0.tgz",
   "@nomicore/namespace-api": "nomicore-namespace-api-0.2.0.tgz",
   "@nomicore/replication-protocol": "nomicore-replication-protocol-0.2.0.tgz",
-  "@nomicore/ws-replication": "nomicore-ws-replication-0.3.0.tgz",
-  "@nomicore/yjs-server": "nomicore-yjs-server-0.3.0.tgz"
+  "@nomicore/ws-replication": "nomicore-ws-replication-0.4.0.tgz",
+  "@nomicore/yjs-server": "nomicore-yjs-server-0.4.0.tgz"
 }
