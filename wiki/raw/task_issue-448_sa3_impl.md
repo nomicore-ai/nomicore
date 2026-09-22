@@ -1,6 +1,7 @@
 # SA3 实现报告 — issue #448（γ-T2）：γ 异步缝 live update 数据面（verification-only 契约落盘与守门）
 
 - 实施者：SA3（TDD Executor）；Dispatch `sa-9de31283-a5dc-414e-b74a-120e2798db03`（mabf-sa3 / implementation / iteration 0）
+- iteration 1 追补：Dispatch `sa-8d832d55-1660-4da8-ab7b-9891266b4a47`（mabf-sa3 / implementation / iteration 1）——只修复 `git diff --cached --check` 报出的 3 处 `new blank line at EOF`（见文末「iteration 1 追补」段；零语义/零判据改动）
 - 基线：worktree `/home/wangjian/nomicore-fix-issue-448`，branch `mabf/issue-448`，HEAD `321d951`（`Merge pull request #453`；T1 实现 commit `52e634b`）——`git log`/`git status` 实查一致
 - 裁定承接：`wiki/raw/task_issue-448_design.md` §0/§7-D1 **#448 = verification-only（零生产实现面）**；SA2 `approve`（0 BLOCKER / 0 MAJOR）；SA8 `design_conflict_report` verdict `clear`、`requiresConflictRecheck: false`
 - 实施范围：严格按设计 §11 ALLOW LIST；DENY LIST 零触碰（生产 `src/**`、规范文本、模块 `AGENTS.md`、`replication-protocol/**`、根配置全部零 diff）
@@ -17,7 +18,7 @@
 | `wiki/raw/task_issue-448_sa6_contract.md` | 在场，已读（261 行） | verdict `approve`；**反向诊断**：AC1–AC6 行为在 HEAD 已由 #447 交付 ⇒ 契约是**绿色验收/回归契约**（§13「不伪称红灯」），13 条锚 + NC-1…NC-7 |
 | `wiki/raw/task_issue-448_design_conflict_report.md` | 在场，已读（130 行） | SA8 `clear`；§8-R1 落盘期复核义务（判据口径/负控不削弱、夹具 append-only 缺省零传、基线证据保留不替换）；`requiresConflictRecheck: false` |
 | `wiki/raw/task_issue-447_design.md`（D4/D6/D9/D10） | 在场（设计引用链） | T1 变更集已含数据面机械（pending 两相记账 / selfDrain / t0 推送时刻 / 合并占用判据）——本票无生产面的上游依据 |
-| 契约工件本体 | 在场，逐行读回 | `ws-replication-issue448-live-data-plane.test.ts`（686 行，实数 13 `it(`）、`issue448-live-seam.ts`（133 行）、`issue447-async-seam.ts` diff（+10/-0）、`artifacts/sa6-issue448-*.log` ×5 |
+| 契约工件本体 | 在场，逐行读回 | `ws-replication-issue448-live-data-plane.test.ts`（iteration 0 落盘时 686 行，实数 13 `it(`；iteration 1 尾随空行修复后 684 行——见文末）、`issue448-live-seam.ts`（133 行）、`issue447-async-seam.ts` diff（+10/-0）、`artifacts/sa6-issue448-*.log` ×5 |
 | Issue comments | **空数组**（派工 REST 读取 + 简报双确认） | 无 owner 追加要求可映射；需求全集 = 正文 6 条 AC |
 
 ---
@@ -44,7 +45,7 @@
 
 | Path | Design section | Change |
 |---|---|---|
-| `packages/ws-replication/test/ws-replication-issue448-live-data-plane.test.ts` | §7-D2 / §11 ALLOW 第 1 项 | SA6 制品**原样落盘**（686 行 / 13 用例；SA3 零内容改动）；文件模式 `600 → 664`（SA2 O3 归一） |
+| `packages/ws-replication/test/ws-replication-issue448-live-data-plane.test.ts` | §7-D2 / §11 ALLOW 第 1 项 | SA6 制品**原样落盘**（686 行 / 13 用例；SA3 零内容改动）；文件模式 `600 → 664`（SA2 O3 归一）；iteration 1 仅删尾部空行 ⇒ 684 行（见文末） |
 | `packages/ws-replication/test/issue448-live-seam.ts` | §7-D2 / §11 ALLOW 第 2 项 | SA6 制品**原样落盘**（133 行 test-only 夹具；SA3 零内容改动）；文件模式 `600 → 664` |
 | `packages/ws-replication/test/issue447-async-seam.ts` | §7-D3 / §11 ALLOW 第 3 项 | append-only +10 行（SA6 落地；SA3 零改写、零增删——`git diff --numstat` 复核 `10 0`） |
 | `artifacts/sa6-issue448-contract-run.log` | §11 ALLOW 第 4 项（「可追加新运行证据」） | 追加 SA3 段：`[1]` 契约单文件 13/13 exit 0；`[2]` γ 族四文件 43/43 exit 0（SA6 基线段保留） |
@@ -136,3 +137,42 @@ test(ws-replication): anchor gamma live update data plane (#448)
 - 证据：契约 13/13、γ 族 43/43、包全量 101 文件/897 用例、包 tsc exit 0（artifacts/sa6-issue448-*.log）
 - 范围：packages/ws-replication/src/** 与规范文本零改动（§24/A4 冻结面保持）
 ```
+
+---
+
+## iteration 1 追补 — 交付前白空格门禁修复（`git diff --cached --check`）
+
+**触发**：交付前白空格门禁 `git diff --cached --check` 报 3 处 `new blank line at EOF`（exit 2）。修复范围严格限定为这 3 处文件尾多余空行：零语义、零判据、零夹具、零生产改动（对应裁决与 `wiki/raw/task_issue-448_sa4_review.md`（`approve`）/ `task_issue-448_implementation_conflict_report.md`（`clear`，`requiresConflictRecheck: false`）的交付态完全一致）。
+
+| 报告位置 | 路径 | 修复前 EOF 字节 | 修复后 EOF 字节 | 删除量 | 内容等价性 |
+|---|---|---|---|---|---|
+| `:249` | `artifacts/sa6-issue448-package-suite-precontract.log` | `…typecheck 2.10s)\n\n` | `…typecheck 2.10s)\n` | −1 空行（249 → 248 行） | 去尾随换行后与索引副本逐字节相等 |
+| `:685` | `packages/ws-replication/test/ws-replication-issue448-live-data-plane.test.ts` | `…}, 30_000);\n});\n\n\n` | `…}, 30_000);\n});\n` | −2 空行（686 → 684 行） | 同上；13 个 `it(`、13 条锚、6 条负控/变异、`try/finally` 恢复纪律全部原样 |
+| `:33` | `wiki/raw/task_issue-448.md` | `…## Comments\n\n` | `…## Comments\n` | −1 空行（33 → 32 行） | 同上；正文 6 条 AC、`Blocked by #447`、Parent PR #446 原样 |
+
+**「仅删尾部空行」判据**：`git diff --numstat`（worktree vs index）= `0 1` / `0 2` / `0 1`（**零新增行**，纯删除）；逐文件字节比对 `worktree.rstrip(b'\n') == index.rstrip(b'\n')` = `True` ×3；`trailing blank lines at EOF` = `0` ×3。
+
+### Verification（iteration 1）
+
+| # | Command | Result | Evidence |
+|---|---|---|---|
+| W1 | `git diff HEAD --check` | **exit 0**（零白空格诊断）。三个待交付文件相对 HEAD 均为新增文件，故此即「重新入索引后 `git diff --cached --check`」的同一内容级检查 | 本段命令实跑输出；修复前同一命令 exit 2 / 同样 3 条诊断 |
+| W2 | `git diff --numstat` + 逐文件字节比对 + `trailing blank lines at EOF` | `0 1` / `0 2` / `0 1`；`identical modulo trailing newlines: True` ×3；`0` ×3 | 本段命令实跑输出 |
+| W3 | `NODE_OPTIONS=--conditions=nomicore-source npx vitest run <契约> <issue447-async-session-round> <issue447-async-seam-fixture> <issue447-async-session-api>` | **exit 0**；`Test Files 4 passed (4)`、**`Tests 43 passed (43)`**（契约 13 + T1 三套件 30）、`Type Errors no errors`；契约文件 `(13 tests)` 绿 | 实跑（16:38:00，Duration 3.22s）——证明被修文件仍可解析且 13 条判据全绿 |
+| W4 | `npx tsc -p packages/ws-replication/tsconfig.json` | **exit 0**，零诊断、零输出字节（`include` 覆盖被修测试文件） | 实跑输出 `[tsc exit: 0]` + `wc -c` = 0 |
+| W5 | `NODE_OPTIONS=--conditions=nomicore-source npx vitest run packages/ws-replication/test` | **exit 0**；`Test Files 101 passed (101)`、**`Tests 897 passed (897)`**、`Type Errors no errors`（与被修基线日志 `-package-suite-precontract.log` 的 100/884 基线 + 本契约 13 用例自洽：100+1=101、884+13=897） | 实跑（16:38:13，Duration 49.85s） |
+
+**索引态说明（SA3 纪律，非缺陷）**：SA3 按 skill 纪律**不执行 `git add`/`git commit`/`git push`，未改动索引**；修复只落在 worktree。因此在本 3 条路径重新入索引之前，`git diff --cached --check` 仍会读到索引中的旧 blob 并复现原诊断。控制方在 commit 前对本 3 条路径重新 `git add`（或 `git add -A`）即可，其后 `git diff --cached --check` 即等于 W1 所证的 exit 0（内容级等价，无需任何再修复）。
+
+### 范围核对（iteration 1）
+
+| Changed path | 归属 | 目的 |
+|---|---|---|
+| `artifacts/sa6-issue448-package-suite-precontract.log` | 设计 §11 ALLOW 第 4 项（证据日志） | 删文件尾空行（`new blank line at EOF`） |
+| `packages/ws-replication/test/ws-replication-issue448-live-data-plane.test.ts` | 设计 §11 ALLOW 第 1 项 | 同上（内容/判据零改动） |
+| `wiki/raw/task_issue-448.md` | 任务简报（total-control dispatch 显式授权修复） | 同上 |
+| `wiki/raw/task_issue-448_sa3_impl.md` | 本报告（dispatch 授权；设计 §11 注记「下游流水线产物由各自 dispatch 授权」） | 原位追补本段 |
+
+**DENY 面零触碰复核（iteration 1 实查）**：`packages/ws-replication/src/**`、`docs/**`、`CONTEXT.md`、`packages/ws-replication/AGENTS.md`、`packages/replication-protocol/**`、根 `vitest.config.ts`/`tsconfig*.json`/`package.json`、`pnpm-lock.yaml` 全部零 diff（相对迭代前交付态不变）；`packages/ws-replication/test/issue448-live-seam.ts`、`issue447-async-seam.ts`（append-only +10）零改动；其余 4 份证据日志（`-contract-run` / `-repeat5` / `-package-suite` / `-package-tsc`）零改动。
+
+**无新增偏离/阻塞**；iteration 1 未改变任何验收语义、判据口径、负控敏感性或夹具行为——只删除了 3 个文件末尾的多余空行。
