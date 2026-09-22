@@ -1,0 +1,64 @@
+=== PLANS ===
+["tasks","t1"] set -> kind=record prefix=["tasks"] relPath=["t1"] node.kind=object keyPattern=- fields=[<key>:ref]
+["tasks","t1"] delete -> kind=record prefix=["tasks"] relPath=["t1"] node.kind=object keyPattern=- fields=[<key>:ref]
+["codes","id-1"] set -> kind=record prefix=["codes"] relPath=["id-1"] node.kind=object keyPattern=^(id-[0-9]+)$ fields=[<key>:ref]
+["codes","nope"] set -> kind=record prefix=["codes"] relPath=["nope"] node.kind=object keyPattern=^(id-[0-9]+)$ fields=[<key>:ref]
+["codes","nope"] delete -> kind=record prefix=["codes"] relPath=["nope"] node.kind=object keyPattern=^(id-[0-9]+)$ fields=[<key>:ref]
+["blobs","b1"] set -> kind=record prefix=["blobs"] relPath=["b1"] node.kind=object keyPattern=- fields=[<key>:union]
+["maybe","m1"] set -> kind=union prefix=["maybe"] relPath=["m1"] node.kind=union keyPattern=- fields=[-]
+["maybe","m1"] delete -> kind=union prefix=["maybe"] relPath=["m1"] node.kind=union keyPattern=- fields=[-]
+["outer","inner","k1"] set -> kind=record prefix=["outer","inner"] relPath=["k1"] node.kind=object keyPattern=- fields=[<key>:ref]
+["outer","inner","k1"] delete -> kind=record prefix=["outer","inner"] relPath=["k1"] node.kind=object keyPattern=- fields=[<key>:ref]
+["obj","req"] delete -> kind=parent prefix=["obj"] relPath=["req"] node.kind=object keyPattern=- fields=[req:scalar/string,opt:optional,unk:scalar/unknown,child:object]
+["obj","opt"] delete -> kind=parent prefix=["obj"] relPath=["opt"] node.kind=object keyPattern=- fields=[req:scalar/string,opt:optional,unk:scalar/unknown,child:object]
+["obj","unk"] delete -> kind=parent prefix=["obj"] relPath=["unk"] node.kind=object keyPattern=- fields=[req:scalar/string,opt:optional,unk:scalar/unknown,child:object]
+["obj","missing"] delete -> PLAN-REJECT {"ok":false,"issues":[{"message":"路径不存在：未知字段 \"missing\"（封闭对象不接受未声明键）","path":["obj","missing"]}]}
+["obj","child"] delete -> kind=parent prefix=["obj"] relPath=["child"] node.kind=object keyPattern=- fields=[req:scalar/string,opt:optional,unk:scalar/unknown,child:object]
+["obj"] delete -> kind=parent prefix=[] relPath=["obj"] node.kind=object keyPattern=- fields=[tasks:object,codes:object,blobs:object,maybe:union,outer:object,obj:object]
+
+=== LEGACY VERDICTS (Record set/delete) ===
+clean map, set legal new key      OK
+clean map, set illegal value      {"ok":false,"issues":[{"message":"类型不匹配：期望 number，实际 string","path":["tasks","t3","qty"]}]}
+keyPattern ok                     OK
+keyPattern violation + legal val  {"ok":false,"issues":[{"message":"Record 键 \"nope\" 不满足 Pattern 正则 /^(id-[0-9]+)$/","path":["codes","nope"]}]}
+keyPattern violation + illegal v  {"ok":false,"issues":[{"message":"Record 键 \"nope\" 不满足 Pattern 正则 /^(id-[0-9]+)$/","path":["codes","nope"]},{"message":"类型不匹配：期望 number，实际 string","path":["codes","nope","qty"]}]}
+record value-union legal          OK
+record value-union illegal        {"ok":false,"issues":[{"message":"联合成员 2/2：期望整数区间 [0, 10]，实际 99","path":["blobs","b1","n"]}]}
+record value-union neither        {"ok":false,"issues":[{"message":"联合成员 1/2：缺少必填字段 \"name\"","path":["blobs","b1","name"]},{"message":"联合成员 1/2：缺少必填字段 \"qty\"","path":["blobs","b1","qty"]},{"message":"联合成员 1/2：未知字段 \"nope\"：封闭对象不接受未声明键","path":["blobs","b1","nope"]}]}
+nested record set                 {"ok":false,"issues":[{"message":"缺少必填字段 \"name\"","path":["outer","inner","inner","name"]},{"message":"缺少必填字段 \"qty\"","path":["outer","inner","inner","qty"]}]}
+record set overwrite bad old      OK
+record delete existing            OK
+record delete missing (no-op)     {"ok":false,"issues":[{"message":"delete 目标键不存在（拒绝 no-op）","path":["tasks","nope"]}]}
+record delete on polluted map     OK
+record set on polluted map        {"ok":false,"issues":[{"message":"期望整数区间 [0, 100]，实际 999","path":["tasks","t2","qty"]}]}
+record delete polluted target     OK
+
+=== LEGACY VERDICTS (parent delete) ===
+required delete                   {"ok":false,"issues":[{"message":"缺少必填字段 \"req\"","path":["obj","req"]}]}
+optional delete                   OK
+unknown delete                    OK
+required-unknown delete           OK
+no-op delete (opt absent)         {"ok":false,"issues":[{"message":"delete 目标键不存在（拒绝 no-op）","path":["obj","opt"]}]}
+no-op delete (req absent)         {"ok":false,"issues":[{"message":"delete 目标键不存在（拒绝 no-op）","path":["obj","req"]}]}
+child delete                      {"ok":false,"issues":[{"message":"缺少必填字段 \"child\"","path":["obj","child"]}]}
+child delete polluted sibling     {"ok":false,"issues":[{"message":"缺少必填字段 \"child\"","path":["obj","child"]}]}
+opt delete polluted sibling       {"ok":false,"issues":[{"message":"类型不匹配：期望 string，实际 number","path":["obj","child","deep"]}]}
+req delete polluted sibling       {"ok":false,"issues":[{"message":"缺少必填字段 \"req\"","path":["obj","req"]},{"message":"类型不匹配：期望 string，实际 number","path":["obj","child","deep"]}]}
+opt delete with required missing  {"ok":false,"issues":[{"message":"缺少必填字段 \"req\"","path":["obj","req"]},{"message":"缺少必填字段 \"child\"","path":["obj","child"]}]}
+undeclared delete (polluted)      THROW Error: plan fail ["obj","ghost"] delete: {"ok":false,"issues":[{"message":"路径不存在：未知字段 \"ghost\"（封闭对象不接受未声明键）","path":["obj","ghost"]}]}
+
+=== LEGACY VERDICTS (keyPattern / record pollution) ===
+codes delete existing valid key   {"ok":false,"issues":[{"message":"Record 键 \"bad key\" 不满足 Pattern 正则 /^(id-[0-9]+)$/","path":["codes","bad key"]}]}
+codes delete polluted key         OK
+codes set legal key on polluted   {"ok":false,"issues":[{"message":"Record 键 \"bad key\" 不满足 Pattern 正则 /^(id-[0-9]+)$/","path":["codes","bad key"]}]}
+codes set bad key + bad value     {"ok":false,"issues":[{"message":"Record 键 \"nope\" 不满足 Pattern 正则 /^(id-[0-9]+)$/","path":["codes","nope"]},{"message":"类型不匹配：期望 number，实际 string","path":["codes","nope","qty"]}]}
+codes set bad key on polluted     {"ok":false,"issues":[{"message":"Record 键 \"bad key\" 不满足 Pattern 正则 /^(id-[0-9]+)$/","path":["codes","bad key"]},{"message":"Record 键 \"nope\" 不满足 Pattern 正则 /^(id-[0-9]+)$/","path":["codes","nope"]}]}
+
+=== LEGACY: facts-as-base probe ===
+record set with {has:true} base   {"ok":false,"issues":[{"message":"类型不匹配：期望对象，实际 boolean","path":["tasks","has"]}]}
+record del with {has:true} base   {"ok":false,"issues":[{"message":"delete 目标键不存在（拒绝 no-op）","path":["tasks","t1"]}]}
+parent del with {has:true} base   {"ok":false,"issues":[{"message":"delete 目标键不存在（拒绝 no-op）","path":["obj","req"]}]}
+
+=== PUBLIC SURFACE ===
+FileSchemaSource, SchemaSourceError, applyElementwiseArrayMutation, applyMutationAtBoundary, assertVfslDialect, compilePattern, compileSchemaEnvelope, deriveSchemaIdentity, evaluate, getCompiled, getCompiledWith, isSchemaTruncationMarker, matchPattern, parseSchemaEnvelope, parseVfsl, planMutationBoundary, renderProjectionText, resolveSchemaAtPath, validateAppendToArray, validateDeleteFromArray, validateInsertIntoArray, validateLogicalSnapshot, validatePatch
+elementwise hits: [ 'applyElementwiseArrayMutation' ]

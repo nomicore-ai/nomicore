@@ -1,0 +1,114 @@
+# SA6 issue #440 探针（ADR 0034；HEAD 能力缺口 + 目标语义可达性）
+schema 别名：Item, Alt, ROOT
+
+[G1] 公共面导出普查（运行时反射）
+  运行时导出（24）：FileSchemaSource, SchemaSourceError, applyElementwiseArrayMutation, applyElementwiseEntryMutation, applyMutationAtBoundary, assertVfslDialect, compilePattern, compileSchemaEnvelope, deriveSchemaIdentity, evaluate, getCompiled, getCompiledWith, isSchemaTruncationMarker, matchPattern, parseSchemaEnvelope, parseVfsl, planMutationBoundary, renderProjectionText, resolveSchemaAtPath, validateAppendToArray, validateDeleteFromArray, validateInsertIntoArray, validateLogicalSnapshot, validatePatch
+  /elementwise/i 命中：applyElementwiseArrayMutation, applyElementwiseEntryMutation
+  FAIL G1.1 公共面无 Record/parent 逐 entry 接缝（applyElementwiseEntryMutation 缺席） — typeof=function
+  FAIL G1.2 唯一逐元素接缝是数组位 applyElementwiseArrayMutation（ADR 0033，#435） — applyElementwiseArrayMutation,applyElementwiseEntryMutation
+  ok   G1.3 全量 oracle 接缝在场（applyMutationAtBoundary / planMutationBoundary）
+
+[G2] legacy 以在场事实 {has} 代 boundaryBase（三支）
+  record set  + {has:true} → {"ok":false,"issues":[{"message":"类型不匹配：期望对象，实际 boolean","path":["tasks","has"]}]}
+  record del  + {has:true} → {"ok":false,"issues":[{"message":"delete 目标键不存在（拒绝 no-op）","path":["tasks","t1"]}]}
+  parent del  + {has:true} → {"ok":false,"issues":[{"message":"delete 目标键不存在（拒绝 no-op）","path":["obj","req"]}]}
+  ok   G2.1 record set：事实对象被当作 map 内容整体校验（响亮拒绝，非静默接受）
+  ok   G2.2 record delete：在场事实不足以判定（Object.hasOwn({has},key)=false → no-op 拒绝）
+  ok   G2.3 parent delete：同理 no-op 拒绝——legacy 的必填判定绑在父值重建后
+
+[G3] planMutationBoundary 形状（闸门前提）
+  record set   → kind=record prefix=["tasks"] relPath=["t1"] node.kind=object
+  record delete→ kind=record prefix=["tasks"] relPath=["t1"]
+  parent delete→ kind=parent prefix=["obj"] relPath=["opt"] node.kind=object
+  union map set→ kind=union node.kind=union
+  未声明键 delete → {"ok":false,"issues":[{"message":"路径不存在：未知字段 \"ghost\"（封闭对象不接受未声明键）","path":["obj","ghost"]}]}
+  ok   G3.1 Record set/delete：kind=record、relPath=[key]、node 为 Record 形态（含 <key> 槽）
+  ok   G3.2 封闭对象 delete：kind=parent、relPath=[key]、node 为封闭对象形态（无 <key> 槽）
+  ok   G3.3 union map 位（Record<string,Item> | {fixed:string}）：kind=union ∧ node.kind=union ⇒ 永久 legacy 轨
+  ok   G3.4 未声明键 delete 在规划层即拒（结构面：封闭对象不接受未声明键）
+
+[G4] legacy 语义快照（逐字）
+  键 Pattern 违规（合法值）→ {"ok":false,"issues":[{"message":"Record 键 \"nope\" 不满足 Pattern 正则 /^(id-[0-9]+)$/","path":["codes","nope"]}]}
+  键 Pattern 违规 + 非法值 → {"ok":false,"issues":[{"message":"Record 键 \"nope\" 不满足 Pattern 正则 /^(id-[0-9]+)$/","path":["codes","nope"]},{"message":"期望整数区间 [0, 100]，实际 101","path":["codes","nope","qty"]}]}
+  非法新值（tasks/t9）→ {"ok":false,"issues":[{"message":"期望整数区间 [0, 100]，实际 101","path":["tasks","t9","qty"]}]}
+  必填 delete（obj/req）→ {"ok":false,"issues":[{"message":"缺少必填字段 \"req\"","path":["obj","req"]}]}
+  no-op delete（obj/opt 缺席）→ {"ok":false,"issues":[{"message":"delete 目标键不存在（拒绝 no-op）","path":["obj","opt"]}]}
+  optional delete（obj/opt）→ {"ok":true,"issues":[]}
+  unknown delete（obj/unk）→ {"ok":true,"issues":[]}
+  值位 union（blobs/b1）→ {"ok":false,"issues":[{"message":"联合成员 2/2：期望整数区间 [0, 10]，实际 99","path":["blobs","b1","n"]}]}
+  ok   G4.1 键 Pattern message+path 冻结：`Record 键 "nope" 不满足 Pattern 正则 /^(id-[0-9]+)$/` @ ["codes","nope"]
+  ok   G4.2 键违规不阻断值校验（全收集，序 = 键先值后）
+  ok   G4.3 非法新值 rebase：issue 落在 [...mapPath, key, ...值内路径]
+  ok   G4.4 必填 delete 逐字：`缺少必填字段 "req"` @ ["obj","req"]
+  ok   G4.5 no-op delete 逐字：`delete 目标键不存在（拒绝 no-op）` @ ["obj","opt"]
+  ok   G4.6 optional / unknown 字段 delete 允许（静态规则绿侧）
+  ok   G4.7 值位 union（Item | Alt）在 legacy 轨照常仲裁（fast path 必须逐字复现）
+
+[G5] 立法前提：Record 层无 map 级约束（大 map）
+  200 entry 干净 map 整体校验 → OK
+  单 entry 非法 → {"ok":false,"issues":[{"message":"期望整数区间 [0, 100]，实际 999","path":["tasks","t7","qty"]}]}
+  ok   G5.1 大 Record（200 entry）整体接受：无键数上限 / 无跨键约束（决策 5 前提）
+  ok   G5.2 entry 级非法仍响亮拒绝（立法非空转）
+
+[REF] 见证实现（纯公共导出）
+  等价集 107 例：ref vs oracle 逐字节不一致 0 例
+  ok   O1 等价性可达：见证与全量 oracle 在等价集上逐字节一致（接受/拒绝两支）
+  等价集登记期望 vs oracle 不一致 0 例；oracle issue 越出目标键位前缀 0 例
+  ok   O2 REF 命中夹具期望（夹具不自欺）
+  ok   O2b 等价集纪律：oracle 判决只落在目标键位前缀（污染只在目标键位之内）
+
+[O3/NC1] 触达面组（污染在目标键位之外）
+  X-tasks-set-polluted-sibling: oracle=REJECT target=OK
+  X-tasks-delete-polluted-sibling: oracle=REJECT target=OK
+  X-blobs-set-polluted-sibling: oracle=REJECT target=OK
+  X-outer-inner-delete-polluted-sibling: oracle=REJECT target=OK
+  X-codes-set-legal-key-polluted-key: oracle=REJECT target=OK
+  X-codes-delete-legal-key-polluted-key: oracle=REJECT target=OK
+  X-codes-set-bad-key-on-polluted: oracle=REJECT target=REJECT
+  X-obj-opt-delete-polluted-sibling: oracle=REJECT target=OK
+  X-obj-req-delete-polluted-sibling: oracle=REJECT target=REJECT
+  X-panel-unk-delete-polluted-sibling: oracle=REJECT target=OK
+  触达面组 10 例：oracle 拒绝 10、ref/oracle 逐字节可分 10、目标期望不符 0
+  ok   O3 判据敏感性：触达面组 ref 与 oracle 全数逐字节可分（比较非空转）
+  ok   NC1 现状触达面：legacy 轨对触达面组一律连带拒绝（决策 4 对照基线）
+  ok   O3b 触达面组目标行为登记自洽（accept/reject 与静态判定一致）
+
+[NC2] 既有接缝在场锚
+  ok   NC2.1 数组逐元素接缝（#435/ADR 0033）在场且为函数——本票只允许加法
+  ok   NC2.2 公共面既有导出超集在场（23 个）
+
+# 结论
+  等价集：107 例（accept 46 / reject 61）
+  触达面组：10 例（全部可判别）
+  schema 文本指纹（夹具冻结）：508 字符
+  失败检查：G1.1 公共面无 Record/parent 逐 entry 接缝（applyElementwiseEntryMutation 缺席）, G1.2 唯一逐元素接缝是数组位 applyElementwiseArrayMutation（ADR 0033，#435）
+node:internal/modules/run_main:107
+    triggerUncaughtException(
+    ^
+
+AssertionError [ERR_ASSERTION]: 探针失败检查：G1.1 公共面无 Record/parent 逐 entry 接缝（applyElementwiseEntryMutation 缺席）, G1.2 唯一逐元素接缝是数组位 applyElementwiseArrayMutation（ADR 0033，#435）
++ actual - expected
+
++ [
++   'G1.1 公共面无 Record/parent 逐 entry 接缝（applyElementwiseEntryMutation 缺席）',
++   'G1.2 唯一逐元素接缝是数组位 applyElementwiseArrayMutation（ADR 0033，#435）'
++ ]
+- []
+
+    at <anonymous> (/home/wangjian/nomicore-fix-issue-440/wiki/raw/task_issue-440_sa6_capability_probe.mts:345:8)
+    at ModuleJob.run (node:internal/modules/esm/module_job:413:25)
+    at async onImport.tracePromise.__proto__ (node:internal/modules/esm/loader:660:26)
+    at async asyncRunEntryPointWithESMLoader (node:internal/modules/run_main:101:5) {
+  generatedMessage: false,
+  code: 'ERR_ASSERTION',
+  actual: [
+    'G1.1 公共面无 Record/parent 逐 entry 接缝（applyElementwiseEntryMutation 缺席）',
+    'G1.2 唯一逐元素接缝是数组位 applyElementwiseArrayMutation（ADR 0033，#435）'
+  ],
+  expected: [],
+  operator: 'deepStrictEqual',
+  diff: 'simple'
+}
+
+Node.js v24.13.0
+PROBE_EXIT:1

@@ -1,0 +1,10 @@
+
+ RUN  v3.2.7 /home/wangjian/nomicore-fix-issue-440
+
+ ✓ packages/vfsl/test/issue-440-elementwise-entry-contract.test.ts (26 tests) 31ms
+
+ Test Files  1 passed (1)
+      Tests  26 passed (26)
+   Start at  16:41:30
+   Duration  486ms (transform 249ms, setup 0ms, collect 309ms, tests 31ms, environment 0ms, prepare 47ms)
+

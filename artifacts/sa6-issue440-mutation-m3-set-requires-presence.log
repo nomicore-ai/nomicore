@@ -1,0 +1,288 @@
+
+ RUN  v3.2.7 /home/wangjian/nomicore-fix-issue-440
+
+ ❯ packages/vfsl/test/issue-440-elementwise-entry-contract.test.ts (26 tests | 10 failed) 76ms
+   ✓ #440 A 公共接缝（经包公共入口） > A1 新导出在场且是函数（公共面唯一入口 = src/index.ts） 1ms
+   × #440 A 公共接缝（经包公共入口） > A2 合法 Record set 返回 ValidateResult 的 ok 支（`{ok:true}` 直出、无 result 包装、纯函数） 24ms
+     → expected { ok: false, issues: [ { …(2) } ] } to deeply equal { ok: true }
+   × #440 B Record set 逐 entry 校验 > B1 每条 fast-path Record 路径：新键 / 既有键整值替换（合法值）均通过 4ms
+     → path=["tasks"] 新键: expected { ok: false, issues: [ { …(2) } ] } to deeply equal { ok: true }
+   × #440 B Record set 逐 entry 校验 > B2 非法新值写入前拒绝：issue 路径 = [...mapPath, key, ...值内路径]（items 规范锚 + oracle 逐字节） 5ms
+     → expected 'M3 set 误拒缺席键' to be '期望整数区间 [0, 100]，实际 101' // Object.is equality
+   × #440 B Record set 逐 entry 校验 > B3 键 Pattern 违规（合法值）：message/path 与全量路径逐字节一致 3ms
+     → expected 'M3 set 误拒缺席键' to be 'Record 键 "nope" 不满足 Pattern 正则 /^(id-…' // Object.is equality
+   × #440 B Record set 逐 entry 校验 > B4 键 Pattern 违规 + 非法新值：两 issue、序 = 键先值后（全收集语义），与 oracle 逐字节一致 3ms
+     → expected [ [ 'codes', 'nope' ] ] to deeply equal [ [ 'codes', 'nope' ], …(1) ]
+   × #440 B Record set 逐 entry 校验 > B5 Record 值位为 union 不影响 fast path（blobs: Record<string, Item | Alt> 逐字复现 union 仲裁） 1ms
+     → expected { ok: false, issues: [ { …(2) } ] } to deeply equal { ok: true, issues: [] }
+   × #440 B Record set 逐 entry 校验 > B6 旧值不读：同一 payload 下 has 真/假判决逐字节相同；目标键位旧值非法不阻断（整值替换） 2ms
+     → path=["tasks"] has=false: expected { ok: false, issues: [ { …(2) } ] } to deeply equal { ok: true }
+   × #440 B Record set 逐 entry 校验 > B7 嵌套 Record 路径 rebase：issue 路径使用容器绝对路径（outer.inner） 1ms
+     → expected [ 'outer', 'inner', 'n9' ] to deeply equal [ 'outer', 'inner', 'n9', 'qty' ]
+   ✓ #440 C Record delete 仅域规则判定 > C1 缺席键拒 no-op：message/path 与现行逐字一致 1ms
+   ✓ #440 C Record delete 仅域规则判定 > C2 在场键 delete 全部通过（空对象合法 ⇒ 删除永不使 Record 变非法） 1ms
+   ✓ #440 C Record delete 仅域规则判定 > C3 不触碰其他 entry：同 has 事实下干净基线与邻位污染基线判决逐字节相同 1ms
+   ✓ #440 C Record delete 仅域规则判定 > C4 目标键本身违反 keyPattern 但存在：delete 照常成功（delete 不查键 Pattern） 0ms
+   ✓ #440 C Record delete 仅域规则判定 > C5 缺席键即使违反 keyPattern 也只报 no-op（域规则先于 schema 判定） 0ms
+   ✓ #440 D 封闭对象 delete 静态必填判定（不读父值） > D1 必填且非 unknown 标量 → 拒绝（message/path 逐字一致；两 parent 路径全矩阵） 2ms
+   ✓ #440 D 封闭对象 delete 静态必填判定（不读父值） > D2 optional / unknown 标量字段 → 允许（与 oracle 逐字节一致） 1ms
+   ✓ #440 D 封闭对象 delete 静态必填判定（不读父值） > D3 字段缺席（has=false）→ 拒 no-op（必填性无关的域规则） 0ms
+   ✓ #440 D 封闭对象 delete 静态必填判定（不读父值） > D4 静态性（数据无关）：目标字段值形态不影响判决（必填拒绝 / optional 允许） 0ms
+   ✓ #440 D 封闭对象 delete 静态必填判定（不读父值） > D5 不读父值 / 同胞不重验：同 has 事实下干净基线与同胞污染基线判决逐字节相同 1ms
+   ✓ #440 D 封闭对象 delete 静态必填判定（不读父值） > D6 嵌套封闭对象路径 rebase：issue 路径使用父对象绝对路径（panel.node） 0ms
+   × #440 E 一致性 fixture（ADR 0034 决策 5） > E1 全用例：逐 entry 判定与全量整体验证的接受/拒绝及 issue 内容逐字节一致 3ms
+     → P-tasks-set-new-key-legal（新键 + 合法新值：键过 Pattern、值过值 schema）逐 entry={"ok":false,"issues":[{"message":"M3 set 误拒缺席键","path":["tasks","zz9"]}]} 全量={"ok":true,"issues":[]}: expected '{"ok":false,"issues":[{"message":"M3 …' to be '{"ok":true,"issues":[]}' // Object.is equality
+   ✓ #440 E 一致性 fixture（ADR 0034 决策 5） > E2 比较判据敏感：触达面组（污染在目标键位之外）上目标判决与全量 oracle 逐字节可分 4ms
+   × #440 E 一致性 fixture（ADR 0034 决策 5） > E3 触达面目标行为：目标键位合法即成功；拒绝时只报目标键位（不连带邻位污染） 1ms
+     → X-tasks-set-polluted-sibling（map 触达面 = map 载体 + 目标键位：邻位污染不阻断合法新键写入）: expected false to be true // Object.is equality
+   ✓ #440 F fast path 闸门 fail closed > F1 闸门前提：record 计划 = kind=record ∧ node 为 Record 形态（含 <key> 槽）；parent 计划 = kind=parent ∧ 封闭对象形态 15ms
+   ✓ #440 F fast path 闸门 fail closed > F2 union map 位（maybe）永久 legacy：节点 kind=union ⇒ 新接缝不静默接受 1ms
+   ✓ #440 F fast path 闸门 fail closed > F3 非闸门计划（target / array / 手造 kind / relPath ≠ [key]）一律 fail closed（不静默 ok） 0ms
+
+⎯⎯⎯⎯⎯⎯ Failed Tests 10 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  packages/vfsl/test/issue-440-elementwise-entry-contract.test.ts > #440 A 公共接缝（经包公共入口） > A2 合法 Record set 返回 ValidateResult 的 ok 支（`{ok:true}` 直出、无 result 包装、纯函数）
+AssertionError: expected { ok: false, issues: [ { …(2) } ] } to deeply equal { ok: true }
+
+- Expected
++ Received
+
+  {
+-   "ok": true,
++   "issues": [
++     {
++       "message": "M3 set 误拒缺席键",
++       "path": [
++         "tasks",
++         "t9",
++       ],
++     },
++   ],
++   "ok": false,
+  }
+
+ ❯ packages/vfsl/test/issue-440-elementwise-entry-contract.test.ts:125:20
+    123|     const planBefore = JSON.stringify(plan);
+    124|     const result = callOf(plan, false, { op: 'set', value: ivLegal('it…
+    125|     expect(result).toEqual({ ok: true });
+       |                    ^
+    126|     expect(Object.hasOwn(result as object, 'result')).toBe(false);
+    127|     expect(JSON.stringify(plan)).toBe(planBefore);
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/10]⎯
+
+ FAIL  packages/vfsl/test/issue-440-elementwise-entry-contract.test.ts > #440 B Record set 逐 entry 校验 > B1 每条 fast-path Record 路径：新键 / 既有键整值替换（合法值）均通过
+AssertionError: path=["tasks"] 新键: expected { ok: false, issues: [ { …(2) } ] } to deeply equal { ok: true }
+
+- Expected
++ Received
+
+  {
+-   "ok": true,
++   "issues": [
++     {
++       "message": "M3 set 误拒缺席键",
++       "path": [
++         "tasks",
++         "zz9",
++       ],
++     },
++   ],
++   "ok": false,
+  }
+
+ ❯ packages/vfsl/test/issue-440-elementwise-entry-contract.test.ts:140:160
+    138|       const tag = `path=${JSON.stringify(spec.path)}`;
+    139|       const newKey = spec.keyPattern === undefined ? 'zz9' : 'id-9';
+    140|       expect(callOf(planFor(derived, [...spec.path, newKey], 'set'), O…
+       |                                                                                                                                                                ^
+    141|       expect(callOf(planFor(derived, [...spec.path, existing], 'set'),…
+    142|     }
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/10]⎯
+
+ FAIL  packages/vfsl/test/issue-440-elementwise-entry-contract.test.ts > #440 B Record set 逐 entry 校验 > B2 非法新值写入前拒绝：issue 路径 = [...mapPath, key, ...值内路径]（items 规范锚 + oracle 逐字节）
+AssertionError: expected 'M3 set 误拒缺席键' to be '期望整数区间 [0, 100]，实际 101' // Object.is equality
+
+Expected: "期望整数区间 [0, 100]，实际 101"
+Received: "M3 set 误拒缺席键"
+
+ ❯ packages/vfsl/test/issue-440-elementwise-entry-contract.test.ts:151:39
+    149|     if (result.ok) return;
+    150|     expect(result.issues).toHaveLength(1);
+    151|     expect(result.issues[0]!.message).toBe('期望整数区间 [0, 100]，实际 101');
+       |                                       ^
+    152|     expect(result.issues[0]!.path).toEqual(['tasks', 'zz9', 'qty']);
+    153|     const c = caseOf(['tasks'], 'zz9', {}, { op: 'set', value: ivIlleg…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[3/10]⎯
+
+ FAIL  packages/vfsl/test/issue-440-elementwise-entry-contract.test.ts > #440 B Record set 逐 entry 校验 > B3 键 Pattern 违规（合法值）：message/path 与全量路径逐字节一致
+AssertionError: expected 'M3 set 误拒缺席键' to be 'Record 键 "nope" 不满足 Pattern 正则 /^(id-…' // Object.is equality
+
+Expected: "Record 键 "nope" 不满足 Pattern 正则 /^(id-[0-9]+)$/"
+Received: "M3 set 误拒缺席键"
+
+ ❯ packages/vfsl/test/issue-440-elementwise-entry-contract.test.ts:163:39
+    161|     if (result.ok) return;
+    162|     expect(result.issues).toHaveLength(1);
+    163|     expect(result.issues[0]!.message).toBe('Record 键 "nope" 不满足 Patter…
+       |                                       ^
+    164|     expect(result.issues[0]!.path).toEqual(['codes', 'nope']);
+    165|     const c = caseOf(['codes'], 'nope', {}, span);
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[4/10]⎯
+
+ FAIL  packages/vfsl/test/issue-440-elementwise-entry-contract.test.ts > #440 B Record set 逐 entry 校验 > B4 键 Pattern 违规 + 非法新值：两 issue、序 = 键先值后（全收集语义），与 oracle 逐字节一致
+AssertionError: expected [ [ 'codes', 'nope' ] ] to deeply equal [ [ 'codes', 'nope' ], …(1) ]
+
+- Expected
++ Received
+
+  [
+    [
+      "codes",
+      "nope",
+    ],
+-   [
+-     "codes",
+-     "nope",
+-     "qty",
+-   ],
+  ]
+
+ ❯ packages/vfsl/test/issue-440-elementwise-entry-contract.test.ts:174:46
+    172|     expect(result.ok).toBe(false);
+    173|     if (result.ok) return;
+    174|     expect(result.issues.map((i) => i.path)).toEqual([['codes', 'nope'…
+       |                                              ^
+    175|     const c = caseOf(['codes'], 'nope', {}, payload);
+    176|     expect(verdictBytes(verdictOf(c))).toBe(verdictBytes(oracleOf(c)));
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[5/10]⎯
+
+ FAIL  packages/vfsl/test/issue-440-elementwise-entry-contract.test.ts > #440 B Record set 逐 entry 校验 > B5 Record 值位为 union 不影响 fast path（blobs: Record<string, Item | Alt> 逐字复现 union 仲裁）
+AssertionError: expected { ok: false, issues: [ { …(2) } ] } to deeply equal { ok: true, issues: [] }
+
+- Expected
++ Received
+
+  {
+-   "issues": [],
+-   "ok": true,
++   "issues": [
++     {
++       "message": "M3 set 误拒缺席键",
++       "path": [
++         "blobs",
++         "b9",
++       ],
++     },
++   ],
++   "ok": false,
+  }
+
+ ❯ packages/vfsl/test/issue-440-elementwise-entry-contract.test.ts:181:30
+    179|   it('B5 Record 值位为 union 不影响 fast path（blobs: Record<string, Item | A…
+    180|     const legal = caseOf(['blobs'], 'b9', {}, { op: 'set', value: { la…
+    181|     expect(verdictOf(legal)).toEqual({ ok: true, issues: [] });
+       |                              ^
+    182|     expect(verdictBytes(verdictOf(legal))).toBe(verdictBytes(oracleOf(…
+    183|     const illegal = caseOf(['blobs'], 'b9', {}, { op: 'set', value: { …
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[6/10]⎯
+
+ FAIL  packages/vfsl/test/issue-440-elementwise-entry-contract.test.ts > #440 B Record set 逐 entry 校验 > B6 旧值不读：同一 payload 下 has 真/假判决逐字节相同；目标键位旧值非法不阻断（整值替换）
+AssertionError: path=["tasks"] has=false: expected { ok: false, issues: [ { …(2) } ] } to deeply equal { ok: true }
+
+- Expected
++ Received
+
+  {
+-   "ok": true,
++   "issues": [
++     {
++       "message": "M3 set 误拒缺席键",
++       "path": [
++         "tasks",
++         "t0",
++       ],
++     },
++   ],
++   "ok": false,
+  }
+
+ ❯ packages/vfsl/test/issue-440-elementwise-entry-contract.test.ts:194:64
+    192|       const a = callOf(plan, false, payload);
+    193|       const b = callOf(plan, true, payload);
+    194|       expect(a, `path=${JSON.stringify(spec.path)} has=false`).toEqual…
+       |                                                                ^
+    195|       expect(verdictBytes(resultVerdict(a))).toBe(verdictBytes(resultV…
+    196|     }
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[7/10]⎯
+
+ FAIL  packages/vfsl/test/issue-440-elementwise-entry-contract.test.ts > #440 B Record set 逐 entry 校验 > B7 嵌套 Record 路径 rebase：issue 路径使用容器绝对路径（outer.inner）
+AssertionError: expected [ 'outer', 'inner', 'n9' ] to deeply equal [ 'outer', 'inner', 'n9', 'qty' ]
+
+- Expected
++ Received
+
+  [
+    "outer",
+    "inner",
+    "n9",
+-   "qty",
+  ]
+
+ ❯ packages/vfsl/test/issue-440-elementwise-entry-contract.test.ts:208:36
+    206|     expect(result.ok).toBe(false);
+    207|     if (result.ok) return;
+    208|     expect(result.issues[0]!.path).toEqual(['outer', 'inner', 'n9', 'q…
+       |                                    ^
+    209|     const c = caseOf(['outer', 'inner'], 'n9', {}, payload);
+    210|     expect(verdictBytes(verdictOf(c))).toBe(verdictBytes(oracleOf(c)));
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[8/10]⎯
+
+ FAIL  packages/vfsl/test/issue-440-elementwise-entry-contract.test.ts > #440 E 一致性 fixture（ADR 0034 决策 5） > E1 全用例：逐 entry 判定与全量整体验证的接受/拒绝及 issue 内容逐字节一致
+AssertionError: P-tasks-set-new-key-legal（新键 + 合法新值：键过 Pattern、值过值 schema）逐 entry={"ok":false,"issues":[{"message":"M3 set 误拒缺席键","path":["tasks","zz9"]}]} 全量={"ok":true,"issues":[]}: expected '{"ok":false,"issues":[{"message":"M3 …' to be '{"ok":true,"issues":[]}' // Object.is equality
+
+Expected: "{"ok":true,"issues":[]}"
+Received: "{"ok":false,"issues":[{"message":"M3 set 误拒缺席键","path":["tasks","zz9"]}]}"
+
+ ❯ packages/vfsl/test/issue-440-elementwise-entry-contract.test.ts:350:116
+    348|       const oracle = oracleOf(c);
+    349|       const target = verdictOf(c);
+    350|       expect(verdictBytes(target), `${c.id}（${c.note}）逐 entry=${verdic…
+       |                                                                                                                    ^
+    351|       checked += 1;
+    352|     }
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[9/10]⎯
+
+ FAIL  packages/vfsl/test/issue-440-elementwise-entry-contract.test.ts > #440 E 一致性 fixture（ADR 0034 决策 5） > E3 触达面目标行为：目标键位合法即成功；拒绝时只报目标键位（不连带邻位污染）
+AssertionError: X-tasks-set-polluted-sibling（map 触达面 = map 载体 + 目标键位：邻位污染不阻断合法新键写入）: expected false to be true // Object.is equality
+
+- Expected
++ Received
+
+- true
++ false
+
+ ❯ packages/vfsl/test/issue-440-elementwise-entry-contract.test.ts:370:47
+    368|     for (const c of touchSurfaceCases) {
+    369|       const target = verdictOf(c);
+    370|       expect(target.ok, `${c.id}（${c.note}）`).toBe(c.expectTarget === …
+       |                                               ^
+    371|       expect(issuesConfinedToTargetKey(target, planForCase(derived, c)…
+    372|     }
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[10/10]⎯
+
+
+ Test Files  1 failed (1)
+      Tests  10 failed | 16 passed (26)
+   Start at  16:48:44
+   Duration  870ms (transform 457ms, setup 0ms, collect 590ms, tests 76ms, environment 0ms, prepare 66ms)
+
