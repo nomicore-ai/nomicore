@@ -1,0 +1,6 @@
+### Package suite reproduction attempts (gate conditions) — 2026-09-22T13:10:38Z
+--- suite run 1: exit=1 |  Test Files  1 failed | 104 passed (105)       Tests  1 failed | 944 passed (945)
+    failure: × issue #451 ANCHOR-ORDER — 跨线程 observer 事件无全序：断言只依赖单侧事实与因果门（§24.8） > ANCHOR-ORDER-C1（调度扰动不变性）：即时释放 vs 扣留回执后释放——两调度下按型投影逐字相同 18ms
+    diff keys: +       "bytes": 24, -       "bytes": 27,
+--- suite run 2: exit=0 |  Test Files  105 passed (105)       Tests  945 passed (945)
+    failure: none

@@ -1,0 +1,72 @@
+# AC3 named-file set enumeration (SA3 iteration 1)
+issue420-shim-hub.ts
+issue424-sharded-hub.ts
+ws-replication-issue418-edge-session-split-contract.test.ts
+ws-replication-issue418-edge-session-split-structure.test.ts
+ws-replication-issue418-pending-window-matrix.test.ts
+ws-replication-issue420-session-host-api.test-d.ts
+ws-replication-issue420-session-host-round.test.ts
+ws-replication-issue420-shim-matrix.test.ts
+ws-replication-issue421-edge-accept.test.ts
+ws-replication-issue421-edge-factory-api.test-d.ts
+ws-replication-issue421-edge-lifecycle.test.ts
+ws-replication-issue421-error-routing.test.ts
+ws-replication-issue421-open-admission-pipeline.test.ts
+ws-replication-issue421-route-key-parity.test.ts
+ws-replication-issue421-wire-parity.test.ts
+ws-replication-issue423-observer-emission-split.test.ts
+ws-replication-issue423-sa7-dynamic.test.ts
+ws-replication-issue423-update-offset-guard.test.ts
+ws-replication-issue424-auth-parity.test.ts
+ws-replication-issue424-cross-seam-round.test.ts
+ws-replication-issue424-lifecycle.test.ts
+ws-replication-issue424-multi-worker.test.ts
+count=22
+
+# issue422 files (covered by AC4 full gate, not in AC3 named set):
+ws-replication-issue422-listen-false.test.ts
+ws-replication-issue422-session-host-api.test-d.ts
+
+# AC3 set excluding non-test fixtures (issue420-shim-hub.ts / issue424-sharded-hub.ts):
+ws-replication-issue418-edge-session-split-contract.test.ts
+ws-replication-issue418-edge-session-split-structure.test.ts
+ws-replication-issue418-pending-window-matrix.test.ts
+ws-replication-issue420-session-host-round.test.ts
+ws-replication-issue420-shim-matrix.test.ts
+ws-replication-issue421-edge-accept.test.ts
+ws-replication-issue421-edge-lifecycle.test.ts
+ws-replication-issue421-error-routing.test.ts
+ws-replication-issue421-open-admission-pipeline.test.ts
+ws-replication-issue421-route-key-parity.test.ts
+ws-replication-issue421-wire-parity.test.ts
+ws-replication-issue423-observer-emission-split.test.ts
+ws-replication-issue423-sa7-dynamic.test.ts
+ws-replication-issue423-update-offset-guard.test.ts
+ws-replication-issue424-auth-parity.test.ts
+ws-replication-issue424-cross-seam-round.test.ts
+ws-replication-issue424-lifecycle.test.ts
+ws-replication-issue424-multi-worker.test.ts
+named-file count=18 (expect 20)
+
+# correction: the previous regex missed the two .test-d.ts files; full named set (20):
+ws-replication-issue418-edge-session-split-contract.test.ts
+ws-replication-issue418-edge-session-split-structure.test.ts
+ws-replication-issue418-pending-window-matrix.test.ts
+ws-replication-issue420-session-host-api.test-d.ts
+ws-replication-issue420-session-host-round.test.ts
+ws-replication-issue420-shim-matrix.test.ts
+ws-replication-issue421-edge-accept.test.ts
+ws-replication-issue421-edge-factory-api.test-d.ts
+ws-replication-issue421-edge-lifecycle.test.ts
+ws-replication-issue421-error-routing.test.ts
+ws-replication-issue421-open-admission-pipeline.test.ts
+ws-replication-issue421-route-key-parity.test.ts
+ws-replication-issue421-wire-parity.test.ts
+ws-replication-issue423-observer-emission-split.test.ts
+ws-replication-issue423-sa7-dynamic.test.ts
+ws-replication-issue423-update-offset-guard.test.ts
+ws-replication-issue424-auth-parity.test.ts
+ws-replication-issue424-cross-seam-round.test.ts
+ws-replication-issue424-lifecycle.test.ts
+ws-replication-issue424-multi-worker.test.ts
+named-file count=20 (expect 20)

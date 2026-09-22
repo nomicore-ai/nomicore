@@ -1,0 +1,43 @@
+Testing types with tsc and vue-tsc is an experimental feature.
+Breaking changes might not follow SemVer, please pin Vitest's version when using it.
+
+ RUN  v3.2.7 /home/wangjian/nomicore-fix-issue-449
+
+ ❯ packages/ws-replication/test/ws-replication-issue449-gamma-reconcile-chunked.test.ts (14 tests | 1 failed | 13 skipped) 134ms
+   ↓ issue #449 ROUND3 — kind=2 sync round 跨缝全回合（ownStep1Seq/ownStep2Seq 三态锚） > ROUND3-C1 / CHUNK3-C2（AC1/AC4）：多 chunk 构型下单帧 SYNC_STEP2 恒 0；两方向 kind=2 chunkIndex 0..k-1（k≥2）；双向 SYNC_APPLIED 回指对端末 chunk；chunked-sync-sent/-applied/-acked 各恰一次；live + 双向文档语义等
+   ↓ issue #449 ROUND3 — kind=2 sync round 跨缝全回合（ownStep1Seq/ownStep2Seq 三态锚） > ROUND3-C2（AC1 NC，ownStep1Seq pending 面）：丢弃 hub SYNC_STEP1 回执 + 对端 SYNC_STEP2 引用其序 ⇒ 响亮 SYNC_STATE_VIOLATION + namespace failed；零 park
+   × issue #449 ROUND3 — kind=2 sync round 跨缝全回合（ownStep1Seq/ownStep2Seq 三态锚） > ROUND3-C3（AC2 NC，ownStep2Seq pending 面）：步进至队列头 = 末 kind=2 chunk 回执（次位 = 对端 SYNC_APPLIED），reorderNext 后先消费 SYNC_APPLIED ⇒ 响亮 SYNC_STATE_VIOLATION；交换点在场断言防编排漂移 133ms
+     → issue447 fixture: pumpUntil 未达谓词（响亮收口 ERROR）
+   ↓ issue #449 ANCHOR3 — SYNC_APPLIED / BOOTSTRAP_ACK 保序锚（kind=1 分块形态） > ANCHOR3-C1（AC2）：三步步进——① 中间 chunk 回执：仍 awaiting-ack + 零 sent；② 末 chunk 回执：锚 stamped + sent 恰一次（t0 = 推送时刻）；③ BOOTSTRAP_ACK：acked 恰一次 + 回指末 chunk 序 + 消费序 strict 先行 + live
+   ↓ issue #449 ANCHOR3 — SYNC_APPLIED / BOOTSTRAP_ACK 保序锚（kind=1 分块形态） > ANCHOR3-N1（AC2 NC）：同构型丢弃全部 kind=1 chunk 回执（锚停留 pending）后放行 BOOTSTRAP_ACK ⇒ 响亮 connection-fatal{ACK_STATE_VIOLATION} + ERROR + 非 live；零静默接受
+   ↓ issue #449 CHUNK3 — kind 0/1/2 分块 transfer 跨缝全回合 > CHUNK3-C0（AC3）：kind=0 步进回执切片——中间回执零占位变化/零事件；末回执换键不换槽（仍 1 槽）；ACK 后 chunked-update-acked 恰一次（t0 = 推送时刻）+ UPDATE_ACK 回指末 chunk 序 + 第 2 笔由 drain 续推
+   ↓ issue #449 CHUNK3 — kind 0/1/2 分块 transfer 跨缝全回合 > CHUNK3-C1（AC4）：kind=1 逐 chunk 独立 tag/独立回执（每 tag 恰一条、receipt.sequence = 该帧 wire [8..12]）；中间回执 no-op（零 sent）；末回执结算 sent 恰一次；BOOTSTRAP_ACK 回指末 chunk 序；live + 收敛
+   ↓ issue #449 CHUNK3 — kind 0/1/2 分块 transfer 跨缝全回合 > CHUNK3-P1（AC1b 回归哨兵）：T3 多 chunk 构型下 γ（异步缝）vs β（sharded 同步缝）——控制帧逐字节等 + 全轨迹骨架等（含 UPDATE_CHUNK 帧型/帧序）+ 数据帧文档语义等；内容变异必报差异
+   ↓ issue #449 ABORT3 — 连接死亡 ⇒ transfer 整体 abort（无洞中 transfer 形态锚） > ABORT3-C1（AC5）：kind=1 在途（chunk 族 ≥2 过缝、回执扣留）+ closePeerSide(1006) ⇒ 死 session 出站/投递零增长、零 settled、unsealed === 0、零 chunked-snapshot-sent、非 live
+   ↓ issue #449 ABORT3 — 连接死亡 ⇒ transfer 整体 abort（无洞中 transfer 形态锚） > ABORT3-C2（AC5）：kind=2 在途 + 断链 ⇒ 同上零增长 + 零 chunked-sync-sent/-acked；死 session quiesce
+   ↓ issue #449 ABORT3 — 连接死亡 ⇒ transfer 整体 abort（无洞中 transfer 形态锚） > ABORT3-C3（AC5）：死亡后 advanceMs 推 backoff 重连 ⇒ 新会话独立收敛至 live；新作用域 transferId === 1 ∧ chunkIndex 从 0 严格递增；旧 transfer 零续传
+   ↓ issue #449 ABORT3 — 连接死亡 ⇒ transfer 整体 abort（无洞中 transfer 形态锚） > ABORT3-N1（存活对照）：同 ABORT3-C1 编排但连接存活、回执/ACK 全放行 ⇒ 结算恰一次 + live（证明 abort 断言非空）
+   ↓ issue #449 DRAIN3 — 末 chunk 回执（第三触发点）行为边界与承重性诊断 > DRAIN3-C1（AC6）：kind=2 在途 + ACK 扣留 + 队列有第 2 笔 —— 末 chunk 回执结算后零新增 data 帧、scheduler.pending() 不增、载体仍 awaiting-ack（零 acked）；ACK 放行 ⇒ 第 2 笔恰一次推出
+   ↓ issue #449 DRAIN3 — 末 chunk 回执（第三触发点）行为边界与承重性诊断 > DRAIN3-D1（诊断，dormant 登记）：隔离变异 BulkTransferSender.prototype.onReceipt（照常结算但 return false）⇒ 轨迹/事件/收敛与基线逐值相同（触发点③在现态机非承重）；finally 恢复原型
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  packages/ws-replication/test/ws-replication-issue449-gamma-reconcile-chunked.test.ts > issue #449 ROUND3 — kind=2 sync round 跨缝全回合（ownStep1Seq/ownStep2Seq 三态锚） > ROUND3-C3（AC2 NC，ownStep2Seq pending 面）：步进至队列头 = 末 kind=2 chunk 回执（次位 = 对端 SYNC_APPLIED），reorderNext 后先消费 SYNC_APPLIED ⇒ 响亮 SYNC_STATE_VIOLATION；交换点在场断言防编排漂移
+Error: issue447 fixture: pumpUntil 未达谓词（响亮收口 ERROR）
+ ❯ pumpUntil packages/ws-replication/test/issue447-async-seam.ts:682:9
+    680|   }
+    681|   if (predicate()) return;
+    682|   throw new Error(`issue447 fixture: pumpUntil 未达谓词（${what}）`);
+       |         ^
+    683| }
+    684|
+ ❯ packages/ws-replication/test/ws-replication-issue449-gamma-reconcile-chunked.test.ts:492:5
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+
+
+ Test Files  1 failed (1)
+      Tests  1 failed | 13 skipped (14)
+Type Errors  no errors
+   Start at  17:27:20
+   Duration  1.12s (transform 601ms, setup 0ms, collect 830ms, tests 134ms, environment 0ms, prepare 45ms)

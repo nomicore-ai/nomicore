@@ -1,0 +1,24 @@
+Testing types with tsc and vue-tsc is an experimental feature.
+Breaking changes might not follow SemVer, please pin Vitest's version when using it.
+
+ RUN  v3.2.7 /home/wangjian/nomicore-fix-issue-451
+
+stdout | packages/ws-replication/test/zz-sa6-temp-order-rng-probe.test.ts > SA6 temp probe — ANCHOR-ORDER-C1 byte-length determinism vs live doc clientID > boots 120 rounds and correlates clientID width with projection bytes
+## probe: width → distinct update-sent.bytes values
+width 4: bytes values [24]
+width 5: bytes values [27]
+## probe: sent==wire==acked for every round: true
+## probe: distinct update-sent.bytes across 120 rounds: [24, 27]
+## probe: consecutive pairs with different clientID width: 22/119 (predicted ≈ 13.9)
+## example same-width pair: cid 877675518(w5)=27B vs cid 1755485283(w5)=27B
+## example differing-width pair: cid 4259114375(w5)=27B vs cid 46336501(w4)=24B
+## probe: width histogram w5:109 w4:11
+
+ ✓ packages/ws-replication/test/zz-sa6-temp-order-rng-probe.test.ts (1 test) 453ms
+   ✓ SA6 temp probe — ANCHOR-ORDER-C1 byte-length determinism vs live doc clientID > boots 120 rounds and correlates clientID width with projection bytes  452ms
+
+ Test Files  1 passed (1)
+      Tests  1 passed (1)
+Type Errors  no errors
+   Start at  21:29:08
+   Duration  1.54s (transform 674ms, setup 0ms, collect 909ms, tests 453ms, environment 0ms, prepare 57ms)

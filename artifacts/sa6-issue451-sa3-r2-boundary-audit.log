@@ -1,0 +1,72 @@
+# Contract boundary audit — issue #451 ANCHOR-ORDER-C1 (SA3 iteration 1)
+# HEAD: 68ab9f5bfe4df66a54faddf759709a76914332d0
+# anchor file: packages/ws-replication/test/ws-replication-issue451-gamma-observability-anchor.test.ts
+# sha256: 4a8556bbecb775fd70a054051ee6599f9600ea01e9a26700a4818ad683bc3b4c  lines: 432
+
+## 1) anchorProjection key set (must be type/side/namespaceId/sequence — no bytes):
+function anchorProjection(events: readonly ReplicationObserverEvent[]): {
+  readonly sent: Array<Record<string, unknown>>;
+  readonly acked: Array<Record<string, unknown>>;
+} {
+  const pick = (type: string, keys: readonly string[]): Array<Record<string, unknown>> =>
+    events
+      .filter((event) => event.type === type)
+      .map((event) => {
+        const record = event as unknown as Record<string, unknown>;
+        return Object.fromEntries(keys.map((key) => [key, record[key]]));
+      });
+  return {
+    sent: pick('update-sent', ['type', 'side', 'namespaceId', 'sequence']),
+    acked: pick('update-acked', ['type', 'side', 'namespaceId', 'sequence']),
+  };
+}
+
+## 2) cross-round projection equality assertion (toEqual on scheduler-invariant projection):
+    // 按型投影（无合并数组下标）在两调度下逐字相同 ⇒ 断言不依赖跨半边事件的相对顺序。
+    // 投影只含调度不变量字段（type/side/namespaceId/sequence）；`bytes` 的跨轮相等不是调度
+    // 事实（载荷长随 live doc clientID varint 宽度 CSPRNG 抽签变化），改由下面逐轮对本轮
+    // wire 载荷自证——与 EDGE-C1/C2、SESSION-C1 同款，保留对「字节事实说谎」的敏感性。
+    expect(projectionB, '两调度事实集逐字相同（顺序无关投影，调度不变量字段）').toEqual(projectionA);
+
+## 3) per-round self-证 loop (bytes === payloadBytesOfFrame(round, seq)):
+    for (const [label, round] of [
+      ['A', roundA],
+      ['B', roundB],
+    ] as const) {
+      const sent = eventsOf(round, 'update-sent');
+      const acked = eventsOf(round, 'update-acked');
+      const sentSequence = sent[0]!.sequence as number;
+      const ackedSequence = acked[0]!.sequence as number;
+      expect(
+        sent[0]!.bytes,
+        `调度 ${label}：update-sent.bytes = 本轮 wire 载荷长（单轮自证，RNG 无关）`,
+      ).toBe(payloadBytesOfFrame(round, sentSequence));
+      expect(
+        acked[0]!.bytes,
+        `调度 ${label}：update-acked.bytes = 本轮 wire 载荷长（单轮自证，RNG 无关）`,
+      ).toBe(payloadBytesOfFrame(round, ackedSequence));
+      expect(ackedSequence, `调度 ${label}：sent/acked 回指同一 wire 序`).toBe(sentSequence);
+    }
+
+## 4) missing-frame loud throw (payloadBytesAt):
+function payloadBytesAt(frames: readonly WireFrame[], sequence: number): number {
+  const frame = frames.find((entry) => entry.sequence === sequence);
+  if (frame === undefined) {
+    throw new Error(`issue451: wire 无 UPDATE 序 ${sequence}（判据面缺失即响亮 throw）`);
+  }
+  return (frame.message as { update: Uint8Array }).update.byteLength;
+}
+
+## 5) every 'bytes' assertion site in the file (all single-round self-证):
+88:    .map((message) => kindOfPlaceholder(message.bytes));
+173:    expect(sent[0]!.bytes, 'update-sent.bytes = UPDATE 载荷长').toBe(payloadBytesOfFrame(round, stamped));
+202:    expect(sent[0]!.bytes, 'update-sent.bytes = 直驱载荷长').toBe(payloadBytesAt(dropped, returned));
+277:    expect(acked[0]!.bytes, 'update-acked.bytes = 载荷长').toBe(
+381:        sent[0]!.bytes,
+382:        `调度 ${label}：update-sent.bytes = 本轮 wire 载荷长（单轮自证，RNG 无关）`,
+385:        acked[0]!.bytes,
+386:        `调度 ${label}：update-acked.bytes = 本轮 wire 载荷长（单轮自证，RNG 无关）`,
+
+## 6) rev1 forbidden form absent: no projection key list containing 'bytes'
+130:    sent: pick('update-sent', ['type', 'side', 'namespaceId', 'sequence']),
+131:    acked: pick('update-acked', ['type', 'side', 'namespaceId', 'sequence']),

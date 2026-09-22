@@ -12,7 +12,7 @@
  *   `createHubReplication` / `createPeerReplication` / `createHubReplicationPlugin` /
  *   `requirePeerReplication` 仍在且既有类型不变（append-only，只增不减）。
  * - **EF-C2**：工厂 `accept(transport, request?)` / `acceptTrusted(transport, identity)`
- *   参数与返回句柄签名；`HubReplicationEdgeOptions` 九成员（`verifyToken` 可选性经
+ *   参数与返回句柄签名；`HubReplicationEdgeOptions` 十成员（`verifyToken` 可选性经
  *   **无该键的对象字面量** `satisfies` 证明）；`HubSessionSinkResolver` /
  *   `NamespaceAuthorizationGrant` / `HubOpenNamespaceMessage`（来源 = 协议包 Extract）；
  *   `HubNamespaceSessionSink` 四成员、`HubReplicationEdgeConnection` 十成员 + D7 裁决
@@ -120,7 +120,7 @@ describe('issue #421 EF-C2 类型面：accept 双入口与公共句柄冻结面'
     >();
   });
 
-  it('HubReplicationEdgeOptions 九成员；无 verifyToken 的对象字面量必须通过（可选性证明，零 cast）', () => {
+  it('HubReplicationEdgeOptions 十成员；无 verifyToken 的对象字面量必须通过（可选性证明，零 cast）', () => {
     expectTypeOf<HubReplicationEdgeOptions['instanceId']>().toEqualTypeOf<string>();
     expectTypeOf<HubReplicationEdgeOptions['timer']>().toEqualTypeOf<ReplicationTimer>();
     expectTypeOf<HubReplicationEdgeOptions['authorize']>().toEqualTypeOf<NamespaceAuthorizer>();
@@ -182,6 +182,27 @@ describe('issue #421 EF-C2 类型面：accept 双入口与公共句柄冻结面'
     expectTypeOf(fullOptions).toHaveProperty('timeouts');
     expectTypeOf(fullOptions).toHaveProperty('observer');
     expectTypeOf(fullOptions).toHaveProperty('clock');
+
+    // issue #450（append-only 第 10 可选成员；ADR 0032 A4.3 / 协议 §24.5）：γ 异步缝装配
+    // 标记 = 精确 `true`（装配期事实、无运行时切换）；缺省缺位 ⇒ α/β 语义逐字保留。
+    expectTypeOf<HubReplicationEdgeOptions['asyncDataAdmissionFatal']>().toEqualTypeOf<
+      true | undefined
+    >();
+    const markedOptions = {
+      ...minimalOptions,
+      asyncDataAdmissionFatal: true,
+    } satisfies HubReplicationEdgeOptions;
+    expectTypeOf(markedOptions).toHaveProperty('asyncDataAdmissionFatal');
+    expectTypeOf(markedOptions.asyncDataAdmissionFatal).toEqualTypeOf<true>();
+    // 缺省对象字面量仍通过（可选性证明，零 cast）——既有断言族零改动。
+    expectTypeOf(minimalOptions).not.toHaveProperty('asyncDataAdmissionFatal');
+    // 非法值形态：`false` 不满足精确 `true` 面（编译期闭环）。
+    const illegalMarker: HubReplicationEdgeOptions = {
+      ...minimalOptions,
+      // @ts-expect-error issue #450：装配标记只接受精确 `true`（false 形态必须编译失败）
+      asyncDataAdmissionFatal: false,
+    };
+    void illegalMarker;
   });
 
   it('HubSessionSinkResolver 三参签名；NamespaceAuthorizationGrant = authorize ok 投影；HubOpenNamespaceMessage = 协议 Extract', () => {

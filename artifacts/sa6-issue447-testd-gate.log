@@ -1,0 +1,76 @@
+Testing types with tsc and vue-tsc is an experimental feature.
+Breaking changes might not follow SemVer, please pin Vitest's version when using it.
+
+ RUN  v3.2.7 /home/wangjian/nomicore-fix-issue-447
+
+ ❯  TS  packages/ws-replication/test/ws-replication-issue421-edge-factory-api.test-d.ts (8 tests | 4 failed)
+   ✓ issue #421 EF-C1 类型面：createHubReplicationEdge 从包入口解析 > 工厂为函数：createHubReplicationEdge(options: HubReplicationEdgeOptions) => HubReplicationEdgeFactory
+   × issue #421 EF-C1 类型面：createHubReplicationEdge 从包入口解析 > 负控：既有导出仍在且类型不变（append-only，只增不减）
+     → Expected 1 arguments, but got 0.
+   × issue #421 EF-C2 类型面：accept 双入口与公共句柄冻结面 > 双入口：accept(transport, request?) 与 acceptTrusted(transport, identity) → Promise<句柄 | undefined>
+     → Expected 1 arguments, but got 0.
+   ✓ issue #421 EF-C2 类型面：accept 双入口与公共句柄冻结面 > HubReplicationEdgeOptions 九成员；无 verifyToken 的对象字面量必须通过（可选性证明，零 cast）
+   ✓ issue #421 EF-C2 类型面：accept 双入口与公共句柄冻结面 > HubSessionSinkResolver 三参签名；NamespaceAuthorizationGrant = authorize ok 投影；HubOpenNamespaceMessage = 协议 Extract
+   ✓ issue #421 EF-C2 类型面：accept 双入口与公共句柄冻结面 > HubNamespaceSessionSink 四成员精确签名（宿主消费面；OPEN 不带 wire 序、非 OPEN 带 wire 序）
+   × issue #421 EF-C2 类型面：accept 双入口与公共句柄冻结面 > HubReplicationEdgeConnection 十成员 + D7 裁决：句柄不暴露 channels（替代观测面 = namespaces）
+     → Expected 1 arguments, but got 0.
+   × issue #421 EF-C2 类型面：accept 双入口与公共句柄冻结面 > HubReplicationEdgeEgress 五成员精确签名（占位编码入、mux 点盖章出）
+     → Expected 1 arguments, but got 0.
+ ✓  TS  packages/ws-replication/test/ws-replication-issue420-session-host-api.test-d.ts (0 test)
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 4 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  packages/ws-replication/test/ws-replication-issue421-edge-factory-api.test-d.ts > issue #421 EF-C1 类型面：createHubReplicationEdge 从包入口解析 > 负控：既有导出仍在且类型不变（append-only，只增不减）
+TypeCheckError: Expected 1 arguments, but got 0.
+ ❯ packages/ws-replication/test/ws-replication-issue421-edge-factory-api.test-d.ts:94:57
+     92|     // 插件族与服务查询面仍在（参数/返回类型不变）
+     93|     expectTypeOf(createHubReplicationPlugin).toBeFunction();
+     94|     expectTypeOf(createHubReplicationPlugin).parameters.toEqualTypeOf<
+       |                                                         ^
+     95|       [config: HubReplicationPluginConfig, overrides?: HubReplicationP…
+     96|     >();
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/4]⎯
+
+ FAIL  packages/ws-replication/test/ws-replication-issue421-edge-factory-api.test-d.ts > issue #421 EF-C2 类型面：accept 双入口与公共句柄冻结面 > 双入口：accept(transport, request?) 与 acceptTrusted(transport, identity) → Promise<句柄 | undefined>
+TypeCheckError: Expected 1 arguments, but got 0.
+ ❯ packages/ws-replication/test/ws-replication-issue421-edge-factory-api.test-d.ts:115:45
+    113|     }>();
+    114|
+    115|     expectTypeOf(factory.accept).parameters.toEqualTypeOf<[DuplexTrans…
+       |                                             ^
+    116|     expectTypeOf(factory.accept).returns.toEqualTypeOf<Promise<HubRepl…
+    117|     expectTypeOf(factory.acceptTrusted).parameters.toEqualTypeOf<[Dupl…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/4]⎯
+
+ FAIL  packages/ws-replication/test/ws-replication-issue421-edge-factory-api.test-d.ts > issue #421 EF-C2 类型面：accept 双入口与公共句柄冻结面 > HubReplicationEdgeConnection 十成员 + D7 裁决：句柄不暴露 channels（替代观测面 = namespaces）
+TypeCheckError: Expected 1 arguments, but got 0.
+ ❯ packages/ws-replication/test/ws-replication-issue421-edge-factory-api.test-d.ts:284:70
+    282|     expectTypeOf<HubReplicationEdgeConnection['egress']>().toEqualType…
+    283|
+    284|     expectTypeOf<HubReplicationEdgeConnection['close']>().parameters.t…
+       |                                                                      ^
+    285|       [code?: number, reason?: string]
+    286|     >();
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[3/4]⎯
+
+ FAIL  packages/ws-replication/test/ws-replication-issue421-edge-factory-api.test-d.ts > issue #421 EF-C2 类型面：accept 双入口与公共句柄冻结面 > HubReplicationEdgeEgress 五成员精确签名（占位编码入、mux 点盖章出）
+TypeCheckError: Expected 1 arguments, but got 0.
+ ❯ packages/ws-replication/test/ws-replication-issue421-edge-factory-api.test-d.ts:322:76
+    320|     >();
+    321|     expectTypeOf<HubReplicationEdgeEgress['namespaceSettled']>().retur…
+    322|     expectTypeOf<HubReplicationEdgeEgress['connectionFatal']>().parame…
+       |                                                                            ^
+    323|       [code: string, wsCloseCode?: number]
+    324|     >();
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[4/4]⎯
+
+
+ Test Files  1 failed | 1 passed (2)
+      Tests  4 failed | 4 passed (8)
+Type Errors  4 failed
+   Start at  13:46:25
+   Duration  9.74s (transform 0ms, setup 0ms, collect 0ms, tests 0ms, environment 0ms, prepare 0ms, typecheck 9.69s)
