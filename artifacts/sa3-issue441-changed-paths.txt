@@ -1,0 +1,46 @@
+## git status --short (tracked changes + new evidence)
+ M docs/adr/0007-logical-validation-and-yjs-runtime-bridge.md
+ M packages/doc-runtime/src/mutation-local.ts
+ M packages/doc-runtime/src/mutation.ts
+?? artifacts/sa3-issue441-changed-paths.txt
+?? artifacts/sa3-issue441-probe-flipset-check.txt
+?? artifacts/sa3-issue441-probe-post-impl.log
+?? artifacts/sa3-issue441-root-test.log
+?? artifacts/sa3-issue441-root-typecheck.log
+?? artifacts/sa6-issue441-contract-json.log
+?? artifacts/sa6-issue441-contract-red.json
+?? artifacts/sa6-issue441-focused.log
+?? artifacts/sa6-issue441-package-tsc.log
+?? artifacts/sa6-issue441-post-test.log
+?? artifacts/sa6-issue441-post-typecheck.log
+?? artifacts/sa6-issue441-probe.log
+?? artifacts/sa6-issue441-stability-1.hash
+?? artifacts/sa6-issue441-stability-1.json
+?? artifacts/sa6-issue441-stability-1.log
+?? artifacts/sa6-issue441-stability-2.hash
+?? artifacts/sa6-issue441-stability-2.json
+?? artifacts/sa6-issue441-stability-2.log
+?? artifacts/sa6-issue441-stability-3.hash
+?? artifacts/sa6-issue441-stability-3.json
+?? artifacts/sa6-issue441-stability-3.log
+?? artifacts/sa6-issue441-stability-4.hash
+?? artifacts/sa6-issue441-stability-4.json
+?? artifacts/sa6-issue441-stability-4.log
+?? artifacts/sa6-issue441-stability-5.hash
+?? artifacts/sa6-issue441-stability-5.json
+?? artifacts/sa6-issue441-stability-5.log
+?? packages/doc-runtime/test/issue-441-record-fastpath-contract.test.ts
+?? packages/doc-runtime/test/issue-441-record-fastpath-control.test.ts
+?? packages/doc-runtime/test/issue-441-record-fastpath-fixture.ts
+?? wiki/raw/task_issue-441.md
+?? wiki/raw/task_issue-441_design.md
+?? wiki/raw/task_issue-441_design_conflict_report.md
+?? wiki/raw/task_issue-441_sa2_review.md
+?? wiki/raw/task_issue-441_sa6_capability_probe.mts
+?? wiki/raw/task_issue-441_sa6_contract.md
+
+## git diff --stat
+ ...07-logical-validation-and-yjs-runtime-bridge.md | 19 ++++++
+ packages/doc-runtime/src/mutation-local.ts         | 76 +++++++++++++++++++++-
+ packages/doc-runtime/src/mutation.ts               | 21 +++---
+ 3 files changed, 105 insertions(+), 11 deletions(-)

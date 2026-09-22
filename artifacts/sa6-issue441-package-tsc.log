@@ -1,0 +1,2 @@
+$ npx tsc -p packages/doc-runtime/tsconfig.json
+EXIT=0

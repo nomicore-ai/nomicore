@@ -1,0 +1,52 @@
+PASS P1a {"prefix":["tasks"],"relPath":["t1"],"node":{"kind":"object","fields":[{"name":"<key>","value":{"kind":"ref","name":"Item"}}]},"kind":"record"}
+PASS P1b {"prefix":["tasks"],"relPath":["t1"],"node":{"kind":"object","fields":[{"name":"<key>","value":{"kind":"ref","name":"Item"}}]},"kind":"record"}
+PASS P1c {"prefix":["obj"],"relPath":["opt"],"node":{"kind":"object","fields":[{"name":"req","value":{"kind":"scalar","type":"string"}},{"name":"opt","value":{"kind":"optional","value":{"kind":"scalar","type":"number"}}},{"name":"unk","value":{"kind":"scalar","type":"unknown"}},{"name":"deep","value":{"kind":"object","fields":[{"name":"d","value":{"kind":"scalar","type":"string"}}]}}]},"kind":"parent"}
+PASS P1d {"prefix":["maybe"],"relPath":["m1"],"node":{"kind":"union","members":[{"kind":"object","fields":[{"name":"<key>","value":{"kind":"ref","name":"Item"}}]},{"kind":"object","fields":[{"name":"fixed","value":{"kind":"scalar","type":"string"}}]}]},"kind":"union"}
+PASS P1e {"prefix":["blobs"],"relPath":["b1"],"node":{"kind":"object","fields":[{"name":"<key>","value":{"kind":"union","members":[{"kind":"ref","name":"Item"},{"kind":"ref","name":"Alt"}]}}]},"kind":"record"}
+PASS P1f {"prefix":["outer","inner"],"relPath":["n1"],"node":{"kind":"object","fields":[{"name":"<key>","value":{"kind":"ref","name":"Item"}}]},"kind":"record"}
+PASS P1g {"prefix":["tasks"],"relPath":["t9"],"node":{"kind":"object","fields":[{"name":"<key>","value":{"kind":"ref","name":"Item"}}]},"kind":"record"}
+PASS P1h {"reject":{"ok":false,"issues":[{"message":"路径不存在：未知字段 \"zzz\"（封闭对象不接受未声明键）","path":["obj","zzz"]}]}}
+PASS P1i {"prefix":["umem"],"relPath":["inner","u2"],"node":{"kind":"union","members":[{"kind":"object","fields":[{"name":"inner","value":{"kind":"object","fields":[{"name":"<key>","value":{"kind":"ref","name":"Item"}}]}}]},{"kind":"object","fields":[{"name":"inner","value":{"kind":"object","fields":[{"name":"fixed","value":{"kind":"scalar","type":"string"}}]}}]}]},"kind":"union"}
+PASS G1a {"result":{"ok":false,"issues":[{"message":"Yjs 载体错位（ROOT.t2）：期望 Y.Map，实际 plain value","path":["t2"]}]},"updates":0}
+PASS G1a2 {"issues":[{"message":"Yjs 载体错位（ROOT.t2）：期望 Y.Map，实际 plain value","path":["t2"]}]}
+PASS G1b {"result":{"ok":false,"issues":[{"message":"Yjs 载体错位（ROOT.t2）：期望 Y.Map，实际 plain value","path":["t2"]}]},"updates":0}
+PASS G1c {"issues":[{"message":"Yjs 载体错位（ROOT.t2）：期望 Y.Map，实际 plain value","path":["t2"]}]}
+PASS G1d {"issues":[{"message":"类型不匹配：期望 number，实际 string","path":["tasks","t2","qty"]}]}
+PASS G1e {"issues":[{"message":"Record 键 \"nope\" 不满足 Pattern 正则 /^(id-[0-9]+)$/","path":["codes","nope"]}]}
+PASS G1f {"issues":[{"message":"Yjs 载体错位（ROOT.b1）：期望 Y.Map，实际 plain value","path":["b1"]}]}
+PASS G1g {"issues":[{"message":"Yjs 载体错位（ROOT.deep）：期望 Y.Map，实际 plain value","path":["deep"]}]}
+PASS G1h {"issues":[{"message":"Yjs 载体错位（ROOT.deep）：期望 Y.Map，实际 plain value","path":["deep"]}]}
+PASS G1i {"issues":[{"message":"Yjs 载体错位（ROOT.t2）：期望 Y.Map，实际 plain value","path":["t2"]}]}
+PASS G1j {"set":{"ok":true},"delete":{"ok":true},"obj":{"req":"r","unk":{"k":1},"deep":{"d":"d"}},"tasks":{"t1":{"title":"t1","qty":2},"t2":{"title":"t2","qty":3},"t9":{"title":"nine","qty":9}}}
+PASS G1k {"issues":[{"message":"Yjs 载体错位（ROOT）：期望 Y.Map，实际 plain value","path":[]}],"updates":0}
+PASS G1l {"issues":[{"message":"Yjs 载体错位（ROOT）：期望 Y.Map，实际 plain value","path":[]}]}
+PASS G3 {"recordSet":{"n512":{"value":2049,"presence":0},"n4096":{"value":16385,"presence":0}},"recordDelete":{"n512":{"value":2046,"presence":1},"n4096":{"value":16382,"presence":1}},"closedDelete":{"narrow4Fields":{"value":8,"presence":1},"wide14Fields":{"value":28,"presence":1}}}
+PASS G3b {"valueReads":256,"presenceReads":0}
+PASS G3c {"setupMs":{"n1000":12,"n100000":1551},"setMs":{"n1000":10,"n100000":970},"ratio":97}
+PASS G4a {"e201":{"fatal":true,"phase":"post-commit-verification","committed":true,"head":"DOCRT-E201: mutation 边界安装后一致性校验偏离（边界 ROOT）：键 \"ROOT\" 读回键集 [\"t0\",\"t1\"] 与对照安装读回键集 [\"t0\",\"t1\",\"t2\"] "},"tasks":{"t0":{"title":"t0","qty":1},"t1":{"title":"x","qty":1}}}
+PASS G4b {"e201":{"fatal":true,"phase":"post-commit-verification","committed":true,"head":"DOCRT-E201: mutation 边界安装后一致性校验偏离（边界 ROOT）：键 \"ROOT\" 读回键集 [\"t1\"] 与对照安装读回键集 [\"t1\",\"t2\"] 不等——疑似 obs"}}
+PASS G4c {"e201":{"fatal":true,"phase":"post-commit-verification","committed":true,"head":"DOCRT-E201: mutation 边界安装后一致性校验偏离（边界 ROOT.deep）：边界重提取失败（Yjs 载体错位（ROOT.deep）：期望 Y.Map，实际 plain va"}}
+PASS G4d {"e201":{"fatal":true,"phase":"post-commit-verification","committed":true,"head":"DOCRT-E201: mutation 边界安装后一致性校验偏离（边界 ROOT）：键 \"ROOT\" 读回键集 [\"m2\"] 与对照安装读回键集 [\"m1\",\"m2\"] 不等——疑似 obs"}}
+PASS G4e {"e201":{"fatal":true,"phase":"post-commit-verification","committed":true,"head":"DOCRT-E201: mutation 边界安装后一致性校验偏离（边界 ROOT.t1）：键 \"t1\" 在事务提交后与安装值不同一——疑似 observer 覆写或删除后重插异值——疑似 o"}}
+PASS G4f {"e201":{"fatal":true,"phase":"post-commit-verification","committed":true,"head":"DOCRT-E201: mutation 边界安装后一致性校验偏离（边界 ROOT.t1）：键 \"t1\" 在 delete 提交后仍存在——疑似 observer 重插——疑似 observe"}}
+PASS G4g {"e201":{"fatal":true,"phase":"post-commit-verification","committed":true,"head":"DOCRT-E201: mutation 边界安装后一致性校验偏离（边界 ROOT.t1）：键 \"t1\" 在事务提交后与安装值不同一——疑似 observer 覆写或删除后重插异值——疑似 o"},"tasks":{"t0":{"title":"t0","qty":1},"t1":{"title":"t1","qty":2},"t2":{"title":"t2","qty":3}}}
+PASS G5a {"result":{"ok":false,"issues":[{"message":"delete 目标键不存在（拒绝 no-op）","path":["tasks","t99"]}]},"updates":0}
+PASS G5b {"result":{"ok":false,"issues":[{"message":"Record 键 \"nope\" 不满足 Pattern 正则 /^(id-[0-9]+)$/","path":["codes","nope"]}]},"updates":0}
+PASS G5c {"result":{"ok":false,"issues":[{"message":"类型不匹配：期望 number，实际 string","path":["tasks","t9","qty"]}]},"updates":0}
+PASS G5d {"result":{"ok":true},"codes":{"id-1":{"title":"c1","qty":1}}}
+PASS G5e {"req":{"ok":false,"issues":[{"message":"缺少必填字段 \"req\"","path":["obj","req"]}]},"unk":{"ok":true},"opt":{"ok":true},"optAgain":{"ok":false,"issues":[{"message":"delete 目标键不存在（拒绝 no-op）","path":["obj","opt"]}]},"obj":{"req":"r","deep":{"d":"d"}}}
+PASS G5f {"apiUpdates":1,"manualUpdates":1,"apiBytes":7,"manualBytes":7}
+PASS G5g {"small":41,"big":44}
+PASS G5g2 {"apiBytes":45,"manualBytes":45,"stateEqual":true}
+PASS G5h {"updates":1,"replicaValue":{"title":"nine","qty":9}}
+PASS G5i {"result":{"ok":true},"updates":1}
+PASS G5j {"apiBytes":7,"manualBytes":7}
+PASS G5k {"logicalEqual":true,"bytesEqual":false,"apiBytes":43,"rebuildBytes":43}
+PASS S1a {"okSet":{"ok":true},"okDelete":{"ok":true},"noopDelete":{"ok":false,"issues":[{"message":"delete 目标键不存在（拒绝 no-op）","path":["tasks","t1"]}]}}
+PASS S1b {"parentReq":{"ok":false,"issues":[{"message":"缺少必填字段 \"req\"","path":["obj","req"]}]},"parentOpt":{"ok":true},"unionFail":{"ok":false,"issues":[{"message":"逐 entry 校验仅服务 planMutationBoundary 的 record/parent 计划（要求 kind∈{record,parent} 且 relPath 为单段 string 目标键；实际 kind=union、relPath 长度=1）；union map 位与其他计划请走 applyMutationAtBoundary，数组目标请走 applyElementwiseArrayMutation","path":["maybe","m1"]}]}}
+PASS NC1 {"issues":[{"message":"Yjs 载体错位（ROOT.m1）：期望 Y.Map，实际 plain value","path":["m1"]}]}
+PASS NC2 {"issues":[{"message":"Yjs 载体错位（ROOT.m1）：期望 Y.Map，实际 plain value","path":["m1"]}]}
+PASS NC3 {"result":{"ok":true},"maybe":{"m1":{"title":"m","qty":3},"m2":{"title":"mm","qty":6}}}
+
+checks=49 failures=0
+exit 0 — 全部检查命中
