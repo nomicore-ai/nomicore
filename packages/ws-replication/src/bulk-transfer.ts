@@ -68,6 +68,12 @@ export interface BulkTransferRequest {
   readonly onLastChunkSent: (
     lastChunkSequence: number,
     settlement: BulkTransferOutboundSettlement,
+    /** issue #447（ADR 0032 A4.7/协议 §24.8，SA8-E1 路线 a；append-only 可选第三参）：
+     *  γ 异步缝下末 chunk 的**推送调用边界**采样时刻——结算回调的调用点迁至末 chunk 序
+     *  回执消费点，`chunkedAckT0` 取 `pushedAt ?? sampleAckT0()` 即「t0 = 推送时刻
+     *  （含管道与 edge 等待，口径略宽于 β）」的登记语义。α/β 下缺省 ⇒ 采样点与取值逐字
+     *  不变（既有 #301 族断言背书；尾参可省略，既有绑定类型不变）。 */
+    pushedAt?: number,
   ) => void;
   /** 出站被拒（M5）回调：失败明细供给器（仅 observer 在场时求值）；宿主按 kind 收口。 */
   readonly onSendRejected: (detail: () => UpdateSendFailureDetail) => void;
@@ -92,6 +98,13 @@ export interface BulkTransferHost {
   readonly dataGateOpen: () => boolean;
   readonly armTimer: (callback: () => void, delayMs: number) => unknown;
   readonly clearTimer: (handle: unknown) => void;
+  /** issue #447（ADR 0032 A4.2）：γ 异步缝 bit——`sendChunk` 返回值语义为 **tag**（尚未
+   *  盖章）：末 chunk 进 awaiting-ack 但序未知，锚/结算回调由**末 chunk 序回执**驱动
+   *  （`onReceipt`）。缺省 = α/β 同步形态（末 chunk 出站即结算，逐字节不变）。 */
+  readonly asyncSendTickets?: true;
+  /** issue #447（§8.6/D9）：推送边界时钟读数（仅 γ 分支采样 `pushedAt`）。缺省/clock
+   *  缺面 ⇒ undefined（`pushedAt` 缺省 ⇒ 宿主回退既有 `sampleAckT0()` 采样点）。 */
+  readonly now?: () => number | undefined;
 }
 
 interface BulkTransferState {
@@ -103,6 +116,9 @@ interface BulkTransferState {
   nextChunkIndex: number;
   /** issue #301：末 chunk 出站帧序（末 chunk 分支赋值的结算事实源；awaiting-ack 恒已置位）。 */
   lastChunkSequence: number;
+  /** issue #447（§8.6 γ async）：末 chunk 的待回执 tag + 推送边界采样时刻。awaiting-ack
+   *  且异步形态下置位；回执命中时清空并驱动结算（α/β 恒 undefined）。 */
+  pendingLastChunkTag: { readonly tag: number; readonly pushedAt?: number } | undefined;
 }
 
 export class BulkTransferSender {
@@ -150,6 +166,7 @@ export class BulkTransferSender {
       transferId: 0,
       nextChunkIndex: 0,
       lastChunkSequence: 0,
+      pendingLastChunkTag: undefined,
     };
   }
 
@@ -182,6 +199,10 @@ export class BulkTransferSender {
     }
     const { start, end } = chunkBounds(state.totalBytes, this.host.maxUpdateBytes, state.nextChunkIndex);
     const isFirst = state.nextChunkIndex === 0;
+    // issue #447（§8.6/D9）：推送调用边界采样（仅 γ；镜像 `sendAndRegister` 的 sentAt
+    // 机制）——β 零新增时钟读，逐字节/零时钟调用纪律不变。
+    const pushedAt =
+      this.host.asyncSendTickets === true ? this.host.now?.() : undefined;
     const seq = this.host.sendChunk({
       transferKind: state.request.kind,
       transferId: state.transferId,
@@ -212,10 +233,44 @@ export class BulkTransferSender {
     if (state.nextChunkIndex >= state.chunkCount) {
       // 末 chunk：结算锚（同步回调）+ kind=2 自持 ACK timer（kind=1 由宿主 bootstrap timer 覆盖）
       state.phase = 'awaiting-ack';
+      // issue #447（§8.6 γ async）：末 chunk 已过缝、wire 序未回传 ⇒ 锚/结算回调由序回执
+      // 驱动（onReceipt）；`lastChunkSequence` 保持占位 0（结算记录在回执点以真实序构造）。
+      // kind=2 自持 timer 武装点与 β 同点（末 chunk 推送，§9.1 角落登记）。
+      if (this.host.asyncSendTickets === true) {
+        state.pendingLastChunkTag = {
+          tag: seq,
+          ...(pushedAt !== undefined ? { pushedAt } : {}),
+        };
+        if (state.request.kind === 2) this.armAckTimer();
+        return true;
+      }
       state.lastChunkSequence = seq;
       state.request.onLastChunkSent(seq, this.settlementOf(state));
       if (state.request.kind === 2) this.armAckTimer();
     }
+    return true;
+  }
+
+  /**
+   * issue #447（§8.6/§8.9 分块形态）：末 chunk **序回执**结算（γ 唯一结算点）。
+   *
+   * awaiting-ack 且 tag 命中 `pendingLastChunkTag` → `lastChunkSequence = sequence`
+   * → 同步回调 `onLastChunkSent(sequence, settlement, pushedAt)`（宿主据此回填锚 /
+   * 采样 `chunkedAckT0 = pushedAt` / 发射 chunked-sent 事件）→ 返回 true（γ 层据以触发
+   * 自驱 drain，A4.4 触发点③）。中间 chunk 回执 / 已弃置载体 / 单帧族 ⇒ false（良性 no-op）。
+   */
+  onReceipt(tag: number, sequence: number): boolean {
+    const state = this.current;
+    if (state === undefined || state.phase !== 'awaiting-ack') return false;
+    const pending = state.pendingLastChunkTag;
+    if (pending === undefined || pending.tag !== tag) return false;
+    state.pendingLastChunkTag = undefined;
+    state.lastChunkSequence = sequence;
+    state.request.onLastChunkSent(
+      sequence,
+      this.settlementOf(state),
+      ...(pending.pushedAt !== undefined ? [pending.pushedAt] : []),
+    );
     return true;
   }
 
