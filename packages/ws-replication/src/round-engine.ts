@@ -7,7 +7,7 @@
  * {@link RoundAborted} 中止引擎——禁止异常穿透帧分发同步段（R4/N-1）。
  */
 import type { ReplicationMessage } from '@nomicore/replication-protocol';
-import type { RoundState } from './types.js';
+import type { RoundState, SendAnchorState } from './types.js';
 
 /** 宿主已收编的异常哨兵（终态已确定；引擎停止推进）。 */
 export class RoundAborted extends Error {
@@ -61,6 +61,10 @@ export interface RoundHost {
   readonly onViolation: (detail: string) => void;
   /** 本 round 双位为真（§9.1.6）：live（或按 pendingResync 再开 round）。 */
   readonly onRoundSettled: () => void;
+  /** issue #447（ADR 0032 A4.2 / §24.4）：γ 异步缝 bit——`send`/`sendStep2` 返回值语义为
+   *  **tag**（尚未盖章）；缺省（α/β/peer）= 已盖章 wire 序。无该 bit 时三态锚逐值退化为
+   *  既有二态语义（单份实现、零分支化判别）。 */
+  readonly asyncSendTickets?: true;
 }
 
 export class RoundEngine {
@@ -121,7 +125,39 @@ export class RoundEngine {
       syncRoundId: roundId,
       stateVector: sv,
     });
-    this.state.ownStep1Seq = seq;
+    this.state.ownStep1Seq = this.anchorOf(seq);
+  }
+
+  /**
+   * issue #447（§8.5）：出站锚构造单点——`seq <= 0`（未发送/被拒）⇒ idle；γ 异步 bit 在场
+   * ⇒ pending（tag 待回执）；否则 stamped（同步返回值即 wire 序，α/β/peer 逐值不变）。
+   */
+  private anchorOf(sendResult: number): SendAnchorState | undefined {
+    if (sendResult <= 0) return undefined;
+    return this.host.asyncSendTickets === true
+      ? { phase: 'pending', tag: sendResult }
+      : { phase: 'stamped', sequence: sendResult };
+  }
+
+  /** 判别口径（语义不变）：idle 与 pending 皆无可比对序 ⇒ undefined ⇒ 任何引用性 ACK 违例。 */
+  private anchorSequenceOf(anchor: SendAnchorState | undefined): number | undefined {
+    return anchor === undefined || anchor.phase === 'pending' ? undefined : anchor.sequence;
+  }
+
+  /**
+   * issue #447（§8.5）：序回执消费（γ 唯一回填点）——tag 命中 pending 锚 ⇒ stamped。
+   * 返回是否命中（未命中 = 中间 chunk / 已被弃置的 tag ⇒ 良性 no-op）。
+   */
+  onSendReceipt(tag: number, sequence: number): boolean {
+    let hit = false;
+    for (const key of ['ownStep1Seq', 'ownStep2Seq'] as const) {
+      const anchor = this.state[key];
+      if (anchor !== undefined && anchor.phase === 'pending' && anchor.tag === tag) {
+        this.state[key] = { phase: 'stamped', sequence };
+        hit = true;
+      }
+    }
+    return hit;
   }
 
   /** 收 SYNC_STEP1（§9.1.2 时序；错误 round 矩阵见 §9.2）。 */
@@ -144,7 +180,7 @@ export class RoundEngine {
         syncRoundId: message.syncRoundId,
         stateVector: sv,
       });
-      this.state.ownStep1Seq = seq;
+      this.state.ownStep1Seq = this.anchorOf(seq);
       this.sendStep2(message.stateVector, message.sequence);
     } else {
       // peer：hub 的 Step1 是对 peer Step1 的合法响应帧
@@ -172,8 +208,8 @@ export class RoundEngine {
     if (
       !this.hasActiveRound ||
       message.syncRoundId !== this.state.currentRound ||
-      this.state.ownStep1Seq === undefined ||
-      message.relatedStep1Sequence !== this.state.ownStep1Seq ||
+      this.anchorSequenceOf(this.state.ownStep1Seq) === undefined ||
+      message.relatedStep1Sequence !== this.anchorSequenceOf(this.state.ownStep1Seq) ||
       this.state.receivedStep2
     ) {
       this.host.onViolation(`invalid step2 round ${message.syncRoundId}`);
@@ -188,8 +224,8 @@ export class RoundEngine {
   onApplied(message: { syncRoundId: number; ackedSequence: number }): void {
     if (
       message.syncRoundId !== this.state.currentRound ||
-      this.state.ownStep2Seq === undefined ||
-      message.ackedSequence !== this.state.ownStep2Seq ||
+      this.anchorSequenceOf(this.state.ownStep2Seq) === undefined ||
+      message.ackedSequence !== this.anchorSequenceOf(this.state.ownStep2Seq) ||
       this.state.localDiffAppliedByRemote
     ) {
       this.host.onViolation(`invalid applied round ${message.syncRoundId}`);
@@ -210,7 +246,7 @@ export class RoundEngine {
       syncRoundId === undefined ||
       !this.hasActiveRound ||
       syncRoundId !== this.state.currentRound ||
-      this.state.ownStep1Seq === undefined ||
+      this.anchorSequenceOf(this.state.ownStep1Seq) === undefined ||
       this.state.receivedStep2
     ) {
       return false;
@@ -239,9 +275,11 @@ export class RoundEngine {
   }
 
   /** 本端 kind=2 分块 Step2 的末 chunk 出站（宿主回调，**与末 chunk 出站同一同步栈**——
-   *  严格先于任何合法 SYNC_APPLIED 到达）：ownStep2Seq 锚 = 末 chunk 帧序。 */
+   *  严格先于任何合法 SYNC_APPLIED 到达）：ownStep2Seq 锚 = 末 chunk 帧序。
+   *  issue #447（§8.5/§8.9 分块形态）：γ 异步缝下本回调的调用点迁至**末 chunk 回执结算**，
+   *  实参恒为真实盖章序 ⇒ 落 stamped 态（α/β 下调用点/取值逐字节不变）。 */
   noteChunkedStep2Outbound(lastChunkSequence: number): void {
-    this.state.ownStep2Seq = lastChunkSequence;
+    this.state.ownStep2Seq = { phase: 'stamped', sequence: lastChunkSequence };
   }
 
   /** 连接收口（重开/清理）：引擎归零。 */
@@ -260,7 +298,7 @@ export class RoundEngine {
     this.state.ownStep2Seq = undefined;
     const outcome = this.host.sendStep2(diff, this.state.currentRound, relatedSequence);
     if (outcome.mode === 'single') {
-      this.state.ownStep2Seq = outcome.sequence;
+      this.state.ownStep2Seq = this.anchorOf(outcome.sequence);
       return;
     }
     if (outcome.mode === 'chunked') {

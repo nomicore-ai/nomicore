@@ -1021,13 +1021,31 @@ export interface CodecFieldLimits {
   readonly maxSyncDiffBytes: number;
 }
 
+/**
+ * issue #447（ADR 0032 附录 A4.2 / 协议 §24.4）：本端出站锚的**三态载体**。
+ *
+ * - `stamped`：同步形态（α/β/peer）下发送返回值即 wire 序，锚当场落定；γ 异步形态下
+ *   序回执消费后回填同态——判别/因果不变量与二态时代逐字保持（SA8-E3 裁决读法：
+ *   A4.1「载体零改动」= 判别逻辑保持，载体扩三态为 A4.2 明文命令）；
+ * - `pending`：**仅 γ**——帧已携 tag 过缝、序回执未到。锚处于此态时收到引用性 ACK
+ *   是宿主违契（保序条款 §24.2.3）⇒ 既有响亮违例路径，禁 park/等待/缓冲（D7）。
+ *
+ * 判别口径（`hub-namespace.ts:665-671` / `round-engine.ts:175-176,191-192` 语义不变）：
+ * idle（undefined）∨ pending ∨ `acked !== stamped.sequence` ⇒ 违例。
+ */
+export type SendAnchorState =
+  | { readonly phase: 'pending'; readonly tag: number }
+  | { readonly phase: 'stamped'; readonly sequence: number };
+
 /** 命名空间状态机每侧的 round 记账（§9）。 */
 export interface RoundState {
   currentRound: number; // peer：本方发起的当前 round；hub：最近接收的 peer Step1 round
   hubStep1Received: boolean; // （peer）本 round 已收 hub Step1
   hubStep1Seq: number | undefined; // 收到的 hub Step1 帧序
-  ownStep1Seq: number | undefined; // 本端 Step1 帧序（校验对端 Step2.relatedStep1Sequence）
-  ownStep2Seq: number | undefined; // 本端 Step2 帧序（校验对端 SYNC_APPLIED.ackedSequence）
+  /** 本端 Step1 帧序锚（校验对端 Step2.relatedStep1Sequence；issue #447：三态载体）。 */
+  ownStep1Seq: SendAnchorState | undefined;
+  /** 本端 Step2 帧序锚（校验对端 SYNC_APPLIED.ackedSequence；issue #447：三态载体）。 */
+  ownStep2Seq: SendAnchorState | undefined;
   receivedStep2: boolean; // 已收对端 Step2（防重复）
   remoteDiffAppliedLocally: boolean; // 已 apply 对端 Step2 且已发 SYNC_APPLIED
   localDiffAppliedByRemote: boolean; // 已收对端对本端 Step2 的 SYNC_APPLIED

@@ -4,6 +4,9 @@
  */
 export { createHubReplication } from './hub-connection.js';
 export { createHubSessionHost } from './hub-session-host.js';
+// issue #447（ADR 0032 附录 A4.1；协议 §24）：γ 异步缝公共会话工厂（append-only 新增；
+// 既有 15 个运行时导出零改名零删除——值导出 15 → 16；β 冻结面逐字不动）。
+export { createHubAsyncSessionHost } from './hub-session-async-host.js';
 export { createPeerReplication } from './peer-connection.js';
 // issue #421（spec #415 T4；ADR 0032:41 后果节）：连接级半边的宿主公共工厂——普通工厂、
 // 非 Cordis 插件、无 Registry 依赖（append-only 新增；既有 11 个运行时导出零改名零删除）。
@@ -97,3 +100,11 @@ export type {
   HubSessionOpenInput,
   HubSessionSignal,
 } from './hub-session-host.js';
+// issue #447：γ 异步缝公共面的类型导出（append-only 5 个；既有类型零改名零删除）。
+export type {
+  HubAsyncSessionFrame,
+  HubAsyncSessionFrameListener,
+  HubAsyncSessionHandle,
+  HubAsyncSessionHost,
+  HubAsyncSessionReceipt,
+} from './hub-session-async-host.js';
