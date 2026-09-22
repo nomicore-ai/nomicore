@@ -1,0 +1,47 @@
+# issue #437 coverage census — array-* (array-insert/array-delete) 覆盖形态
+
+## A. ticket 起点 HEAD (02c7cfb) — tracked 文件
+### A1 lease(registry) 面:
+  (zero)
+### A2 runtime.mutateData 面（op 仅作 guard/batch 夹具）:
+packages/namespace-runtime/test/issue-347-guard-passthrough-red.test.ts
+packages/namespace-runtime/test/issue-349-guard-e2e-competition.test.ts
+packages/namespace-runtime/test/issue-350-batch-envelope-red.test.ts
+packages/namespace-runtime/test/issue-350-batch-shared-boundary.test.ts
+packages/namespace-runtime/test/runtime-mutate-data-type-guard.test-d.ts
+### A3 doc-runtime 面（#436 ADR0033 行为锚）:
+packages/doc-runtime/test/apply-validated-mutation-fatal-contract.test.ts
+packages/doc-runtime/test/apply-validated-mutation-operations.test.ts
+packages/doc-runtime/test/issue-237-path-localized-validation-red.test.ts
+packages/doc-runtime/test/issue-347-guard-envelope-red.test.ts
+packages/doc-runtime/test/issue-348-guard-semantics-matrix.test.ts
+packages/doc-runtime/test/issue-350-batch-envelope-red.test.ts
+packages/doc-runtime/test/issue-350-batch-shared-boundary.test.ts
+packages/doc-runtime/test/issue-350-sa7-batch-divergence.test.ts
+packages/doc-runtime/test/issue-436-array-fastpath-contract.test.ts
+packages/doc-runtime/test/issue-436-array-fastpath-control.test.ts
+### A4 vfsl 接缝面（#435 逐元素交接缝）:
+packages/vfsl/test/issue-435-elementwise-array-contract.test.ts
+packages/vfsl/test/issue-435-elementwise-array-control.test.ts
+packages/vfsl/test/issue-435-elementwise-array-fixture.ts
+packages/vfsl/test/issue-435-elementwise-array.test-d.ts
+packages/vfsl/test/validate-number-domain-narrowing.test.ts
+packages/vfsl/test/validate-patch-mutation-boundary.test.ts
+
+## B. 本票新增（untracked）:
+?? packages/namespace-registry/test/issue-437-lease-array-e2e-contract.test.ts
+?? packages/namespace-registry/test/issue-437-lease-array-e2e-control.test.ts
+?? packages/namespace-registry/test/issue-437-lease-array-e2e-fixture.ts
+
+## C. baseline worktree (7407ce0, pre-#436) tracked 面
+### C1 lease(registry):
+  (zero)
+### C2 doc-runtime（pre-#436 ⇒ 无 ADR0033 行为锚）:
+packages/doc-runtime/test/apply-validated-mutation-fatal-contract.test.ts
+packages/doc-runtime/test/apply-validated-mutation-operations.test.ts
+packages/doc-runtime/test/issue-237-path-localized-validation-red.test.ts
+packages/doc-runtime/test/issue-347-guard-envelope-red.test.ts
+packages/doc-runtime/test/issue-348-guard-semantics-matrix.test.ts
+packages/doc-runtime/test/issue-350-batch-envelope-red.test.ts
+packages/doc-runtime/test/issue-350-batch-shared-boundary.test.ts
+packages/doc-runtime/test/issue-350-sa7-batch-divergence.test.ts
