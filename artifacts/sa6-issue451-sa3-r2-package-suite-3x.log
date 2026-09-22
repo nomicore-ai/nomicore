@@ -1,0 +1,17 @@
+# EV-2 package suite x3: NODE_OPTIONS=--conditions=nomicore-source npx vitest run packages/ws-replication
+# HEAD: 68ab9f5bfe4df66a54faddf759709a76914332d0
+===== suite run 1 =====
+ Test Files  105 passed (105)
+      Tests  945 passed (945)
+Type Errors  no errors
+exit=0
+===== suite run 2 =====
+ Test Files  105 passed (105)
+      Tests  945 passed (945)
+Type Errors  no errors
+exit=0
+===== suite run 3 =====
+ Test Files  105 passed (105)
+      Tests  945 passed (945)
+Type Errors  no errors
+exit=0

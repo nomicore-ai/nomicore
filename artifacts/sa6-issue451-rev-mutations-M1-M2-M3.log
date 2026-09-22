@@ -1,0 +1,16 @@
+[M1 edge-emission-off] exit=1 | Tests  5 failed | 4 passed (9) | failing=5
+    × issue #451 ANCHOR-EDGE — γ 缝 `update-sent` 发射点 = edge 盖章点（§24.8 / §23.1 归属表 / A4.7） > ANCHOR-EDGE-C1（仅 edge observer 正控 + session 域负控）：live UPDATE 恰一 `update-sent{sequenc
+    × issue #451 ANCHOR-EDGE — γ 缝 `update-sent` 发射点 = edge 盖章点（§24.8 / §23.1 归属表 / A4.7） > ANCHOR-EDGE-C2（宿主直驱判别面）：不经 session 的 egress 直驱 UPDATE 仍恰一 `update-sent`（锚在盖章点，非 sess
+    × issue #451 ANCHOR-ORDER — 跨线程 observer 事件无全序：断言只依赖单侧事实与因果门（§24.8） > ANCHOR-ORDER-C1（调度扰动不变性）：即时释放 vs 扣留回执后释放——两调度下按型投影逐字相同 13ms
+    × issue #451 ANCHOR-ORDER — 跨线程 observer 事件无全序：断言只依赖单侧事实与因果门（§24.8） > ANCHOR-ORDER-C2（因果门独立可观察）：扣留期 edge 侧 `update-sent` 在场而 session 侧 `update-acked` 缺席；释放后两者在场——以因果门断言，不读合
+    × issue #451 ANCHOR-SESSION — namespace 域事件发射点 = session 结算点（§23.1 归属表 session 行） > ANCHOR-BOTH-C1（双 observer 共 recorder：无双发）：`update-sent` ×1 与 `update-acked` ×1 同序——恰一由两点
+[M2 session-emission-restored] exit=1 | Tests  4 failed | 5 passed (9) | failing=4
+    × issue #451 ANCHOR-ORDER — 跨线程 observer 事件无全序：断言只依赖单侧事实与因果门（§24.8） > ANCHOR-ORDER-C1（调度扰动不变性）：即时释放 vs 扣留回执后释放——两调度下按型投影逐字相同 12ms
+    × issue #451 ANCHOR-ORDER — 跨线程 observer 事件无全序：断言只依赖单侧事实与因果门（§24.8） > ANCHOR-ORDER-C2（因果门独立可观察）：扣留期 edge 侧 `update-sent` 在场而 session 侧 `update-acked` 缺席；释放后两者在场——以因果门断言，不读合
+    × issue #451 ANCHOR-SESSION — namespace 域事件发射点 = session 结算点（§23.1 归属表 session 行） > ANCHOR-BOTH-C1（双 observer 共 recorder：无双发）：`update-sent` ×1 与 `update-acked` ×1 同序——恰一由两点
+    × issue #451 ANCHOR-SESSION — namespace 域事件发射点 = session 结算点（§23.1 归属表 session 行） > ANCHOR-SESSION-C1（镜像负控）：仅 session observer —— `update-acked` 恰一（sequence=wire 序）；观测面零 `u
+[M3 update-sent-bytes-off-by-one] exit=1 | Tests  3 failed | 6 passed (9) | failing=3
+    × issue #451 ANCHOR-EDGE — γ 缝 `update-sent` 发射点 = edge 盖章点（§24.8 / §23.1 归属表 / A4.7） > ANCHOR-EDGE-C1（仅 edge observer 正控 + session 域负控）：live UPDATE 恰一 `update-sent{sequenc
+    × issue #451 ANCHOR-EDGE — γ 缝 `update-sent` 发射点 = edge 盖章点（§24.8 / §23.1 归属表 / A4.7） > ANCHOR-EDGE-C2（宿主直驱判别面）：不经 session 的 egress 直驱 UPDATE 仍恰一 `update-sent`（锚在盖章点，非 sess
+    × issue #451 ANCHOR-ORDER — 跨线程 observer 事件无全序：断言只依赖单侧事实与因果门（§24.8） > ANCHOR-ORDER-C1（调度扰动不变性）：即时释放 vs 扣留回执后释放——两调度下按型投影逐字相同 12ms
+[restore] hub-edge.ts identical=True hub-namespace.ts identical=True

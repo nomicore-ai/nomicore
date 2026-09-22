@@ -1,0 +1,34 @@
+# AC4-b root typecheck (pnpm typecheck, 15-segment tsc chain)
+# HEAD: 68ab9f5bfe4df66a54faddf759709a76914332d0
+# anchor sha256: 4a8556bbecb775fd70a054051ee6599f9600ea01e9a26700a4818ad683bc3b4c
+
+> nomicore@0.1.0 typecheck /home/wangjian/nomicore-fix-issue-451
+> tsc -p packages/vfsl/tsconfig.json && tsc -p packages/vfsl-protocol/tsconfig.json && tsc -p packages/vfsl-codegen/tsconfig.json && tsc -p packages/persistence/tsconfig.json && tsc -p packages/dsh-persistence/tsconfig.json && tsc -p packages/doc-runtime/tsconfig.json && tsc -p packages/namespace-runtime/tsconfig.json && tsc -p packages/clock/tsconfig.json && tsc -p packages/instance/tsconfig.json && tsc -p packages/namespace-registry/tsconfig.json && tsc -p packages/namespace-api/tsconfig.json && tsc -p packages/namespace-diagnostic-log/tsconfig.json && tsc -p packages/replication-protocol/tsconfig.json && tsc -p packages/ws-replication/tsconfig.json && tsc -p apps/yjs-server/tsconfig.json
+AC4-b exit=0
+
+===== root test run 1 (2026-09-22T14:27:48Z) =====
+ ✓  TS  packages/ws-replication/test/ws-replication-issue451-gamma-surface-freeze.test-d.ts (3 tests)
+ ✓ packages/ws-replication/test/ws-replication-issue451-gamma-observability-anchor.test.ts (9 tests) 95ms
+ Test Files  468 passed (468)
+      Tests  5675 passed (5675)
+Type Errors  no errors
+   Duration  433.96s (transform 4.57s, setup 0ms, collect 46.28s, tests 332.46s, environment 53ms, prepare 17.78s, typecheck 2.72s)
+root-test run 1 exit=0
+
+===== root test run 2 (2026-09-22T14:35:02Z) =====
+ ✓  TS  packages/ws-replication/test/ws-replication-issue451-gamma-surface-freeze.test-d.ts (3 tests)
+ ✓ packages/ws-replication/test/ws-replication-issue451-gamma-observability-anchor.test.ts (9 tests) 92ms
+ Test Files  468 passed (468)
+      Tests  5675 passed (5675)
+Type Errors  no errors
+   Duration  416.76s (transform 4.47s, setup 0ms, collect 46.32s, tests 314.96s, environment 53ms, prepare 17.81s, typecheck 2.62s)
+root-test run 2 exit=0
+
+# EV-7 invariants after root gates
+-- src status:
+-- src status end
+4a8556bbecb775fd70a054051ee6599f9600ea01e9a26700a4818ad683bc3b4c  packages/ws-replication/test/ws-replication-issue451-gamma-observability-anchor.test.ts
+ef897240096c78a0b45e04cb5cc77f777a351b744a720f86c72a892520c42184  packages/ws-replication/test/ws-replication-issue451-gamma-surface-freeze.test-d.ts
+68ab9f5bfe4df66a54faddf759709a76914332d0
+ packages/ws-replication/AGENTS.md | 1 +
+ 1 file changed, 1 insertion(+)

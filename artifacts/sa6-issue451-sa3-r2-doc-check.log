@@ -1,0 +1,44 @@
+# AC5-b final check: D2 documentation bullet + symbol references (SA3 iteration 1)
+# HEAD: 68ab9f5bfe4df66a54faddf759709a76914332d0
+
+## git diff --check (whitespace errors):
+exit=0
+
+## git diff --stat packages/ws-replication/AGENTS.md:
+ packages/ws-replication/AGENTS.md | 1 +
+ 1 file changed, 1 insertion(+)
+
+## git status --short (tracked+untracked, top-level filter):
+ M packages/ws-replication/AGENTS.md
+?? packages/ws-replication/test/ws-replication-issue451-gamma-observability-anchor.test.ts
+?? packages/ws-replication/test/ws-replication-issue451-gamma-surface-freeze.test-d.ts
+?? wiki/raw/task_issue-451.md
+?? wiki/raw/task_issue-451_design.md
+?? wiki/raw/task_issue-451_design_conflict_report.md
+?? wiki/raw/task_issue-451_sa2_review.md
+?? wiki/raw/task_issue-451_sa2_review_r2.md
+?? wiki/raw/task_issue-451_sa3_impl.md
+?? wiki/raw/task_issue-451_sa6_contract.md
+
+## symbol reference checks:
+-- handleReceipt in hub-session-async-host.ts:
+13: * - 入站序回执经 `handleReceipt(tag, sequence)` 消费：`tag` 由本半边**分配**（句柄域内
+26: *   `handleReceipt` 静默（终局无剩余收口对象）。
+70:  handleReceipt(tag: number, sequence: number): void;
+161:  handleReceipt(tag: number, sequence: number): void {
+-- ACK_STATE_VIOLATION 1002 in hub-namespace.ts:
+136:   *  ⇒ `ACK_STATE_VIOLATION`（响亮，禁 park）。 */
+693:    // 宿主违契，保序条款 §24.2.3）∨ 序不等 ⇒ 响亮 `ACK_STATE_VIOLATION`（禁 park/等待）。
+700:      this.host.connectionFatal('ACK_STATE_VIOLATION', 1002);
+1166:      this.host.connectionFatal('ACK_STATE_VIOLATION', 1002);
+-- reference bridge fixture:
+-rw-rw-r-- 1 wangjian wangjian 38843 Sep 22 20:33 packages/ws-replication/test/issue447-async-seam.ts
+25: * 2. **回执条款（A4.2/§24.2.3）**：桥在 edge egress 返回值的**同一同步段**把
+539:              // ★ A4.2/§24.2.3：盖章点同一同步段投回执；同通道 FIFO ⇒ 先于后续 ACK。
+
+## D2 bullet present in AGENTS.md:
+1
+
+## no zz- temporary probes:
+0
+(0 = none)
