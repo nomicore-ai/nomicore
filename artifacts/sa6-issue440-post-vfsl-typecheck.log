@@ -1,0 +1,11 @@
+packages/vfsl/test/issue-440-elementwise-entry-control.test.ts(167,25): error TS2345: Argument of type 'ValidateResult' is not assignable to parameter of type 'Verdict'.
+  Type '{ ok: true; }' is not assignable to type 'Verdict'.
+    Property 'issues' is missing in type '{ ok: true; }' but required in type '{ readonly ok: true; readonly issues: readonly []; }'.
+packages/vfsl/test/issue-440-elementwise-entry.test-d.ts(18,10): error TS2724: '"../src/index.js"' has no exported member named 'applyElementwiseEntryMutation'. Did you mean 'applyElementwiseArrayMutation'?
+packages/vfsl/test/issue-440-elementwise-entry.test-d.ts(20,15): error TS2724: '"../src/index.js"' has no exported member named 'ElementwiseEntryMutationPayload'. Did you mean 'ElementwiseArrayMutationPayload'?
+packages/vfsl/test/issue-440-elementwise-entry.test-d.ts(20,48): error TS2724: '"../src/index.js"' has no exported member named 'EntryCarrierFacts'. Did you mean 'ArrayCarrierFacts'?
+packages/vfsl/test/issue-440-elementwise-entry.test-d.ts(26,45): error TS2349: This expression is not callable.
+  Type 'ExpectFunction<any>' has no call signatures.
+packages/vfsl/test/issue-440-elementwise-entry.test-d.ts(45,1): error TS2578: Unused '@ts-expect-error' directive.
+packages/vfsl/test/issue-440-elementwise-entry.test-d.ts(47,1): error TS2578: Unused '@ts-expect-error' directive.
+packages/vfsl/test/issue-440-elementwise-entry.test-d.ts(49,1): error TS2578: Unused '@ts-expect-error' directive.
