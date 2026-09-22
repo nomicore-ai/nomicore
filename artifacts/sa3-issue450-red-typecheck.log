@@ -1,0 +1,3 @@
+packages/ws-replication/test/ws-replication-issue421-edge-factory-api.test-d.ts(188,44): error TS2339: Property 'asyncDataAdmissionFatal' does not exist on type 'HubReplicationEdgeOptions'.
+packages/ws-replication/test/ws-replication-issue421-edge-factory-api.test-d.ts(193,7): error TS2353: Object literal may only specify known properties, and 'asyncDataAdmissionFatal' does not exist in type 'HubReplicationEdgeOptions'.
+packages/ws-replication/test/ws-replication-issue421-edge-factory-api.test-d.ts(196,71): error TS2344: Type 'true' does not satisfy the constraint '"Expected: literal boolean: true, Actual: literal boolean: false"'.

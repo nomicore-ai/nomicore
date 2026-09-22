@@ -1,0 +1,18 @@
+Testing types with tsc and vue-tsc is an experimental feature.
+Breaking changes might not follow SemVer, please pin Vitest's version when using it.
+
+ RUN  v3.2.7 /home/wangjian/nomicore-fix-issue-450
+
+ ✓ packages/ws-replication/test/ws-replication-issue421-open-admission-pipeline.test.ts (40 tests) 64ms
+ ✓ packages/ws-replication/test/ws-replication-issue421-edge-lifecycle.test.ts (12 tests) 23ms
+ ✓ packages/ws-replication/test/ws-replication-issue421-error-routing.test.ts (8 tests) 26ms
+ ✓  TS  packages/ws-replication/test/ws-replication-issue421-edge-factory-api.test-d.ts (8 tests)
+ ✓ packages/ws-replication/test/ws-replication-issue421-edge-accept.test.ts (15 tests) 17ms
+ ✓ packages/ws-replication/test/ws-replication-issue421-wire-parity.test.ts (8 tests) 16ms
+ ✓ packages/ws-replication/test/ws-replication-issue421-route-key-parity.test.ts (7 tests) 15ms
+
+ Test Files  7 passed (7)
+      Tests  98 passed (98)
+Type Errors  no errors
+   Start at  19:37:20
+   Duration  3.86s (transform 1.22s, setup 0ms, collect 2.63s, tests 161ms, environment 1ms, prepare 330ms, typecheck 2.97s)

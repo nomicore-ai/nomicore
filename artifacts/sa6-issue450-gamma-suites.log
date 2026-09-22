@@ -1,0 +1,15 @@
+Testing types with tsc and vue-tsc is an experimental feature.
+Breaking changes might not follow SemVer, please pin Vitest's version when using it.
+
+ RUN  v3.2.7 /home/wangjian/nomicore-fix-issue-450
+
+ ✓ packages/ws-replication/test/ws-replication-issue447-async-session-round.test.ts (15 tests) 219ms
+ ✓ packages/ws-replication/test/ws-replication-issue448-live-data-plane.test.ts (13 tests) 227ms
+ ✓ packages/ws-replication/test/ws-replication-issue447-async-seam-fixture.test.ts (7 tests) 81ms
+ ✓ packages/ws-replication/test/ws-replication-issue447-async-session-api.test.ts (8 tests) 67ms
+
+ Test Files  4 passed (4)
+      Tests  43 passed (43)
+Type Errors  no errors
+   Start at  18:05:25
+   Duration  3.34s (transform 967ms, setup 0ms, collect 1.88s, tests 594ms, environment 1ms, prepare 287ms)
