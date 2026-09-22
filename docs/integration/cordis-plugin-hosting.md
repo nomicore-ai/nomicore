@@ -180,6 +180,8 @@ Hub 与 Peer 的配置面、adapter overrides、service readiness 与 lifecycle 
 
 免 listen 模式（精确 `listen: false`，ADR 0032，宿主自持有传输 edge 时选用）不建 listener，改为发布 `nomicoreHubSessionHost` 服务（`requireHubSessionHost(ctx)`），且不提供 `nomicoreHubReplication`——两服务入口互斥。该模式不消费 `tokens`/`authorization`/`verifyToken`/`authorize` 配置：认证与授权是宿主侧 `createHubReplicationEdge` 半边的职责，namespace 会话经 edge 准入结算后由宿主桥接到 SessionHost。
 
+SessionHost 也可与 edge 分处不同线程——γ 异步缝（ADR 0032 附录 A4；规范文本 = 协议 [instance-replication-v1 §24](../protocols/instance-replication-v1.md)）：宿主以普通工厂 `createHubAsyncSessionHost()`（非 Cordis 插件）组装 namespace 侧半边并自持异步字节传输（如 worker_threads 的 MessageChannel；nomicore 自身不引入任何 worker 传输依赖）。缝上在既有字节帧与控制信号之外增加 session→edge `frame{tag, bytes, lane}`（tag 由 session 分配，wire 序仍由 edge mux 单点盖章）与 edge→session `receipt{tag, sequence}` 序回执；宿主传输义务（每 (connectionKey, namespaceId) 会话一对专用 FIFO 通道、盖章点同一同步段内投递回执）与流控行为差（装配时应在 edge 工厂设 `asyncDataAdmissionFatal: true`，漏设会静默保持 β 的 ns 级 resync 语义且零诊断）以协议 §24 为准。
+
 Peer 宿主必须显式选择 boot policy：
 
 | Peer 工作负载 | domain service 发布策略 |
