@@ -1,0 +1,15 @@
+=== 包全量套件（PUB-C2 硬门；含既有 β 矩阵 + 新 γ 套件） ===
+Tue Sep 22 07:14:37 AM UTC 2026
+
+
+ Test Files  94 passed (94)
+      Tests  855 passed (855)
+   Start at  15:14:37
+   Duration  48.88s (transform 1.40s, setup 0ms, collect 14.71s, tests 21.92s, environment 11ms, prepare 3.90s)
+
+
+=== 类型门：packages/ws-replication tsc ===
+exit=0
+
+=== 类型门：根 tsc -p tsconfig.typecheck.json ===
+exit=0
