@@ -333,6 +333,11 @@ function renderPath(path: Path): string {
 // ⑥ 替代形态：O(1) 安装事实核 + O(boundary) 边界重投影核；不再无条件重新提取并
 // 校验完整 ROOT；fatal 分类不削弱（E201 变体 C/D 复用既有码字，committed:true、
 // 不回滚、不补偿、绝不假成功——措辞按设计 §8 收窄到边界 path 报告）。
+// issue #436 / ADR 0033 决策 3：安装事实核抽取为共享单实现
+// （verifyBoundaryInstallFacts）；新增 VerifyPlan 判别联合 + verifyPrepared 分派器——
+// fast-path 数组提交走 `install-facts` 变体（省略重投影核：无 proposedBoundary 可比
+// 对），legacy 轨（union 数组目标/union 穿越/record/parent/target）保持 `boundary`
+// 变体双核逐字不变。
 // ═══════════════════════════════════════════════════════════════════════════
 
 /** 提交载体事实（O(1) identity/长度断言输入；与 mutation-local 构造的 commit 对应）。 */
@@ -380,21 +385,18 @@ function boundaryE201D(detail: string, cause?: unknown): Error {
 }
 
 /**
- * 边界级提交后验证（issue #237 设计 §8）：
- * 1. 安装事实核（O(1)，verifyInstall 同款 identity/长度纪律）：
- *    set → parent.get(key) === installed（yjs 按引用存储，同值重插不误报）；
- *    delete → !parent.has(key)；insert → target.length === before + built.length 且
- *    target.get(index+i) === built[i]；delete-range → target.length === before - count。
- * 2. 边界重投影核（O(boundary)）：walk(structureNode, boundaryLive) 重提取 → 与
- *    proposedBoundary 做 productEqual（XML canonical、union any-of 同 ⑥ 语义）。
- *    不重新过 schema（pre-commit 已证 proposed 合法；本核证明 installed ≡ proposed）。
- * 3. 偏离 → E201 变体 C（committed:true）；核自身异常/无法运行 → E201 变体 D
- *    （防线未能运行，绝不假成功）。
- * @internal 包内接缝（mutation.ts 消费；不经 index.ts 公共入口导出）。
+ * 安装事实核（O(1)，verifyInstall 同款 identity/长度纪律）：
+ *  set → parent.get(key) === installed（yjs 按引用存储，同值重插不误报）；
+ *  delete → !parent.has(key)；insert → target.length === before + built.length 且
+ *  target.get(index+i) === built[i]；delete-range → target.length === before - count。
+ * 偏离 → E201 变体 C（committed:true）；核自身异常 → E201 变体 D（防线未能运行）。
+ *
+ * issue #436 / ADR 0033 决策 3 起本核为**两轨共享的单一实现**（自 verifyBoundaryIntact
+ * 逐字抽取）：legacy 轨经 verifyBoundaryIntact（事实核 + 重投影核）消费；fast-path
+ * 数组提交经 `install-facts` 验证计划只消费本核（无 proposedBoundary 可比对）。
+ * @internal 包内接缝（mutation-local/mutation.ts 消费；不经 index.ts 公共入口导出）。
  */
-export function verifyBoundaryIntact(input: VerifyBoundaryIntactInput): void {
-  const { derived, structureNode, proposedBoundary, facts } = input;
-  // ── 1. 安装事实核（O(1)）──────────────────────────────────────────────
+export function verifyBoundaryInstallFacts(facts: BoundaryCommitFacts): void {
   try {
     if (facts.kind === 'set') {
       if (facts.parent.get(facts.key) !== facts.installed) {
@@ -426,6 +428,44 @@ export function verifyBoundaryIntact(input: VerifyBoundaryIntactInput): void {
     if (err instanceof DocRuntimeFatalError) throw err;
     throw boundaryE201D(`安装事实核异常（触发类④）：${errDetail(err)}`, err);
   }
+}
+
+/**
+ * @internal S9 验证计划判别联合（issue #436 / ADR 0033 决策 3）：
+ *  boundary      = 安装事实核 + 边界重投影核（legacy 轨全量输入不变——`proposedBoundary`
+ *                  保持必填，字段缺席不可能静默跳核）；
+ *  install-facts = 仅安装事实核（fast-path 数组提交——无 proposedBoundary 可比对）。
+ */
+export type VerifyPlan =
+  | { kind: 'boundary'; input: VerifyBoundaryIntactInput }
+  | { kind: 'install-facts'; facts: BoundaryCommitFacts };
+
+/** @internal 单点分派两轨验证（判别联合穷尽；不经 index.ts 公共入口导出）。 */
+export function verifyPrepared(plan: VerifyPlan): void {
+  switch (plan.kind) {
+    case 'boundary':
+      verifyBoundaryIntact(plan.input);
+      return;
+    case 'install-facts':
+      verifyBoundaryInstallFacts(plan.facts);
+      return;
+  }
+}
+
+/**
+ * 边界级提交后验证（issue #237 设计 §8；issue #436 起事实核抽取为共享单实现，行为逐字不变）：
+ * 1. 安装事实核（O(1)）——`verifyBoundaryInstallFacts`。
+ * 2. 边界重投影核（O(boundary)）：walk(structureNode, boundaryLive) 重提取 → 与
+ *    proposedBoundary 做 productEqual（XML canonical、union any-of 同 ⑥ 语义）。
+ *    不重新过 schema（pre-commit 已证 proposed 合法；本核证明 installed ≡ proposed）。
+ * 3. 偏离 → E201 变体 C（committed:true）；核自身异常/无法运行 → E201 变体 D
+ *    （防线未能运行，绝不假成功）。
+ * @internal 包内接缝（mutation.ts 消费；不经 index.ts 公共入口导出）。
+ */
+export function verifyBoundaryIntact(input: VerifyBoundaryIntactInput): void {
+  const { derived, structureNode, proposedBoundary, facts } = input;
+  // ── 1. 安装事实核（O(1)）──────────────────────────────────────────────
+  verifyBoundaryInstallFacts(facts);
 
   // ── 2. 边界重投影核（O(boundary)）─────────────────────────────────────
   // 边界 live 来源：非 target 种类（union/record/array/parent）传 prefix 位 live；

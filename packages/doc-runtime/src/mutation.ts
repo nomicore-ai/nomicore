@@ -4,7 +4,9 @@
  * (vfsl planMutationBoundary) → live navigation with per-hop carrier/presence
  * checks → boundary-local extraction/rebuild/validation (vfsl
  * applyMutationAtBoundary) → detached construct → single guarded Yjs minimal
- * transaction → boundary-scoped post-commit verification (verifyBoundaryIntact).
+ * transaction → boundary-scoped post-commit verification (verifyPrepared: install-facts
+ * for the non-union `T[]` fast path per ADR 0033 decision 3, boundary facts +
+ * reprojection for the permanent legacy track).
  * The phase-1 precondition (committed ROOT legal before the call — logical
  * values + carrier topology) is documented in mutation-local.ts; the function
  * proves this mutation does not break the schema constraints it touches and no
@@ -41,8 +43,8 @@ import { applyMutationAtBoundary, planMutationBoundary, validateLogicalSnapshot 
 import { extractYjsSnapshot, walk } from './extract.js';
 import { assertOutermostTransactionContext } from './tx-guard.js';
 import { buildDetachedValue, buildTopEntries } from './detached-build.js';
-import { verifyInstall, verifySnapshotIntact, verifyBoundaryIntact } from './install-verify.js';
-import type { VerifyBoundaryIntactInput } from './install-verify.js';
+import { verifyInstall, verifySnapshotIntact, verifyPrepared } from './install-verify.js';
+import type { VerifyPlan } from './install-verify.js';
 import { carrierOf } from './carrier.js';
 import { makeRefResolver } from './resolve.js';
 import { DerivedInvariantError, DocRuntimeFatalError, transactGuarded } from './fatal.js';
@@ -114,13 +116,13 @@ export type PreparedCommit =
   | { kind: 'array-delete'; target: Y.Array<unknown>; index: number; count: number };
 type MutationPrepared =
   | { kind: 'legacy'; commit: PreparedCommit; proposed: unknown }
-  | { kind: 'local'; commit: PreparedCommit; verify: VerifyBoundaryIntactInput }
+  | { kind: 'local'; commit: PreparedCommit; verify: VerifyPlan }
   | { kind: 'batch'; items: BatchItem[] }
   | { kind: 'fail'; issues: MutationIssue[] };
 /** 批量 item：单事务提交项 + 已组合期望边界的验证输入（@internal 包内类型）。 */
 interface BatchItem {
   commit: PreparedCommit;
-  verify: VerifyBoundaryIntactInput;
+  verify: VerifyPlan;
 }
 type PlaceResult = { kind: 'ok'; value: unknown } | { kind: 'issue'; issue: MutationIssue };
 type StepResult = { kind: 'ok'; value: unknown } | { kind: 'issue'; issue: MutationIssue };
@@ -150,7 +152,7 @@ export function applyValidatedMutation(
     transactGuarded(doc, () => {
       for (const item of ready.items) commitPrepared(item.commit);
     });
-    for (const item of ready.items) verifyBoundaryIntact(item.verify);
+    for (const item of ready.items) verifyPrepared(item.verify);
     return { ok: true };
   }
   transactGuarded(doc, () => commitPrepared(ready.commit));
@@ -160,8 +162,9 @@ export function applyValidatedMutation(
     }
     verifySnapshotIntact(derived, ready.proposed, doc);
   } else {
-    // 局部管线：边界级提交后一致性验证（install facts + 边界重投影核；不重过 schema）
-    verifyBoundaryIntact(ready.verify);
+    // 局部管线：边界级提交后一致性验证（验证计划判别：fast path = install facts 单核 /
+    // legacy 轨 = install facts + 边界重投影核；不重过 schema——ADR 0033 决策 3）
+    verifyPrepared(ready.verify);
   }
   return { ok: true };
 }
@@ -323,6 +326,9 @@ function prepareBatchMutation(
  * 与 prepare 内部同输入同结果）；折迭以合成 plan（apply 不消费 `kind`——见
  * `validate-patch.ts` 分支仅按 `mutation.op`）调用同一 `applyMutationAtBoundary`。
  * `target`/`array` 边界的 prefix 即操作自身写入位，严格前缀谓词天然零匹配（引理 3）。
+ * issue #436：fast-path 数组项的验证计划为 `install-facts`（无 proposedBoundary）——
+ * 按 `verify.kind` 判别直接跳过折迭；折迭输入侧（parsed 驱动）不变，legacy 边界项
+ * 对批内数组足迹的吸收照旧。
  * 合成失败（可达：union 成员 any-of 重叠使组合边界无成员可容——引理 4'）→ 聚合
  * issues、整体零写入（fail-closed；不得弱化为死代码，否则提交 schema 非法文档）。
  */
@@ -347,7 +353,14 @@ function composeBatchVerify(
   for (let i = 0; i < items.length; i++) {
     const plan = plans[i]!;
     if (plan === null) continue;
-    let composed = items[i]!.verify.proposedBoundary;
+    const verify = items[i]!.verify;
+    // issue #436 / ADR 0033 决策 3：fast-path 数组项的计划为 `install-facts`（无
+    // proposedBoundary 可保护/折迭）→ 跳过折迭。折迭输入侧（下循环读 parsed[j] 重放
+    // 兄弟效果）不变：legacy 边界项对批内 fast-path 数组足迹的吸收照旧。正确性依据：
+    // fast path 仅产生于 kind=`array` 计划，其 prefix = 操作自身路径，E5 批内路径互不
+    // 嵌套 ⇒ 严格前缀谓词结构性零命中（引理 3，与 legacy 数组项同为零命中）。
+    if (verify.kind !== 'boundary') continue;
+    let composed = verify.input.proposedBoundary;
     for (let j = 0; j < parsed.length; j++) {
       if (j === i) continue;
       const mj = parsed[j]!;
@@ -367,7 +380,7 @@ function composeBatchVerify(
       }
       composed = applied.proposedBoundary;
     }
-    items[i] = { ...items[i]!, verify: { ...items[i]!.verify, proposedBoundary: composed } };
+    items[i] = { ...items[i]!, verify: { kind: 'boundary', input: { ...verify.input, proposedBoundary: composed } } };
   }
   if (compIssues.length > 0) return { kind: 'fail', issues: compIssues };
   return { kind: 'batch', items };

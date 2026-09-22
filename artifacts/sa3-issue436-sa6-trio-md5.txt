@@ -1,0 +1,3 @@
+2dd066f4788179651d0314428478f997  packages/doc-runtime/test/issue-436-array-fastpath-contract.test.ts
+c9e0e6c124e65028fd8df3ecec6347cc  packages/doc-runtime/test/issue-436-array-fastpath-control.test.ts
+8358d45443d60095d0af9e5db0886c58  packages/doc-runtime/test/issue-436-array-fastpath-fixture.ts
