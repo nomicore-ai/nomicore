@@ -1,0 +1,145 @@
+Testing types with tsc and vue-tsc is an experimental feature.
+Breaking changes might not follow SemVer, please pin Vitest's version when using it.
+
+ RUN  v3.2.7 /home/wangjian/nomicore-fix-issue-448
+
+ DEPRECATED  'basic' reporter is deprecated and will be removed in Vitest v3.
+Remove 'basic' from 'reporters' option. To match 'basic' reporter 100%, use configuration:
+{
+  "test": {
+    "reporters": [
+      [
+        "default",
+        {
+          "summary": false
+        }
+      ]
+    ]
+  }
+}
+ ✓ packages/ws-replication/test/ws-replication-issue448-live-data-plane.test.ts (13 tests) 146ms
+
+
+ Test Files  1 passed (1)
+      Tests  13 passed (13)
+Type Errors  no errors
+   Start at  16:04:51
+   Duration  1.13s (transform 615ms, setup 0ms, collect 826ms, tests 146ms, environment 0ms, prepare 50ms)
+
+run 1: exit 0
+Testing types with tsc and vue-tsc is an experimental feature.
+Breaking changes might not follow SemVer, please pin Vitest's version when using it.
+
+ RUN  v3.2.7 /home/wangjian/nomicore-fix-issue-448
+
+ DEPRECATED  'basic' reporter is deprecated and will be removed in Vitest v3.
+Remove 'basic' from 'reporters' option. To match 'basic' reporter 100%, use configuration:
+{
+  "test": {
+    "reporters": [
+      [
+        "default",
+        {
+          "summary": false
+        }
+      ]
+    ]
+  }
+}
+ ✓ packages/ws-replication/test/ws-replication-issue448-live-data-plane.test.ts (13 tests) 147ms
+
+
+ Test Files  1 passed (1)
+      Tests  13 passed (13)
+Type Errors  no errors
+   Start at  16:04:52
+   Duration  1.13s (transform 622ms, setup 0ms, collect 835ms, tests 147ms, environment 0ms, prepare 45ms)
+
+run 2: exit 0
+Testing types with tsc and vue-tsc is an experimental feature.
+Breaking changes might not follow SemVer, please pin Vitest's version when using it.
+
+ RUN  v3.2.7 /home/wangjian/nomicore-fix-issue-448
+
+ DEPRECATED  'basic' reporter is deprecated and will be removed in Vitest v3.
+Remove 'basic' from 'reporters' option. To match 'basic' reporter 100%, use configuration:
+{
+  "test": {
+    "reporters": [
+      [
+        "default",
+        {
+          "summary": false
+        }
+      ]
+    ]
+  }
+}
+ ✓ packages/ws-replication/test/ws-replication-issue448-live-data-plane.test.ts (13 tests) 142ms
+
+
+ Test Files  1 passed (1)
+      Tests  13 passed (13)
+Type Errors  no errors
+   Start at  16:04:54
+   Duration  1.13s (transform 617ms, setup 0ms, collect 829ms, tests 142ms, environment 0ms, prepare 48ms)
+
+run 3: exit 0
+Testing types with tsc and vue-tsc is an experimental feature.
+Breaking changes might not follow SemVer, please pin Vitest's version when using it.
+
+ RUN  v3.2.7 /home/wangjian/nomicore-fix-issue-448
+
+ DEPRECATED  'basic' reporter is deprecated and will be removed in Vitest v3.
+Remove 'basic' from 'reporters' option. To match 'basic' reporter 100%, use configuration:
+{
+  "test": {
+    "reporters": [
+      [
+        "default",
+        {
+          "summary": false
+        }
+      ]
+    ]
+  }
+}
+ ✓ packages/ws-replication/test/ws-replication-issue448-live-data-plane.test.ts (13 tests) 145ms
+
+
+ Test Files  1 passed (1)
+      Tests  13 passed (13)
+Type Errors  no errors
+   Start at  16:04:56
+   Duration  1.12s (transform 619ms, setup 0ms, collect 824ms, tests 145ms, environment 0ms, prepare 43ms)
+
+run 4: exit 0
+Testing types with tsc and vue-tsc is an experimental feature.
+Breaking changes might not follow SemVer, please pin Vitest's version when using it.
+
+ RUN  v3.2.7 /home/wangjian/nomicore-fix-issue-448
+
+ DEPRECATED  'basic' reporter is deprecated and will be removed in Vitest v3.
+Remove 'basic' from 'reporters' option. To match 'basic' reporter 100%, use configuration:
+{
+  "test": {
+    "reporters": [
+      [
+        "default",
+        {
+          "summary": false
+        }
+      ]
+    ]
+  }
+}
+ ✓ packages/ws-replication/test/ws-replication-issue448-live-data-plane.test.ts (13 tests) 148ms
+
+
+ Test Files  1 passed (1)
+      Tests  13 passed (13)
+Type Errors  no errors
+   Start at  16:04:57
+   Duration  1.12s (transform 611ms, setup 0ms, collect 821ms, tests 148ms, environment 0ms, prepare 46ms)
+
+run 5: exit 0
