@@ -1,0 +1,6 @@
+# CHUNK3-P1 β 参照选择证据（T3 多 chunk 构型）
+config = {"maxSyncDiffBytes":1,"maxChunkedSyncDiffBytes":64,"maxUpdateBytes":1,"maxBootstrapBytes":4096}
+issue424-sharded-hub（夹具恒用自身冻结缺省 limits）hubToPeer = HELLO_ACK#1 OPEN_OK#2 BOOTSTRAP_SNAPSHOT#3 SYNC_STEP1#4 SYNC_STEP2#5 SYNC_APPLIED#6
+  ⇒ UPDATE_CHUNK 数 = 0 （无法表达 T3 多 chunk 构型 ⇒ 用它作参照会退化为两侧单帧的平凡 parity）
+进程内组合根单体（createHubReplication 缺省；#447 CHUNK-C1 parity 同款选择）hubToPeer = HELLO_ACK#1 OPEN_OK#2 BOOTSTRAP_SNAPSHOT#3 SYNC_STEP1#4 UPDATE_CHUNK#5 UPDATE_CHUNK#6 SYNC_APPLIED#7
+  ⇒ UPDATE_CHUNK 数 = 2 （真实多 chunk 改道参照）
