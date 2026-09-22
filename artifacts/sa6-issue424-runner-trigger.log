@@ -1,0 +1,21 @@
+# SA6 issue #424 runner 触发证据（临时占位；运行后已删除——§16）
+# 目录 ls：
+ws-replication-issue424-discovery.test-d.ts
+ws-replication-issue424-discovery.test.ts
+# 发现规则：vitest.config.ts include=['packages/*/test/**/*.test.ts'] + typecheck.include=['packages/*/test/**/*.test-d.ts']
+# 命令：NODE_OPTIONS=--conditions=nomicore-source pnpm exec vitest run --typecheck packages/ws-replication/test/ws-replication-issue424-discovery.test.ts packages/ws-replication/test/ws-replication-issue424-discovery.test-d.ts
+Testing types with tsc and vue-tsc is an experimental feature.
+Breaking changes might not follow SemVer, please pin Vitest's version when using it.
+
+ RUN  v3.2.7 /home/wangjian/nomicore-fix-issue-424
+
+ ✓ packages/ws-replication/test/ws-replication-issue424-discovery.test.ts (1 test) 3ms
+ ✓  TS  packages/ws-replication/test/ws-replication-issue424-discovery.test-d.ts (1 test)
+
+ Test Files  2 passed (2)
+      Tests  2 passed (2)
+Type Errors  no errors
+   Start at  08:51:58
+   Duration  2.30s (transform 11ms, setup 0ms, collect 11ms, tests 3ms, environment 0ms, prepare 55ms, typecheck 2.25s)
+
+RUNNER_EXIT=0

@@ -1,0 +1,24 @@
+# SA6 issue #424 环境与基线（HEAD cab3e8c245ef189da1d823719370a68459939316）
+
+## 工具链
+node=v24.13.0 pnpm=10.28.2 vitest=vitest/3.2.7 linux-x64 node-v24.13.0 tsx=tsx v4.23.12 tsc=Version 5.9.3
+
+## 依赖安装（offline store）
+$ pnpm install --offline --frozen-lockfile
+→ exit 0（Scope: all 17 workspace projects；Packages +65 全 reuse；零下载）
+
+## 根全量测试（AC6 门禁基线）
+$ NODE_OPTIONS=--conditions=nomicore-source pnpm test
+ Test Files  455 passed (455)
+      Tests  5559 passed (5559)
+Type Errors  no errors
+   Duration  424.19s (transform 5.05s, setup 0ms, collect 47.18s, tests 320.54s, environment 53ms, prepare 18.13s, typecheck 12.25s)
+→ ROOT_TEST_EXIT=0
+
+## 根 typecheck
+$ pnpm typecheck
+→ ROOT_TYPECHECK_EXIT=0（15 个 tsconfig 串行全过）
+
+## 包 typecheck
+$ pnpm exec tsc -p packages/ws-replication/tsconfig.json
+→ TSC_EXIT=0（零诊断输出）
