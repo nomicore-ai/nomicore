@@ -1,0 +1,82 @@
+diff --git a/docs/adr/0007-logical-validation-and-yjs-runtime-bridge.md b/docs/adr/0007-logical-validation-and-yjs-runtime-bridge.md
+index 21c9986..a10d10b 100644
+--- a/docs/adr/0007-logical-validation-and-yjs-runtime-bridge.md
++++ b/docs/adr/0007-logical-validation-and-yjs-runtime-bridge.md
+@@ -122,3 +122,19 @@ commits）。本节按「owner 授权 + 显式修订节」模式（ADR-0006 #64/
+    （R6 set 目标位 O(1) 常数；array/Record/union 边界与 delete 父位按边界规模），
+    与完整 ROOT 规模解耦；`set([])` 与顶层退化位仍为 O(ROOT)。owned Yjs update
+    保持最小化（只修改目标 carrier）。
++
++### ADR 0033 修订注记（2026-09-22）
++
++授权链：ADR 0033（`docs/adr/0033-elementwise-yarray-mutation-validation.md`，状态已接受，
++决策 1–4）+ `docs/AGENTS.md`「Amend or supersede prior decisions explicitly instead of
++silently contradicting them」义务句；沿本仓「显式修订节」惯例（ADR-0006 #64/#79、
++ADR-0008 #93/#132、本节先例）。除下列明示句外，本节其余条款维持原文效力。
++
++> 本节条款 1 的「批量 values[] / count 一次整体判定，不逐元素」与条款 4(ii) 中的
++> 「数组位」字面，自 ADR 0033（`docs/adr/0033-elementwise-yarray-mutation-validation.md`
++> 决策 1–4）起就**非 union `T[]` 数组位**修订为：逐元素校验、触达面收窄为「数组载体 +
++> 变更区间」——区间外既存损坏不再被普通数组写发现（污染数组的 delete/insert 照常成功）；
++> 条款 7 的「array……按边界规模」成本句对该类目标相应为 O(变更量)。union 数组目标
++> （`A[] | B[]`）与本节其余边界种类（union 穿越位、Record 位、delete 父 map 位）按本节
++> 原文逐字保持；载体形态违规（条款 4(i)）不受影响。ADR-0010 issue #237 修订节后备句的
++> 数组含义同步随 ADR 0033 决策 4 修订（该节已被其标题点名，无需另行注记）。
+diff --git a/packages/doc-runtime/test/apply-validated-mutation-fatal-contract.test.ts b/packages/doc-runtime/test/apply-validated-mutation-fatal-contract.test.ts
+index 22df842..0b5db48 100644
+--- a/packages/doc-runtime/test/apply-validated-mutation-fatal-contract.test.ts
++++ b/packages/doc-runtime/test/apply-validated-mutation-fatal-contract.test.ts
+@@ -214,8 +214,16 @@ describe('applyValidatedMutation — 领域失败面不进入 fatal 通道（AC-
+     // - 原形态「ROOT 已损坏（count 在路径外）+ 写 title」在路径级/边界级校验下
+     //   **合法转 ok:true**（触达面外损坏不再被普通写发现——E1/E3 声明的语义让渡）；
+     // - W5 意图（领域失败留在 ok:false 联合、不被 fatal 通道吞并）改为**边界内**损坏
+-    //   形态锚定：目标数组边界内既有元素值非法 → array-insert 的 R4 整批校验响亮拒绝。
+-    const W5_TEXT = 'type Item = { name: string; qty: number };\ntype ROOT = { items: YArray<Item>; tag: string };';
++    //   形态锚定：目标数组边界内既有元素值非法 → array-insert 的整边界校验响亮拒绝。
++    // 锚定载体迁移（issue #436；授权链：ADR 0033 决策 1/4 + ADR-0007 #237 修订节
++    // ADR 0033 修订注记〔同批交付〕；断言语义面零放宽）：
++    // - 非 union `T[]` 自 ADR 0033 起走 fast path（触达面 = 数组载体 + 变更区间）：区间外
++    //   既存损坏不再阻断写——该新目标行为由 SA6 契约 FA 组锚定；
++    // - 本用例改锚**永久 legacy 全量边界轨**的 union 数组目标（A[] | B[]；ADR 0033
++    //   决策 1 立法保留）：整边界校验照旧整批响亮拒绝，W5 意图原样成立；
++    // - seed / 污染注入 / 操作 / 断言（ok:false + issues.length > 0 + stateBytes 不变）
++    //   逐字未改。
++    const W5_TEXT = 'type Item = { name: string; qty: number };\ntype ROOT = { items: YArray<Item> | YArray<string>; tag: string };';
+     const doc = new Y.Doc();
+     const root = doc.getMap('ROOT');
+     const seed = materializeRoot(derivedOf(W5_TEXT), { items: [{ name: 'a', qty: 1 }], tag: 'x' }, doc);
+diff --git a/packages/doc-runtime/test/issue-237-path-localized-validation-red.test.ts b/packages/doc-runtime/test/issue-237-path-localized-validation-red.test.ts
+index e6e05f3..c620e09 100644
+--- a/packages/doc-runtime/test/issue-237-path-localized-validation-red.test.ts
++++ b/packages/doc-runtime/test/issue-237-path-localized-validation-red.test.ts
+@@ -92,6 +92,16 @@ const TEXT_LIB_ITEM =
+   'type Item = { name: string; qty: number };\n'
+   + 'type ROOT = { target: { value: number; note?: string }; library: YArray<Item> };';
+
++/** issue #436 定向重锚用局部 schema（**仅**「A-7 对称面」用例消费；共享 TEXT_LIB_ITEM
++ *  与其全部消费面〔A-1/A-6/A-7 等〕零触碰）：`library` 声明为 union 数组目标
++ *  （`A[] | B[]`）——ADR 0033 决策 1 立法**永久回退 legacy** 全量边界路径的面：整边界
++ *  提取/重建/校验照旧，边界内既存损坏仍响亮拒绝。授权链：ADR 0033 决策 1（union 永久
++ *  回退）+ 决策 4（非 union `T[]` 触达面收窄）+ ADR-0007 issue #237 修订节 ADR 0033
++ *  修订注记（同批交付）。断言语义面零放宽。 */
++const TEXT_LIB_ITEM_UNION =
++  'type Item = { name: string; qty: number };\n'
++  + 'type ROOT = { target: { value: number; note?: string }; library: YArray<Item> | YArray<string> };';
++
+ function derivedOf(text: string): DerivedSchema {
+   const parsed = parseVfsl(text);
+   if (!parsed.ok) throw new Error(`前置 parseVfsl 失败（fixture 缺陷）：${JSON.stringify(parsed.issues)}`);
+@@ -546,7 +556,12 @@ describe('A-7【SA2 裁决二锚】set 整值替换修复语义（声明 carve-o
+   });
+
+   it('对称面（绿锁定）：array-insert 目标数组内既存损坏元素（R4 边界内）→ 整批 ok:false 零写入', () => {
+-    const { derived, doc } = fixtureOf(TEXT_LIB_ITEM, { target: { value: 0 }, library: librarySeed(3) });
++    // 锚定载体迁移（issue #436）：非 union `T[]` 自 ADR 0033 起走 fast path（区间外既存
++    // 损坏不再阻断写），故本用例改锚 union 数组目标的**永久 legacy 全量边界轨**
++    // （TEXT_LIB_ITEM_UNION；ADR 0033 决策 1）——「提取型边界内既存损坏仍响亮拒绝」的
++    // 意图锚与四断言（ok:false / 零写入 / 零 update / length 不变）逐字未改。授权链同
++    // 上（ADR 0033 决策 1/4 + ADR-0007 #237 修订节 ADR 0033 修订注记）。
++    const { derived, doc } = fixtureOf(TEXT_LIB_ITEM_UNION, { target: { value: 0 }, library: librarySeed(3) });
+     expectValidBaseline(derived, doc);
+     const library = doc.getMap('ROOT').get('library') as Y.Array<Y.Map<unknown>>;
+     // 经 live carrier 写坏数组边界内元素（绕过一切校验）
