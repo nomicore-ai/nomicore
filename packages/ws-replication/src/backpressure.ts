@@ -22,6 +22,11 @@
  * namespace-registry 的 session fanout 队列（切片 3 域）。不进 Runtime sequencer
  * （§11.2）：本模块不 import、不 await、不回调 Runtime/Lease/Registry——依赖方向
  * 保证，非约定。
+ *
+ * issue #450（ADR 0032 A4.3 / 协议 §24.5，γ 异步缝行为差）：data 字节路径的失败动作分叉
+ * ——`ConnectionSenderHost.onDataFrameAdmissionFatal`（可选，缺省缺席）在场时，两条
+ * admission 守卫（单帧超限 / 账本投影越界）在返回 0 前同步上报，由 edge 单点收口整条连接
+ * （`CONNECTION_BACKPRESSURE` 1011 / `FRAME_TOO_LARGE` 1009）；缺席 = α/β 既有语义逐字不变。
  */
 import { encodeMessage, type ReplicationMessage } from '@nomicore/replication-protocol';
 import { codecFieldLimits } from './frame-io.js';
@@ -66,6 +71,15 @@ export interface ConnectionSenderHost {
   onSendPaused?(bufferedAmount: number): void;
   /** 水位恢复边沿（暂停段降至 ≤ lowWater；§6.5 B2）。可选（无 observer 接线 = 零回调）。 */
   onSendResumed?(bufferedAmount: number): void;
+  /** issue #450（ADR 0032 A4.3 / 协议 §24.5，γ 异步缝行为差）：字节形态 data admission
+   *  越界的**连接终局分叉点**。可选成员；缺席（α/β/peer）⇒ 两条守卫维持「`return 0`」既有
+   *  语义（β：ns 级 send-failed resync、连接存活——登记差不动）。在场（γ 装配，唯一设置链 =
+   *  edge 工厂 `asyncDataAdmissionFatal`）⇒ 守卫触发时同步回调后仍返回 0（连接已在回调内
+   *  收口，0 值不再独立承载语义）：
+   *  - `'ledger-overflow'`：连接账本投影越界（慢性拥塞）→ `CONNECTION_BACKPRESSURE`(1011)；
+   *  - `'oversize'`：单帧超连接级上限（与拥塞无关的配置错误）→ `FRAME_TOO_LARGE`(1009)。
+   *  回调**不改判定**：守卫次序（oversize 先）、严格大于判据、投影口径逐字不变。 */
+  onDataFrameAdmissionFatal?(reason: 'ledger-overflow' | 'oversize'): void;
 }
 
 /** 单次 drain 的轮次限额（§4.5 注记 c：turns 截断不是终态——已发帧的 ACK 必再触发 drain）。 */
@@ -161,14 +175,23 @@ export class ConnectionSender {
    * issue #418（设计 D3.2）字节形态 data 发送点：`isEmitAllowed` / data 闸门已由 session
    * 半边**前置**（D3.1：对应 HEAD `tryEmitData` 的判定次序），本方法承接其后的单帧守卫与
    * 统一账本 admission（全部以 `byteLength` 为确定判据）→ data 出队盖章。
+   *
+   * issue #450（翼(i)，ADR 0032 A4.3 / §24.5）：两条守卫的**失败动作**在装配标记在场时
+   * 经可选钩子升级为连接终局（判定次序/判据/投影口径逐字不变；钩子同步回调后仍返回 0）。
    */
   tryEmitDataFrame(frame: Uint8Array): number {
     const frameBytes = frame.byteLength;
-    if (frameBytes > this.host.limits.maxQueuedBytesPerConnection) return 0;
+    if (frameBytes > this.host.limits.maxQueuedBytesPerConnection) {
+      this.host.onDataFrameAdmissionFatal?.('oversize');
+      return 0;
+    }
     const projected =
       this.observe() + this.pendingDataHandoff + this.controlPendingHandoff
       + this.totalQueuedBytes() + frameBytes;
-    if (projected > this.host.limits.maxQueuedBytesPerConnection) return 0;
+    if (projected > this.host.limits.maxQueuedBytesPerConnection) {
+      this.host.onDataFrameAdmissionFatal?.('ledger-overflow');
+      return 0;
+    }
     return this.emitDataFrameBytes(frame);
   }
 

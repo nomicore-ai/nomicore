@@ -1,0 +1,15 @@
+ RUN  v3.2.7 /home/wangjian/nomicore-fix-issue-450
+stdout | packages/ws-replication/test/sa7-issue450-water-probe.test.ts > [SA7-DATAFLOW] γ 保留面：水位事件经 control 发送边沿可达（D1.5 / SA4 §11-3） > WATER-γ：纯 data 压力零水位事件；ACK control 边沿 ⇒ send-paused；消费 ⇒ send-resumed；暂停期 data 仍放行；连接存活
+[SA7-DATAFLOW] route=WATER-gamma step=1-pure-data-pressure level=4227 highWater=4096 pausedEvents=0 updateStamps=40
+stdout | packages/ws-replication/test/sa7-issue450-water-probe.test.ts > [SA7-DATAFLOW] γ 保留面：水位事件经 control 发送边沿可达（D1.5 / SA4 §11-3） > WATER-γ：纯 data 压力零水位事件；ACK control 边沿 ⇒ send-paused；消费 ⇒ send-resumed；暂停期 data 仍放行；连接存活
+[SA7-DATAFLOW] route=WATER-gamma step=2-debug peerUpdates=1 hubAcks=1 seamControl=6 seamData=40 kinds=UPDATE_ACK
+[SA7-DATAFLOW] route=WATER-gamma step=2-control-edge-pause pausedEvents=1 bufferedAmount=4227
+stdout | packages/ws-replication/test/sa7-issue450-water-probe.test.ts > [SA7-DATAFLOW] γ 保留面：水位事件经 control 发送边沿可达（D1.5 / SA4 §11-3） > WATER-γ：纯 data 压力零水位事件；ACK control 边沿 ⇒ send-paused；消费 ⇒ send-resumed；暂停期 data 仍放行；连接存活
+[SA7-DATAFLOW] route=WATER-gamma step=3-data-while-paused updateStampsBefore=40 updateStampsAfter=41
+stdout | packages/ws-replication/test/sa7-issue450-water-probe.test.ts > [SA7-DATAFLOW] γ 保留面：水位事件经 control 发送边沿可达（D1.5 / SA4 §11-3） > WATER-γ：纯 data 压力零水位事件；ACK control 边沿 ⇒ send-paused；消费 ⇒ send-resumed；暂停期 data 仍放行；连接存活
+[SA7-DATAFLOW] route=WATER-gamma step=4-consume-resume resumedEvents=1 bufferedAmount=0 lowWater=2048
+ ✓ packages/ws-replication/test/sa7-issue450-water-probe.test.ts (1 test) 69ms
+ Test Files  1 passed (1)
+      Tests  1 passed (1)
+   Start at  20:06:16
+   Duration  1.14s (transform 662ms, setup 0ms, collect 915ms, tests 69ms, environment 0ms, prepare 47ms)
