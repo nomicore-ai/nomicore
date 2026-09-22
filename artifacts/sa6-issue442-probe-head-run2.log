@@ -1,0 +1,72 @@
+# issue #442 SA6 lease-record capability probe — revision=target(HEAD>=61778bc)
+
+EVIDENCE OK A1(target)
+PASS A1 [AC1] Record set @ 污染 sibling（载体错位）→ 目标键合法即成功、污染保留、恰 1 update
+EVIDENCE OK A2(target)
+PASS A2 [AC1] Record delete @ 污染 sibling（载体错位）→ ok:true + 恰 1 update
+EVIDENCE OK A3(target)
+PASS A3 [AC1] Record delete（目标键自身即污染位）→ 删除不读旧值、照常成功
+EVIDENCE OK A4(target)
+PASS A4 [AC1] Record set @ 兄弟 entry 值非法（载体正确）→ 不阻断
+EVIDENCE OK A5(target)
+PASS A5 [AC1] keyPattern Record set @ 兄弟键违约 → 不阻断目标键
+EVIDENCE OK A6(target)
+PASS A6 [AC1] 封闭对象 delete optional @ 兄弟字段载体错位 → ok:true
+EVIDENCE OK A7(target)
+PASS A7 [AC1] 封闭对象 delete unknown 标量 @ 兄弟字段载体错位 → ok:true
+EVIDENCE ISSUE A8(target) [{"message":"缺少必填字段 \"req\"","path":["obj","req"]}]
+PASS A8 [AC1] 封闭对象 delete 必填字段 @ 兄弟字段污染 → 拒绝理由 = 静态必填（旧：父值载体错位）
+EVIDENCE OK A9(target)
+PASS A9 [AC1] Record 值位 union（blobs）set @ 兄弟 entry 载体错位 → 不阻断 fast path
+EVIDENCE OK A10(target)
+PASS A10 [AC1] 深层 Record（outer.inner）set @ 兄弟污染 → 不阻断、路径语义不变
+EVIDENCE OK A11(target)
+PASS A11 [AC1] 批量信封内 Record set @ 兄弟污染 → 批内 ok:true + 单事务单 update
+EVIDENCE ISSUE B1 [{"message":"类型不匹配：期望 number，实际 string","path":["tasks","t9","qty"]}]
+PASS B1 [AC2] Record set 新值非法 → 逐字 issue 路径 [...mapPath, key, ...值内路径] + 零写入零 update
+EVIDENCE ISSUE B2 [{"message":"Record 键 \"nope\" 不满足 Pattern 正则 /^(id-[0-9]+)$/","path":["codes","nope"]}]
+PASS B2 [AC2] Record 键 Pattern 违约 → 逐字 message/path + 零写入零 update
+EVIDENCE ISSUE B3 [{"message":"delete 目标键不存在（拒绝 no-op）","path":["tasks","zz"]}]
+PASS B3 [AC2] delete 不存在键 no-op → 逐字拒绝 + 零写入
+EVIDENCE ISSUE B4 [{"message":"缺少必填字段 \"req\"","path":["obj","req"]}]
+PASS B4 [AC2] 封闭对象必填字段 delete → 逐字静态拒绝 + 零写入
+EVIDENCE OK B5
+PASS B5 [AC2] 封闭对象 unknown 标量字段 delete → 允许（静态规则不变）
+EVIDENCE OK B6(首删)
+EVIDENCE ISSUE B6(重复) [{"message":"delete 目标键不存在（拒绝 no-op）","path":["obj","opt"]}]
+PASS B6 [AC2] 封闭对象 optional 字段 delete 允许、重复 delete 落到 no-op 逐字拒绝
+EVIDENCE ISSUE B7 [{"message":"Yjs 载体错位（ROOT）：期望 Y.Map，实际 plain value","path":[]}]
+EVIDENCE B7 {"message":"Yjs 载体错位（ROOT）：期望 Y.Map，实际 plain value","path":[]}
+PASS B7 [AC2] 触达面内载体位（ROOT.tasks 本身非 Y.Map）→ 响亮拒绝、文案 path 不变、零写入
+EVIDENCE ISSUE B8 [{"message":"类型不匹配：期望 number，实际 string","path":["outer","inner","n2","qty"]}]
+PASS B8 [AC2] 深层 Record 非法新值 → issue 路径跨深度 rebase 正确 + 零写入
+EVIDENCE ISSUE U1 [{"message":"Yjs 载体错位（ROOT.mz）：期望 Y.Map，实际 plain value","path":["mz"]}]
+PASS U1 [AC3] union map 位（maybe）污染照旧拒绝、零写入零 update
+EVIDENCE OK U2
+EVIDENCE OK U2(delete)
+PASS U2 [AC3] union map 位干净写照常 ok:true（legacy 轨可用性不变）
+EVIDENCE U3 {"n":64,"tasksReads":{"valueReads":1,"presenceReads":1},"maybeReads":{"valueReads":514,"presenceReads":0}}
+PASS U3 [AC3] 结构性成本：union map 位 ∝ n（全量边界校验仍在）；非 union Record 位与 n 解耦
+EVIDENCE U4 {"small":{"valueReads":1,"presenceReads":1},"big":{"valueReads":1,"presenceReads":1}}
+PASS U4 [AC3] 结构性成本：fast 轨读计数与 n 解耦（n=64 vs n=256 相等且 ≤8）
+EVIDENCE OK V1(Item)
+EVIDENCE OK V1(Alt)
+PASS V1 [AC4] Record 值位 union：两支成员新值均接受（clean）
+EVIDENCE ISSUE V2 [{"message":"联合成员 1/2：缺少必填字段 \"qty\"","path":["blobs","b2","qty"]},{"message":"联合成员 1/2：未知字段 \"n\"：封闭对象不接受未声明键","path":["blobs","b2","n"]}]
+PASS V2 [AC4] Record 值位 union：非法值拒绝 + 零写入
+EVIDENCE V3 {"small":{"valueReads":1,"presenceReads":1},"big":{"valueReads":1,"presenceReads":1}}
+PASS V3 [AC4] 结构性成本：值位 union 的 Record 写仍与 n 解耦（≤8，n=64/256 相等）
+EVIDENCE OK E1
+PASS E1 [AC5] Record fast-path 提交：root-mutation committed effect:update + inline carrier 重放为真事务增量
+EVIDENCE OK E2(record)
+EVIDENCE OK E2(scalar)
+PASS E2 [AC5] Record 写与标量写的记录/carrier 键集逐键同构
+EVIDENCE OK R1
+PASS R1 [AC6] Record fast-path 提交 → owned update → peer apply 收敛 + diff 定点 + session 状态不变
+EVIDENCE OK R2
+EVIDENCE OK R2(第二笔)
+PASS R2 [AC6] owned update 为最小增量形态（空 doc 不物化 ROOT）；一次提交恰一事件
+EVIDENCE OK R3
+PASS R3 [AC6] 污染在场时 Record 写经复制收敛：对端既得新值又保留污染（不整 map 重写）
+
+SUMMARY revision=target(HEAD>=61778bc) passed=31 failures=0
