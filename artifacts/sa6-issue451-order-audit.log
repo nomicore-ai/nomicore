@@ -1,0 +1,26 @@
+# SA6 issue #451 —— γ 套件「跨线程事件相对顺序」依赖审计（HEAD 68ab9f5）
+# 判据：γ 观测面合并数组（edge observer + session observer 共用一个 recorder）是否被以下标/金标序断言。
+
+## A. 合并观测数组的下标访问（observerEvents[...]）
+NONE（零命中）
+
+## B. 合并数组的整序投影（map/slice/at 全数组）
+NONE（零命中）
+
+## C. γ 套件中的顺序类断言全量（人工复核：全部为单侧/单方向 FIFO 或单型内部）
+ws-replication-issue448-live-data-plane.test.ts:214:    const receiptIndex = delivered.findIndex(
+ws-replication-issue448-live-data-plane.test.ts:217:    const ackIndex = delivered.findIndex(
+ws-replication-issue449-gamma-reconcile-chunked.test.ts:509:    const appliedIndex = delivered.findIndex(
+ws-replication-issue449-gamma-reconcile-chunked.test.ts:515:    const receiptIndex = delivered.findIndex(
+ws-replication-issue449-gamma-reconcile-chunked.test.ts:606:    const receiptIndex = delivered.findIndex(
+ws-replication-issue449-gamma-reconcile-chunked.test.ts:609:    const ackIndex = delivered.findIndex(
+ws-replication-issue450-flow-lifecycle.test.ts:511:    const receiptIndex = delivered.findIndex(
+ws-replication-issue450-flow-lifecycle.test.ts:514:    const terminateIndex = delivered.findIndex((message) => message === 'terminateUnauthorized');
+
+## D. 记录器契约（夹具自述：不承诺事件序）
+903:/** observer 记录器（CHUNK-C3 单事件字段值断言面；零事件序断言纪律由测试侧承担）。 */
+
+## 结论：A/B 零命中 ⇒ γ 套件未以下标/整序投影断言合并（edge+session）观测数组；
+#         C 的 8 处 findIndex 全部落在 `seam.edgeToSession.delivered()`（**单方向缝投递序**，
+#         §24.2.1 FIFO 契约承重事实，非跨半边 observer 事件序）与单型事件内部（`events(type)` 过滤后）。
+#         故：γ 断言不依赖 edge/session 事件的相对到达顺序（§24.8 / A4.7）。
