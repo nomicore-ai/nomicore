@@ -1,0 +1,37 @@
+=== P-A kind=1 锚 pending + BOOTSTRAP_ACK ⇒ 响亮 ACK_STATE_VIOLATION ===
+  chunk 帧 tag 数=7 / 缓冲中 BOOTSTRAP_ACK frame=false
+  signals=["connection-fatal:ACK_STATE_VIOLATION"]
+  hub ERROR codes=["ACK_STATE_VIOLATION"]
+  namespaceState=disconnected
+  P-A: PASS（锚 pending 时引用性 ACK 未被静默接受）
+=== P-B kind=1 transfer 在途 + 连接死亡 ⇒ 整体 abort（无洞中形态） ===
+  死亡前：UPDATE_CHUNK=7 / hub→peer 帧=9 / 缝出站帧=8 / unsealed=0
+  死亡前 signals=[]
+  死亡后：hub→peer 帧=9 / 缝出站帧=8 / data(全轨迹)=7
+  死亡后 signals=[]
+  namespaceState=disconnected / connectionState=backoff
+  events=["channel-state-changed"]
+  P-B: PASS（连接死亡 ⇒ 整体 abort：零续推、零 settled、零未盖章洞）
+=== P-C §24.6 第三触发点隔离变异（onReceipt 结算但返回 false ⇒ 不触发自驱 drain） ===
+  baseline={"chunks":7,"live":true,"ackedSequences":[9],"chunkedSent":1,"chunkedAcked":1}
+  mutated ={"chunks":7,"live":true,"ackedSequences":[9],"chunkedSent":1,"chunkedAcked":1}
+  P-C: PASS（回执触发点被隔离后 kind=1 全回合轨迹逐值不变 ⇒ 该触发点在现态机非承重）
+=== P-D kind=2 sync round：末 chunk 回执结算 ⇒ SYNC_APPLIED 回指（正路复核） ===
+  hub kind=2 chunk 数=1 / peer kind=2 chunk 数=1
+  hub SYNC_APPLIED.ackedSequence=[5]
+  peer SYNC_APPLIED.ackedSequence=[5]
+  events=["channel-state-changed","bootstrap-snapshot-sent","channel-state-changed","chunked-sync-sent","chunked-sync-applied","chunked-sync-acked","channel-state-changed"]
+  P-D: PASS
+=== P-E 连接死亡后在途 transfer 不续传；重连 = 新作用域（transferId 归 1、chunkIndex 从 0） ===
+  重连=true / 会话通道对数=2 / connectionState=ready
+  新连接=hub-omega-conn-1 / kind=2 chunk=1 / chunkIndex=[0] / transferId=[1] / 新连接 kind=1 chunk=0
+  P-E: PASS（死亡连接零续传；重连以全新作用域 transfer 收敛到 live）
+=== P-F ownStep1Seq 三态（pending）：SYNC_STEP1 回执被扣 + 对端 SYNC_STEP2 引用 ⇒ 响亮 SYNC_STATE_VIOLATION ===
+  step1Tag=9 / signals=["settled:ns-00000000000000000000000000000001"]
+  hub ERROR codes=["SYNC_STATE_VIOLATION"] / namespaceState=failed
+  P-F: PASS（ownStep1Seq pending 时引用性 Step2 未被静默接受）
+=== P-G kind=2 多 chunk 全回合（≥2 chunk/方向）+ 双向 SYNC_APPLIED 回指 + 事件恰一次 ===
+  hub chunkIndex=[0,1] chunkCount=[2] / peer chunkIndex=[0,1] chunkCount=[2]
+  单帧 SYNC_STEP2 总数=0 / hub SYNC_APPLIED=[6] / peer SYNC_APPLIED=[6]
+  chunked-sync-sent=1 / chunked-sync-acked=1 / state=live
+  P-G: PASS
