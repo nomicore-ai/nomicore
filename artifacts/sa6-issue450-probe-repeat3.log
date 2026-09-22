@@ -1,0 +1,30 @@
+=== run 1 ===
+PROBE450 P1-after-burst {"cap":4096,"outboundData":80,"wireUpdates":48,"unsealed":32,"fatal":[],"hubTransportClosed":false,"wireCloseInfo":null,"connectionFailedEvents":0}
+PROBE450 P1-after-acktimeout {"resyncRequired":1,"wireErrors":[],"fatalSignals":[],"hubTransportClosed":false}
+PROBE450 P2-oversize-frame {"cap":16384,"frameBytes":20480,"egressReturn":0,"unsealed":0,"fatal":[],"hubTransportClosed":false,"connectionFailedEvents":0,"updateSentEvents":0}
+PROBE450 P3-after-close-late-frames {"withheld":1,"relayed":1,"stampsBefore":5,"stampsAfter":5,"receiptsBefore":5,"receiptsAfter":5,"wireBefore":6,"wireAfter":6,"unsealedAfter":1,"fatal":[]}
+PROBE450 P4-close-flush {"pendingTags":6,"closeCalls":1,"resyncRequiredAfterAckTimeout":0,"fatal":[],"nsState":"disconnected"}
+PROBE450 P5-terminate-nonretroactive {"pushedSequence":7,"wireUpdatesAfterRevoke":1,"receiptsBefore":5,"receiptsAfter":7,"receiptIndex":10,"terminateIndex":11,"inboundOrder":["frame","receipt","receipt","frame","frame","receipt","receipt","frame","frame","receipt","receipt","terminateUnauthorized","frame","receipt"],"updateSeqs":[7],"receiptSeqs":[2,3,4,5,6,7,8],"stampPairs":[{"tag":1,"sequence":2},{"tag":2,"sequence":3},{"tag":3,"sequence":4},{"tag":4,"sequence":5},{"tag":5,"sequence":6},{"tag":6,"sequence":7},{"tag":7,"sequence":8}],"wireErrorCodes":["NAMESPACE_UNAUTHORIZED"],"nsState":"failed","hubTransportClosed":false,"fatal":[],"stamps":7}
+PROBE450 P6-settled-drain {"goaway":1,"closedBeforeDeadline":false,"closeInfoAfterDeadline":{"code":1001,"reason":"hub-reauth"},"closesAfterDeadline":1,"peerObservedClose":false,"fatal":[],"resyncRequired":0}
+ Test Files  1 passed (1)
+      Tests  6 passed (6)
+=== run 2 ===
+PROBE450 P1-after-burst {"cap":4096,"outboundData":80,"wireUpdates":48,"unsealed":32,"fatal":[],"hubTransportClosed":false,"wireCloseInfo":null,"connectionFailedEvents":0}
+PROBE450 P1-after-acktimeout {"resyncRequired":1,"wireErrors":[],"fatalSignals":[],"hubTransportClosed":false}
+PROBE450 P2-oversize-frame {"cap":16384,"frameBytes":20480,"egressReturn":0,"unsealed":0,"fatal":[],"hubTransportClosed":false,"connectionFailedEvents":0,"updateSentEvents":0}
+PROBE450 P3-after-close-late-frames {"withheld":1,"relayed":1,"stampsBefore":5,"stampsAfter":5,"receiptsBefore":5,"receiptsAfter":5,"wireBefore":6,"wireAfter":6,"unsealedAfter":1,"fatal":[]}
+PROBE450 P4-close-flush {"pendingTags":6,"closeCalls":1,"resyncRequiredAfterAckTimeout":0,"fatal":[],"nsState":"disconnected"}
+PROBE450 P5-terminate-nonretroactive {"pushedSequence":7,"wireUpdatesAfterRevoke":1,"receiptsBefore":5,"receiptsAfter":7,"receiptIndex":10,"terminateIndex":11,"inboundOrder":["frame","receipt","receipt","frame","frame","receipt","receipt","frame","frame","receipt","receipt","terminateUnauthorized","frame","receipt"],"updateSeqs":[7],"receiptSeqs":[2,3,4,5,6,7,8],"stampPairs":[{"tag":1,"sequence":2},{"tag":2,"sequence":3},{"tag":3,"sequence":4},{"tag":4,"sequence":5},{"tag":5,"sequence":6},{"tag":6,"sequence":7},{"tag":7,"sequence":8}],"wireErrorCodes":["NAMESPACE_UNAUTHORIZED"],"nsState":"failed","hubTransportClosed":false,"fatal":[],"stamps":7}
+PROBE450 P6-settled-drain {"goaway":1,"closedBeforeDeadline":false,"closeInfoAfterDeadline":{"code":1001,"reason":"hub-reauth"},"closesAfterDeadline":1,"peerObservedClose":false,"fatal":[],"resyncRequired":0}
+ Test Files  1 passed (1)
+      Tests  6 passed (6)
+=== run 3 ===
+PROBE450 P1-after-burst {"cap":4096,"outboundData":80,"wireUpdates":48,"unsealed":32,"fatal":[],"hubTransportClosed":false,"wireCloseInfo":null,"connectionFailedEvents":0}
+PROBE450 P1-after-acktimeout {"resyncRequired":1,"wireErrors":[],"fatalSignals":[],"hubTransportClosed":false}
+PROBE450 P2-oversize-frame {"cap":16384,"frameBytes":20480,"egressReturn":0,"unsealed":0,"fatal":[],"hubTransportClosed":false,"connectionFailedEvents":0,"updateSentEvents":0}
+PROBE450 P3-after-close-late-frames {"withheld":1,"relayed":1,"stampsBefore":5,"stampsAfter":5,"receiptsBefore":5,"receiptsAfter":5,"wireBefore":6,"wireAfter":6,"unsealedAfter":1,"fatal":[]}
+PROBE450 P4-close-flush {"pendingTags":6,"closeCalls":1,"resyncRequiredAfterAckTimeout":0,"fatal":[],"nsState":"disconnected"}
+PROBE450 P5-terminate-nonretroactive {"pushedSequence":7,"wireUpdatesAfterRevoke":1,"receiptsBefore":5,"receiptsAfter":7,"receiptIndex":10,"terminateIndex":11,"inboundOrder":["frame","receipt","receipt","frame","frame","receipt","receipt","frame","frame","receipt","receipt","terminateUnauthorized","frame","receipt"],"updateSeqs":[7],"receiptSeqs":[2,3,4,5,6,7,8],"stampPairs":[{"tag":1,"sequence":2},{"tag":2,"sequence":3},{"tag":3,"sequence":4},{"tag":4,"sequence":5},{"tag":5,"sequence":6},{"tag":6,"sequence":7},{"tag":7,"sequence":8}],"wireErrorCodes":["NAMESPACE_UNAUTHORIZED"],"nsState":"failed","hubTransportClosed":false,"fatal":[],"stamps":7}
+PROBE450 P6-settled-drain {"goaway":1,"closedBeforeDeadline":false,"closeInfoAfterDeadline":{"code":1001,"reason":"hub-reauth"},"closesAfterDeadline":1,"peerObservedClose":false,"fatal":[],"resyncRequired":0}
+ Test Files  1 passed (1)
+      Tests  6 passed (6)

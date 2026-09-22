@@ -86,6 +86,11 @@ export interface HubReplicationEdgeConfig {
   readonly sessionFactory: (port: HubSessionEdgePort) => HubSessionSink;
   /** cleanupAll 尾部回调（服务层 dropConnection）。 */
   readonly onConnectionDropped: () => void;
+  /** issue #450（ADR 0032 A4.3 / 协议 §24.5；append-only 可选成员）：γ 异步缝装配标记
+   *  （唯一设置点 = 公共工厂 `HubReplicationEdgeOptions.asyncDataAdmissionFatal` 转发）。
+   *  在场 ⇒ 本连接 data admission 越界 = **连接终局**（账本投影越界 → 1011；单帧超限 →
+   *  1009）；缺席 ⇒ α/β 既有语义逐字不变。 */
+  readonly asyncDataAdmissionFatal?: true;
 }
 
 /** edge 半边对服务层的暴露面（`HubConnection` 公共面超集；设计 §7 D1）。 */
@@ -212,6 +217,18 @@ class HubReplicationEdgeImpl implements HubReplicationEdge {
       facetOf: (namespaceId) => this.sinkValue?.dataFacetOf(namespaceId),
       isEmitAllowed: () => !this.closedFlag,
       onBackpressureExhausted: () => this.connectionFatal('CONNECTION_BACKPRESSURE', 1011),
+      // issue #450（翼(i)，D1/§8.1-④）：γ 装配标记在场 ⇒ data 字节路径两条 admission 守卫的
+      // 失败动作 = 连接终局。reason→码映射单点在本构造器（§24.3 词汇闭集合零扩展；码取既有
+      // 注册表：'oversize' = 配置错误 ⇒ FRAME_TOO_LARGE + wsCloseCodeFor 既有 1009 映射；
+      // 'ledger-overflow' = 慢性拥塞 ⇒ CONNECTION_BACKPRESSURE 1011，与 control 额度耗尽同码同拓扑）。
+      ...(config.asyncDataAdmissionFatal === true
+        ? {
+            onDataFrameAdmissionFatal: (reason: 'ledger-overflow' | 'oversize') =>
+              reason === 'oversize'
+                ? this.connectionFatal('FRAME_TOO_LARGE', wsCloseCodeFor('FRAME_TOO_LARGE'))
+                : this.connectionFatal('CONNECTION_BACKPRESSURE', 1011),
+          }
+        : {}),
       onSendPaused: (bufferedAmount) => this.emitWaterEvent('send-paused', bufferedAmount),
       onSendResumed: (bufferedAmount) => this.emitWaterEvent('send-resumed', bufferedAmount),
     });

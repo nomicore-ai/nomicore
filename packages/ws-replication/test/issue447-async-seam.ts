@@ -67,6 +67,7 @@ import type {
   HubSessionSignal,
   HubUpgradeRequest,
   NamespaceAuthorization,
+  NamespaceAuthorizationGrant,
   NamespaceAuthorizer,
   PeerTokenVerifier,
   ReplicationClock,
@@ -313,6 +314,14 @@ export interface AsyncSeamHost {
   channel(connectionKey: string, namespaceId: string): AsyncSessionSeam;
   /** 释放全部会话双向通道（held 通道零投递）；返回投递总数。 */
   releaseAll(): number;
+  /**
+   * issue #450（append-only，F2 延迟解析泵）：`deferSinkResolve` 置位时挂起的
+   * `${connectionKey}\u0000${namespaceId}` 键快照（未置位 ⇒ 恒空数组）。
+   */
+  pendingSinks(): readonly string[];
+  /** issue #450（append-only，F2）：显式结算一个挂起的宿主解析（按 namespaceId 定位；
+   *  未挂起 ⇒ 响亮 throw——无静默兜底）。 */
+  resolveSink(namespaceId: string): void;
   /** 扣留 edge→session 投递（延迟注入；PEND/CHUNK 负控面）。 */
   withholdEdgeToSession(connectionKey: string, namespaceId: string, held?: boolean): void;
   /** 丢弃前 n 条 edge→session receipt（SEAM-C2/ANCHOR-C2 负控）。 */
@@ -342,6 +351,18 @@ export interface AsyncFacadeOptions {
    * 事件型互斥：`update-sent` 只在 edge、`update-acked`/chunked 族只在 session）。
    */
   readonly edgeObserver?: ReplicationObserver;
+  /**
+   * issue #450（append-only 可选成员；缺省零传 = #447 行为逐字不变）：γ 装配标记转发
+   * ——edge 工厂 `asyncDataAdmissionFatal: true`（ADR 0032 A4.3 / 协议 §24.5：data
+   * admission 越界 = 连接终局；缺省缺席 ⇒ α/β 语义逐字保留）。
+   */
+  readonly asyncDataAdmissionFatal?: true;
+  /**
+   * issue #450（append-only 可选成员；缺省 false = #447 同步解析行为逐字不变）：F2 延迟
+   * sink 解析旋钮——置位时 `resolveSessionSink` 返回挂起 promise（登记到闸门），由
+   * `AsyncSeamHost.resolveSink(namespaceId)` 显式 resolve 泵结算（AC6「跨线程延迟」注入面）。
+   */
+  readonly deferSinkResolve?: boolean;
 }
 
 export interface AsyncFacade {
@@ -374,6 +395,8 @@ export function makeAsyncReplicationFacade(options: AsyncFacadeOptions): AsyncFa
   const receipts: HubAsyncSessionReceipt[] = [];
   const handles: HubAsyncSessionHandle[] = [];
   const probeState = { unsealed: 0 };
+  /** issue #450（append-only，F2）：挂起的宿主解析闸门（键 = `${connectionKey}\u0000${namespaceId}`）。 */
+  const sinkGate = new Map<string, () => void>();
   const probes: AsyncProbes = {
     sessions,
     opens,
@@ -443,121 +466,135 @@ export function makeAsyncReplicationFacade(options: AsyncFacadeOptions): AsyncFa
     // 同款语义；传全量 resolved 会把缺省值误当显式表达而激活分块链校验（构型误报）。
     ...(options.limits === undefined ? {} : { limits: options.limits }),
     ...(options.timeouts === undefined ? {} : { timeouts: options.timeouts }),
+    // issue #450（append-only）：γ 装配标记缺省零传（#447 行为逐字不变）；在场 ⇒ edge
+    // 工厂 data admission 越界 = 连接终局（ADR 0032 A4.3 / 协议 §24.5）。
+    ...(options.asyncDataAdmissionFatal === true
+      ? { asyncDataAdmissionFatal: true as const }
+      : {}),
     resolveSessionSink: (connectionKey, namespaceId, authorization) => {
       // SD-2(a)：登记权威是唯一写点（accept/acceptTrusted 返回后第一动作）；取不到即抛。
       const connection = connections.get(connectionKey);
       if (connection === undefined) {
         throw new Error(`issue447 fixture: resolver 无登记连接 ${connectionKey}`);
       }
-      // 描述子 `selectedCapabilities` 的唯一事实源 = edge 协商位（决策 2/5）。
-      const selectedCapabilities = connection.egress.chunkedUpdateNegotiated()
-        ? CAP_CHUNKED_UPDATE
-        : 0;
-      const handle = worker.host.open({
-        connectionKey,
-        remoteInstanceId: connection.authenticatedInstanceId,
-        namespaceId,
-        authorization,
-        selectedCapabilities,
-        connectionId: connectionKey,
-      });
-      opens.push({
-        connectionKey,
-        namespaceId,
-        selectedCapabilities,
-        remoteInstanceId: connection.authenticatedInstanceId,
-      });
-      resolves.push(`${namespaceId}:w0`);
-      const sessionRecord = { namespaceId, closeCalls: 0, terminateCalls: 0 };
-      sessions.push(sessionRecord);
-      // 句柄投影：计数包裹只加探针，零改写生产返回值。
-      const wrapped: HubAsyncSessionHandle = {
-        handleFrame: (frame) => handle.handleFrame(frame),
-        handleReceipt: (tag, sequence) => handle.handleReceipt(tag, sequence),
-        onFrame: (listener) => handle.onFrame(listener),
-        onSignal: (listener) => handle.onSignal(listener),
-        terminateUnauthorized: () => {
-          sessionRecord.terminateCalls += 1;
-          return handle.terminateUnauthorized();
-        },
-        close: () => {
-          sessionRecord.closeCalls += 1;
-          return handle.close();
-        },
-      };
-      handles.push(wrapped);
+      const build = (): HubNamespaceSessionSink => {
+        // 描述子 `selectedCapabilities` 的唯一事实源 = edge 协商位（决策 2/5）。
+        const selectedCapabilities = connection.egress.chunkedUpdateNegotiated()
+          ? CAP_CHUNKED_UPDATE
+          : 0;
+        const handle = worker.host.open({
+          connectionKey,
+          remoteInstanceId: connection.authenticatedInstanceId,
+          namespaceId,
+          authorization,
+          selectedCapabilities,
+          connectionId: connectionKey,
+        });
+        opens.push({
+          connectionKey,
+          namespaceId,
+          selectedCapabilities,
+          remoteInstanceId: connection.authenticatedInstanceId,
+        });
+        resolves.push(`${namespaceId}:w0`);
+        const sessionRecord = { namespaceId, closeCalls: 0, terminateCalls: 0 };
+        sessions.push(sessionRecord);
+        // 句柄投影：计数包裹只加探针，零改写生产返回值。
+        const wrapped: HubAsyncSessionHandle = {
+          handleFrame: (frame) => handle.handleFrame(frame),
+          handleReceipt: (tag, sequence) => handle.handleReceipt(tag, sequence),
+          onFrame: (listener) => handle.onFrame(listener),
+          onSignal: (listener) => handle.onSignal(listener),
+          terminateUnauthorized: () => {
+            sessionRecord.terminateCalls += 1;
+            return handle.terminateUnauthorized();
+          },
+          close: () => {
+            sessionRecord.closeCalls += 1;
+            return handle.close();
+          },
+        };
+        handles.push(wrapped);
 
-      const seam = makeSeam(connectionKey, namespaceId);
-      // ── session → edge：纯中继 + 回执条款（盖章返回值同一同步段入队） ──
-      handle.onFrame((frame) => {
-        seam.sessionToEdge.enqueue(frame);
-      });
-      handle.onSignal((signal) => {
-        seam.sessionToEdge.enqueue(signal);
-      });
-      seam.sessionToEdge.onDeliver((message) => {
-        if (isAsyncOutboundFrame(message)) {
-          const sequence =
-            message.lane === 'control'
-              ? connection.egress.sendControlFrame(message.bytes)
-              : connection.egress.sendDataFrame(message.bytes);
-          outbound.push({
-            tag: message.tag,
-            lane: message.lane,
-            kind: kindOfPlaceholder(message.bytes),
-          });
-          if (sequence > 0) {
-            // ★ A4.2/§24.2.3：盖章点同一同步段投回执；同通道 FIFO ⇒ 先于后续 ACK。
-            stamps.push({ tag: message.tag, sequence });
-            seam.edgeToSession.enqueue({ tag: message.tag, sequence });
-          } else {
-            // 帧未盖章（0 = 未发送/被拒）：不投回执；tag 停留 pending（ackTimeout 兜底）。
-            probeState.unsealed += 1;
+        const seam = makeSeam(connectionKey, namespaceId);
+        // ── session → edge：纯中继 + 回执条款（盖章返回值同一同步段入队） ──
+        handle.onFrame((frame) => {
+          seam.sessionToEdge.enqueue(frame);
+        });
+        handle.onSignal((signal) => {
+          seam.sessionToEdge.enqueue(signal);
+        });
+        seam.sessionToEdge.onDeliver((message) => {
+          if (isAsyncOutboundFrame(message)) {
+            const sequence =
+              message.lane === 'control'
+                ? connection.egress.sendControlFrame(message.bytes)
+                : connection.egress.sendDataFrame(message.bytes);
+            outbound.push({
+              tag: message.tag,
+              lane: message.lane,
+              kind: kindOfPlaceholder(message.bytes),
+            });
+            if (sequence > 0) {
+              // ★ A4.2/§24.2.3：盖章点同一同步段投回执；同通道 FIFO ⇒ 先于后续 ACK。
+              stamps.push({ tag: message.tag, sequence });
+              seam.edgeToSession.enqueue({ tag: message.tag, sequence });
+            } else {
+              // 帧未盖章（0 = 未发送/被拒）：不投回执；tag 停留 pending（ackTimeout 兜底）。
+              probeState.unsealed += 1;
+            }
+            return;
           }
-          return;
-        }
-        if (message.type === 'settled') {
-          signals.push(`settled:${message.namespaceId}`);
-          connection.egress.namespaceSettled(message.namespaceId);
-          return;
-        }
-        signals.push(`connection-fatal:${message.code}`);
-        connection.egress.connectionFatal(message.code);
-      });
-      // ── edge → session：帧 / 回执 / close / terminateUnauthorized ──
-      seam.edgeToSession.onDeliver((message) => {
-        if (message === 'close') {
-          void wrapped.close();
-          return;
-        }
-        if (message === 'terminateUnauthorized') {
-          void wrapped.terminateUnauthorized();
-          return;
-        }
-        if (isReceipt(message)) {
-          wrapped.handleReceipt(message.tag, message.sequence);
-          return;
-        }
-        wrapped.handleFrame(message.bytes);
-      });
+          if (message.type === 'settled') {
+            signals.push(`settled:${message.namespaceId}`);
+            connection.egress.namespaceSettled(message.namespaceId);
+            return;
+          }
+          signals.push(`connection-fatal:${message.code}`);
+          connection.egress.connectionFatal(message.code);
+        });
+        // ── edge → session：帧 / 回执 / close / terminateUnauthorized ──
+        seam.edgeToSession.onDeliver((message) => {
+          if (message === 'close') {
+            void wrapped.close();
+            return;
+          }
+          if (message === 'terminateUnauthorized') {
+            void wrapped.terminateUnauthorized();
+            return;
+          }
+          if (isReceipt(message)) {
+            wrapped.handleReceipt(message.tag, message.sequence);
+            return;
+          }
+          wrapped.handleFrame(message.bytes);
+        });
 
-      const sink: HubNamespaceSessionSink = {
-        openNamespace: (message) => {
-          seam.edgeToSession.enqueue({ bytes: encodeMessage(message, { sequence: 0 }) });
-        },
-        namespaceFrame: (message, sequence) => {
-          seam.edgeToSession.enqueue({ bytes: encodeMessage(message, { sequence }) });
-        },
-        terminateUnauthorized: () => {
-          seam.edgeToSession.enqueue('terminateUnauthorized');
-          return Promise.resolve();
-        },
-        onConnectionClosed: () => {
-          seam.edgeToSession.enqueue('close');
-          return Promise.resolve();
-        },
+        const sink: HubNamespaceSessionSink = {
+          openNamespace: (message) => {
+            seam.edgeToSession.enqueue({ bytes: encodeMessage(message, { sequence: 0 }) });
+          },
+          namespaceFrame: (message, sequence) => {
+            seam.edgeToSession.enqueue({ bytes: encodeMessage(message, { sequence }) });
+          },
+          terminateUnauthorized: () => {
+            seam.edgeToSession.enqueue('terminateUnauthorized');
+            return Promise.resolve();
+          },
+          onConnectionClosed: () => {
+            seam.edgeToSession.enqueue('close');
+            return Promise.resolve();
+          },
+        };
+        return sink;
       };
-      return sink;
+      // issue #450（append-only，F2）：延迟解析（缺省 false ⇒ 下方同步分支逐字不变）。
+      if (options.deferSinkResolve === true) {
+        return new Promise<HubNamespaceSessionSink>((resolve) => {
+          sinkGate.set(`${connectionKey}\u0000${namespaceId}`, () => resolve(build()));
+        });
+      }
+      return build();
     },
   });
 
@@ -588,6 +625,18 @@ export function makeAsyncReplicationFacade(options: AsyncFacadeOptions): AsyncFa
         throw new Error(`issue447 fixture: 无会话通道对 (${connectionKey}, ${namespaceId})`);
       }
       return seam;
+    },
+    pendingSinks() {
+      return [...sinkGate.keys()];
+    },
+    resolveSink(namespaceId) {
+      for (const [key, resolve] of sinkGate) {
+        if (!key.endsWith(`\u0000${namespaceId}`)) continue;
+        sinkGate.delete(key);
+        resolve();
+        return;
+      }
+      throw new Error(`issue447 fixture: 无挂起的 sink 解析（${namespaceId}）`);
     },
     releaseAll() {
       let delivered = 0;

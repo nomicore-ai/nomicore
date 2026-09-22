@@ -1,0 +1,12 @@
+Testing types with tsc and vue-tsc is an experimental feature.
+Breaking changes might not follow SemVer, please pin Vitest's version when using it.
+
+ RUN  v3.2.7 /home/wangjian/nomicore-fix-issue-450
+
+ ✓ packages/ws-replication/test/ws-replication-issue450-flow-lifecycle.test.ts (22 tests) 314ms
+
+ Test Files  1 passed (1)
+      Tests  22 passed (22)
+Type Errors  no errors
+   Start at  19:37:14
+   Duration  1.48s (transform 725ms, setup 0ms, collect 985ms, tests 314ms, environment 0ms, prepare 51ms)
