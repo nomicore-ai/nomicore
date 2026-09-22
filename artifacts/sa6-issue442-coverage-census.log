@@ -1,0 +1,84 @@
+# issue #442 SA6 覆盖普查 (HEAD c42fb47) — 2026-09-22T11:49:54Z
+
+## 1) 各 seam 的 ADR 0034 语义断言文件清单（逐字 message/路径/触达面 标记）
+--- pattern: 缺少必填字段
+    packages/doc-runtime/test/apply-validated-mutation-nested-path-repro.test.ts
+    packages/doc-runtime/test/issue-441-record-fastpath-contract.test.ts
+    packages/doc-runtime/test/issue-441-record-fastpath-control.test.ts
+    packages/vfsl/test/issue-440-elementwise-entry-contract.test.ts
+    packages/vfsl/test/issue-440-elementwise-entry-control.test.ts
+    packages/vfsl/test/issue-440-elementwise-entry-fixture.ts
+    packages/vfsl/test/validate-logical-snapshot.contract.ts
+--- pattern: 不满足 Pattern
+    packages/doc-runtime/test/issue-441-record-fastpath-control.test.ts
+    packages/vfsl/test/issue-440-elementwise-entry-contract.test.ts
+    packages/vfsl/test/issue-440-elementwise-entry-control.test.ts
+    packages/vfsl/test/resolve-schema-at-path-control.test.ts
+--- pattern: delete 目标键不存在
+    packages/doc-runtime/test/issue-441-record-fastpath-control.test.ts
+    packages/vfsl/test/issue-440-elementwise-entry-contract.test.ts
+    packages/vfsl/test/issue-440-elementwise-entry-control.test.ts
+    packages/vfsl/test/validate-patch-mutation-boundary.test.ts
+--- pattern: 触达面
+    packages/doc-runtime/test/apply-validated-mutation-fatal-contract.test.ts
+    packages/doc-runtime/test/issue-237-path-localized-validation-red.test.ts
+    packages/doc-runtime/test/issue-436-array-fastpath-contract.test.ts
+    packages/doc-runtime/test/issue-441-record-fastpath-contract.test.ts
+    packages/doc-runtime/test/issue-441-record-fastpath-control.test.ts
+    packages/namespace-registry/test/issue-437-lease-array-e2e-contract.test.ts
+    packages/namespace-registry/test/registry-phase5-replication-session-red.test.ts
+    packages/vfsl/test/issue-435-elementwise-array-contract.test.ts
+    packages/vfsl/test/issue-435-elementwise-array-control.test.ts
+    packages/vfsl/test/issue-435-elementwise-array-fixture.ts
+    packages/vfsl/test/issue-440-elementwise-entry-contract.test.ts
+    packages/vfsl/test/issue-440-elementwise-entry-control.test.ts
+    packages/vfsl/test/issue-440-elementwise-entry-fixture.ts
+--- pattern: ADR 0034\|ADR0034
+    packages/doc-runtime/test/issue-441-record-fastpath-contract.test.ts
+    packages/doc-runtime/test/issue-441-record-fastpath-control.test.ts
+    packages/doc-runtime/test/issue-441-record-fastpath-fixture.ts
+    packages/vfsl/test/issue-440-elementwise-entry-contract.test.ts
+    packages/vfsl/test/issue-440-elementwise-entry-control.test.ts
+    packages/vfsl/test/issue-440-elementwise-entry-fixture.ts
+    packages/vfsl/test/issue-440-elementwise-entry.test-d.ts
+--- pattern: fast path\|fast-path
+    packages/doc-runtime/test/apply-validated-mutation-fatal-contract.test.ts
+    packages/doc-runtime/test/issue-237-path-localized-validation-red.test.ts
+    packages/doc-runtime/test/issue-436-array-fastpath-contract.test.ts
+    packages/doc-runtime/test/issue-436-array-fastpath-control.test.ts
+    packages/doc-runtime/test/issue-441-record-fastpath-contract.test.ts
+    packages/doc-runtime/test/issue-441-record-fastpath-fixture.ts
+    packages/namespace-registry/test/issue-437-lease-array-e2e-contract.test.ts
+    packages/namespace-registry/test/issue-437-lease-array-e2e-fixture.ts
+    packages/vfsl/test/issue-435-elementwise-array-contract.test.ts
+    packages/vfsl/test/issue-435-elementwise-array-control.test.ts
+    packages/vfsl/test/issue-435-elementwise-array-fixture.ts
+    packages/vfsl/test/issue-435-elementwise-array.test-d.ts
+    packages/vfsl/test/issue-440-elementwise-entry-contract.test.ts
+    packages/vfsl/test/issue-440-elementwise-entry-fixture.ts
+    packages/vfsl/test/issue-440-elementwise-entry.test-d.ts
+
+## 2) lease（namespace-registry）测试面：语义 marker 计数
+packages/namespace-registry/test/issue-437-lease-array-e2e-contract.test.ts:2
+packages/namespace-registry/test/registry-phase5-replication-session-red.test.ts:2
+
+## 3) lease 测试面 mutateData op 使用分布
+         17 op: 'array-delete'
+         13 op: 'array-insert'
+          9 op: 'delete'
+        156 op: 'set'
+
+## 4) lease 测试面 raw replication 注入（applyRemoteUpdate）文件
+    packages/namespace-registry/test/issue-389-change-subscription-termination-red.test.ts
+    packages/namespace-registry/test/issue-389-sa7-dynamic-verification.test.ts
+    packages/namespace-registry/test/issue-393-ndcl-self-binding-red.test.ts
+    packages/namespace-registry/test/issue-437-lease-array-e2e-contract.test.ts
+    packages/namespace-registry/test/issue-437-lease-array-e2e-fixture.ts
+    packages/namespace-registry/test/registry-phase5-replication-session-red.test.ts
+    packages/namespace-registry/test/registry-phase5-replication-session-round2-red.test.ts
+    packages/namespace-registry/test/registry-phase5-replication-session-surface.test-d.ts
+
+## 5) 结论
+    - ADR 0034 Record/parent 语义断言（逐字 message/path/触达面/行为变化）仅存在于 packages/vfsl（#440）与 packages/doc-runtime（#441）测试面；
+    - packages/namespace-registry（lease 最高 seam）测试面 0 条 ADR 0034 语义断言；
+    - 既有 lease 测试的 mutateData 载荷集中在 array-*/标量 set/delete，无 Record/parent 的 raw 污染判别用例。
