@@ -335,6 +335,13 @@ export interface AsyncFacadeOptions {
   readonly timeouts?: Readonly<Partial<ReplicationTimeouts>>;
   readonly observer?: ReplicationObserver;
   readonly clock?: ReplicationClock;
+  /**
+   * issue #448（append-only 可选成员；缺省零传 = #447 行为逐字不变）：edge 半边的结构化
+   * observer 注入面——`update-sent` 的发射点在 edge 盖章点（§24.8/A4.7），该事件只在本
+   * 键在场时可观察。session 侧 observer 仍走 `observer` 键（两半边可共用一个 recorder，
+   * 事件型互斥：`update-sent` 只在 edge、`update-acked`/chunked 族只在 session）。
+   */
+  readonly edgeObserver?: ReplicationObserver;
 }
 
 export interface AsyncFacade {
@@ -429,6 +436,9 @@ export function makeAsyncReplicationFacade(options: AsyncFacadeOptions): AsyncFa
     timer: options.timer,
     authorize: options.authorize,
     ...(options.verifyToken === undefined ? {} : { verifyToken: options.verifyToken }),
+    // issue #448（append-only）：edge 侧 observer 缺省零传（#447 行为逐字不变）；在场时
+    // `update-sent`（发射点 = edge 盖章点，§24.8）可观察——session 侧 observer 走 `observer` 键。
+    ...(options.edgeObserver === undefined ? {} : { observer: options.edgeObserver }),
     // 显式只传 **partial**（与 boot 单体注入面同形态）：edge 侧 resolve+validate 与组合根
     // 同款语义；传全量 resolved 会把缺省值误当显式表达而激活分块链校验（构型误报）。
     ...(options.limits === undefined ? {} : { limits: options.limits }),

@@ -1,0 +1,53 @@
+Testing types with tsc and vue-tsc is an experimental feature.
+Breaking changes might not follow SemVer, please pin Vitest's version when using it.
+
+ RUN  v3.2.7 /home/wangjian/nomicore-fix-issue-448
+
+ ✓ packages/ws-replication/test/ws-replication-issue448-live-data-plane.test.ts (13 tests) 267ms
+
+ Test Files  1 passed (1)
+      Tests  13 passed (13)
+Type Errors  no errors
+   Start at  16:03:56
+   Duration  2.37s (transform 1.33s, setup 0ms, collect 1.86s, tests 267ms, environment 0ms, prepare 75ms)
+
+
+# ═══════════════════════════════════════════════════════════════════════════════════════
+# SA3 实施阶段复跑证据（issue #448；verification-only，零生产改动）
+# Dispatch：sa-9de31283-a5dc-414e-b74a-120e2798db03（mabf-sa3 / implementation / iteration 0）
+# 追加时间：2026-09-22T16:25:25+08:00（SA6 基线证据保留在上方，未替换/未删除）
+# ═══════════════════════════════════════════════════════════════════════════════════════
+# [1] 契约单文件：NODE_OPTIONS=--conditions=nomicore-source npx vitest run packages/ws-replication/test/ws-replication-issue448-live-data-plane.test.ts
+Testing types with tsc and vue-tsc is an experimental feature.
+Breaking changes might not follow SemVer, please pin Vitest's version when using it.
+
+ RUN  v3.2.7 /home/wangjian/nomicore-fix-issue-448
+
+ ✓ packages/ws-replication/test/ws-replication-issue448-live-data-plane.test.ts (13 tests) 146ms
+
+ Test Files  1 passed (1)
+      Tests  13 passed (13)
+Type Errors  no errors
+   Start at  16:23:58
+   Duration  1.13s (transform 616ms, setup 0ms, collect 824ms, tests 146ms, environment 0ms, prepare 47ms)
+
+exit=0
+
+# [2] γ 族四文件（契约 + T1 三套件）：NODE_OPTIONS=--conditions=nomicore-source npx vitest run <契约> <issue447-async-session-round> <issue447-async-seam-fixture> <issue447-async-session-api>
+Testing types with tsc and vue-tsc is an experimental feature.
+Breaking changes might not follow SemVer, please pin Vitest's version when using it.
+
+ RUN  v3.2.7 /home/wangjian/nomicore-fix-issue-448
+
+ ✓ packages/ws-replication/test/ws-replication-issue447-async-session-round.test.ts (15 tests) 198ms
+ ✓ packages/ws-replication/test/ws-replication-issue448-live-data-plane.test.ts (13 tests) 269ms
+ ✓ packages/ws-replication/test/ws-replication-issue447-async-seam-fixture.test.ts (7 tests) 104ms
+ ✓ packages/ws-replication/test/ws-replication-issue447-async-session-api.test.ts (8 tests) 86ms
+
+ Test Files  4 passed (4)
+      Tests  43 passed (43)
+Type Errors  no errors
+   Start at  16:24:03
+   Duration  3.72s (transform 905ms, setup 0ms, collect 2.04s, tests 657ms, environment 1ms, prepare 307ms)
+
+exit=0
