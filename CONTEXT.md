@@ -141,7 +141,7 @@ _Avoid_: 把 lifecycle 失败伪装成路径失败码、把停接纳误解为取
 _Avoid_: flush-all、force-sync、定时排空窗（固定睡眠猜窗口）、把 drain 并进 dispose（dispose 保持 abortive/有损）
 
 **重建校验（rebuild validation）**:
-单字段 patch 也在最近结构边界合并当前值后按完整子 schema 校验——判别联合只有看到判别字段才知道按哪个变体验。ordinary mutation 的最近必要语义边界（union 穿越位 / Record 位 / 数组位 / delete 父位 / set 目标位）与批量数组整体判定（values[]/count 一次重建，不逐元素）见 ADR-0007 issue #237 修订节。数组位例外（ADR-0033）：声明为非 union 的 `T[]` 目标走逐元素校验——insert 只校验新元素、delete 只查边界，合法性 ⟺ 逐元素合法成为规范性承诺（禁止数组级约束以校验器特判引入）；union 数组目标仍走整体验证。
+单字段 patch 也在最近结构边界合并当前值后按完整子 schema 校验——判别联合只有看到判别字段才知道按哪个变体验。ordinary mutation 的最近必要语义边界（union 穿越位 / Record 位 / 数组位 / delete 父位 / set 目标位）与批量数组整体判定（values[]/count 一次重建，不逐元素）见 ADR-0007 issue #237 修订节。逐 entry 例外分两阶段立法：非 union `T[]` 目标自 ADR-0033 起走逐元素校验；非 union Record 位与封闭对象 delete 自 ADR-0034 起走逐 entry 校验（Record set = 键 Pattern + 新值校验、delete = O(1) 在场判定；封闭对象 delete 合法性 = 目标字段必填性的静态判定）——容器合法性 ⟺ 逐 entry 合法成为规范性承诺（禁止容器级约束以校验器特判引入）；union 容器目标仍走整体验证。
 
 **语义层（semantic layer）**:
 JSDoc 首行自由文本 + `@tag` 半结构化标签；全部为文档性质，未识别仅 warn（无机器标签）。
@@ -199,7 +199,7 @@ _Avoid_: 连接次数、自动选主 term、可回绕版本号
 _Avoid_: 裸 Y.Doc WS handler、绕过本地 write sequencer 的 apply、把网络状态塞进 Runtime capability status
 
 **复制未校验（replication-unvalidated）**:
-Trusted raw Yjs update 已在 sequencer 中提交并登记 dirty，但未执行完整 VFSL ROOT 预校验的复制状态；它可能留下文档路径/边界之外的非法数据——后续普通业务写按路径级/边界级校验工作：其导航路径与语义边界内的非法数据（不含被 set 整值替换的目标位旧值——该位由合法写入修复）仍会被响亮拒绝，触达面外的非法数据不再被普通写发现（ADR-0010 issue #237 修订节；合法性重建与 carrier 覆盖面审计已登记 follow-up）。数组写自 ADR-0033 起触达面收窄为「数组载体本身 + 变更区间」（逐元素校验，不再整数组提取）：未触达元素不承担污染检测，对污染数组的 delete 由响亮拒绝变为照常成功（与 set 修复哲学对齐）。不表示 transaction 可回滚或 raw update 享有 zero-write 保证。
+Trusted raw Yjs update 已在 sequencer 中提交并登记 dirty，但未执行完整 VFSL ROOT 预校验的复制状态；它可能留下文档路径/边界之外的非法数据——后续普通业务写按路径级/边界级校验工作：其导航路径与语义边界内的非法数据（不含被 set 整值替换的目标位旧值——该位由合法写入修复）仍会被响亮拒绝，触达面外的非法数据不再被普通写发现（ADR-0010 issue #237 修订节；合法性重建与 carrier 覆盖面审计已登记 follow-up）。触达面收窄分两阶段立法：数组写自 ADR-0033 起为「数组载体本身 + 变更区间」；Record 写与封闭对象 delete 自 ADR-0034 起为「map/父载体本身 + 目标键位」——对污染容器的写由连带拒绝变为目标位合法即成功（与 set 修复哲学对齐）。不表示 transaction 可回滚或 raw update 享有 zero-write 保证。
 _Avoid_: validated replication、apply 后校验失败自动 rollback
 
 **分块复制传输（chunked replication transfer）**:
