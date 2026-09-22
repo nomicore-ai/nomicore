@@ -118,8 +118,18 @@ export type HubSessionSinkResolver = (
 export interface HubReplicationEdgeEgress {
   /** 控制帧（保留额度判据在既有 sendControlFrame 单点）。返回盖章后 wire 序；0 = 未发送/被拒。 */
   sendControlFrame(frame: Uint8Array): number;
-  /** data 帧（前置门 + 单帧守卫 + 连接账本 admission，次序 = `hub-session.ts:210–216` 等价）。
-   *  返回盖章后 wire 序；0 = 拒纳。 */
+  /** data 帧（前置门 + 单帧守卫 + 连接账本 admission）。返回盖章后 wire 序；0 = 未出站。
+   *
+   *  **0 值语义（按装配形态逐形态真陈述；issue #450 doc append）**：
+   *  - 缺省装配（无 `asyncDataAdmissionFatal`）：0 = 拒纳，判定次序 = `hub-session.ts:210–216`
+   *    等价镜像（`closed` 门前置 → `dataGateOpen` 水位暂停门 → 单帧守卫 → 连接账本 admission），
+   *    其中「水位暂停弹回」与「守卫静默拒纳」两种 0 均**不改变连接**（α/β 语义不变）；
+   *  - γ 装配（`asyncDataAdmissionFatal: true`）：前置门**仅保留 `connectionState()==='closed'`
+   *    项**（A4.3 删除清单：`dataGateOpen` 前置检查不再参与 data 判定），故 0 ⟺ **连接已收口**
+   *    —— oversize / ledger-overflow 守卫触发 ⇒ fatal 已在同一同步段由 edge 发起
+   *    （`FRAME_TOO_LARGE`/1009 或 `CONNECTION_BACKPRESSURE`/1011）；或前置 `closed` 闸 ⇒
+   *    收口后丢弃域。**水位暂停不再是 γ data 帧的 0 值来源**（`send-paused`/`send-resumed`
+   *    仍作为水位事实事件照常发射）。 */
   sendDataFrame(frame: Uint8Array): number;
   /** ns 终态一次性通知（drain 提前完成观测输入；每 ns 至多一次）。 */
   namespaceSettled(namespaceId: string): void;
@@ -164,6 +174,16 @@ export interface HubReplicationEdgeOptions {
   readonly timeouts?: Readonly<Partial<ReplicationTimeouts>>;
   readonly observer?: ReplicationObserver;
   readonly clock?: ReplicationClock;
+  /** issue #450（ADR 0032 A4.3 / 协议 §24.5；append-only 第 10 可选成员）：γ 异步缝装配标记。
+   *  宿主以 γ 桥装配 `createHubAsyncSessionHost` 时**应置位**——漏置位 = 该连接静默保留 β
+   *  语义（ns 级 send-failed resync、连接存活）且**零诊断**；误加于 β 同步装配 = data 越界由
+   *  ns 级 resync 变连接死亡（`issue450-flow-lifecycle` 的 `BPK-NC1`/`BPK-NC2` 双向负控 +
+   *  模块 AGENTS.md 方向性义务）。在场 = 本工厂分配连接的 data 帧连接级 admission 越界按 γ
+   *  语义收口整条连接（账本投影越界 → `CONNECTION_BACKPRESSURE` 1011；单帧超上限 →
+   *  `FRAME_TOO_LARGE` 1009），无逐帧拒纳、无 deferred、无 ns 级 send-failed resync，且
+   *  egress 前置门仅保留 `closed` 项（水位暂停不再拦截 γ data 帧）；缺席（缺省）= α/β 既有
+   *  语义逐字不变。 */
+  readonly asyncDataAdmissionFatal?: true;
 }
 
 export interface HubReplicationEdgeFactory {
@@ -685,14 +705,22 @@ class HostEdgeConnection implements HubReplicationEdgeConnection {
   constructor(
     private readonly edge: HubReplicationEdge,
     private readonly adapter: HostSessionAdapter,
+    /** issue #450（翼(ii)，D1/D1.5，构造期常量）：γ 装配 ⇒ false——前置门仅保留 `closed` 项
+     *  （A4.3 删除 `dataGateOpen` 前置检查；γ data 帧恒达账本守卫，投影含 socket
+     *  `bufferedAmount` 自行判死）。缺省 ⇒ true——门前置 → 守卫 → 账本次序逐字保留
+     *  （`hub-session.ts:210–216` 镜像；β 直驱宿主语义不变）。 */
+    pausePreGate: boolean,
   ) {
     this.connectionKey = adapter.connectionKey;
     const port = adapter.port;
     this.egress = {
       sendControlFrame: (frame) => port.sendControlFrame(frame),
-      // 判定次序 = `hub-session.ts:210–216` sendData（门前置 → 守卫 → 账本 → 出队盖章）
+      // 缺省装配判定次序 = `hub-session.ts:210–216` sendData（门前置 → 守卫 → 账本 → 出队盖章）；
+      // γ 装配（pausePreGate=false）⇒ 仅 `closed` 项（收口后丢弃域 = A4.5 机械载体，非流控前置检查）。
       sendDataFrame: (frame) =>
-        port.connectionState() === 'closed' || !port.dataGateOpen() ? 0 : port.sendDataFrame(frame),
+        port.connectionState() === 'closed' || (pausePreGate && !port.dataGateOpen())
+          ? 0
+          : port.sendDataFrame(frame),
       namespaceSettled: (namespaceId) => port.onChannelSettled(namespaceId),
       connectionFatal: (code, wsCloseCode) => port.connectionFatal(code, wsCloseCode),
       chunkedUpdateNegotiated: () => port.chunkedUpdateNegotiated(),
@@ -938,13 +966,20 @@ class HubReplicationEdgeFactoryImpl implements HubReplicationEdgeFactory {
       },
       // 工厂无服务面连接清单（设计 §1 非目标）：drop 通知 = no-op（M2 缺省登记）
       onConnectionDropped: () => undefined,
+      // issue #450（D1 设置链落点 (a)）：γ 装配标记 → 内部 edge 配置（条件展开；缺席零传 ⇒
+      // α/β/peer 路径新分支结构性不可达）。
+      ...(options.asyncDataAdmissionFatal === true
+        ? { asyncDataAdmissionFatal: true as const }
+        : {}),
     });
     const created = adapter;
     if (created === undefined) {
       // 构造期不变量破坏（sessionFactory 为构造期同步调用）：fail-loud，无静默 fallback
       throw new Error('hub-edge-host: session adapter 未装配');
     }
-    return new HostEdgeConnection(edge, created);
+    // issue #450（D1 设置链落点 (b)）：同一 option 派生翼(ii) 前置门构造期常量（单一开关，
+    // 无第二标记；缺省 ⇒ 前置门判定次序逐字保留）。
+    return new HostEdgeConnection(edge, created, options.asyncDataAdmissionFatal !== true);
   }
 }
 
