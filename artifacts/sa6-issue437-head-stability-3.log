@@ -1,0 +1,13 @@
+Testing types with tsc and vue-tsc is an experimental feature.
+Breaking changes might not follow SemVer, please pin Vitest's version when using it.
+
+ RUN  v3.2.7 /home/wangjian/nomicore-fix-issue-437
+
+ ✓ packages/namespace-registry/test/issue-437-lease-array-e2e-contract.test.ts (13 tests) 99ms
+ ✓ packages/namespace-registry/test/issue-437-lease-array-e2e-control.test.ts (7 tests) 38ms
+
+ Test Files  2 passed (2)
+      Tests  20 passed (20)
+Type Errors  no errors
+   Start at  15:09:28
+   Duration  1.32s (transform 552ms, setup 0ms, collect 885ms, tests 137ms, environment 0ms, prepare 93ms)

@@ -19,18 +19,28 @@
  *     整体判定；批量 values[]/count 一次重建，中间态不参与）
  *  S7 detached 构造（buildDetachedValue；失败 = 领域 issue）
  *  S8 由调用方（mutation.ts）在单 guarded transaction 中提交最小 edit
- *  S9 边界级提交后验证（install-verify.ts verifyBoundaryIntact：O(1) 安装事实核 +
- *     O(boundary) 重投影核；不重新过 schema；偏离 → E201-C / 无法运行 → E201-D）
+ *  S9 边界级提交后验证（install-verify.ts；不重新过 schema；偏离 → E201-C /
+ *     无法运行 → E201-D）
+ *
+ * issue #436 / ADR 0033 决策 1–4：数组分支按闸门分流为**永久双轨**——
+ *  - fast path（`plan.kind='array'` ∧ 边界结构节点 kind=`array`，即声明类型为非 union
+ *    `T[]`）：跳过 S5 整数组 walk 与 S6 全量重建；载体检查 O(1)（F1）、越界读 live
+ *    `Y.Array.length` O(1)（F2）、域规则 + 逐新值校验经 vfsl 接缝
+ *    `applyElementwiseArrayMutation` O(k)（F3）、detached 构造复用 S7 O(k)（F4）、提交
+ *    形态（S8 最小区间 edit）不变（F5）；触达面 = 数组载体 + 变更区间；
+ *  - legacy 全量边界路径（union 数组目标 `A[] | B[]`、union 穿越、两树分歧）：既有
+ *    S5 walk → S6 全量重建 → 换根导航 → S7 构造代码原样保留（永久回退，非待清理债）。
+ *  S9 验证计划随之判别（install-facts / boundary；见 install-verify.ts VerifyPlan）。
  *
  * 模块边界：包内 @internal（不经 index.ts 公共入口导出）；全部拒绝先于任何
  * live Y.Doc 写（禁 write-then-undo——Owner 2026-09-05T16:08Z §4）。
  */
 import * as Y from 'yjs';
 import type { DerivedSchema, StructureNode } from '@nomicore/vfsl';
-import { applyMutationAtBoundary, planMutationBoundary } from '@nomicore/vfsl';
+import { applyElementwiseArrayMutation, applyMutationAtBoundary, planMutationBoundary } from '@nomicore/vfsl';
 import type { BoundaryMutationPayload } from '@nomicore/vfsl';
-import type { ValidateResult } from '@nomicore/vfsl';
-import { walk } from './extract.js';
+import type { ElementwiseArrayMutationPayload, ValidateResult } from '@nomicore/vfsl';
+import { carrierMismatchIssue, walk } from './extract.js';
 import { makeRefResolver } from './resolve.js';
 import { carrierOf, probeRoot } from './carrier.js';
 import { buildDetachedValue } from './detached-build.js';
@@ -38,12 +48,12 @@ import type { PreparedCommit } from './mutation.js';
 import { navigateLive } from './mutation.js';
 import type { MutationIssue } from './mutation.js';
 import { DerivedInvariantError } from './fatal.js';
-import type { BoundaryCommitFacts, VerifyBoundaryIntactInput } from './install-verify.js';
+import type { BoundaryCommitFacts, VerifyPlan } from './install-verify.js';
 
 /** 本地管线准备结果（@internal；mutation.ts prepareMutation 消费）。 */
 export type LocalPreparedResult =
   | { kind: 'fail'; issues: MutationIssue[] }
-  | { kind: 'ok'; commit: PreparedCommit; verify: VerifyBoundaryIntactInput };
+  | { kind: 'ok'; commit: PreparedCommit; verify: VerifyPlan };
 
 interface LocalMutation {
   op: 'set' | 'delete' | 'array-insert' | 'array-delete';
@@ -242,10 +252,13 @@ export function prepareLocalMutation(derived: DerivedSchema, doc: Y.Doc, mutatio
         kind: 'ok',
         commit: { kind: 'set', parent: parentMap, key: key as string, value: built.value },
         verify: {
-          derived,
-          structureNode: targetNode,
-          proposedBoundary: applied.proposedBoundary,
-          facts,
+          kind: 'boundary',
+          input: {
+            derived,
+            structureNode: targetNode,
+            proposedBoundary: applied.proposedBoundary,
+            facts,
+          },
         },
       };
     }
@@ -284,17 +297,21 @@ export function prepareLocalMutation(derived: DerivedSchema, doc: Y.Doc, mutatio
         kind: 'ok',
         commit,
         verify: {
-          derived,
-          structureNode: boundaryNode,
-          boundaryLive,
-          proposedBoundary: applied.proposedBoundary,
-          facts,
+          kind: 'boundary',
+          input: {
+            derived,
+            structureNode: boundaryNode,
+            boundaryLive,
+            proposedBoundary: applied.proposedBoundary,
+            facts,
+          },
         },
       };
     }
 
     case 'array': {
-      // R4：array-insert/delete 目标数组位（批量一次重建 + 整体校验）
+      // R4：array-insert/delete 目标数组位（非 union `T[]` → fast path；union 数组目标
+      // / 两树分歧 → legacy 全量边界路径，ADR 0033 决策 1 永久双轨）
       if (mutation.op !== 'array-insert' && mutation.op !== 'array-delete') {
         throw new DerivedInvariantError('plan array 只服务数组操作（两树分歧）');
       }
@@ -302,6 +319,60 @@ export function prepareLocalMutation(derived: DerivedSchema, doc: Y.Doc, mutatio
       if (targetNav.kind === 'issue') return { kind: 'fail', issues: [targetNav.issue] };
       const boundaryLive = targetNav.live;
       const boundaryNode = targetNav.node;
+      // ── 闸门（ADR 0033 决策 1；双条件合取，均 O(1)、与数据规模无关）──────────────
+      // 条件一（值侧）：`plan.node` 已由 descendValues 归一化（非 ref/非 optional）——
+      //   union 数组目标（A[] | B[]）此处为 'union'（探针 U1）；
+      // 条件二（结构侧）：fast path 需结构树 array 节点的 `.element` 供 detached 构造。
+      //   两树由同一 schema 求值产出，kinds 恒一致；不一致（仅手造派生物可达）时合取为
+      //   假 → 回退 legacy（失败方向是「多验证」而非「漏验证」，绝不误接管）。
+      // 第三重锁：接缝 `applyElementwiseArrayMutation` 自身对违约计划（kind/relPath/
+      //   node.kind）fail closed。闸门处 resolve 抛错（ref 环/缺名，仅手造派生物可达）
+      //   与 legacy walk 内 resolve 抛错同 try/同 catch/同分类（E204，O-4）。
+      const resolvedBoundary = resolve(boundaryNode);
+      if (plan.node.kind === 'array' && resolvedBoundary.kind === 'array') {
+        // ── fast path（ADR 0033 决策 2/4）：F1 载体 O(1) → F2 live 长度 O(1) →
+        //    F3 接缝域规则/逐新值 O(k) → F4 detached 构造 O(k) → F5 收窄验证计划 ──
+        // F1 载体检查：与 legacy S5 首错（walk 以 path [] 起步）同文案同 path——触达面
+        // 内的载体位仍响亮拒绝（ADR-0007 #237 条款 4(i)），零写入。
+        if (carrierOf(boundaryLive) !== 'Y.Array') {
+          return walkResultIssues(carrierMismatchIssue([], 'Y.Array', boundaryLive));
+        }
+        const target = boundaryLive as Y.Array<unknown>;
+        // F2 live 长度事实（O(1) 载体属性，不经 get/toArray/forEach ⇒ 不计数）——越界
+        // 判定在读取任何元素之前完成（ADR 0033 决策 2/3）
+        const beforeLength = target.length;
+        // F3 域规则 + 逐新值校验（接缝；O(k)；域 message/path 与 legacy 逐字一致）
+        const payload: ElementwiseArrayMutationPayload = mutation.op === 'array-insert'
+          ? { op: 'array-insert', index: mutation.index!, values: mutation.values! }
+          : { op: 'array-delete', index: mutation.index!, count: mutation.count! };
+        const verdict = applyElementwiseArrayMutation(derived, plan, { length: beforeLength }, payload);
+        if (!verdict.ok) return { kind: 'fail', issues: issuesOf(verdict) };
+        // F4 detached 构造（仅 insert；O(k)，与 legacy 分支同款 + 同 issue 路径构造）
+        let commit: PreparedCommit;
+        let facts: BoundaryCommitFacts;
+        if (mutation.op === 'array-insert') {
+          const values = mutation.values!;
+          const builtValues: unknown[] = [];
+          for (let i = 0; i < values.length; i++) {
+            const built = buildDetachedValue(
+              derived,
+              resolvedBoundary.element,
+              values[i]!,
+              [...mutation.path, mutation.index! + i],
+            );
+            if (built.kind === 'issue') return failIssue(built.issue.path, built.issue.message);
+            builtValues.push(built.value);
+          }
+          commit = { kind: 'array-insert', target, index: mutation.index!, values: builtValues };
+          facts = { kind: 'insert', target, index: mutation.index!, built: builtValues, beforeLength };
+        } else {
+          commit = { kind: 'array-delete', target, index: mutation.index!, count: mutation.count! };
+          facts = { kind: 'delete-range', target, index: mutation.index!, count: mutation.count!, beforeLength };
+        }
+        // F5 收窄验证计划：仅安装事实核（无 proposedBoundary 可比对——ADR 0033 决策 3）
+        return { kind: 'ok', commit, verify: { kind: 'install-facts', facts } };
+      }
+      // ── legacy 全量边界路径（union 数组目标 / 两树分歧；代码与 HEAD 逐字一致）──
       const walked = walk(boundaryNode, boundaryLive, [], resolve);
       if (walked.kind === 'issue') return walkResultIssues(walked.issue);
       const payload: BoundaryMutationPayload = mutation.op === 'array-insert'
@@ -337,11 +408,14 @@ export function prepareLocalMutation(derived: DerivedSchema, doc: Y.Doc, mutatio
         kind: 'ok',
         commit,
         verify: {
-          derived,
-          structureNode: boundaryNode,
-          boundaryLive,
-          proposedBoundary: applied.proposedBoundary,
-          facts,
+          kind: 'boundary',
+          input: {
+            derived,
+            structureNode: boundaryNode,
+            boundaryLive,
+            proposedBoundary: applied.proposedBoundary,
+            facts,
+          },
         },
       };
     }
@@ -411,11 +485,14 @@ export function prepareLocalMutation(derived: DerivedSchema, doc: Y.Doc, mutatio
         kind: 'ok',
         commit,
         verify: {
-          derived,
-          structureNode: boundaryNode,
-          boundaryLive,
-          proposedBoundary: applied.proposedBoundary,
-          facts,
+          kind: 'boundary',
+          input: {
+            derived,
+            structureNode: boundaryNode,
+            boundaryLive,
+            proposedBoundary: applied.proposedBoundary,
+            facts,
+          },
         },
       };
     }

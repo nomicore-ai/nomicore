@@ -1,0 +1,13 @@
+
+> nomicore@0.1.0 typecheck /home/wangjian/nomicore-fix-issue-435
+> tsc -p packages/vfsl/tsconfig.json && tsc -p packages/vfsl-protocol/tsconfig.json && tsc -p packages/vfsl-codegen/tsconfig.json && tsc -p packages/persistence/tsconfig.json && tsc -p packages/dsh-persistence/tsconfig.json && tsc -p packages/doc-runtime/tsconfig.json && tsc -p packages/namespace-runtime/tsconfig.json && tsc -p packages/clock/tsconfig.json && tsc -p packages/instance/tsconfig.json && tsc -p packages/namespace-registry/tsconfig.json && tsc -p packages/namespace-api/tsconfig.json && tsc -p packages/namespace-diagnostic-log/tsconfig.json && tsc -p packages/replication-protocol/tsconfig.json && tsc -p packages/ws-replication/tsconfig.json && tsc -p apps/yjs-server/tsconfig.json
+
+packages/vfsl/test/issue-435-elementwise-array.test-d.ts(16,10): error TS2305: Module '"../src/index.js"' has no exported member 'applyElementwiseArrayMutation'.
+packages/vfsl/test/issue-435-elementwise-array.test-d.ts(18,15): error TS2305: Module '"../src/index.js"' has no exported member 'ArrayCarrierFacts'.
+packages/vfsl/test/issue-435-elementwise-array.test-d.ts(18,34): error TS2305: Module '"../src/index.js"' has no exported member 'ElementwiseArrayMutationPayload'.
+packages/vfsl/test/issue-435-elementwise-array.test-d.ts(24,45): error TS2349: This expression is not callable.
+  Type 'ExpectFunction<any>' has no call signatures.
+packages/vfsl/test/issue-435-elementwise-array.test-d.ts(51,1): error TS2578: Unused '@ts-expect-error' directive.
+packages/vfsl/test/issue-435-elementwise-array.test-d.ts(53,1): error TS2578: Unused '@ts-expect-error' directive.
+packages/vfsl/test/issue-435-elementwise-array.test-d.ts(55,1): error TS2578: Unused '@ts-expect-error' directive.
+ ELIFECYCLE  Command failed with exit code 2.

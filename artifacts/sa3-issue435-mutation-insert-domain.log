@@ -1,0 +1,73 @@
+Testing types with tsc and vue-tsc is an experimental feature.
+Breaking changes might not follow SemVer, please pin Vitest's version when using it.
+
+ RUN  v3.2.7 /home/wangjian/nomicore-fix-issue-435
+
+ ❯ packages/vfsl/test/issue-435-elementwise-array-contract.test.ts (21 tests | 2 failed) 19ms
+   ✓ #435 A 公共接缝（经包公共入口） > A1 新导出在场且是函数（公共面唯一入口 = src/index.ts） 1ms
+   ✓ #435 A 公共接缝（经包公共入口） > A2 合法 insert 返回 ValidateResult 的 ok 支（`{ok:true}`，纯函数、无副作用） 1ms
+   ✓ #435 B array-insert 逐新值过 element 子 schema > B1 每条 fast-path 数组路径：合法新值插入（头部/尾部）通过 1ms
+   ✓ #435 B array-insert 逐新值过 element 子 schema > B2 非法新元素在任一位置被拒绝，issue 路径 = [...arrayPath, index+j, ...elementPath]（items 规范锚） 1ms
+   ✓ #435 B array-insert 逐新值过 element 子 schema > B3 批量两处非法 → 两 issue，序 = 插入后位置升序（批量一次判定、中间态不参与） 0ms
+   ✓ #435 B array-insert 逐新值过 element 子 schema > B4 整批拒绝语义：任一非法新值 ⇒ 整批 ok:false（无部分接受分支） 0ms
+   ✓ #435 B array-insert 逐新值过 element 子 schema > B5 嵌套数组路径 rebase：issue 路径使用数组绝对路径（nested.inner） 0ms
+   ✓ #435 B array-insert 逐新值过 element 子 schema > B6 空批量（values: []）在合法 index 上 = 恒等 → ok:true 0ms
+   ✓ #435 B array-insert 逐新值过 element 子 schema > B7 全容器形联合元素（variants: YArray<Item | Alt>）与全标量形联合元素（scalars）逐元素判定与整体一致 0ms
+   × #435 C array-insert 域规则（不 clamp；域规则逐字一致） > C1 index === length（append 位）接受；index = length + 1 拒绝且 message/path 与现行逐字一致 5ms
+     → expected true to be false // Object.is equality
+   ✓ #435 C array-insert 域规则（不 clamp；域规则逐字一致） > C2 不 clamp：index 远超 length 时拒绝而非截断插入 0ms
+   ✓ #435 D array-delete 仅域规则判定（O(1)，不触碰元素值） > D1 合法删除（单元素 / 整段 / 整数组）通过 0ms
+   ✓ #435 D array-delete 仅域规则判定（O(1)，不触碰元素值） > D2 index >= length（越界 no-op）拒绝且 message/path 与现行逐字一致 1ms
+   ✓ #435 D array-delete 仅域规则判定（O(1)，不触碰元素值） > D3 index + count > length（范围越界）拒绝且不 clamp（path 指向 index） 0ms
+   ✓ #435 D array-delete 仅域规则判定（O(1)，不触碰元素值） > D4 ADR 0033 决策 4：污染数组（变更区间外非法元素）delete 照常成功——触达面收窄 1ms
+   ✓ #435 D array-delete 仅域规则判定（O(1)，不触碰元素值） > D5 delete 判定不消费元素值：同 length 的污染基线与合法基线判决完全相同 0ms
+   × #435 E 一致性 fixture（ADR 0033 决策 5） > E1 全用例：逐元素判定与全量整体验证的接受/拒绝及 issue 内容逐字节一致 3ms
+     → P-items-insert-domain-overflow（index > length：不 clamp，域拒绝）逐元素={"ok":true,"issues":[]} 全量={"ok":false,"issues":[{"message":"array-insert index 越界（不 clamp）","path":["items",3]}]}: expected '{"ok":true,"issues":[]}' to be '{"ok":false,"issues":[{"message":"arr…' // Object.is equality
+   ✓ #435 E 一致性 fixture（ADR 0033 决策 5） > E2 比较判据敏感：污染 delete 上目标判决与全量 oracle 逐字节可分（E1 非恒真） 0ms
+   ✓ #435 F fast path 闸门 fail closed > F1 闸门前提：6 条数组路径的 plan.kind=array 且边界值节点 kind=array（node.element 在场） 1ms
+   ✓ #435 F fast path 闸门 fail closed > F2 union 数组目标（uarr: YArray<Item> | YArray<string>）永久 legacy：节点 kind=union ⇒ 新接缝不静默接受 0ms
+   ✓ #435 F fast path 闸门 fail closed > F3 非 array 计划（kind=target，数组值整体替换位）⇒ fail closed（不静默 ok） 0ms
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 2 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  packages/vfsl/test/issue-435-elementwise-array-contract.test.ts > #435 C array-insert 域规则（不 clamp；域规则逐字一致） > C1 index === length（append 位）接受；index = length + 1 拒绝且 message/path 与现行逐字一致
+AssertionError: expected true to be false // Object.is equality
+
+- Expected
++ Received
+
+- false
++ true
+
+ ❯ packages/vfsl/test/issue-435-elementwise-array-contract.test.ts:198:27
+    196|       expect(callOf(derived, plan, base, { op: 'array-insert', index: …
+    197|       const overflow = callOf(derived, plan, base, { op: 'array-insert…
+    198|       expect(overflow.ok).toBe(false);
+       |                           ^
+    199|       if (overflow.ok) continue;
+    200|       expect(overflow.issues).toHaveLength(1);
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/2]⎯
+
+ FAIL  packages/vfsl/test/issue-435-elementwise-array-contract.test.ts > #435 E 一致性 fixture（ADR 0033 决策 5） > E1 全用例：逐元素判定与全量整体验证的接受/拒绝及 issue 内容逐字节一致
+AssertionError: P-items-insert-domain-overflow（index > length：不 clamp，域拒绝）逐元素={"ok":true,"issues":[]} 全量={"ok":false,"issues":[{"message":"array-insert index 越界（不 clamp）","path":["items",3]}]}: expected '{"ok":true,"issues":[]}' to be '{"ok":false,"issues":[{"message":"arr…' // Object.is equality
+
+Expected: "{"ok":false,"issues":[{"message":"array-insert index 越界（不 clamp）","path":["items",3]}]}"
+Received: "{"ok":true,"issues":[]}"
+
+ ❯ packages/vfsl/test/issue-435-elementwise-array-contract.test.ts:287:112
+    285|       const oracle = legacyVerdict(derived, plan, c.base, c.payload);
+    286|       const target = verdictOf(derived, plan, c.base, c.payload);
+    287|       expect(verdictBytes(target), `${c.id}（${c.note}）逐元素=${verdictByt…
+       |                                                                                                                ^
+    288|       checked += 1;
+    289|     }
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/2]⎯
+
+
+ Test Files  1 failed (1)
+      Tests  2 failed | 19 passed (21)
+Type Errors  no errors
+   Start at  12:39:13
+   Duration  444ms (transform 212ms, setup 0ms, collect 255ms, tests 19ms, environment 0ms, prepare 56ms)
