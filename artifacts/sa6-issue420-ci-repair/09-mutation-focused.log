@@ -1,0 +1,131 @@
+
+ RUN  v3.2.7 /home/wangjian/nomicore-fix-issue-420
+
+ ❯ packages/ws-replication/test/ws-replication-issue423-observer-emission-split.test.ts (21 tests | 2 failed) 115ms
+   ✓ issue #423 EM-C1：发射侧归属 — edge 半边 > EM-C1a：HELLO → connection-state-changed 由 edge 发射（宿主 session 桩零事件参与） 7ms
+   ✓ issue #423 EM-C1：发射侧归属 — edge 半边 > EM-C1b：未授权 OPEN → edge 复现拒绝路径（ns ERROR 帧 + 恰一 namespace-error + 恰一 namespace-failed） 4ms
+   ✓ issue #423 EM-C1：发射侧归属 — edge 半边 > EM-C1c：无台账 ns 帧 → edge 合成 NAMESPACE_STATE_VIOLATION（R-none；session 桩零投递） 2ms
+   ✓ issue #423 EM-C1：发射侧归属 — edge 半边 > EM-C1d（负控）：edge 半边零 namespace 域成功族越界发射（bootstrap/sync/applied 型零出现） 2ms
+   ✓ issue #423 EM-C1：发射侧归属 — edge 半边 > EM-C1e（session 半边负控）：独立 session host 零连接域事件（连接域事实不在 session） 24ms
+   ✓ issue #423 EM-C2：授权拒绝路径的字段正确性（connectionId 在场纪律） > EM-C2a：工厂形态拒绝路径两事件必须携 connectionId（= 句柄 connectionKey；握手后在场的纪律） 1ms
+   ✓ issue #423 EM-C2：授权拒绝路径的字段正确性（connectionId 在场纪律） > EM-C2b：authorize throw 同族——键集 ⊆ §23 注册集、必填键在场、零异常原文 1ms
+   ✓ issue #423 EM-C2：授权拒绝路径的字段正确性（connectionId 在场纪律） > EM-C2c（负控）：pre-connection `auth-upgrade-rejected` 无 connectionId（§23 既有形态；在场纪律非无条件加字段） 1ms
+   ✓ issue #423 EM-C3：缺面 dormant — session 侧 shim 无 bufferedAmount/clock/ping-onPong > EM-C3a：shim 无 bufferedAmount → 发送失败事件该键**缺失**（非 0、非 undefined 值） 9ms
+   ✓ issue #423 EM-C3：缺面 dormant — session 侧 shim 无 bufferedAmount/clock/ping-onPong > EM-C3b（正控）：bufferedAmount 可观测 → 该键在场且为真实读数（0 与 12 两取值） 9ms
+   ✓ issue #423 EM-C3：缺面 dormant — session 侧 shim 无 bufferedAmount/clock/ping-onPong > EM-C3c：缺 clock → 出站 sequence 事件无 sendQueueMs（§23.4 整键缺席；正控 = EM-C4c clock 在场键在场） 11ms
+   ✓ issue #423 EM-C3：缺面 dormant — session 侧 shim 无 bufferedAmount/clock/ping-onPong > EM-C3d：无 ping/onPong 面（session 侧无 liveness）→ 全生命周期零 event-loop-delay-sampled 7ms
+   ✓ issue #423 EM-C4：出站 sequence 事件（update-sent）由 edge 盖章点发射 > EM-C4a：工厂形态 host 数据帧 → edge 恰一 update-sent（sequence = 盖章序、bytes = UPDATE 载荷长度） 1ms
+   ✓ issue #423 EM-C4：出站 sequence 事件（update-sent）由 edge 盖章点发射 > EM-C4b：session 半边不再发射出站 sequence 事件（帧已出站，但 update-sent 不在 session 观测面） 3ms
+   × issue #423 EM-C4：出站 sequence 事件（update-sent）由 edge 盖章点发射 > EM-C4c：listen 组合形态恰一 update-sent（无重复）、sequence == wire [8..12]、字段集 ⊆ §23 11ms
+     → EM-C4c: append-only 字段集——clock 在场时 sendQueueMs 保留: expected false to be true // Object.is equality
+   ✓ issue #423 EM-C5：observer throw 隔离（dispatchReplicationObserver 单点语义） > EM-C5a：edge 公共出面——全抛 observer 下 wire 逐帧等于健康 observer 运行、连接存活、零 unhandledRejection 3ms
+   ✓ issue #423 EM-C5：observer throw 隔离（dispatchReplicationObserver 单点语义） > EM-C5b：单体进程内组合——全抛 observer 下业务收敛不变、零 unhandledRejection 5ms
+   ✓ issue #423 EM-C6：listen 模式 maxConcurrentAssembliesPerConnection 计数口径不变 > EM-C6a：listen 缝 = per-connection 跨 namespace 共享槽位（limit=2；释放后可再纳） 0ms
+   ✓ issue #423 EM-C6：listen 模式 maxConcurrentAssembliesPerConnection 计数口径不变 > EM-C6b（负控）：缺省 4 → 第 5 个 distinct ns 超额；槽位非 per-namespace 无限 0ms
+   × issue #423 EM-C7：单体进程内组合事件序列 == 拆分前金标（AC6） > EM-C7a：live 全序列逐字相等（handshake→open→bootstrap→reconcile→live→双向写） 7ms
+     → expected [ …(10) ] to deeply equal [ …(10) ]
+   ✓ issue #423 EM-C7：单体进程内组合事件序列 == 拆分前金标（AC6） > EM-C7b：拒绝臂全序列逐字相等（连接域 + 拒绝路径四事件） 4ms
+ ❯ packages/ws-replication/test/ws-replication-issue423-sa7-dynamic.test.ts (5 tests | 3 failed) 181ms
+   × issue #423 SA7 D-SEAM1：缝上发送记账投影（session 半边，真实高分辨率时钟） > D-SEAM1a：同栈直发 ⇒ 缝上帧为占位序 UPDATE（[8..12]=0）、accounting 在场且为真实时钟域残差（<50ms） 28ms
+     → D-SEAM1a: clock 在场 ⇒ accounting 对象必须在缝上到达: expected undefined to be defined
+   × issue #423 SA7 D-SEAM1：缝上发送记账投影（session 半边，真实高分辨率时钟） > D-SEAM1b：闸门关闭入队后真实驻留 120ms 再出站 ⇒ 缝上 sendQueueMs ≥ 100ms（真实队列驻留差值，非常数） 127ms
+     → D-SEAM1b: sendQueueMs 必须在场: expected undefined to be defined
+   ✓ issue #423 SA7 D-SEAM1：缝上发送记账投影（session 半边，真实高分辨率时钟） > D-SEAM1c：无 clock 面 ⇒ 缝上 accounting === undefined（零对象构造；帧照常过缝） 4ms
+   × issue #423 SA7 D-BURST1：listen 组合形态连续写——恰一、序一致、键集恒等（真实时钟） > D-BURST1：5 笔 hub 业务写 ⇒ 每出站 UPDATE 帧恰一 update-sent、sequence == wire [8..12] 且严格递增、键集 = 金标行 18ms
+     → D-BURST1: 第 1 事件键集 = EM-C7 金标 update-sent 行键集: expected 'bytes,connectionId,namespaceId,sequen…' to be 'bytes,connectionId,namespaceId,sendQu…' // Object.is equality
+   ✓ issue #423 SA7 D-CLOSE1：连接 close 后 egress 直驱 UPDATE ⇒ 返回 0、零事件、零 wire 帧 > D-CLOSE1：close 前恰一事件在场的正控 + close 后零复活 3ms
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 5 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  packages/ws-replication/test/ws-replication-issue423-observer-emission-split.test.ts > issue #423 EM-C4：出站 sequence 事件（update-sent）由 edge 盖章点发射 > EM-C4c：listen 组合形态恰一 update-sent（无重复）、sequence == wire [8..12]、字段集 ⊆ §23
+AssertionError: EM-C4c: append-only 字段集——clock 在场时 sendQueueMs 保留: expected false to be true // Object.is equality
+
+- Expected
++ Received
+
+- true
++ false
+
+ ❯ packages/ws-replication/test/ws-replication-issue423-observer-emission-split.test.ts:882:92
+    880|     expect(sent[0]!.sequence).toBe(rawSequence(wireUpdate[0]!));
+    881|     expect(sent[0]!.namespaceId).toBe(run.nsId);
+    882|     expect('sendQueueMs' in sent[0]!, 'EM-C4c: append-only 字段集——clock …
+       |                                                                                            ^
+    883|       true,
+    884|     );
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/5]⎯
+
+ FAIL  packages/ws-replication/test/ws-replication-issue423-observer-emission-split.test.ts > issue #423 EM-C7：单体进程内组合事件序列 == 拆分前金标（AC6） > EM-C7a：live 全序列逐字相等（handshake→open→bootstrap→reconcile→live→双向写）
+AssertionError: expected [ …(10) ] to deeply equal [ …(10) ]
+
+- Expected
++ Received
+
+@@ -4,9 +4,9 @@
+    "bootstrap-snapshot-sent|bytes,connectionId,namespaceId,side,type|side=hub;connectionId=hub-omega-conn-0;namespaceId=ns-00000000000000000000000000000001",
+    "channel-state-changed|connectionId,from,namespaceId,side,to,type|side=hub;connectionId=hub-omega-conn-0;namespaceId=ns-00000000000000000000000000000001;from=bootstrapping;to=reconciling",
+    "sync-step2-sent|bytes,connectionId,encodedUpdateBytes,namespaceId,side,syncRoundId,type|side=hub;connectionId=hub-omega-conn-0;namespaceId=ns-00000000000000000000000000000001;syncRoundId=1",
+    "sync-diff-applied|applyEffect,applyLatencyMs,bytes,connectionId,encodedUpdateBytes,namespaceId,sequence,side,stateVectorAfterHash,stateVectorBeforeHash,stateVectorChanged,syncRoundId,type|side=hub;connectionId=hub-omega-conn-0;namespaceId=ns-00000000000000000000000000000001;sequence=5;syncRoundId=1;applyEffect=noop;stateVectorChanged=false",
+    "channel-state-changed|connectionId,from,namespaceId,side,to,type|side=hub;connectionId=hub-omega-conn-0;namespaceId=ns-00000000000000000000000000000001;from=reconciling;to=live",
+-   "update-sent|bytes,connectionId,namespaceId,sendQueueMs,sequence,side,type|side=hub;connectionId=hub-omega-conn-0;namespaceId=ns-00000000000000000000000000000001;sequence=7",
++   "update-sent|bytes,connectionId,namespaceId,sequence,side,type|side=hub;connectionId=hub-omega-conn-0;namespaceId=ns-00000000000000000000000000000001;sequence=7",
+    "update-acked|ackLatencyMs,bytes,connectionId,namespaceId,sequence,side,type|side=hub;connectionId=hub-omega-conn-0;namespaceId=ns-00000000000000000000000000000001;sequence=7",
+    "update-applied|applyLatencyMs,bytes,connectionId,namespaceId,sequence,side,type|side=hub;connectionId=hub-omega-conn-0;namespaceId=ns-00000000000000000000000000000001;sequence=8",
+  ]
+
+ ❯ packages/ws-replication/test/ws-replication-issue423-observer-emission-split.test.ts:1142:20
+    1140|     await settle();
+    1141|     const actual = structuralSequence(events);
+    1142|     expect(actual).toEqual([...PRE_SPLIT_LIVE_GOLDEN]);
+       |                    ^
+    1143|     // 显式重述 AC6 三性质（无重复 / 无缺失 / 无乱序）
+    1144|     expect(new Set(actual).size).toBe(actual.length); // 逐项唯一（无重复）
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/5]⎯
+
+ FAIL  packages/ws-replication/test/ws-replication-issue423-sa7-dynamic.test.ts > issue #423 SA7 D-SEAM1：缝上发送记账投影（session 半边，真实高分辨率时钟） > D-SEAM1a：同栈直发 ⇒ 缝上帧为占位序 UPDATE（[8..12]=0）、accounting 在场且为真实时钟域残差（<50ms）
+AssertionError: D-SEAM1a: clock 在场 ⇒ accounting 对象必须在缝上到达: expected undefined to be defined
+ ❯ packages/ws-replication/test/ws-replication-issue423-sa7-dynamic.test.ts:284:69
+    282|     ).toBe(0);
+    283|     const accounting = records[0]!.accounting;
+    284|     expect(accounting, 'D-SEAM1a: clock 在场 ⇒ accounting 对象必须在缝上到达').to…
+       |                                                                     ^
+    285|     expect(accounting!.sendQueueMs, 'D-SEAM1a: sendQueueMs 成员必须在场').to…
+    286|     expect(accounting!.sendQueueMs!).toBeGreaterThanOrEqual(0);
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[3/5]⎯
+
+ FAIL  packages/ws-replication/test/ws-replication-issue423-sa7-dynamic.test.ts > issue #423 SA7 D-SEAM1：缝上发送记账投影（session 半边，真实高分辨率时钟） > D-SEAM1b：闸门关闭入队后真实驻留 120ms 再出站 ⇒ 缝上 sendQueueMs ≥ 100ms（真实队列驻留差值，非常数）
+AssertionError: D-SEAM1b: sendQueueMs 必须在场: expected undefined to be defined
+ ❯ packages/ws-replication/test/ws-replication-issue423-sa7-dynamic.test.ts:311:67
+    309|     expect(records, 'D-SEAM1b: 场景必须真实过缝 1 帧').toHaveLength(1);
+    310|     const accounting = records[0]!.accounting;
+    311|     expect(accounting?.sendQueueMs, 'D-SEAM1b: sendQueueMs 必须在场').toBe…
+       |                                                                   ^
+    312|     expect(
+    313|       accounting!.sendQueueMs!,
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[4/5]⎯
+
+ FAIL  packages/ws-replication/test/ws-replication-issue423-sa7-dynamic.test.ts > issue #423 SA7 D-BURST1：listen 组合形态连续写——恰一、序一致、键集恒等（真实时钟） > D-BURST1：5 笔 hub 业务写 ⇒ 每出站 UPDATE 帧恰一 update-sent、sequence == wire [8..12] 且严格递增、键集 = 金标行
+AssertionError: D-BURST1: 第 1 事件键集 = EM-C7 金标 update-sent 行键集: expected 'bytes,connectionId,namespaceId,sequen…' to be 'bytes,connectionId,namespaceId,sendQu…' // Object.is equality
+
+Expected: "bytes,connectionId,namespaceId,sendQueueMs,sequence,side,type"
+Received: "bytes,connectionId,namespaceId,sequence,side,type"
+
+ ❯ packages/ws-replication/test/ws-replication-issue423-sa7-dynamic.test.ts:372:9
+    370|         keySetOf(sent[i]! as unknown as Readonly<Record<string, unknow…
+    371|         `D-BURST1: 第 ${i + 1} 事件键集 = EM-C7 金标 update-sent 行键集`,
+    372|       ).toBe(UPDATE_SENT_KEY_SET);
+       |         ^
+    373|       expect(sent[i]!.sendQueueMs, 'D-BURST1: clock 在场 ⇒ sendQueueMs 在…
+    374|       expect(sent[i]!.sendQueueMs!).toBeGreaterThanOrEqual(0);
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[5/5]⎯
+
+
+ Test Files  2 failed (2)
+      Tests  5 failed | 21 passed (26)
+   Start at  07:12:04
+   Duration  1.83s (transform 756ms, setup 0ms, collect 1.20s, tests 296ms, environment 0ms, prepare 111ms)

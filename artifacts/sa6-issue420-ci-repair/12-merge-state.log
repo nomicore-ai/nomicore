@@ -1,0 +1,22 @@
+# PR #429 merge state / checks on merged head — captured 2026-09-21T23:13:02Z UTC
+{"message":"Merge pull request #429 from nomicore-ai/mabf/issue-420\n\nfix(#420): SessionHost 公共工厂 + 内存管道完整协议回合（spec #415 T3）","parents":["25c51cd45a3e4ec1cf8bcdbdcb33ff1f13d1b0df","5a4049d87bb3d244abed910e1bd372949501515c"],"sha":"4ad13a35f782411d3c48096c31afa724f6eae067"}
+
+{"baseRefOid":"25c51cd45a3e4ec1cf8bcdbdcb33ff1f13d1b0df","headRefOid":"5a4049d87bb3d244abed910e1bd372949501515c","mergeCommit":{"oid":"4ad13a35f782411d3c48096c31afa724f6eae067"},"mergedAt":"2026-09-21T23:08:48Z","number":429,"state":"MERGED","url":"https://github.com/nomicore-ai/nomicore/pull/429"}
+
+codegen-freshness	pass	20s	https://github.com/nomicore-ai/nomicore/actions/runs/35665953800/job/106551630647
+contract-gates	pass	21s	https://github.com/nomicore-ai/nomicore/actions/runs/35665953800/job/106551630767
+packaging	pass	2m39s	https://github.com/nomicore-ai/nomicore/actions/runs/35665953800/job/106551630515
+test (20, 1)	pass	1m28s	https://github.com/nomicore-ai/nomicore/actions/runs/35665953800/job/106551630881
+test (20, 2)	pass	1m55s	https://github.com/nomicore-ai/nomicore/actions/runs/35665953800/job/106551631132
+test (20, 3)	pass	1m44s	https://github.com/nomicore-ai/nomicore/actions/runs/35665953800/job/106551631205
+test (20, 4)	pass	2m6s	https://github.com/nomicore-ai/nomicore/actions/runs/35665953800/job/106551631139
+test (20, 5)	pass	1m53s	https://github.com/nomicore-ai/nomicore/actions/runs/35665953800/job/106551631175
+test (20, 6)	pass	52s	https://github.com/nomicore-ai/nomicore/actions/runs/35665953800/job/106551631167
+test (24, 1)	pass	1m19s	https://github.com/nomicore-ai/nomicore/actions/runs/35665953800/job/106551631148
+test (24, 2)	pass	1m46s	https://github.com/nomicore-ai/nomicore/actions/runs/35665953800/job/106551631211
+test (24, 3)	pass	1m12s	https://github.com/nomicore-ai/nomicore/actions/runs/35665953800/job/106551631222
+test (24, 4)	pass	2m8s	https://github.com/nomicore-ai/nomicore/actions/runs/35665953800/job/106551631193
+test (24, 5)	pass	1m47s	https://github.com/nomicore-ai/nomicore/actions/runs/35665953800/job/106551631150
+test (24, 6)	pass	1m6s	https://github.com/nomicore-ai/nomicore/actions/runs/35665953800/job/106551631130
+typecheck	pass	1m10s	https://github.com/nomicore-ai/nomicore/actions/runs/35665953800/job/106551630776
+PR_CHECKS_EXIT=0

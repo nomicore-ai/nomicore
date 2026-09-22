@@ -1,0 +1,5 @@
+# tracked-file worktree status before swap (expect empty):
+# production tree diff 3f470fb..HEAD (expect empty => only the consumer files move):
+# tracked diff 3f470fb..HEAD (expect the 2 consumer files only):
+packages/ws-replication/test/ws-replication-issue423-observer-emission-split.test.ts
+packages/ws-replication/test/ws-replication-issue423-sa7-dynamic.test.ts

@@ -1,0 +1,3 @@
+# sha256 comparison head-before vs restored (expect identical):
+SHA256_IDENTICAL
+# tracked-file worktree status after restore (expect empty):

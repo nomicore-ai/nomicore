@@ -1,0 +1,4 @@
+packages/ws-replication/test/ws-replication-issue423-observer-emission-split.test.ts(54,10): error TS2724: '"../src/hub-session.js"' has no exported member named 'createHubSessionHost'. Did you mean 'createHubSessionSink'?
+packages/ws-replication/test/ws-replication-issue423-observer-emission-split.test.ts(54,37): error TS2305: Module '"../src/hub-session.js"' has no exported member 'HubSessionHost'.
+packages/ws-replication/test/ws-replication-issue423-sa7-dynamic.test.ts(52,10): error TS2724: '"../src/hub-session.js"' has no exported member named 'createHubSessionHost'. Did you mean 'createHubSessionSink'?
+packages/ws-replication/test/ws-replication-issue423-sa7-dynamic.test.ts(52,37): error TS2305: Module '"../src/hub-session.js"' has no exported member 'HubSessionHost'.

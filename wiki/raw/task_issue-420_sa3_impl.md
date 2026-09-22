@@ -611,3 +611,119 @@ git add -A -- \
 ```
 
 **CI 修复后的预期门禁面（供 Controller 复核）**：`typecheck`（两步）、`test (20|24, 1)`、`test (20|24, 6)` 应转绿；`contract-gates`/`codegen-freshness`/`packaging`/`test (*, 2..5)` 在本轮修复前后均绿（修复不触其面）。若新 head 上仍有失败，则说明存在本轮未见的第二根因，须带新证据回 SA3/SA8，不得以本地绿替代 CI 绿。
+
+---
+
+## Iteration 5（仅空白终态修复：staged 证据的 EOF 空行）
+
+**派工面**：Controller 归档 SA6 CI 修复轮证据时，`git diff --cached --check` 报 4 条 `new blank line at EOF.`。唯一授权动作 = 去掉这 4 个 staged 证据文件末尾的**一个空行**；禁改生产代码、测试、断言、语义，证据内容其余逐字节保全。owner comment 面为空（REST comments 返回 `[]`）。
+
+**修复面（恰 4 条，worktree-relative）**：
+
+| 路径 | 修复前 bytes / sha256 | 修复后 bytes / sha256 | Δ | 内容保全证明 |
+| --- | --- | --- | --- | --- |
+| `artifacts/sa6-issue420-ci-repair/03-head-package-suite.log` | 21508 / `e02b721e748b385e…` | 21507 / `4581b6f96850bc6c…` | −1 byte（217→216 行） | `new == index_blob[:-1]`，内容行逐行相等 |
+| `artifacts/sa6-issue420-ci-repair/05-head-typecheck-only.log` | 4853 / `48aa61c4366e0542…` | 4852 / `6b72980b6fcd13a4…` | −1 byte（61→60 行） | 同上 |
+| `artifacts/sa6-issue420-ci-repair/07-red-prefix-focused.log` | 13353 / `f2a9fadd71e1d565…` | 13352 / `9a701223ff888ac7…` | −1 byte（152→151 行） | 同上 |
+| `artifacts/sa6-issue420-ci-repair/09-mutation-focused.log` | 13419 / `33120c392ce8cd53…` | 13418 / `6a1f31fa3adf7c96…` | −1 byte（132→131 行） | 同上 |
+
+- 修复前四文件均满足 `worktree_bytes == index_blob_bytes` 且 `endswith(b"\n\n")`、不满足 `endswith(b"\n\n\n")`，即违规形态恰为「末尾一个空行」；修复 = 删去末位 LF，使文件以**恰一个** LF 收尾（`.editorconfig [*]`：`insert_final_newline = true` + `trim_trailing_whitespace = true`）。
+- **内容锚逐条复验仍在**（取自 staged blob）：`03` = `Test Files 86 passed (86)` / `Tests 758 passed (758)`；`05` = `49 passed (49)` / `270 passed (270)` / `Type Errors no errors`；`07` = `2 failed (2)` / `8 failed | 18 passed (26)`；`09` = `2 failed (2)` / `5 failed | 21 passed (26)`。SA6 契约 §12 的 K5/K6 与红态引用行号口径不受影响（仅末行空行消失）。
+- **无哈希锚受影响**：全仓 grep 确认没有任何报告/脚本记录这 4 个日志文件的字节数或 sha256（`07-red-sha256-*`、`09-mutation-sha256-*`、`11-final-state-recheck.log` 锚的是**源码/HEAD blob**，非这些日志）。
+
+**验证**：
+
+| 命令 | 结果 |
+| --- | --- |
+| `git diff --cached --check`（修复前） | RC=2，4 条 `new blank line at EOF.` |
+| `git diff --cached --check`（修复后） | **RC=0** |
+| `git diff --check`（worktree 对 index） | RC=0 |
+| `git diff --name-only`（修复后） | 空（index == worktree，零未暂存残留） |
+| `git diff --cached --name-status \| wc -l` | 41 → 42（原 41 条证据/报告路径集合不变，仅新增本报告；`git status --porcelain -uall` 路径集与暂存集逐条 diff 为空） |
+
+**staging 说明（角色边界披露）**：本轮的验收门 `git diff --cached --check` 读的是 **index**，故修复必须落到暂存区才有意义。执行了**唯一一次**、**逐路径限定**的 `git add --`（4 个日志 + 本报告），未 `git add -A`、未 commit、未 push、未 finalize；除这 4 个文件的末位 LF 与本节文字外，index 中其余 37 条 staged blob 逐字节不变。若不希望本节随归档 commit 落账，Controller 可一条命令剔除：`git restore --staged -- wiki/raw/task_issue-420_sa3_impl.md`（不影响 `git diff --cached --check` RC=0 与四个证据文件的终态）。
+
+**Deferred verification**：归档 commit 由 Controller 执行（`git diff --cached --check` 须 RC=0）；commit 后新 tip 的 CI 全绿由 Controller push 后定证（SA3 不承担）。
+
+**Iteration 5 建议提交信息（Controller 定稿，可与 iteration 4 归档合并）**：
+
+```text
+chore: archive the issue 420 SA6 CI-repair evidence
+
+- archive the in-place SA6 CI-repair contract rewrite and artifacts/sa6-issue420-ci-repair/**
+  (3 harnesses, 1 probe, 31 logs) plus the SA8 CI-repair conflict report; closes SA4 O17
+- drop the single trailing blank line at EOF in 4 evidence logs
+  (03-head-package-suite, 05-head-typecheck-only, 07-red-prefix-focused, 09-mutation-focused;
+   -1 byte each, content lines byte-identical) so `git diff --cached --check` is RC=0
+- zero production/test/doc-semantic byte change
+```
+
+---
+
+## Iteration 6（SA9/SA10 终审报告的 C1 提交门亲验：**被点名产物零字节改动**）
+
+**派工面**：Controller 归档本轮「updated current」SA9 / SA10 终审报告（`wiki/raw/task_issue-420_sa9_standards.md` = SA9 iteration 4、`wiki/raw/task_issue-420_sa10_spec.md` = SA10 iteration 4；两条 mtime 07:38 / 07:41 晚于 HEAD `5ed3dc0` 的 07:32:08 归档时刻）前，授权**仅**修正 trailing whitespace 或 EOF 格式使其可干净提交；禁改审查结论、生产代码、测试、断言、语义。owner comment 面为空（REST comments 返回 `[]`）。
+
+**亲验结论**：两条被点名产物在派工时点**已是 C1 规范形态**（`trailing_ws = 0` / `CR = 0` / 末字节单 LF / 无 EOF 空行），其 staged blob 上 `git diff --cached --check` **RC=0** ⇒ **无需任何字节修正**，两条产物**零字节改动**。唯一写入 = 本节文字。
+
+| 核验点 | 命令 / 观察（本轮亲取） | 结果 |
+| --- | --- | --- |
+| 脏面精确性 | `git status --porcelain -uall` = 恰 2 行 ` M wiki/raw/task_issue-420_{sa10_spec,sa9_standards}.md`；`git ls-files --others --exclude-standard` 空；`git diff --cached --name-status` 空；`git diff --summary` 空（无 mode 变化）；`^<<<<<<<`/`^=======`/`^>>>>>>>` grep = 0 命中 | 提交面 = 恰这两条，零夹带 |
+| 行尾空白 / CR | 逐行 `rstrip(' \t')` 比对 = **0 命中**（两条）；`b"\r"` 计数 = 0（无 CRLF）；非 ASCII 空白全字符扫描 `exotic = []`（无 NBSP / 全角空格 / ZWSP / U+2009 等）；空白行（whitespace-only line）= 0 | C1 过 |
+| EOF 形态 | 末 4 字节：sa9 = `e3 80 82 0a`（`。` + 单 LF）、sa10 = `60 60 60 0a`（三个反引号 + 单 LF）；`endswith(b"\n\n") = False`（iteration 5 的「EOF 空行」违规形态**不存在**于两条报告）；HEAD 版与 worktree 版末 12 字节逐位相同 | C1 过 |
+| C1 归一化干跑（幂等证明） | `diff <(perl -0777 -pe 's/[ \t]+(?=\n)//g; s/\n+\z/\n/' f) f` = **空输出**（两条）⇒ 文件已在 iteration 1/5 同一 C1 规范形上，归一化动作幂等、零字节 | 零字节改动 |
+| 提交门（index 面，scratch index） | `GIT_INDEX_FILE=<tmp>` 逐路径 `git add --` 后：`git diff --cached --check` **RC=0**；加严 `-c core.whitespace=blank-at-eol,blank-at-eof,space-before-tab,indent-with-non-tab` 仍 **RC=0**；`git diff --check`（worktree 对 index）RC=0；真实 index 零触碰（`git diff --cached --name-status` 仍空） | 可干净提交 |
+| 字节锚（未改面） | worktree sha256 = `612c70b7fad20a7c…`（sa9）/ `c90baa45316c817f…`（sa10）；git blob OID = `5088ec48bbef8673…` / `5dcc50d8cd428f43…`；`git diff --name-only HEAD` 仍恰 2 条；`packages/`/`docs/`/`CONTEXT.md`/`.github/`/`scripts/`/配置与锁文件零路径 | 审查结论零触碰 |
+
+**范围与角色边界**：本轮**未**修改两条被点名产物（0 字节）；未 `git add` 真实 index、未 commit / push / finalize。两条产物对 HEAD 的差分内容 = SA9 iteration 4 / SA10 iteration 4 的报告实质改写（非空白面，162+/136− 与 91+/131−），按派工「禁改 findings」**原样保全**并登记为待 Controller 归档面。
+
+**顺带登记（只读扫描，非本轮授权面，零改动）**：`artifacts/sa6-issue420-ci-repair/**`（已随 `5ed3dc0` 入档、当前工作树 clean）存在两条既存形态项——`10-rest-comments-snapshot.log` 缺末位 LF（`final_nl = False`）、`07-red-prefix-root-typecheck.log` 行内含 1 个 U+2009 THIN SPACE（CI 原始输出抄录字节，非行尾）。二者**均不触发** `git diff --cached --check` 的任何规则（git 的 whitespace 规则不含「缺末位 LF」，U+2009 非行尾），不阻断任何提交；均不在本轮派工面（SA9/SA10 报告），SA3 未触碰。
+
+**Deferred verification**：归档 commit 由 Controller 执行（`git diff --cached --check` 须 RC=0 —— 本轮已在两条产物的 staged blob 上预证 RC=0）；纯文档归档，无动态验证需求。
+
+**Iteration 6 建议提交信息（Controller 定稿）**：
+
+```text
+chore: archive the issue 420 final SA9/SA10 review reports
+
+- archive the post-rebase final SA9 (iteration 4) and SA10 (iteration 4) review reports
+- both artifacts are already C1-canonical (trailing_ws=0, no CR, single trailing LF,
+  no blank line at EOF), so `git diff --cached --check` is RC=0 with zero byte change
+- zero production/test/doc-semantic byte change
+```
+
+---
+
+## Iteration 7（Host 报脏的本报告更新：C1 亲验 + 单路径 staging 收口）
+
+**派工面**：核对 Host 报脏的**唯一**未提交产物 `wiki/raw/task_issue-420_sa3_impl.md`（= iteration 6 那一节的写入，对 HEAD `1e521f0` 为 +34 / −0），确认其**无空白缺陷**后**仅**将该产物 stage，供 Controller 的必需归档 commit 使用；禁改业务代码、测试、断言、审查产物与语义。owner comment 面为空（REST comments 返回 `[]`）。
+
+**亲验结论（staging 前，as-received）**：该更新**无任何空白缺陷** —— `trailing_ws = 0`（逐行 `rstrip(' \t')` 比对）/ `CR = 0` / `TAB = 0` / 非 ASCII 空白全字符扫描 `exotic = []`（无 NBSP / 全角空格 / ZWSP / U+2009）/ 空白行 = 0 / 末字节单 LF / 无 EOF 空行；**增量面自身**（`git diff -U0` 的 23 条非空新增行）的行尾空白与 CR/TAB 命中同为 0；C1 归一化干跑 `diff` 空输出（幂等、零字节）⇒ **无需任何字节修正**，Host 报脏内容逐字节保全（as-received sha256 = `07f0824c7b3a2bcb…`、blob OID = `9df5e90f0fcf8acb…`，HEAD blob = `d87f0ffe34a1898f…`）。
+
+| 核验点 | 命令 / 观察（本轮亲取） | 结果 |
+| --- | --- | --- |
+| 脏面精确性 | `git status --porcelain -uall` = 恰 1 行 ` M wiki/raw/task_issue-420_sa3_impl.md`；`git ls-files --others --exclude-standard` 空；index == HEAD（`git diff --cached --name-status` 空）；`git diff --stat` = 1 file changed, 34 insertions(+), 0 deletions；`git diff --summary` 空（无 mode 变化） | 报脏面 = 恰本报告，零夹带 |
+| 行尾空白 / CR / TAB | 逐行 `rstrip(' \t')` 比对 = **0 命中**；`b"\r"` 计数 = 0（无 CRLF）；`b"\t"` 计数 = 0；非 ASCII 空白全字符扫描 = 空；空白行（whitespace-only line）= 0 | C1 过 |
+| EOF 形态 | as-received `len = 88397` 字节（本节文字为自指，追加后精确长度不再锚定；增量面见下两行）；末 4 字节 `60 60 60 0a`（三个反引号 + **单** LF）；`endswith(b"\n\n") = False`（iteration 5 的「EOF 空行」违规形态不存在）；末 24 字节尾部无尾随空白 | C1 过 |
+| 增量面自查 | `git diff -U0` 新增行过滤后：行尾空白 0 命中、`\r`/`\t` 0 命中（新增的 34 行本身即规范形，非仅文件整体形态过） | C1 过 |
+| C1 归一化干跑（幂等证明） | `diff <(perl -0777 -pe 's/[ \t]+(?=\n)//g; s/\n+\z/\n/' f) f` = **空输出** ⇒ 文件已在 iteration 1/5/6 同一 C1 规范形上，归一化动作幂等、零字节 | 零字节改动 |
+| 提交门（staging 后，真实 index） | `git diff --cached --check` **RC=0**；加严 `-c core.whitespace=blank-at-eol,blank-at-eof,space-before-tab,indent-with-non-tab` 仍 **RC=0**；`git diff --check`（worktree 对 index）RC=0 且 `git diff --name-only` 空（staged bytes == worktree bytes，无未暂存残留） | 可干净提交 |
+
+**唯一动作与角色边界披露**：本轮执行了**一次**、**逐路径限定**的 `git add -- wiki/raw/task_issue-420_sa3_impl.md`（未 `git add -A` / `-u` / 通配，未 `git restore`，未 commit / push / finalize）。该 staging 是本派工面的显式要求（「stage only this artifact for the Controller's required archival commit」），相对技能默认边界「SA3 不执行 `git add`」属**经 Controller 明示授权的一次例外**，在此登记：staging 后 `git diff --cached --name-status` 恰 1 条且与 `git status --porcelain -uall` 的修改面逐条一致；不做 staging 则归档 commit 无内容可落。若 Controller 不需要，可一条命令剔除且不影响任何已验证结论：`git restore --staged -- wiki/raw/task_issue-420_sa3_impl.md`。
+
+**范围与零语义变更证明**：本轮**未**触碰业务代码（`packages/` / `domains/` / `apps/` / `scripts/` / 配置与锁文件零路径）、测试、断言、CI 配置；**未**触碰任何审查产物（`wiki/raw/task_issue-420_sa{2,4,6,9,10}*`、`*conflict_report*`）；本报告 iteration 6 及其以上全部既有文字**逐字节保全**，唯一写入 = 追加上表这节文字。无 typecheck / 测试 / 静态生成语义面变化，故不产生新的动态验证需求。
+
+**Deferred verification**：归档 commit 由 Controller 执行（`git diff --cached --check` 须 RC=0 —— 本轮已在真实 index 的 staged blob 上亲证 RC=0）；纯文档归档，无动态验证需求。
+
+**Iteration 7 建议提交信息（Controller 定稿）**：
+
+```text
+chore: archive the issue 420 SA3 implementation report update
+
+- archive wiki/raw/task_issue-420_sa3_impl.md (iteration 6 section: SA9/SA10
+  C1 submission-gate verification, named artifacts zero-byte change)
+- the as-received update is preserved byte-for-byte; it is already C1-canonical
+  (trailing_ws=0, no CR/TAB, single trailing LF, no blank line at EOF), so
+  `git diff --cached --check` is RC=0 with zero whitespace byte change
+- zero production/test/doc-semantic byte change
+```

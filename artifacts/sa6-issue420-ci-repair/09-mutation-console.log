@@ -1,0 +1,13 @@
+HEAD=5a4049d87bb3d244abed910e1bd372949501515c
+# tracked-file status before mutation (expect empty):
+# mutated line:
+63:      sendData: (namespaceId, bytes, accounting) => this.sendData(namespaceId, bytes, undefined),
+MUTATION_FOCUSED_EXIT=1
+MUTATION_FAILED_CASES=5
+# sha256 comparison before vs restored (expect identical):
+SHA256_IDENTICAL
+# tracked-file status after restore (expect empty):
+# stale binding re-verified absent in production tree:
+1
+MUTATION_HARNESS_DONE
+HARNESS_EXIT=0
