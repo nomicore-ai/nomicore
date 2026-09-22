@@ -46,11 +46,57 @@ worker 侧 transport shim 无 `bufferedAmount`/ping/onPong → 按既有「缺�
 
 - **α 进程内内部缝（#418 听形态现状）**：OPEN 到达点先建准入台账、再无条件投递；session 以 `openAdmission` **拉取**已发起/已结算的结局（`denied`/`throw` 以值过内部缝），通道在 `registry.open` 之前短路。
 - **β 公共字节缝（#420，`createHubSessionHost`）**：**未授权 OPEN 不过公共字节缝**——`HubSessionOpenInput.authorization` 只接受 edge 已结算的 ok-投影；denied/throw 的 wire 行为由 **edge 侧处置**（宿主桥按准入结局把该 ns 交给生产 sink 承载，拒绝帧/终态/事件/settled 全部由零 diff 生产代码产出）。`open()` 描述子为纯 JSON（`connectionKey`/`remoteInstanceId`/`namespaceId`/投影/`selectedCapabilities`/可选 `connectionId`），authorize 不在 session 侧调用（`openAdmission` 端口以闭包回放投影）。同一 (连接, namespace) 至多一个承载机械、路由相位单调；**重 OPEN**（含准入在途到达的 OPEN）经既有生产机械转发/入队冲刷 ⇒ 每请求收答、authorize 恒恰一次（决策 3 自文「重 OPEN 经 openWaiters 合流不重复 authorize」的公共面保持）。
-- **γ 真 worker 形态**：后续票（入站缝已是字节面；异步序回传与跨线程 pending 仍需按 R4''/R5'' 重新过 SA8）。
+- **γ 真 worker 形态**：后续票（入站缝已是字节面；异步序回传与跨线程 pending 仍需按 R4''/R5'' 重新过 SA8）。**（已落地：见附录 A4——issue #443，spec #445。）**
 
 ### A3 决策 5 降级面的公共登记（U8）
 
 公共 byte-seam 工厂形态下，宿主传输缺面按决策 5 降级并成为**对外可观察契约**：`dataGateOpen` 恒 true（水位闸门休眠；连接级总量保护收敛 edge + 1011 终局）、`bufferedAmount` 恒缺席（`undefined`）、入站 assembly 槽降级为 per-session 计数、namespace 域 observer 事件由工厂配置注入（发射点 = 拥有事实的一侧，隔离单点 `dispatchReplicationObserver` 不分叉）。shim 形态无 listen 的「暂停」可观察面——该语义差已在此登记，不再作为行为差异主张。
+
+### A4 γ 真 worker 形态落地（issue #443，spec #445）：异步序回传、单点流控与推-FIFO pacing
+
+本条落地 A2-γ 登记的「后续票」义务。决策 1~5、附录 A1–A3 与否决备选原文零改动；A1 同步宿主 pipe 边界冻结条款不受影响（β 冻结签名逐字保留）；A4.6 对「缝携带接纳信号」否决备选做边界澄清，不构成推翻。缝契约的规范文本 = 协议文档 §24（本条只登记决策）。
+
+#### A4.1 载体与公共面
+
+γ = session↔edge 缝的**显式异步形态**：SessionHost 可运行在与 edge 不同的线程，中间由宿主异步字节传输（如 MessageChannel）承载。公共面为**新工厂/句柄类型**（`src/index.ts` 导出 append-only）——β 的 `HubSessionFrameListener` 同步返回序号的冻结签名无法 append-only 演进为异步回执模型，故 γ 不修改 β 面。`HubNamespaceChannel` 零改动原则保持：全部变化在 port 实现、session sink 组装层与 edge。缝消息词汇（纯 JSON + `Uint8Array`；nomicore 零 worker_threads/MessageChannel 依赖或类型——原约束不变）：
+
+- session→edge：`frame{tag, bytes, lane}`、`settled`、`connection-fatal{code}`（后两者既有）；
+- edge→session：`frame{bytes}`、`receipt{tag, sequence}`、`close`、`terminateUnauthorized`（后两者既有）；
+- **无拒纳/闸门/信用词汇**（A4.3）。tag 由 session 分配、会话域内单调唯一、纯 JSON。
+
+#### A4.2 保序契约（异步序回传的承重条款）
+
+edge 同时是盖章点与 ACK 路由点，回执与入站帧同在 edge→session 方向；对端须先收帧才回 ACK，故 ACK 到达 edge 在因果上必晚于对应帧盖章。据此缝契约要求：
+
+1. 每 (connectionKey, namespaceId) 会话一对专用通道，每方向 FIFO、不丢、不重、不乱序；
+2. edge 在 `OutboundQueue` 盖章点**同步**把回执投入该会话的入站通道（先于处理后续 socket 数据）；
+3. 违契 = 宿主 bug → 响亮收口，不允许静默降级。
+
+效果：「回执恒先于引用该序的 ACK」成为结构事实——`UpdateChannel.onAck` 的 violation 判别、`bootstrapSnapshotSeq`、`ownStep2Seq` 三处同步序号锚零改动；round-engine「合法 SYNC_APPLIED 在锚回填前结构性不可达」的因果论证在 γ 下继续成立，依据从进程内同步改写为本条款。session 侧发送记账改两相：pending(tag) → 回执登记(seq)；pending 计入 `maxInFlightUpdates` 窗口（回执时 tag→seq 换键不换槽）；两锚的 undefined 二值语义扩为三态（未发 / pending / 已盖章）。
+
+#### A4.3 流控单点化与拒纳语义（与 β 的显式行为差）
+
+拒纳的实质是流控；**流控只由 edge 单点负责**，缝的其余环节不参与。session 乐观发送，删除 `dataGateOpen`/`connectionState`/`bufferedAmount` 前置检查（A3 缺面 dormant 先例）；edge 及时消费管道（管道不成为蓄水池），连接账本投影越界即 `CONNECTION_BACKPRESSURE`(1011) 收口整条连接——**无逐帧拒纳、无 deferred、无 ns 级 send-failed resync**。单帧超连接级上限（与拥塞无关）= 配置错误 → 响亮收口 + 诊断。内存安全链逐跳有界：session 队列（queue-overflow 既有纪律）→ 管道（edge 及时消费）→ edge 账本（`maxQueuedBytesPerConnection`）。**与 β 的可观察行为差（登记）**：β 的 data 账本溢出 = ns 级 `send-failed` resync、连接存活；γ = 连接级死亡——用恢复粒度换内存安全的单点可论证性；β 行为不变。「洞中 transfer」结构性不存在：连接存活 ⟹ 每只 chunk 已盖章；连接死亡 ⟹ 通道 quiesce 整体 abort。OPEN/pending 水位（≤16 帧/连接、≤4 并发 OPEN）原值保留并**定性为故障参数**：打穿 = 宿主传输异常 = 响亮收口，不作流控调参。
+
+#### A4.4 pacing：推-FIFO（显式接受公平性损失）
+
+连接级 round-robin wheel 是拉取机械，跨线程物理不成立。γ 下 session 自驱 drain（触发点 = 入队 / ACK 到达 / transfer 末 chunk 回执；推完即停、禁 busy loop——pacing 非流控，不管「该不该推」）；edge 按到达序盖章，**不保持**协议 §17 的跨 session 轮转公平性。显式接受并登记：重 namespace 的分块突发可排在轻 namespace 的小 update 之前并瞬时压占共享预算。备选「edge intake 队列 + 调度器」（可恢复公平性且与单点流控兼容）经评审**否决**：复杂度不为当前负载画像付费；负载画像变化时可另票复活。`sendQueueMs` 口径 = 仅 session 队内等待。
+
+#### A4.5 生命周期单规则
+
+回执在盖章点同步投递 ⟹ edge 无「已盖章未回执」悬置。edge 决定收口（close/1011/fatal）时刻起，session→edge 方向后到的一切（帧、settled、任何消息）静默丢弃；close 沿同道 FIFO 送达；session 收 close 即 pending 集整体冲刷（按未发送清算）+ 通道 quiesce（既有机械不变）。`terminateUnauthorized` 不溯及已推帧（revoke 与单体语义一致）。`settled` 晚到只使 drain 多等，`closeTimeoutMs` 强制逃生舱不动。
+
+#### A4.6 否决备选边界澄清
+
+「缝携带接纳信号」（#234 方向）的否决**继续成立**：γ 的 `receipt` 是**序号事实回传**（盖章结果的配对通知），不是接纳控制信号——它不承载 sent/deferred/rejected 判别，session 也不据此做发送决策（决策已在盖章点同步完成）。#234 的 deferred 层定位随之收敛为**单体 listen 形态的内部改进**；三态词汇不上缝。
+
+#### A4.7 观测口径登记
+
+`update-sent` 发射点留 edge 盖章点（决策 5 / issue #423 登记不变）；`update-acked`/chunked 族事件在 session 回执/结算点。`ackLatencyMs` 的 t0 = 推送时刻（含管道与 edge 等待，口径略宽于 β）；跨线程 observer 事件无全序，AC6 型事件序金标的适用域 = α/β，不适用 γ。`maxConcurrentAssembliesPerConnection` 的 per-session 计数口径沿用 A3 / 协议 §17 登记，不随 γ 变化。
+
+#### A4.8 验收纪律
+
+成功路径（OPEN→bootstrap→live→reconcile→close）与 β 形态 wire 逐字节等价；拒纳路径按 A4.3 显式分叉并登记（不等价、属有意行为差）。验收测试用延迟可注入的显式异步内存管道，不引入 worker_threads；既有 listen 与 β 公共工厂测试矩阵全绿为硬门。
 
 ## 否决的备选
 
