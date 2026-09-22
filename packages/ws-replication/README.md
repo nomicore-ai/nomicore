@@ -7,6 +7,7 @@ Role-specific Cordis plugins and lower-level controllers for the Nomicore Hub/Pe
 Both plugins consume the host-owned `nomicoreInstance`, `clock`, `timer`, and `nomicoreRegistry` services. They read `instanceId` and `role` from `@nomicore/instance`; neither plugin creates or shuts down those upstream services.
 
 - `createHubReplicationPlugin(config, overrides?)` requires a Hub Instance, starts the injected listener, and publishes `ctx.nomicoreHubReplication` only after the listener is ready.
+- `createHubReplicationPlugin({ listen: false }, overrides?)` selects the listen-free (SessionHost) mode: zero socket listener is the legal assembly, `tokens`/`authorization`/`verifyToken`/`authorize` configuration is no longer required (authentication and authorization are the edge's responsibility), and the plugin publishes `ctx.nomicoreHubSessionHost` (use `requireHubSessionHost(ctx)`; `service.stop()` drains every open session explicitly) instead of `ctx.nomicoreHubReplication` — the two service entries are mutually exclusive per mode.
 - `createPeerReplicationPlugin(config, overrides?)` requires a Peer Instance, starts its dial loop without waiting for a live Hub connection, and publishes `ctx.nomicorePeerReplication` only after `replication.start()` returns successfully.
 - A role mismatch fails before listener or dial side effects.
 

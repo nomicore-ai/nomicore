@@ -146,6 +146,8 @@ const FROZEN_PRODUCTION_EXPORTS = [
   'DEFAULT_REPLICATION_LIMITS',
   'DEFAULT_REPLICATION_TIMEOUTS',
   'NOMICORE_HUB_REPLICATION_SERVICE',
+  // issue #422（契约 §12.8 一次性授权编辑）：免 listen 模式服务常量（排序插入）。
+  'NOMICORE_HUB_SESSION_HOST_SERVICE',
   'NOMICORE_PEER_REPLICATION_SERVICE',
   'createHubReplication',
   'createHubReplicationEdge',
@@ -154,6 +156,8 @@ const FROZEN_PRODUCTION_EXPORTS = [
   'createPeerReplication',
   'createPeerReplicationPlugin',
   'requireHubReplication',
+  // issue #422（契约 §12.8 一次性授权编辑）：免 listen 模式服务消费入口（排序插入）。
+  'requireHubSessionHost',
   'requirePeerReplication',
 ];
 const FROZEN_TESTING_EXPORTS = [
