@@ -1,0 +1,37 @@
+# EV-6 RNG root-cause probe rerun (SA3 iteration 1)
+# HEAD: 68ab9f5bfe4df66a54faddf759709a76914332d0
+# anchor sha256: 4a8556bbecb775fd70a054051ee6599f9600ea01e9a26700a4818ad683bc3b4c
+# cmd: node artifacts/sa6-issue451-clientid-probe.mjs
+## part 1 — pinned clientID → live UPDATE byte length (identical content)
+clientID=        42 varintWidth=1 liveBytes= 15 clientIDByteRuns=3
+clientID=       127 varintWidth=1 liveBytes= 15 clientIDByteRuns=3
+clientID=       128 varintWidth=2 liveBytes= 18 clientIDByteRuns=3
+clientID=     16383 varintWidth=2 liveBytes= 18 clientIDByteRuns=3
+clientID=     16384 varintWidth=3 liveBytes= 21 clientIDByteRuns=3
+clientID=   2097151 varintWidth=3 liveBytes= 21 clientIDByteRuns=3
+clientID=   2097152 varintWidth=4 liveBytes= 24 clientIDByteRuns=3
+clientID= 268435455 varintWidth=4 liveBytes= 24 clientIDByteRuns=3
+clientID= 268435456 varintWidth=5 liveBytes= 27 clientIDByteRuns=3
+clientID=4242424242 varintWidth=5 liveBytes= 27 clientIDByteRuns=3
+distinct byte lengths across width classes: 15, 18, 21, 24, 27
+step from width 4 → 5: 3 bytes
+
+## part 2 — hex-level: same width vs different width
+A clientID=0xf0000000 bytes=27
+  01 01 80 80 80 80 0f 04 a8 80 80 80 80 0f 03 01 7d 2b 01 80 80 80 80 0f 01 03 01
+B clientID=0xf0000001 bytes=27
+  01 01 81 80 80 80 0f 04 a8 81 80 80 80 0f 03 01 7d 2b 01 81 80 80 80 0f 01 03 01
+C clientID=0x0fffffff bytes=24
+  01 01 ff ff ff 7f 04 a8 ff ff ff 7f 03 01 7d 2b 01 ff ff ff 7f 01 03 01
+A vs B (same width) differing byte offsets: [2, 9, 19]
+A vs C (different width) differing byte offsets: [2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23]
+
+## part 3 — empirical clientID distribution (crypto CSPRNG, as `new Y.Doc()` uses)
+width 1: p=0.000000 (0)
+width 2: p=0.000010 (2)
+width 3: p=0.000445 (89)
+width 4: p=0.062130 (12426)
+width 5: p=0.937415 (187483)
+P(two independent rounds draw equal clientID width) = 0.882607
+⇒ predicted P(ANCHOR-ORDER-C1 bytes mismatch) = 0.117393
+probe exit=0

@@ -1,0 +1,8 @@
+### root test run 1 2026-09-22T13:37:54Z
+root test exit=0
+Test Files  468 passed (468)
+Tests  5675 passed (5675)
+Type Errors  no errors
+ ✓ packages/ws-replication/test/ws-replication-issue451-gamma-observability-anchor.test.ts (9 tests) 179ms
+ ✓  TS  packages/ws-replication/test/ws-replication-issue451-gamma-surface-freeze.test-d.ts (3 tests)
+### done 2026-09-22T13:45:09Z
