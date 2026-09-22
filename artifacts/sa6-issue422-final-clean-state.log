@@ -1,0 +1,30 @@
+### SA6 issue-422 final clean-state verification — 2026-09-22T07:21:50+08:00
+### HEAD=4ad13a35f782411d3c48096c31afa724f6eae067
+### git status --short:
+?? artifacts/sa6-issue422-baseline-package-suite.log
+?? artifacts/sa6-issue422-capability-gap-probe.log
+?? artifacts/sa6-issue422-capability-gap-probe.mts
+?? artifacts/sa6-issue422-causal-feasibility-probe.log
+?? artifacts/sa6-issue422-causal-feasibility-probe.mts
+?? artifacts/sa6-issue422-contract-suite/
+?? artifacts/sa6-issue422-final-clean-state.log
+?? artifacts/sa6-issue422-mutation-driver.mts
+?? artifacts/sa6-issue422-mutation-sensitivity.log
+?? artifacts/sa6-issue422-package-tsc-red.log
+?? artifacts/sa6-issue422-post-cleanup-gates.log
+?? artifacts/sa6-issue422-runner-trigger-red.log
+?? artifacts/sa6-issue422-stability-3x.log
+?? artifacts/sa6-issue422-type-lock-probe/
+?? artifacts/sa6-issue422-type-lock-red.log
+?? wiki/raw/task_issue-422.md
+?? wiki/raw/task_issue-422_sa6_contract.md
+### package tsc (clean tree):
+[tsc exit: 0]
+### package suite (clean tree):
+ Test Files  90 passed (90)
+      Tests  785 passed (785)
+Type Errors  no errors
+[vitest exit: 0]
+### scratch cleanup: no .scratch/sa6-422
+### leftover 422 files in test path: 0
+### probe/prod diffs: 0 modified tracked files

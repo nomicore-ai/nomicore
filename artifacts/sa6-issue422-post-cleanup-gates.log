@@ -1,0 +1,13 @@
+### SA6 issue-422 post-cleanup gate re-run (HEAD=4ad13a35f782411d3c48096c31afa724f6eae067) — 2026-09-22T07:16:42+08:00
+### package tsc: pnpm exec tsc -p packages/ws-replication/tsconfig.json
+[tsc exit: 0]
+### package suite: vitest run --typecheck packages/ws-replication/test
+ ✓ packages/ws-replication/test/ws-replication-issue190-guard.test.ts (1 test) 4ms
+
+ Test Files  90 passed (90)
+      Tests  785 passed (785)
+Type Errors  no errors
+   Start at  07:16:47
+   Duration  51.66s (transform 1.78s, setup 0ms, collect 16.09s, tests 22.59s, environment 12ms, prepare 4.11s, typecheck 2.29s)
+
+[vitest exit: 0]

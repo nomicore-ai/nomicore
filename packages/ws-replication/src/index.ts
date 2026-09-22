@@ -16,6 +16,9 @@ export {
   requireHubReplication,
   requirePeerReplication,
 } from './plugin.js';
+// issue #422（spec #415 T5；ADR 0032:30/:64-66）：免 listen 模式的 SessionHost 服务面
+// （append-only 新增；既有导出零改名零删除）。
+export { NOMICORE_HUB_SESSION_HOST_SERVICE, requireHubSessionHost } from './plugin.js';
 export {
   DEFAULT_REPLICATION_BACKOFF,
   DEFAULT_REPLICATION_LIMITS,
@@ -38,6 +41,7 @@ export type {
   PeerReplicationService,
   PeerReplicationStatus,
 } from './plugin.js';
+export type { HubSessionHostService, HubSessionHostStatus } from './plugin.js';
 
 export type {
   ChunkedUpdateAbortReason,
