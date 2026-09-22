@@ -38,6 +38,11 @@ export interface HubSessionSinkConfig {
   readonly timer: ReplicationTimer;
   readonly limits: ResolvedLimits;
   readonly timeouts: ResolvedTimeouts;
+  /** issue #447（ADR 0032 A4.2 / §24.4）：γ 异步缝 bit——`sendControl/sendData/
+   *  sendUpdateChunk` 的返回值语义由「已盖章 wire 序」变为「会话域 tag」（尚未盖章）。
+   *  **唯一设置点 = γ 工厂** `createHubAsyncSessionHost`；α/β/子形态不传 ⇒ 新分支全死
+   *  （三态锚恒 stamped、`pendingSends` 恒空，行为逐字节不变）。 */
+  readonly asyncSendTickets?: true;
 }
 
 class HubSessionSinkImpl implements HubSessionSink {
@@ -77,6 +82,8 @@ class HubSessionSinkImpl implements HubSessionSink {
       connectionState: () => port.connectionState(),
       bufferedAmount: () => port.bufferedAmount(),
       now: () => port.now?.(),
+      // issue #447（§8.4）：γ 异步 bit 逐层透传（缺省 ⇒ 下游全部 γ 分支不可达）。
+      ...(config.asyncSendTickets === true ? { asyncSendTickets: true as const } : {}),
     };
   }
 
@@ -292,6 +299,19 @@ class HubSessionSinkImpl implements HubSessionSink {
   /** listen 形态 drain/wheel/shed 的通道 facet 查询（进程内组合成员；D6 边界注记）。 */
   dataFacetOf(namespaceId: string): ReturnType<HubSessionSink['dataFacetOf']> {
     return this.channels.get(namespaceId)?.sendFacet;
+  }
+
+  /**
+   * issue #447（§8.4）：序回执 fan-out（γ 异步缝唯一回执入口；α/β 无调用点）。
+   * 单句柄只服务一个 (连接, namespace)，但通道表按 ns 键控——回执按 tag 命中通道
+   * （未命中任何通道 ⇒ 良性 no-op，见 `HubNamespaceChannel.onSendReceipt`）。
+   */
+  onReceipt(tag: number, sequence: number): boolean {
+    let settledTransfer = false;
+    for (const channel of this.channels.values()) {
+      if (channel.onSendReceipt(tag, sequence)) settledTransfer = true;
+    }
+    return settledTransfer;
   }
 }
 

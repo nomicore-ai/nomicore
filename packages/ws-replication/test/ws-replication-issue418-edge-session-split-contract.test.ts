@@ -149,6 +149,9 @@ const FROZEN_PRODUCTION_EXPORTS = [
   // issue #422（契约 §12.8 一次性授权编辑）：免 listen 模式服务常量（排序插入）。
   'NOMICORE_HUB_SESSION_HOST_SERVICE',
   'NOMICORE_PEER_REPLICATION_SERVICE',
+  // issue #447（PUB-C1 一次性授权编辑；同 #422 §12.8 先例）：γ 异步缝公共会话工厂
+  // （ADR 0032 附录 A4.1 append-only 新增；排序插入）。
+  'createHubAsyncSessionHost',
   'createHubReplication',
   'createHubReplicationEdge',
   'createHubReplicationPlugin',

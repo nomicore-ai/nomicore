@@ -89,6 +89,10 @@ export interface UpdateChannelHost {
   /** issue #295 切片 2（SA2-M3）：本方向 kind=1/2 分块载荷发送器是否有待发工作
    *  （channel 队列为空的窗口空位唤醒路径）。缺省 = false（kind=0 热路径逐字节同义）。 */
   readonly hasBulkTransferWork?: () => boolean;
+  /** issue #447（ADR 0032 A4.2 / §24.4）：γ 异步缝 bit——`sendUpdateFrame`/
+   *  `sendUpdateChunkFrame` 返回值语义为 **tag**（尚未盖章）；缺省（α/β/peer）= 已盖章
+   *  wire 序。缺省下 `pendingSends` 结构性恒空 ⇒ 全部新谓词逐值退化为既有判据。 */
+  readonly asyncSendTickets?: true;
 }
 
 interface QueuedItem {
@@ -120,6 +124,25 @@ export class UpdateChannel {
     { readonly bytes: number; readonly sentAt?: number; readonly chunked?: true }
   >();
   readonly zombieSeqs = new Set<number>();
+  /**
+   * issue #447（§8.6 两相记账；§24.4）：已过缝、序回执未到的出站发送（键 = γ 会话域
+   * **tag**，与 wire 序**分键空间**——tag 序与 wire 序值域重叠但错位，混键即碰撞）。
+   *
+   * 无条件私有字段：α/β/peer 下 `asyncSendTickets` 缺省 ⇒ 恒空 ⇒ 合并占用判据
+   * （`hasUnsettledSends`）/窗口口径（`effectiveInFlightCount`）/`onAck` 拆除判据
+   * 逐值退化为既有判据（单份实现、FSM 零分叉）。
+   */
+  private readonly pendingSends = new Map<
+    number,
+    { readonly bytes: number; readonly sentAt?: number; readonly chunked?: true }
+  >();
+  /**
+   * issue #447（§8.6.1/§9.1）：被 `abandonInFlight` 弃置、序尚未知的 pending tag（γ）。
+   * 迟到回执揭示其 wire 序时把该序登记为 zombie ⇒ 随后迟到 `UPDATE_ACK` 与 β「abandon 后
+   * 迟至 ACK = zombie 良性」**逐值同构**（保序条款保证回执先于 ACK 抵达，§24.2.3）。
+   * α/β 下恒空（无回执面）。`teardown` 随连接收口清空。
+   */
+  private readonly abandonedTags = new Set<number>();
   private readonly queued: QueuedItem[] = [];
   private queuedByteCount = 0;
   /** 本通道的 needs-resync 标记（§10.2 溢出 / §10.4 弃置 / §10.6 对端声明 / §12 边沿 / §4.4 shed）。 */
@@ -140,9 +163,49 @@ export class UpdateChannel {
 
   /** issue #243（DD-3.6）：有效占用口径（唯一口径）——裸在途 + 在途 transfer 槽。
    *  无 transfer 时与 v1 裸口径同义（未协商连接恒满足）；「直发逐字节不变」的适用域 =
-   *  无 activeTransfer 组态。包内只读访问器，不经 src/index.ts 导出。 */
+   *  无 activeTransfer 组态。包内只读访问器，不经 src/index.ts 导出。
+   *  issue #447（§24.4 两相记账）：已过缝未回执发送（`pendingSends`）自**推送时刻**起
+   *  占窗——回执 rekey 换键不换槽（占用数守恒），槽位于 ACK 释放。α/β 恒空 ⇒ 逐值不变。 */
   effectiveInFlightCount(): number {
-    return this.inFlight.size + (this.activeTransfer !== undefined ? 1 : 0);
+    return (
+      this.inFlight.size + (this.activeTransfer !== undefined ? 1 : 0) + this.pendingSends.size
+    );
+  }
+
+  /**
+   * issue #447（§8.6.1，SA2-F1）：ACK 超时锚的**管辖面** = 已注册发送（`inFlight`）∪
+   * 已过缝未回执发送（`pendingSends`）。
+   *
+   * 口径说明：不含 `activeTransfer` 槽——kind=0 transfer 的末 chunk 出站即注册
+   * inFlight/pendingSends（已被覆盖）；kind=1/kind=2 载体的超时锚分别是宿主 bootstrap
+   * timer 与 `BulkTransferSender` 自持 timer（§9.1），不属本计时器管辖。
+   *
+   * 不 γ 门控：`pendingSends` 是无条件私有字段，α/β 结构恒空 ⇒ 谓词逐值退化为既有判据
+   * （与 `effectiveInFlightCount` 计入 pending 的形状一致），单份实现、FSM 零分叉。
+   */
+  private hasUnsettledSends(): boolean {
+    return this.inFlight.size + this.pendingSends.size > 0;
+  }
+
+  /**
+   * issue #447（§8.6/§8.5）：序回执消费单点（γ 唯一 rekey 点）——tag→wire 序**换键不换槽**：
+   * 占用数不变（`effectiveInFlightCount` 守恒 ⇒ PEND-C2 判据）、计时器状态不触碰
+   * （占用自 pending 侧迁 inFlight 侧，合并占用守恒 ⇒ §8.6.1 归纳前提成立）。
+   *
+   * 未命中（中间 chunk 回执 / `abandonInFlight` 已弃置的 tag / 单帧控制帧）⇒ `'no-op'`：
+   * 被弃 tag 的迟到回执与 β「abandon 后 zombie 迟到 ACK」同构——良性、不响亮。
+   */
+  onReceipt(tag: number, sequence: number): 'rekeyed' | 'no-op' {
+    const entry = this.pendingSends.get(tag);
+    if (entry === undefined) {
+      // 被弃 tag 的迟到回执：良性 no-op；并把回执揭示的 wire 序登记为 zombie——γ 下
+      // 「弃置时序未知」不改变「迟到 ACK 良性」这一 β 同构语义（§8.6.1 末段/§9.1）。
+      if (this.abandonedTags.delete(tag)) this.zombieSeqs.add(sequence);
+      return 'no-op';
+    }
+    this.pendingSends.delete(tag);
+    this.inFlight.set(sequence, entry);
+    return 'rekeyed';
   }
 
   /** issue #295 切片 2（D7）：本方向是否有在途 kind=0 chunked transfer——facet 三段仲裁
@@ -226,7 +289,10 @@ export class UpdateChannel {
       const entry = this.inFlight.get(sequence)!;
       const wasOldest = sequence === this.oldestInFlightSeq();
       this.inFlight.delete(sequence);
-      if (this.inFlight.size === 0) {
+      // issue #447（§8.6.1）：拆除判据 = **合并占用**归零（存在 pending ⇒ 保持武装——
+      // 否则「回执尚未到达的在途条目」会失去超时锚，§24.4「ackTimeout 锚定与单体内核
+      // 同构」失效）。α/β 下 pendingSends 恒空 ⇒ 与既有 `inFlight.size === 0` 逐值等价。
+      if (!this.hasUnsettledSends()) {
         this.disarmAckTimer();
       } else if (wasOldest) {
         // 最老在途完成后，以当前时刻为新锚重挂剩余窗口，避免部分进度仍被旧计时锚整窗弃置。
@@ -378,6 +444,22 @@ export class UpdateChannel {
       this.host.declareLocalResync('send-failed', detail);
       return;
     }
+    // issue #447（§8.6 γ async 分支）：返回值语义 = tag（帧已过缝、序回执未到）——
+    // 记入独立 tag 键空间（**不**入 inFlight：wire 序尚不存在），占窗自推送时刻起算，
+    // 序回执到达时经 onReceipt 换键不换槽。α/β 下本分支不可达（bit 缺省）。
+    if (this.host.asyncSendTickets === true) {
+      this.pendingSends.set(seq, {
+        bytes: bytes.byteLength,
+        ...(sentAt !== undefined ? { sentAt } : {}),
+      });
+      this.host.noteUpdateSent({
+        sequence: seq,
+        bytes: bytes.byteLength,
+        ...(sendQueueMs !== undefined ? { sendQueueMs } : {}),
+      });
+      this.armAckTimer();
+      return;
+    }
     // §6.5 U2：发送时刻记账（帧实际出队后；clock 缺省 → undefined；throw → 缺面）
     this.inFlight.set(seq, {
       bytes: bytes.byteLength,
@@ -497,6 +579,24 @@ export class UpdateChannel {
       // （queued[0] === 载体项）由「初始化不 shift / 仅末 chunk 结算 shift」结构性保证。
       const head = this.queued.shift()!;
       this.queuedByteCount -= head.bytes.byteLength;
+      // issue #447（§8.6 γ async 分支）：中间 chunk 回执不入 pendingSends（transfer 槽位
+      // 语义：activeTransfer 恒占 1 槽、中间 chunk 零占位——与 α/β「中间 chunk 不注册
+      // inFlight」同构）；末 chunk 的 tag 才是待结算条目。α/β 分支逐字节不变。
+      if (this.host.asyncSendTickets === true) {
+        this.pendingSends.set(seq, {
+          bytes: transfer.totalBytes,
+          ...(sentAt !== undefined ? { sentAt } : {}),
+          chunked: true,
+        });
+        this.activeTransfer = undefined;
+        this.host.noteUpdateSent({
+          sequence: seq,
+          bytes: transfer.totalBytes,
+          chunked: { transferId: transfer.transferId, chunkCount: transfer.chunkCount },
+        });
+        this.armAckTimer();
+        return true;
+      }
       this.inFlight.set(seq, {
         bytes: transfer.totalBytes,
         ...(sentAt !== undefined ? { sentAt } : {}),
@@ -574,6 +674,11 @@ export class UpdateChannel {
       this.zombieSeqs.add(seq);
     }
     this.inFlight.clear();
+    // issue #447（§8.6.1）：pending 条目整体弃置（窗口槽位释放）。被弃 tag 的迟到回执在
+    // 通道侧落 `onReceipt` 'no-op'（与 β「abandon 后 zombie 迟到 ACK 良性」同构）；
+    // γ 层 `unresolvedTags` 保留该 tag（其回执仍是一次性事实，不落响亮分支）。
+    for (const tag of this.pendingSends.keys()) this.abandonedTags.add(tag);
+    this.pendingSends.clear();
     this.disarmAckTimer();
     this.needsResync = true;
     this.clearActiveTransfer(); // 显式清除（不弃队列——载体保留）
@@ -588,6 +693,10 @@ export class UpdateChannel {
     this.disarmAckTimer();
     this.inFlight.clear();
     this.zombieSeqs.clear();
+    // issue #447（§9.2 生命周期）：连接收口按「未发送」清算——已过缝未回执的 pending
+    // 条目整体冲刷（窗口槽位与未决 tag 集合随连接死亡失去意义）。
+    this.pendingSends.clear();
+    this.abandonedTags.clear();
     this.discardQueued();
     this.needsResync = true;
     this.nextTransferId = 1;
@@ -604,7 +713,10 @@ export class UpdateChannel {
     this.ackTimerHandle = this.host.armTimer(() => {
       this.ackTimerArmed = false;
       this.ackTimerHandle = undefined;
-      if (this.inFlight.size > 0) this.abandonInFlight();
+      // issue #447（§8.6.1，SA2-F1）：合并占用判据（inFlight ∪ pendingSends）——γ 下
+      // 「全部在途仍 pending」正是扣留场景；β 裸判据 `inFlight.size > 0` 是本谓词在
+      // `pendingSends ≡ ∅` 时的退化形态（逐值等价，单份实现）。
+      if (this.hasUnsettledSends()) this.abandonInFlight();
     }, this.host.ackTimeoutMs);
   }
 
