@@ -85,13 +85,20 @@ export interface HubSessionEdgePort {
    */
   openAdmission(namespaceId: string): Promise<HubOpenAdmission>;
   /** 出站控制帧（session 已以 sequence=0 占位编码）。返回 edge 盖章后的 wire 序；
-   *  0 = 未发送/被拒（与既有 `sendControl` 契约同形）。 */
+   *  0 = 未发送/被拒（与既有 `sendControl` 契约同形）。
+   *
+   *  issue #447（append-only doc 追加）：γ 异步缝形态下本返回值的语义由「已盖章 wire 序」
+   *  变为「会话域 **tag**」（尚未盖章）——`HubSessionSinkConfig.asyncSendTickets` 单点置位，
+   *  wire 序经 `HubSessionSink.onReceipt` 的序回执回传（ADR 0032 A4.2 / 协议 §24.4）。
+   *  既有同步形态（α/β/listen）逐字节不变。 */
   sendControlFrame(frame: Uint8Array): number;
   /** 出站数据帧（UPDATE / UPDATE_CHUNK，session 已占位编码）。返回盖章后 wire 序；
    *  0 = 准入拒绝。
    *  issue #423（append-only 可选参数）：`accounting` = session 侧发送记账投影（纯 JSON，
    *  见 `HubSendAccounting`）——`update-sent` 的 `sendQueueMs` 唯一来源；宿主直驱帧
-   *  不传（整键缺席，缺面 dormant）。既有单参实现/桩类型兼容（少参恒可赋值）。 */
+   *  不传（整键缺席，缺面 dormant）。既有单参实现/桩类型兼容（少参恒可赋值）。
+   *  issue #447（同 `sendControlFrame` 的 doc 追加）：γ 异步缝下返回值语义 = tag（未盖章），
+   *  `accounting` 整键丢弃（§24.3 缝词汇无 accounting 字段，A4.6）。 */
   sendDataFrame(frame: Uint8Array, accounting?: HubSendAccounting): number;
   /** 连接级 data 水位闸门（设计 D3.1 data 闸门前置判据）。 */
   dataGateOpen(): boolean;
@@ -148,4 +155,14 @@ export interface HubSessionSink {
    *  `hub.connections[0].channels.get(nsId)` 只读投影模式）。**非路由判据、非第二事实源**
    *  ——edge 路由与 drain 判定读自身 admission 台账（D4b/D5.4）。 */
   readonly channels: ReadonlyMap<string, HubNamespaceChannel>;
+  /**
+   * issue #447（ADR 0032 A4.2 / 协议 §24.3/§24.4）：edge→session 的**序回执**消费入口
+   * （append-only 可选方法；α/β 实现不定义即不受影响）。
+   *
+   * `tag` = session 侧分配、该帧过缝时携带的会话域标识；`sequence` = edge 在 mux 点
+   * 盖在 wire 字节 `[8..12]` 上的真实序（序号事实回传，**非**接纳信号——A4.6）。
+   * 返回「本次回执是否结算了分块 transfer 的末 chunk」（γ 句柄据以触发自驱 drain，
+   * A4.4 触发点③）；未命中任何待结算条目 ⇒ false（良性 no-op）。
+   */
+  onReceipt?(tag: number, sequence: number): boolean;
 }

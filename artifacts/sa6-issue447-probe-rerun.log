@@ -1,0 +1,12 @@
+GAP   GAP-1 CONFIRMED  运行时导出 15 个，γ 候选 0；β 冻结集 = ["DEFAULT_REPLICATION_BACKOFF","DEFAULT_REPLICATION_LIMITS","DEFAULT_REPLICATION_TIMEOUTS","NOMICORE_HUB_REPLICATION_SERVICE","NOMICORE_HUB_SESSION_HOST_SERVICE","NOMICORE_PEER_REPLICATION_SERVICE","createHubReplication","createHubReplicationEdge","createHubReplicationPlugin","createHubSessionHost","createPeerReplication","createPeerReplicationPlugin","requireHubReplication","requireHubSessionHost","requirePeerReplication"]
+GAP   GAP-2 CONFIRMED  β 句柄公共成员 = ["close","handleFrame","onFrame","onSignal","terminateUnauthorized"]；handleReceipt 缺席（第三 port 形态 = 0）
+GAP   GAP-3 CONFIRMED  src/** 27 文件：γ 缝词汇命中 0（receipt/handleReceipt/tag-token/frame{tag/ConnectionSender-tag）；跨线程面命中 0
+GAP   GAP-4 CONFIRMED  testing 导出 5 个（无管道/延迟类）；test/** 96 文件：receipt/延迟管道夹具命中 0；#447 验收文件 0
+GAP   GAP-5 CONFIRMED  mux 钩子同步拿到盖章序（[[64,1],[48,2]]），但 hub-edge.ts 的 emitRaw 丢弃序号（无回执生产点）
+GAP   GAP-6 CONFIRMED  两态（undefined | number）；写点 = ["lastChunkSequence","seq > 0 ? seq : undefined","undefined"]；undefined 判别 1 处（ACK_STATE_VIOLATION）；无 pending 中间态
+ORACLE ORACLE-1 GREEN  golden trace：hub→peer 7 帧 sha256=7bac30c5a73db8c8…（控制帧子集 sha256=d14774a62139f504…）；peer→hub 7 帧 sha256=a05e04682e06547f…；skeleton(hub→peer)=HELLO_ACK#1 OPEN_OK#2 BOOTSTRAP_SNAPSHOT#3 SYNC_STEP1#4 SYNC_STEP2#5 SYNC_APPLIED#6 CLOSE_OK#7
+ORACLE ORACLE-2 GREEN  复跑确定性：控制帧逐字节等；skeleton 等；全帧差异 = 第 2 帧字节不同（Yjs clientID 随机，符合 #424 口径）；摘要 A=7bac30c5a73d… B=9fe136dcfc92…
+ORACLE ORACLE-3 GREEN  异步中继下 β 响亮收口：ERROR=["ACK_STATE_VIOLATION"]，close=1002/protocol-error，fatal 信号 = ["connection-fatal:ACK_STATE_VIOLATION"]；namespace 未 live（保序条款违反 = 响亮失败而非 park）
+ORACLE NC-1 GREEN  内容变异（hubRoot.n 42→43）：全帧比对给出差异「第 2 帧字节不同」且摘要变化（断言敏感）；控制帧仍逐字节等
+SA6_PROBE_RESULT gaps=6/6 oracles=4/4
+SA6_PROBE_VERDICT=CONFIRMED (能力缺口成立；目标行为 oracle 全绿)

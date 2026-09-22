@@ -1,0 +1,24 @@
+
+ RUN  v3.2.7 /home/wangjian/nomicore-fix-issue-447
+
+ ✓ packages/ws-replication/test/ws-replication-issue420-shim-matrix.test.ts (53 tests) 329ms
+ ✓ packages/ws-replication/test/ws-replication-issue418-edge-session-split-contract.test.ts (17 tests) 112ms
+ ✓ packages/ws-replication/test/ws-replication-issue424-cross-seam-round.test.ts (5 tests) 86ms
+ ✓ packages/ws-replication/test/ws-replication-issue420-session-host-round.test.ts (10 tests) 99ms
+ ✓ packages/ws-replication/test/ws-replication-issue424-auth-parity.test.ts (7 tests) 90ms
+ ✓ packages/ws-replication/test/ws-replication-issue418-pending-window-matrix.test.ts (25 tests) 84ms
+ ✓ packages/ws-replication/test/ws-replication-issue424-lifecycle.test.ts (9 tests) 64ms
+ ✓ packages/ws-replication/test/ws-replication-issue422-listen-false.test.ts (42 tests) 52ms
+ ✓ packages/ws-replication/test/ws-replication-issue424-multi-worker.test.ts (4 tests) 63ms
+ ✓ packages/ws-replication/test/ws-replication-issue421-open-admission-pipeline.test.ts (40 tests) 57ms
+ ✓ packages/ws-replication/test/ws-replication-issue418-edge-session-split-structure.test.ts (9 tests) 40ms
+ ✓ packages/ws-replication/test/ws-replication-issue421-edge-accept.test.ts (15 tests) 16ms
+ ✓ packages/ws-replication/test/ws-replication-issue421-route-key-parity.test.ts (7 tests) 16ms
+ ✓ packages/ws-replication/test/ws-replication-issue421-wire-parity.test.ts (8 tests) 20ms
+ ✓ packages/ws-replication/test/ws-replication-issue421-error-routing.test.ts (8 tests) 20ms
+ ✓ packages/ws-replication/test/ws-replication-issue421-edge-lifecycle.test.ts (12 tests) 16ms
+
+ Test Files  16 passed (16)
+      Tests  271 passed (271)
+   Start at  13:46:15
+   Duration  7.43s (transform 915ms, setup 0ms, collect 3.82s, tests 1.16s, environment 2ms, prepare 779ms)

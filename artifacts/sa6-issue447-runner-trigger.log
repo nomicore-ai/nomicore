@@ -1,0 +1,9 @@
+
+ RUN  v3.2.7 /home/wangjian/nomicore-fix-issue-447
+
+ ✓ packages/ws-replication/test/ws-replication-issue447-runner-trigger-probe.test.ts (1 test) 2ms
+
+ Test Files  1 passed (1)
+      Tests  1 passed (1)
+   Start at  13:45:54
+   Duration  189ms (transform 27ms, setup 0ms, collect 15ms, tests 2ms, environment 0ms, prepare 56ms)

@@ -1,0 +1,24 @@
+=== issue #447 γ 套件（4 文件：api / api.test-d / seam-fixture / round） ===
+Tue Sep 22 07:13:19 AM UTC 2026
+
+
+ RUN  v3.2.7 /home/wangjian/nomicore-fix-issue-447
+
+ ✓ packages/ws-replication/test/ws-replication-issue447-async-session-round.test.ts (15 tests) 143ms
+ ✓ packages/ws-replication/test/ws-replication-issue447-async-seam-fixture.test.ts (7 tests) 56ms
+ ✓ packages/ws-replication/test/ws-replication-issue447-async-session-api.test.ts (8 tests) 49ms
+
+ Test Files  3 passed (3)
+      Tests  30 passed (30)
+   Start at  15:13:20
+   Duration  1.81s (transform 630ms, setup 0ms, collect 1.14s, tests 247ms, environment 0ms, prepare 132ms)
+
+
+=== test-d（vitest typecheck 面） ===
+ ✓  TS  packages/ws-replication/test/ws-replication-issue447-async-session-api.test-d.ts (0 test)
+
+ Test Files  1 passed (1)
+      Tests  no tests
+Type Errors  no errors
+   Start at  15:13:22
+   Duration  8.16s (transform 0ms, setup 0ms, collect 0ms, tests 0ms, environment 0ms, prepare 0ms, typecheck 8.12s)

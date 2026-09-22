@@ -42,6 +42,7 @@ import type {
   ReplicationTimer,
   ResolvedLimits,
   ResolvedTimeouts,
+  SendAnchorState,
   UpdateSendFailureDetail,
 } from './types.js';
 
@@ -104,6 +105,10 @@ export interface HubChannelHost {
   bufferedAmount(): number | undefined;
   /** 单调时源（仅作差；clock 缺省/无 observer 时 undefined）。 */
   now?(): number | undefined;
+  /** issue #447（ADR 0032 A4.2 / §24.4）：γ 异步缝 bit——`sendControl/sendData/
+   *  sendUpdateChunk` 返回值语义为 **tag**（尚未盖章）；由 session sink 组装层的
+   *  `asyncSendTickets` 单点透传（γ 工厂是唯一设置点）。缺省 ⇒ 既有同步语义逐字节不变。 */
+  readonly asyncSendTickets?: true;
 }
 
 type TimerKind = 'bootstrap' | 'close' | 'assembly';
@@ -125,7 +130,11 @@ export class HubNamespaceChannel {
   private pendingResync = false;
   private resyncDeclared = false;
   private identityChangedSent = false;
-  private bootstrapSnapshotSeq: number | undefined;
+  /** issue #447（§8.5）：bootstrap 快照锚**三态载体**——未发（undefined，含 ACK 后复位）
+   *  / pending（γ：已携 tag 过缝、回执未到）/ stamped（单帧同步返回或分块末 chunk 结算）。
+   *  判别语义（§8.5 表 / 既有 `:665-671`）不变：idle ∨ pending ∨ `acked !== sequence`
+   *  ⇒ `ACK_STATE_VIOLATION`（响亮，禁 park）。 */
+  private bootstrapSnapshotSeq: SendAnchorState | undefined;
   private timers: Record<TimerKind, unknown | undefined> = {
     bootstrap: undefined,
     close: undefined,
@@ -206,6 +215,8 @@ export class HubNamespaceChannel {
     this.onOwnedBound = (bytes: Uint8Array): void => this.onOwnedUpdate(bytes);
     this.round = new RoundEngine({
       role: 'hub',
+      // issue #447（§8.5）：γ 异步 bit 透传——返回值语义 tag ⇒ 三态锚 pending 相位。
+      ...(host.asyncSendTickets === true ? { asyncSendTickets: true as const } : {}),
       send: (message) => {
         const seq = this.sendChecked(message);
         return seq;
@@ -245,6 +256,8 @@ export class HubNamespaceChannel {
     this.channel = new UpdateChannel({
       limits: host.limits,
       ackTimeoutMs: host.timeouts.ackTimeoutMs,
+      // issue #447（§8.6）：γ 异步 bit ⇒ pendingSends 两相记账（α/β 缺省 ⇒ 恒空退化）。
+      ...(host.asyncSendTickets === true ? { asyncSendTickets: true as const } : {}),
       sendUpdateFrame: (bytes, accounting) => this.sendUpdateFrame(bytes, accounting),
       sendUpdateChunkFrame: (chunk) => this.sendUpdateChunkFrame(chunk),
       chunkedSendEnabled: () => this.host.chunkedUpdateNegotiated(),
@@ -268,6 +281,9 @@ export class HubNamespaceChannel {
     this.bulkTransfer = new BulkTransferSender({
       maxUpdateBytes: host.limits.maxUpdateBytes,
       ackTimeoutMs: host.timeouts.ackTimeoutMs,
+      // issue #447（§8.6/D9）：γ 异步 bit + 推送边界时钟（pushedAt 采样）。
+      ...(host.asyncSendTickets === true ? { asyncSendTickets: true as const } : {}),
+      now: () => this.host.now?.(),
       allocateTransferId: () => this.channel.allocateTransferId(),
       transferIdAvailable: () => this.channel.transferIdAvailable(),
       windowHasRoom: () =>
@@ -600,12 +616,16 @@ export class HubNamespaceChannel {
             replicationId: identity2.replicationId,
             replicationEpoch: identity2.replicationEpoch,
           },
-          onLastChunkSent: (lastChunkSequence, settlement) => {
-            // 结算锚（§8.2：ackedSequence = 末 chunk 帧序）；末 chunk 出站同一同步栈
-            this.bootstrapSnapshotSeq = lastChunkSequence;
+          onLastChunkSent: (lastChunkSequence, settlement, pushedAt) => {
+            // 结算锚（§8.2：ackedSequence = 末 chunk 帧序）；末 chunk 出站同一同步栈。
+            // issue #447（§8.5/§8.9）：γ 异步缝下本回调在**末 chunk 序回执**结算点触发，
+            // 实参恒为真实盖章序 ⇒ 恒落 stamped 态（α/β 调用点/取值逐字节不变）。
+            this.bootstrapSnapshotSeq = { phase: 'stamped', sequence: lastChunkSequence };
             // issue #301：t0 采样（ackLatencyMs = ACK 处理时刻 − 末 chunk 出站时刻）+
-            // 分块 snapshot sent 事件（末 chunk 结算记账点恰一，非逐 chunk）
-            this.chunkedAckT0 = this.sampleAckT0();
+            // 分块 snapshot sent 事件（末 chunk 结算记账点恰一，非逐 chunk）。
+            // issue #447（D9/§24.8，SA8-E1 路线 a）：γ 下取推送边界采样 `pushedAt`
+            // （含管道与 edge 等待）；α/β 缺省 ⇒ 既有采样点/取值逐字节不变。
+            this.chunkedAckT0 = pushedAt ?? this.sampleAckT0();
             if (this.observerOn) {
               this.host.emitObserver({
                 type: 'chunked-snapshot-sent',
@@ -635,7 +655,14 @@ export class HubNamespaceChannel {
         replicationEpoch: identity2.replicationEpoch,
         snapshot,
       });
-      this.bootstrapSnapshotSeq = seq > 0 ? seq : undefined;
+      // issue #447（§8.5）：γ 下 `seq` 是 tag（未盖章）⇒ pending 相位，序回执到达时回填
+      // stamped；α/β 下同点即 stamped（逐值不变）。`seq <= 0` = 未发送/被拒 ⇒ idle。
+      this.bootstrapSnapshotSeq =
+        seq > 0
+          ? this.host.asyncSendTickets === true
+            ? { phase: 'pending', tag: seq }
+            : { phase: 'stamped', sequence: seq }
+          : undefined;
       // HB3：快照字节（seq>0 时发射——0 = 帧被否决，未出站）
       if (seq > 0 && this.observerOn) {
         this.host.emitObserver({
@@ -662,9 +689,13 @@ export class HubNamespaceChannel {
       }
       return;
     }
+    // §8.5 判别（语义不变）：idle（未发/已复位）∨ pending（γ 回执未到而 ACK 先到 =
+    // 宿主违契，保序条款 §24.2.3）∨ 序不等 ⇒ 响亮 `ACK_STATE_VIOLATION`（禁 park/等待）。
+    const anchor = this.bootstrapSnapshotSeq;
     if (
-      this.bootstrapSnapshotSeq === undefined ||
-      message.ackedSequence !== this.bootstrapSnapshotSeq
+      anchor === undefined ||
+      anchor.phase !== 'stamped' ||
+      message.ackedSequence !== anchor.sequence
     ) {
       this.host.connectionFatal('ACK_STATE_VIOLATION', 1002);
       return;
@@ -692,6 +723,32 @@ export class HubNamespaceChannel {
 
   // ─────────────────────────────── sync / update / close 帧 ───────────────────────────────
 
+  /**
+   * issue #447（§8.4/§8.5/§8.6）：**序回执 fan-out 单点**（γ sink 组装层的
+   * `onReceipt` 唯一抵达点）。回执是序号事实回传（A4.6，非接纳信号），消费面恰三项：
+   *
+   * 1. `UpdateChannel.onReceipt`：tag→wire 序**换键不换槽**（pendingSends → inFlight）；
+   * 2. bootstrap 单帧锚：tag 命中 pending 相位 ⇒ `{phase:'stamped', sequence}`；
+   * 3. 分块载体：末 chunk tag 命中 ⇒ 结算（锚回填 + `pushedAt` 回传 + drain 触发）；
+   * 4. `RoundEngine.onSendReceipt`：ownStep1/2 的 pending 锚回填。
+   *
+   * 返回「是否结算了 transfer 末 chunk」（γ 层据以触发自驱 drain，A4.4 触发点③）。
+   * 未命中任何待结算条目 ⇒ 良性 no-op（中间 chunk / abandon 后弃置 tag / 单帧控制帧）。
+   */
+  onSendReceipt(tag: number, sequence: number): boolean {
+    this.channel.onReceipt(tag, sequence);
+    const anchor = this.bootstrapSnapshotSeq;
+    if (anchor !== undefined && anchor.phase === 'pending' && anchor.tag === tag) {
+      this.bootstrapSnapshotSeq = { phase: 'stamped', sequence };
+    }
+    this.round.onSendReceipt(tag, sequence);
+    return this.bulkTransfer.onReceipt(tag, sequence);
+  }
+
+  /** 当前 bootstrap 锚是否处于 pending 相位（诊断/断言面；包内只读访问器，不导出）。 */
+  get bootstrapAnchorPending(): boolean {
+    return this.bootstrapSnapshotSeq?.phase === 'pending';
+  }
   onSyncStep1(message: { syncRoundId: number; stateVector: Uint8Array; sequence: number }): void {
     if (this.isQuietState()) return;
     try {
@@ -774,10 +831,13 @@ export class HubNamespaceChannel {
         kind: 2,
         payload: diff,
         binding: { syncRoundId },
-        onLastChunkSent: (lastChunkSequence, settlement) => {
+        onLastChunkSent: (lastChunkSequence, settlement, pushedAt) => {
+          // issue #447（§8.9 分块形态）：γ 下本回调在末 chunk 序回执结算点触发 ⇒
+          // 锚回填即真实盖章序；α/β 调用点/取值逐字节不变。
           this.round.noteChunkedStep2Outbound(lastChunkSequence);
           // issue #301：t0 采样 + 分块 sync sent 事件（携本 round wire 投影 syncRoundId）
-          this.chunkedAckT0 = this.sampleAckT0();
+          // issue #447（D9/§24.8，SA8-E1 路线 a）：γ 取推送边界 `pushedAt`；缺省回退原点。
+          this.chunkedAckT0 = pushedAt ?? this.sampleAckT0();
           if (this.observerOn) {
             this.host.emitObserver({
               type: 'chunked-sync-sent',
