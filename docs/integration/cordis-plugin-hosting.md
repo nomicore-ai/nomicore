@@ -178,6 +178,8 @@ Nomicore 不复制 Timer 配置。Persistence、Registry 和 replication plugins
 
 Hub 与 Peer 的配置面、adapter overrides、service readiness 与 lifecycle 见 [`@nomicore/ws-replication` README](../../packages/ws-replication/README.md)。Hub plugin 只有在 listener 建立后才发布 ready service；Peer ready 只表示 controller/dial loop 已启动，不表示已连接 Hub 或 namespace 已 live。
 
+免 listen 模式（精确 `listen: false`，ADR 0032，宿主自持有传输 edge 时选用）不建 listener，改为发布 `nomicoreHubSessionHost` 服务（`requireHubSessionHost(ctx)`），且不提供 `nomicoreHubReplication`——两服务入口互斥。该模式不消费 `tokens`/`authorization`/`verifyToken`/`authorize` 配置：认证与授权是宿主侧 `createHubReplicationEdge` 半边的职责，namespace 会话经 edge 准入结算后由宿主桥接到 SessionHost。
+
 Peer 宿主必须显式选择 boot policy：
 
 | Peer 工作负载 | domain service 发布策略 |

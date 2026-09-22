@@ -11,6 +11,7 @@ This package owns the byte codec and public frame types for Nomicore instance re
 - Treat message codes, capability bits, error codes, and close classifications as compatibility registries. Extend append-only where the protocol permits; never renumber or silently reinterpret existing values.
 - Keep namespace identifiers, sequence ranges, directions, payload ordering, and size limits aligned with the normative protocol.
 - Keep the codec transport- and Registry-independent. Yjs/lib0 dependencies implement bytes and sync payloads, not connection lifecycle or authorization.
+- Keep the route-key wire layout (ADR 0032) synchronized with codec field order: namespace-domain frames place `namespaceId` at a fixed offset (the 35-byte ASCII grammar keeps the varString length prefix at one byte; `UPDATE_CHUNK` shifts the offset by one). Any field-order change must update the layout facts and keep the structural guard tests (`codec-route-key-guard`, `codec-namespace-routing-key-offset`) green.
 - Add public APIs only through `src/index.ts`; exported types and runtime codec behavior must evolve together.
 
 ## Verification
