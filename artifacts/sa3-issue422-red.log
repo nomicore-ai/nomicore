@@ -1,0 +1,354 @@
+Testing types with tsc and vue-tsc is an experimental feature.
+Breaking changes might not follow SemVer, please pin Vitest's version when using it.
+
+ RUN  v3.2.7 /home/wangjian/nomicore-fix-issue-422
+
+ ❯ packages/ws-replication/test/ws-replication-issue422-listen-false.test.ts (42 tests | 6 failed) 69ms
+   ✓ @422 AC5：非法 listen 形态构造期响亮 TypeError（负控，HEAD 必须绿） > 拒绝：拼写变体键 2ms
+   ✓ @422 AC5：非法 listen 形态构造期响亮 TypeError（负控，HEAD 必须绿） > 拒绝：字符串伪值 0ms
+   ✓ @422 AC5：非法 listen 形态构造期响亮 TypeError（负控，HEAD 必须绿） > 拒绝：数字 0 0ms
+   ✓ @422 AC5：非法 listen 形态构造期响亮 TypeError（负控，HEAD 必须绿） > 拒绝：空串 0ms
+   ✓ @422 AC5：非法 listen 形态构造期响亮 TypeError（负控，HEAD 必须绿） > 拒绝：null 0ms
+   ✓ @422 AC5：非法 listen 形态构造期响亮 TypeError（负控，HEAD 必须绿） > 拒绝：undefined 0ms
+   ✓ @422 AC5：非法 listen 形态构造期响亮 TypeError（负控，HEAD 必须绿） > 拒绝：NaN 0ms
+   ✓ @422 AC5：非法 listen 形态构造期响亮 TypeError（负控，HEAD 必须绿） > 拒绝：数字 1 0ms
+   ✓ @422 AC5：非法 listen 形态构造期响亮 TypeError（负控，HEAD 必须绿） > 拒绝：true 0ms
+   ✓ @422 AC5：非法 listen 形态构造期响亮 TypeError（负控，HEAD 必须绿） > 拒绝：空数组 0ms
+   ✓ @422 AC5：非法 listen 形态构造期响亮 TypeError（负控，HEAD 必须绿） > 拒绝：空对象 0ms
+   ✓ @422 AC5：非法 listen 形态构造期响亮 TypeError（负控，HEAD 必须绿） > 拒绝：缺 host/port 0ms
+   ✓ @422 AC5：非法 listen 形态构造期响亮 TypeError（负控，HEAD 必须绿） > 拒绝：空 host 0ms
+   ✓ @422 AC5：非法 listen 形态构造期响亮 TypeError（负控，HEAD 必须绿） > 拒绝：端口越界 0ms
+   ✓ @422 AC5：非法 listen 形态构造期响亮 TypeError（负控，HEAD 必须绿） > 拒绝：path 非绝对 0ms
+   ✓ @422 AC5：非法 listen 形态构造期响亮 TypeError（负控，HEAD 必须绿） > 拒绝：嵌套拼写变体 0ms
+   ✓ @422 AC5：非法 listen 形态构造期响亮 TypeError（负控，HEAD 必须绿） > 拒绝（其余配置合法）：拼写变体键 0ms
+   ✓ @422 AC5：非法 listen 形态构造期响亮 TypeError（负控，HEAD 必须绿） > 拒绝（其余配置合法）：字符串伪值 0ms
+   ✓ @422 AC5：非法 listen 形态构造期响亮 TypeError（负控，HEAD 必须绿） > 拒绝（其余配置合法）：数字 0 0ms
+   ✓ @422 AC5：非法 listen 形态构造期响亮 TypeError（负控，HEAD 必须绿） > 拒绝（其余配置合法）：空串 0ms
+   ✓ @422 AC5：非法 listen 形态构造期响亮 TypeError（负控，HEAD 必须绿） > 拒绝（其余配置合法）：null 0ms
+   ✓ @422 AC5：非法 listen 形态构造期响亮 TypeError（负控，HEAD 必须绿） > 拒绝（其余配置合法）：undefined 0ms
+   ✓ @422 AC5：非法 listen 形态构造期响亮 TypeError（负控，HEAD 必须绿） > 拒绝（其余配置合法）：NaN 0ms
+   ✓ @422 AC5：非法 listen 形态构造期响亮 TypeError（负控，HEAD 必须绿） > 拒绝（其余配置合法）：数字 1 0ms
+   ✓ @422 AC5：非法 listen 形态构造期响亮 TypeError（负控，HEAD 必须绿） > 拒绝（其余配置合法）：true 0ms
+   ✓ @422 AC5：非法 listen 形态构造期响亮 TypeError（负控，HEAD 必须绿） > 拒绝（其余配置合法）：空数组 0ms
+   ✓ @422 AC5：非法 listen 形态构造期响亮 TypeError（负控，HEAD 必须绿） > 拒绝（其余配置合法）：空对象 0ms
+   ✓ @422 AC5：非法 listen 形态构造期响亮 TypeError（负控，HEAD 必须绿） > 拒绝（其余配置合法）：缺 host/port 0ms
+   ✓ @422 AC5：非法 listen 形态构造期响亮 TypeError（负控，HEAD 必须绿） > 拒绝（其余配置合法）：空 host 0ms
+   ✓ @422 AC5：非法 listen 形态构造期响亮 TypeError（负控，HEAD 必须绿） > 拒绝（其余配置合法）：端口越界 0ms
+   ✓ @422 AC5：非法 listen 形态构造期响亮 TypeError（负控，HEAD 必须绿） > 拒绝（其余配置合法）：path 非绝对 0ms
+   ✓ @422 AC5：非法 listen 形态构造期响亮 TypeError（负控，HEAD 必须绿） > 拒绝（其余配置合法）：嵌套拼写变体 0ms
+   ✓ @422 AC5：非法 listen 形态构造期响亮 TypeError（负控，HEAD 必须绿） > listen 模式既有要求链逐项不变（缺 adapter / 缺认证 / 缺授权） 1ms
+   ✓ @422 AC4：listen 模式服务面/装配逐字节不变（负控，HEAD 必须绿） > AC2 补充结构门：src/** 与 package.json 零网络面 API（GREEN 基线，须保持） 6ms
+   ✓ @422 AC4：listen 模式服务面/装配逐字节不变（负控，HEAD 必须绿） > listen 模式提供 nomicoreHubReplication、调用 adapter 一次、不提供 SessionHost 服务 27ms
+   × @422 AC1/AC2/AC3/AC6：免 listen 模式（目标断言；HEAD 必须红在能力缺口） > 角色校验纪律不变：免 listen 模式仍先于任何装配副作用拒绝 peer 角色 8ms
+     → hub replication listen: invalid configuration
+   × @422 AC1/AC2/AC3/AC6：免 listen 模式（目标断言；HEAD 必须红在能力缺口） > 装配成功 + 服务面 + 零 listener + 零 nomicoreHubReplication + 真会话回合 + 注入面 4ms
+     → hub replication listen: invalid configuration
+   × @422 F1：免 listen 模式 limits/timeouts 值域响亮失败（值与 listen 模式同判） > C5d：timeouts 正整数违例——构造不抛、apply rejection TypeError、零副作用 3ms
+     → hub replication listen: invalid configuration
+   × @422 F1：免 listen 模式 limits/timeouts 值域响亮失败（值与 listen 模式同判） > C5e：limits 跨字段违例（lowWater ≥ highWater）——构造不抛、apply rejection TypeError 2ms
+     → hub replication listen: invalid configuration
+   ✓ @422 F1：免 listen 模式 limits/timeouts 值域响亮失败（值与 listen 模式同判） > C5f：parity——同一畸形值在 listen 模式同样构造成功 + apply rejection TypeError 5ms
+   × @422 F1：免 listen 模式 limits/timeouts 值域响亮失败（值与 listen 模式同判） > C5g①：分块族显式激活——显式 maxChunksPerUpdate 激活链（4MiB > 4×512KiB=2MiB） 3ms
+     → hub replication listen: invalid configuration
+   × @422 F1：免 listen 模式 limits/timeouts 值域响亮失败（值与 listen 模式同判） > C5g②：非链门键不激活（N5/N6 非追溯性）——apply resolve、服务 ready 3ms
+     → hub replication listen: invalid configuration
+ ❯  TS  packages/ws-replication/test/ws-replication-issue422-session-host-api.test-d.ts (2 tests | 2 failed)
+   × @422 types：listen:false 配置联合与服务签名 > 配置联合接受 false 与既有 listen 设置；服务面逐成员冻结
+     → Type 'Readonly<{ readonly host string; readonly port number; readonly path? string; }>' does not satisfy the constraint '"Expected ..., Actual literal boolean false"'.
+     → Type 'boolean' is not assignable to type 'Readonly<{ readonly host string; readonly port number; readonly path? string; }>'.
+     → This expression is not callable. Type 'Inverted<ExpectAny<any>>' has no call signatures.
+     → Type 'HubSessionHandle' does not satisfy the constraint '"Expected ..., Actual unknown"'.
+     → Type 'Promise<void>' does not satisfy the constraint '"Expected ..., Actual unknown"'.
+   × @422 types：listen:false 配置联合与服务签名 > 负控：伪值形态 / 服务面混入连接级成员必须类型错
+     → Unused '@ts-expect-error' directive.
+     → Unused '@ts-expect-error' directive.
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 8 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  packages/ws-replication/test/ws-replication-issue422-listen-false.test.ts > @422 AC1/AC2/AC3/AC6：免 listen 模式（目标断言；HEAD 必须红在能力缺口） > 角色校验纪律不变：免 listen 模式仍先于任何装配副作用拒绝 peer 角色
+TypeError: hub replication listen: invalid configuration
+ ❯ assertRecord packages/ws-replication/src/plugin.ts:163:11
+    161|   if (value === null || typeof value !== 'object' || Array.isArray(val…
+    162|     || Object.keys(value).some((key) => !keys.has(key))) {
+    163|     throw new TypeError(`${label}: invalid configuration`);
+       |           ^
+    164|   }
+    165| }
+ ❯ validateHubConfig packages/ws-replication/src/plugin.ts:292:3
+ ❯ createHubReplicationPlugin packages/ws-replication/src/plugin.ts:361:3
+ ❯ packages/ws-replication/test/ws-replication-issue422-listen-false.test.ts:183:20
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/13]⎯
+
+ FAIL  packages/ws-replication/test/ws-replication-issue422-listen-false.test.ts > @422 AC1/AC2/AC3/AC6：免 listen 模式（目标断言；HEAD 必须红在能力缺口） > 装配成功 + 服务面 + 零 listener + 零 nomicoreHubReplication + 真会话回合 + 注入面
+TypeError: hub replication listen: invalid configuration
+ ❯ assertRecord packages/ws-replication/src/plugin.ts:163:11
+    161|   if (value === null || typeof value !== 'object' || Array.isArray(val…
+    162|     || Object.keys(value).some((key) => !keys.has(key))) {
+    163|     throw new TypeError(`${label}: invalid configuration`);
+       |           ^
+    164|   }
+    165| }
+ ❯ validateHubConfig packages/ws-replication/src/plugin.ts:292:3
+ ❯ createHubReplicationPlugin packages/ws-replication/src/plugin.ts:361:3
+ ❯ packages/ws-replication/test/ws-replication-issue422-listen-false.test.ts:215:20
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/13]⎯
+
+ FAIL  packages/ws-replication/test/ws-replication-issue422-listen-false.test.ts > @422 F1：免 listen 模式 limits/timeouts 值域响亮失败（值与 listen 模式同判） > C5d：timeouts 正整数违例——构造不抛、apply rejection TypeError、零副作用
+TypeError: hub replication listen: invalid configuration
+ ❯ assertRecord packages/ws-replication/src/plugin.ts:163:11
+    161|   if (value === null || typeof value !== 'object' || Array.isArray(val…
+    162|     || Object.keys(value).some((key) => !keys.has(key))) {
+    163|     throw new TypeError(`${label}: invalid configuration`);
+       |           ^
+    164|   }
+    165| }
+ ❯ validateHubConfig packages/ws-replication/src/plugin.ts:292:3
+ ❯ createHubReplicationPlugin packages/ws-replication/src/plugin.ts:361:3
+ ❯ packages/ws-replication/test/ws-replication-issue422-listen-false.test.ts:325:20
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[3/13]⎯
+
+ FAIL  packages/ws-replication/test/ws-replication-issue422-listen-false.test.ts > @422 F1：免 listen 模式 limits/timeouts 值域响亮失败（值与 listen 模式同判） > C5e：limits 跨字段违例（lowWater ≥ highWater）——构造不抛、apply rejection TypeError
+TypeError: hub replication listen: invalid configuration
+ ❯ assertRecord packages/ws-replication/src/plugin.ts:163:11
+    161|   if (value === null || typeof value !== 'object' || Array.isArray(val…
+    162|     || Object.keys(value).some((key) => !keys.has(key))) {
+    163|     throw new TypeError(`${label}: invalid configuration`);
+       |           ^
+    164|   }
+    165| }
+ ❯ validateHubConfig packages/ws-replication/src/plugin.ts:292:3
+ ❯ createHubReplicationPlugin packages/ws-replication/src/plugin.ts:361:3
+ ❯ packages/ws-replication/test/ws-replication-issue422-listen-false.test.ts:347:20
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[4/13]⎯
+
+ FAIL  packages/ws-replication/test/ws-replication-issue422-listen-false.test.ts > @422 F1：免 listen 模式 limits/timeouts 值域响亮失败（值与 listen 模式同判） > C5g①：分块族显式激活——显式 maxChunksPerUpdate 激活链（4MiB > 4×512KiB=2MiB）
+TypeError: hub replication listen: invalid configuration
+ ❯ assertRecord packages/ws-replication/src/plugin.ts:163:11
+    161|   if (value === null || typeof value !== 'object' || Array.isArray(val…
+    162|     || Object.keys(value).some((key) => !keys.has(key))) {
+    163|     throw new TypeError(`${label}: invalid configuration`);
+       |           ^
+    164|   }
+    165| }
+ ❯ validateHubConfig packages/ws-replication/src/plugin.ts:292:3
+ ❯ createHubReplicationPlugin packages/ws-replication/src/plugin.ts:361:3
+ ❯ packages/ws-replication/test/ws-replication-issue422-listen-false.test.ts:393:20
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[5/13]⎯
+
+ FAIL  packages/ws-replication/test/ws-replication-issue422-listen-false.test.ts > @422 F1：免 listen 模式 limits/timeouts 值域响亮失败（值与 listen 模式同判） > C5g②：非链门键不激活（N5/N6 非追溯性）——apply resolve、服务 ready
+TypeError: hub replication listen: invalid configuration
+ ❯ assertRecord packages/ws-replication/src/plugin.ts:163:11
+    161|   if (value === null || typeof value !== 'object' || Array.isArray(val…
+    162|     || Object.keys(value).some((key) => !keys.has(key))) {
+    163|     throw new TypeError(`${label}: invalid configuration`);
+       |           ^
+    164|   }
+    165| }
+ ❯ validateHubConfig packages/ws-replication/src/plugin.ts:292:3
+ ❯ createHubReplicationPlugin packages/ws-replication/src/plugin.ts:361:3
+ ❯ packages/ws-replication/test/ws-replication-issue422-listen-false.test.ts:412:20
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[6/13]⎯
+
+ FAIL  packages/ws-replication/test/ws-replication-issue422-session-host-api.test-d.ts > @422 types：listen:false 配置联合与服务签名 > 配置联合接受 false 与既有 listen 设置；服务面逐成员冻结
+TypeCheckError: Type 'Readonly<{ readonly host string; readonly port number; readonly path? string; }>' does not satisfy the constraint '"Expected ..., Actual literal boolean false"'.
+ ❯ packages/ws-replication/test/ws-replication-issue422-session-host-api.test-d.ts:26:41
+     24| describe('@422 types：listen:false 配置联合与服务签名', () => {
+     25|   it('配置联合接受 false 与既有 listen 设置；服务面逐成员冻结', () => {
+     26|     expectTypeOf<false>().toMatchTypeOf<HubReplicationPluginConfig['li…
+       |                                         ^
+     27|     expectTypeOf<HubReplicationPluginConfig['listen']>()
+     28|       .toMatchTypeOf<{ readonly host: string; readonly port: number; r…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[7/13]⎯
+
+ FAIL  packages/ws-replication/test/ws-replication-issue422-session-host-api.test-d.ts > @422 types：listen:false 配置联合与服务签名 > 配置联合接受 false 与既有 listen 设置；服务面逐成员冻结
+TypeCheckError: Type 'boolean' is not assignable to type 'Readonly<{ readonly host string; readonly port number; readonly path? string; }>'.
+ ❯ packages/ws-replication/test/ws-replication-issue422-session-host-api.test-d.ts:30:52
+     28|       .toMatchTypeOf<{ readonly host: string; readonly port: number; r…
+     29| 
+     30|     const noListen: HubReplicationPluginConfig = { listen: false };
+       |                                                    ^
+     31|     const listen: HubReplicationPluginConfig = { listen: { host: '127.…
+     32|     expectTypeOf(noListen).toMatchTypeOf<HubReplicationPluginConfig>();
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[8/13]⎯
+
+ FAIL  packages/ws-replication/test/ws-replication-issue422-session-host-api.test-d.ts > @422 types：listen:false 配置联合与服务签名 > 配置联合接受 false 与既有 listen 设置；服务面逐成员冻结
+TypeCheckError: This expression is not callable. Type 'Inverted<ExpectAny<any>>' has no call signatures.
+ ❯ packages/ws-replication/test/ws-replication-issue422-session-host-api.test-d.ts:37:58
+     35| 
+     36|     expectTypeOf(NOMICORE_HUB_SESSION_HOST_SERVICE).toEqualTypeOf<'nom…
+     37|     expectTypeOf(requireHubSessionHost).parameter(0).not.toBeAny();
+       |                                                          ^
+     38|     expectTypeOf(requireHubSessionHost).returns.toEqualTypeOf<HubSessi…
+     39|     expectTypeOf<HubSessionHostService>().toMatchTypeOf<HubSessionHost…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[9/13]⎯
+
+ FAIL  packages/ws-replication/test/ws-replication-issue422-session-host-api.test-d.ts > @422 types：listen:false 配置联合与服务签名 > 配置联合接受 false 与既有 listen 设置；服务面逐成员冻结
+TypeCheckError: Type 'HubSessionHandle' does not satisfy the constraint '"Expected ..., Actual unknown"'.
+ ❯ packages/ws-replication/test/ws-replication-issue422-session-host-api.test-d.ts:40:73
+     38|     expectTypeOf(requireHubSessionHost).returns.toEqualTypeOf<HubSessi…
+     39|     expectTypeOf<HubSessionHostService>().toMatchTypeOf<HubSessionHost…
+     40|     expectTypeOf<HubSessionHostService['open']>().returns.toEqualTypeO…
+       |                                                                         ^
+     41|     expectTypeOf<HubSessionHostService['status']>().toEqualTypeOf<HubS…
+     42|     expectTypeOf<HubSessionHostStatus['state']>().toEqualTypeOf<'ready…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[10/13]⎯
+
+ FAIL  packages/ws-replication/test/ws-replication-issue422-session-host-api.test-d.ts > @422 types：listen:false 配置联合与服务签名 > 配置联合接受 false 与既有 listen 设置；服务面逐成员冻结
+TypeCheckError: Type 'Promise<void>' does not satisfy the constraint '"Expected ..., Actual unknown"'.
+ ❯ packages/ws-replication/test/ws-replication-issue422-session-host-api.test-d.ts:44:73
+     42|     expectTypeOf<HubSessionHostStatus['state']>().toEqualTypeOf<'ready…
+     43|     expectTypeOf<HubSessionHostStatus['sessions']>().toEqualTypeOf<num…
+     44|     expectTypeOf<HubSessionHostService['stop']>().returns.toEqualTypeO…
+       |                                                                         ^
+     45|     expectTypeOf(ctx.get('nomicoreHubSessionHost')).toEqualTypeOf<HubS…
+     46|   });
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[11/13]⎯
+
+ FAIL  packages/ws-replication/test/ws-replication-issue422-session-host-api.test-d.ts > @422 types：listen:false 配置联合与服务签名 > 负控：伪值形态 / 服务面混入连接级成员必须类型错
+TypeCheckError: Unused '@ts-expect-error' directive.
+ ❯ packages/ws-replication/test/ws-replication-issue422-session-host-api.test-d.ts:59:5
+     57|     // @ts-expect-error 嵌套拼写变体键不得通过
+     58|     const badNested: HubReplicationPluginConfig = { listen: { host: '1…
+     59|     // @ts-expect-error SessionHost 服务无 requestReauth（连接级职责不混入）
+       |     ^
+     60|     service.requestReauth('peer-one');
+     61|     // @ts-expect-error 状态闭联合不接受任意字符串
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[12/13]⎯
+
+ FAIL  packages/ws-replication/test/ws-replication-issue422-session-host-api.test-d.ts > @422 types：listen:false 配置联合与服务签名 > 负控：伪值形态 / 服务面混入连接级成员必须类型错
+TypeCheckError: Unused '@ts-expect-error' directive.
+ ❯ packages/ws-replication/test/ws-replication-issue422-session-host-api.test-d.ts:61:5
+     59|     // @ts-expect-error SessionHost 服务无 requestReauth（连接级职责不混入）
+     60|     service.requestReauth('peer-one');
+     61|     // @ts-expect-error 状态闭联合不接受任意字符串
+       |     ^
+     62|     const badState: HubSessionHostStatus['state'] = 'running';
+     63|     void badString;
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[13/13]⎯
+
+⎯⎯⎯⎯⎯⎯ Unhandled Errors ⎯⎯⎯⎯⎯⎯
+
+Vitest caught 9 unhandled errors during the test run.
+This might cause false positive tests. Resolve unhandled errors to make sure your tests are not affected.
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: '"@nomicore/ws-replication"' has no exported member named 'requireHubSessionHost'. Did you mean 'createHubSessionHost'?
+ ❯ packages/ws-replication/test/ws-replication-issue422-listen-false.test.ts:22:3
+     20|   createHubReplicationPlugin,
+     21|   requireHubReplication,
+     22|   requireHubSessionHost,
+       |   ^
+     23|   NOMICORE_HUB_SESSION_HOST_SERVICE,
+     24|   type ReplicationObserverEvent,
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Module '"@nomicore/ws-replication"' has no exported member 'NOMICORE_HUB_SESSION_HOST_SERVICE'.
+ ❯ packages/ws-replication/test/ws-replication-issue422-listen-false.test.ts:23:3
+     21|   requireHubReplication,
+     22|   requireHubSessionHost,
+     23|   NOMICORE_HUB_SESSION_HOST_SERVICE,
+       |   ^
+     24|   type ReplicationObserverEvent,
+     25| } from '@nomicore/ws-replication';
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Type 'boolean' is not assignable to type 'Readonly<{ readonly host string; readonly port number; readonly path? string; }>'.
+ ❯ packages/ws-replication/test/ws-replication-issue422-listen-false.test.ts:184:9
+    182|     const listenSpy = vi.fn(async () => ({ close: async () => undefine…
+    183|     const plugin = createHubReplicationPlugin(
+    184|       { listen: false },
+       |         ^
+    185|       { listen: { listen: listenSpy } },
+    186|     );
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Type 'boolean' is not assignable to type 'Readonly<{ readonly host string; readonly port number; readonly path? string; }>'.
+ ❯ packages/ws-replication/test/ws-replication-issue422-listen-false.test.ts:216:9
+    214| 
+    215|     const plugin = createHubReplicationPlugin(
+    216|       { listen: false, timeouts: { bootstrapTimeoutMs: 1234 } },
+       |         ^
+    217|       { observer: (event) => observerEvents.push(event), listen: { lis…
+    218|     );
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Parameter 'frame' implicitly has an 'any' type.
+ ❯ packages/ws-replication/test/ws-replication-issue422-listen-false.test.ts:244:21
+    242|       selectedCapabilities: 0,
+    243|     });
+    244|     handle.onFrame((frame) => {
+       |                     ^
+    245|       frames.push(frame);
+    246|       return 1;
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Type 'boolean' is not assignable to type 'Readonly<{ readonly host string; readonly port number; readonly path? string; }>'.
+ ❯ packages/ws-replication/test/ws-replication-issue422-listen-false.test.ts:326:9
+    324|     // 键表层无值域（bootstrapTimeoutMs ∈ TIMEOUT_KEYS）：构造必须成功——「一响一静」的第一层不响。
+    325|     const plugin = createHubReplicationPlugin(
+    326|       { listen: false, timeouts: { bootstrapTimeoutMs: 0 } },
+       |         ^
+    327|       { listen: { listen: listenSpy } },
+    328|     );
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Type 'boolean' is not assignable to type 'Readonly<{ readonly host string; readonly port number; readonly path? string; }>'.
+ ❯ packages/ws-replication/test/ws-replication-issue422-listen-false.test.ts:348:9
+    346| 
+    347|     const plugin = createHubReplicationPlugin(
+    348|       { listen: false, limits: { lowWater: 2, highWater: 1 } },
+       |         ^
+    349|       {},
+    350|     );
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Type 'boolean' is not assignable to type 'Readonly<{ readonly host string; readonly port number; readonly path? string; }>'.
+ ❯ packages/ws-replication/test/ws-replication-issue422-listen-false.test.ts:394:9
+    392| 
+    393|     const plugin = createHubReplicationPlugin(
+    394|       { listen: false, limits: { maxChunksPerUpdate: 4 } },
+       |         ^
+    395|       {},
+    396|     );
+
+
+⎯⎯⎯ Unhandled Source Error ⎯⎯⎯
+TypeCheckError: Type 'boolean' is not assignable to type 'Readonly<{ readonly host string; readonly port number; readonly path? string; }>'.
+ ❯ packages/ws-replication/test/ws-replication-issue422-listen-false.test.ts:413:9
+    411|     // 无条件链自洽 ⇒ 链不得被激活、存量合法配置不得误拒。
+    412|     const plugin = createHubReplicationPlugin(
+    413|       { listen: false, limits: { maxQueuedUpdateBytes: 1024 * 1024 } },
+       |         ^
+    414|       {},
+    415|     );
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯
+
+
+ Test Files  2 failed (2)
+      Tests  8 failed | 36 passed (44)
+Type Errors  2 failed
+     Errors  9 errors
+   Start at  07:59:17
+   Duration  2.55s (transform 957ms, setup 0ms, collect 1.36s, tests 69ms, environment 0ms, prepare 62ms, typecheck 2.50s)
+

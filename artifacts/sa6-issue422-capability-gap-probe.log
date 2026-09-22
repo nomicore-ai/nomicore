@@ -1,0 +1,60 @@
+### SA6 issue-422 capability-gap probe (HEAD=4ad13a35f782411d3c48096c31afa724f6eae067) — 2026-09-22T07:19:25+08:00
+### run: NODE_OPTIONS=--conditions=nomicore-source pnpm exec tsx artifacts/sa6-issue422-capability-gap-probe.mts
+INFO head 4ad13a35f782411d3c48096c31afa724f6eae067
+INFO pluginSrc file:///home/wangjian/nomicore-fix-issue-422/packages/ws-replication/src/plugin.ts
+FAIL CAP-12-public-entry-service-name-and-require-helper {"requireHubSessionHost":"undefined","entryHasConstant":false}
+PASS NC-3-invalid-listen-typo-key {"type":"TypeError","message":"TypeError: hub replication config: invalid configuration"}
+PASS NC-3-invalid-listen-string-false {"type":"TypeError","message":"TypeError: hub replication listen: invalid configuration"}
+PASS NC-3-invalid-listen-number-0 {"type":"TypeError","message":"TypeError: hub replication listen: invalid configuration"}
+PASS NC-3-invalid-listen-empty-string {"type":"TypeError","message":"TypeError: hub replication listen: invalid configuration"}
+PASS NC-3-invalid-listen-null {"type":"TypeError","message":"TypeError: hub replication listen: invalid configuration"}
+PASS NC-3-invalid-listen-undefined-value {"type":"TypeError","message":"TypeError: hub replication listen: invalid configuration"}
+PASS NC-3-invalid-listen-nan {"type":"TypeError","message":"TypeError: hub replication listen: invalid configuration"}
+PASS NC-3-invalid-listen-number-1 {"type":"TypeError","message":"TypeError: hub replication listen: invalid configuration"}
+PASS NC-3-invalid-listen-true {"type":"TypeError","message":"TypeError: hub replication listen: invalid configuration"}
+PASS NC-3-invalid-listen-empty-array {"type":"TypeError","message":"TypeError: hub replication listen: invalid configuration"}
+PASS NC-3-invalid-listen-empty-object {"type":"TypeError","message":"TypeError: hub replication config: invalid listen settings"}
+PASS NC-3-invalid-listen-port-only {"type":"TypeError","message":"TypeError: hub replication config: invalid listen settings"}
+PASS NC-3-invalid-listen-empty-host {"type":"TypeError","message":"TypeError: hub replication config: invalid listen settings"}
+PASS NC-3-invalid-listen-port-out-of-range {"type":"TypeError","message":"TypeError: hub replication config: invalid listen settings"}
+PASS NC-3-invalid-listen-path-not-absolute {"type":"TypeError","message":"TypeError: hub replication config: invalid listen settings"}
+PASS NC-3-invalid-listen-typo-nested {"type":"TypeError","message":"TypeError: hub replication listen: invalid configuration"}
+PASS NC-3b-invalid-listen-with-full-overrides-typo-key {"type":"TypeError","message":"TypeError: hub replication config: invalid configuration"}
+PASS NC-3b-invalid-listen-with-full-overrides-string-false {"type":"TypeError","message":"TypeError: hub replication listen: invalid configuration"}
+PASS NC-3b-invalid-listen-with-full-overrides-number-0 {"type":"TypeError","message":"TypeError: hub replication listen: invalid configuration"}
+PASS NC-3b-invalid-listen-with-full-overrides-empty-string {"type":"TypeError","message":"TypeError: hub replication listen: invalid configuration"}
+PASS NC-3b-invalid-listen-with-full-overrides-null {"type":"TypeError","message":"TypeError: hub replication listen: invalid configuration"}
+PASS NC-3b-invalid-listen-with-full-overrides-undefined-value {"type":"TypeError","message":"TypeError: hub replication listen: invalid configuration"}
+PASS NC-3b-invalid-listen-with-full-overrides-nan {"type":"TypeError","message":"TypeError: hub replication listen: invalid configuration"}
+PASS NC-3b-invalid-listen-with-full-overrides-number-1 {"type":"TypeError","message":"TypeError: hub replication listen: invalid configuration"}
+PASS NC-3b-invalid-listen-with-full-overrides-true {"type":"TypeError","message":"TypeError: hub replication listen: invalid configuration"}
+PASS NC-3b-invalid-listen-with-full-overrides-empty-array {"type":"TypeError","message":"TypeError: hub replication listen: invalid configuration"}
+PASS NC-3b-invalid-listen-with-full-overrides-empty-object {"type":"TypeError","message":"TypeError: hub replication config: invalid listen settings"}
+PASS NC-3b-invalid-listen-with-full-overrides-port-only {"type":"TypeError","message":"TypeError: hub replication config: invalid listen settings"}
+PASS NC-3b-invalid-listen-with-full-overrides-empty-host {"type":"TypeError","message":"TypeError: hub replication config: invalid listen settings"}
+PASS NC-3b-invalid-listen-with-full-overrides-port-out-of-range {"type":"TypeError","message":"TypeError: hub replication config: invalid listen settings"}
+PASS NC-3b-invalid-listen-with-full-overrides-path-not-absolute {"type":"TypeError","message":"TypeError: hub replication config: invalid listen settings"}
+PASS NC-3b-invalid-listen-with-full-overrides-typo-nested {"type":"TypeError","message":"TypeError: hub replication listen: invalid configuration"}
+PASS NC-4a-listen-adapter-required {"type":"TypeError","message":"TypeError: hub replication config: listen adapter is required"}
+PASS NC-4b-authentication-required {"type":"TypeError","message":"TypeError: hub replication config: authentication is required"}
+PASS NC-4c-authorization-required {"type":"TypeError","message":"TypeError: hub replication config: authorization is required"}
+PASS NC-4d-valid-listen-config-constructs {}
+PASS NC-5-error-does-not-echo-credentials {"message":"TypeError: hub replication config: invalid configuration"}
+FAIL CAP-1-listen-false-constructs-without-throw {"type":"TypeError","message":"TypeError: hub replication listen: invalid configuration"}
+FAIL CAP-2-session-host-service-published {"reason":"no-listen assembly unavailable (see CAP-1)"}
+FAIL CAP-3-service-status-ready-zero-sessions {"reason":"no-listen assembly unavailable (see CAP-1)"}
+FAIL CAP-4-service-open-real-session-open-ok {"reason":"no-listen assembly unavailable (see CAP-1)"}
+FAIL CAP-5-session-uses-context-registry-projection {"reason":"no-listen assembly unavailable (see CAP-1)"}
+FAIL CAP-6-session-uses-injected-observer {"reason":"no-listen assembly unavailable (see CAP-1)"}
+FAIL CAP-7-session-uses-context-timer {"reason":"no-listen assembly unavailable (see CAP-1)"}
+FAIL CAP-8-no-hub-replication-service {"reason":"no-listen assembly unavailable (see CAP-1)"}
+FAIL CAP-9-plugin-replication-and-listener-undefined {"reason":"no-listen assembly unavailable (see CAP-1)"}
+FAIL CAP-11-teardown-sessions-closed-timers-cleared {"reason":"no-listen assembly unavailable (see CAP-1)"}
+FAIL CAP-13-require-helper-roundtrip-and-revoke {"reason":"no-listen assembly unavailable (see CAP-1)"}
+FAIL CAP-10-supplied-listener-adapter-never-called {"reason":"no-listen assembly unavailable (see CAP-1)"}
+PASS NC-1-listen-mode-hub-service-and-listener {"status":{"state":"ready","connections":0},"listenCalls":1,"listener":"object"}
+PASS NC-2-listen-mode-session-host-absent {"sessionHostRaw":"undefined","requireSessionHostUnavailable":"n/a"}
+PASS NC-6-zero-network-face-structural-gate {"packageJsonHit":false,"sourceHits":[]}
+PROBE_RESULT 40/53
+FAILED_IDS CAP-12-public-entry-service-name-and-require-helper,CAP-1-listen-false-constructs-without-throw,CAP-2-session-host-service-published,CAP-3-service-status-ready-zero-sessions,CAP-4-service-open-real-session-open-ok,CAP-5-session-uses-context-registry-projection,CAP-6-session-uses-injected-observer,CAP-7-session-uses-context-timer,CAP-8-no-hub-replication-service,CAP-9-plugin-replication-and-listener-undefined,CAP-11-teardown-sessions-closed-timers-cleared,CAP-13-require-helper-roundtrip-and-revoke,CAP-10-supplied-listener-adapter-never-called
+[probe exit: 0]

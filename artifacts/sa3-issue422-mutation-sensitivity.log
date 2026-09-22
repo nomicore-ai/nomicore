@@ -1,0 +1,124 @@
+Testing types with tsc and vue-tsc is an experimental feature.
+Breaking changes might not follow SemVer, please pin Vitest's version when using it.
+
+ RUN  v3.2.7 /home/wangjian/nomicore-fix-issue-422
+
+ ❯ packages/ws-replication/test/ws-replication-issue422-listen-false.test.ts (42 tests | 3 failed) 60ms
+   ✓ @422 AC5：非法 listen 形态构造期响亮 TypeError（负控，HEAD 必须绿） > 拒绝：拼写变体键 1ms
+   ✓ @422 AC5：非法 listen 形态构造期响亮 TypeError（负控，HEAD 必须绿） > 拒绝：字符串伪值 0ms
+   ✓ @422 AC5：非法 listen 形态构造期响亮 TypeError（负控，HEAD 必须绿） > 拒绝：数字 0 0ms
+   ✓ @422 AC5：非法 listen 形态构造期响亮 TypeError（负控，HEAD 必须绿） > 拒绝：空串 0ms
+   ✓ @422 AC5：非法 listen 形态构造期响亮 TypeError（负控，HEAD 必须绿） > 拒绝：null 0ms
+   ✓ @422 AC5：非法 listen 形态构造期响亮 TypeError（负控，HEAD 必须绿） > 拒绝：undefined 0ms
+   ✓ @422 AC5：非法 listen 形态构造期响亮 TypeError（负控，HEAD 必须绿） > 拒绝：NaN 0ms
+   ✓ @422 AC5：非法 listen 形态构造期响亮 TypeError（负控，HEAD 必须绿） > 拒绝：数字 1 0ms
+   ✓ @422 AC5：非法 listen 形态构造期响亮 TypeError（负控，HEAD 必须绿） > 拒绝：true 0ms
+   ✓ @422 AC5：非法 listen 形态构造期响亮 TypeError（负控，HEAD 必须绿） > 拒绝：空数组 0ms
+   ✓ @422 AC5：非法 listen 形态构造期响亮 TypeError（负控，HEAD 必须绿） > 拒绝：空对象 0ms
+   ✓ @422 AC5：非法 listen 形态构造期响亮 TypeError（负控，HEAD 必须绿） > 拒绝：缺 host/port 0ms
+   ✓ @422 AC5：非法 listen 形态构造期响亮 TypeError（负控，HEAD 必须绿） > 拒绝：空 host 0ms
+   ✓ @422 AC5：非法 listen 形态构造期响亮 TypeError（负控，HEAD 必须绿） > 拒绝：端口越界 0ms
+   ✓ @422 AC5：非法 listen 形态构造期响亮 TypeError（负控，HEAD 必须绿） > 拒绝：path 非绝对 0ms
+   ✓ @422 AC5：非法 listen 形态构造期响亮 TypeError（负控，HEAD 必须绿） > 拒绝：嵌套拼写变体 0ms
+   ✓ @422 AC5：非法 listen 形态构造期响亮 TypeError（负控，HEAD 必须绿） > 拒绝（其余配置合法）：拼写变体键 0ms
+   ✓ @422 AC5：非法 listen 形态构造期响亮 TypeError（负控，HEAD 必须绿） > 拒绝（其余配置合法）：字符串伪值 0ms
+   ✓ @422 AC5：非法 listen 形态构造期响亮 TypeError（负控，HEAD 必须绿） > 拒绝（其余配置合法）：数字 0 0ms
+   ✓ @422 AC5：非法 listen 形态构造期响亮 TypeError（负控，HEAD 必须绿） > 拒绝（其余配置合法）：空串 0ms
+   ✓ @422 AC5：非法 listen 形态构造期响亮 TypeError（负控，HEAD 必须绿） > 拒绝（其余配置合法）：null 0ms
+   ✓ @422 AC5：非法 listen 形态构造期响亮 TypeError（负控，HEAD 必须绿） > 拒绝（其余配置合法）：undefined 0ms
+   ✓ @422 AC5：非法 listen 形态构造期响亮 TypeError（负控，HEAD 必须绿） > 拒绝（其余配置合法）：NaN 0ms
+   ✓ @422 AC5：非法 listen 形态构造期响亮 TypeError（负控，HEAD 必须绿） > 拒绝（其余配置合法）：数字 1 0ms
+   ✓ @422 AC5：非法 listen 形态构造期响亮 TypeError（负控，HEAD 必须绿） > 拒绝（其余配置合法）：true 0ms
+   ✓ @422 AC5：非法 listen 形态构造期响亮 TypeError（负控，HEAD 必须绿） > 拒绝（其余配置合法）：空数组 0ms
+   ✓ @422 AC5：非法 listen 形态构造期响亮 TypeError（负控，HEAD 必须绿） > 拒绝（其余配置合法）：空对象 0ms
+   ✓ @422 AC5：非法 listen 形态构造期响亮 TypeError（负控，HEAD 必须绿） > 拒绝（其余配置合法）：缺 host/port 0ms
+   ✓ @422 AC5：非法 listen 形态构造期响亮 TypeError（负控，HEAD 必须绿） > 拒绝（其余配置合法）：空 host 0ms
+   ✓ @422 AC5：非法 listen 形态构造期响亮 TypeError（负控，HEAD 必须绿） > 拒绝（其余配置合法）：端口越界 0ms
+   ✓ @422 AC5：非法 listen 形态构造期响亮 TypeError（负控，HEAD 必须绿） > 拒绝（其余配置合法）：path 非绝对 0ms
+   ✓ @422 AC5：非法 listen 形态构造期响亮 TypeError（负控，HEAD 必须绿） > 拒绝（其余配置合法）：嵌套拼写变体 0ms
+   ✓ @422 AC5：非法 listen 形态构造期响亮 TypeError（负控，HEAD 必须绿） > listen 模式既有要求链逐项不变（缺 adapter / 缺认证 / 缺授权） 1ms
+   ✓ @422 AC4：listen 模式服务面/装配逐字节不变（负控，HEAD 必须绿） > AC2 补充结构门：src/** 与 package.json 零网络面 API（GREEN 基线，须保持） 4ms
+   ✓ @422 AC4：listen 模式服务面/装配逐字节不变（负控，HEAD 必须绿） > listen 模式提供 nomicoreHubReplication、调用 adapter 一次、不提供 SessionHost 服务 19ms
+   ✓ @422 AC1/AC2/AC3/AC6：免 listen 模式（目标断言；HEAD 必须红在能力缺口） > 角色校验纪律不变：免 listen 模式仍先于任何装配副作用拒绝 peer 角色 1ms
+   ✓ @422 AC1/AC2/AC3/AC6：免 listen 模式（目标断言；HEAD 必须红在能力缺口） > 装配成功 + 服务面 + 零 listener + 零 nomicoreHubReplication + 真会话回合 + 注入面 11ms
+   × @422 F1：免 listen 模式 limits/timeouts 值域响亮失败（值与 listen 模式同判） > C5d：timeouts 正整数违例——构造不抛、apply rejection TypeError、零副作用 9ms
+     → promise resolved "undefined" instead of rejecting
+   × @422 F1：免 listen 模式 limits/timeouts 值域响亮失败（值与 listen 模式同判） > C5e：limits 跨字段违例（lowWater ≥ highWater）——构造不抛、apply rejection TypeError 3ms
+     → promise resolved "undefined" instead of rejecting
+   ✓ @422 F1：免 listen 模式 limits/timeouts 值域响亮失败（值与 listen 模式同判） > C5f：parity——同一畸形值在 listen 模式同样构造成功 + apply rejection TypeError 3ms
+   × @422 F1：免 listen 模式 limits/timeouts 值域响亮失败（值与 listen 模式同判） > C5g①：分块族显式激活——显式 maxChunksPerUpdate 激活链（4MiB > 4×512KiB=2MiB） 2ms
+     → promise resolved "undefined" instead of rejecting
+   ✓ @422 F1：免 listen 模式 limits/timeouts 值域响亮失败（值与 listen 模式同判） > C5g②：非链门键不激活（N5/N6 非追溯性）——apply resolve、服务 ready 2ms
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 3 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  packages/ws-replication/test/ws-replication-issue422-listen-false.test.ts > @422 F1：免 listen 模式 limits/timeouts 值域响亮失败（值与 listen 模式同判） > C5d：timeouts 正整数违例——构造不抛、apply rejection TypeError、零副作用
+AssertionError: promise resolved "undefined" instead of rejecting
+
+- Expected: 
+Error {
+  "message": "rejected promise",
+}
+
++ Received: 
+undefined
+
+ ❯ packages/ws-replication/test/ws-replication-issue422-listen-false.test.ts:331:27
+    329|     // 装配期（= listen 模式经 createHubReplication 的同款时机）响亮拒绝。
+    330|     const rejection = plugin.apply(ctx);
+    331|     await expect(rejection).rejects.toThrow(TypeError);
+       |                           ^
+    332|     await expect(rejection).rejects.toThrow(/bootstrapTimeoutMs/);
+    333|     // 零副作用：拒绝点先于 provide/effect ⇒ 零服务、零定时器、adapter 零调用。
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/3]⎯
+
+ FAIL  packages/ws-replication/test/ws-replication-issue422-listen-false.test.ts > @422 F1：免 listen 模式 limits/timeouts 值域响亮失败（值与 listen 模式同判） > C5e：limits 跨字段违例（lowWater ≥ highWater）——构造不抛、apply rejection TypeError
+AssertionError: promise resolved "undefined" instead of rejecting
+
+- Expected: 
+Error {
+  "message": "rejected promise",
+}
+
++ Received: 
+undefined
+
+ ❯ packages/ws-replication/test/ws-replication-issue422-listen-false.test.ts:352:27
+    350|     );
+    351|     const rejection = plugin.apply(ctx);
+    352|     await expect(rejection).rejects.toThrow(TypeError);
+       |                           ^
+    353|     await expect(rejection).rejects.toThrow(/lowWater/);
+    354|     expect(ctx.get(NOMICORE_HUB_SESSION_HOST_SERVICE)).toBeUndefined();
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/3]⎯
+
+ FAIL  packages/ws-replication/test/ws-replication-issue422-listen-false.test.ts > @422 F1：免 listen 模式 limits/timeouts 值域响亮失败（值与 listen 模式同判） > C5g①：分块族显式激活——显式 maxChunksPerUpdate 激活链（4MiB > 4×512KiB=2MiB）
+AssertionError: promise resolved "undefined" instead of rejecting
+
+- Expected: 
+Error {
+  "message": "rejected promise",
+}
+
++ Received: 
+undefined
+
+ ❯ packages/ws-replication/test/ws-replication-issue422-listen-false.test.ts:397:35
+    395|       {},
+    396|     );
+    397|     await expect(plugin.apply(ctx)).rejects.toThrow(TypeError);
+       |                                   ^
+    398|     expect(ctx.get(NOMICORE_HUB_SESSION_HOST_SERVICE)).toBeUndefined();
+    399|     expect(timer.active.size).toBe(0);
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[3/3]⎯
+
+
+ Test Files  1 failed (1)
+      Tests  3 failed | 39 passed (42)
+Type Errors  no errors
+   Start at  08:10:24
+   Duration  1.15s (transform 653ms, setup 0ms, collect 910ms, tests 60ms, environment 0ms, prepare 50ms)
+

@@ -1,0 +1,19 @@
+### SA6 issue-422 feasibility probe (HEAD=4ad13a35f782411d3c48096c31afa724f6eae067) — 2026-09-22T07:20:04+08:00
+### run: NODE_OPTIONS=--conditions=nomicore-source pnpm exec tsx artifacts/sa6-issue422-causal-feasibility-probe.mts
+INFO head 4ad13a35f782411d3c48096c31afa724f6eae067
+PASS E0.factory-present {"typeof":"function"}
+PASS E1a.open-ok-outbound {"kinds":["OPEN_OK","BOOTSTRAP_SNAPSHOT"]}
+PASS E1b.outbound-placeholder-sequence-zero {"sequences":[0,0]}
+PASS E1c.registry-projection-used {"openCalls":[{"owner":{"userId":"hub-owner-9f38"},"namespaceId":"ns-00000000000000000000000000000001"}]}
+PASS E1d.timer-armed-during-open {"timerCalls":2,"delays":[10000,1234],"armedNow":2}
+PASS E1f.config-timeouts-plumbed-to-session-timers {"delays":[10000,1234],"expectedConfigured":1234}
+PASS E1e.observer-injection-observed {"count":2,"types":["channel-state-changed","bootstrap-snapshot-sent"]}
+PASS E2a.close-idempotent {"samePromise":true}
+PASS E2b.close-resolves {}
+PASS E2c.channel-terminal-closed-observed {"transitions":["opening->bootstrapping","bootstrapping->closing","closing->closed"]}
+PASS E2d.timers-cleared-after-close {"armedTimers":0}
+PASS E2e.no-settled-on-connection-close {"signals":[]}
+PASS E3a.owner-mismatch-no-open-ok-and-error {"kinds":["ERROR"],"codes":["NAMESPACE_NOT_FOUND"]}
+PROBE_RESULT 13/13
+FAILED_IDS 
+[probe exit: 0]

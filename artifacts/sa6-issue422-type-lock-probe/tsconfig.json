@@ -1,0 +1,12 @@
+{
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    "baseUrl": ".",
+    "types": ["node"],
+    "typeRoots": ["../../packages/ws-replication/node_modules/@types"],
+    "paths": {
+      "@nomicore/ws-replication": ["../../packages/ws-replication/src/index.ts"]
+    }
+  },
+  "include": ["probe.ts"]
+}

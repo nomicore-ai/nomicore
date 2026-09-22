@@ -1,0 +1,16 @@
+### SA6 issue-422 stability 3x (HEAD=4ad13a35f782411d3c48096c31afa724f6eae067) — 2026-09-22T07:20:05+08:00
+=== round 1 ===
+PROBE_RESULT 40/53
+FAILED_IDS CAP-12-public-entry-service-name-and-require-helper,CAP-1-listen-false-constructs-without-throw,CAP-2-session-host-service-published,CAP-3-service-status-ready-zero-sessions,CAP-4-service-open-real-session-open-ok,CAP-5-session-uses-context-registry-projection,CAP-6-session-uses-injected-observer,CAP-7-session-uses-context-timer,CAP-8-no-hub-replication-service,CAP-9-plugin-replication-and-listener-undefined,CAP-11-teardown-sessions-closed-timers-cleared,CAP-13-require-helper-roundtrip-and-revoke,CAP-10-supplied-listener-adapter-never-called
+PROBE_RESULT 13/13
+FAILED_IDS 
+=== round 2 ===
+PROBE_RESULT 40/53
+FAILED_IDS CAP-12-public-entry-service-name-and-require-helper,CAP-1-listen-false-constructs-without-throw,CAP-2-session-host-service-published,CAP-3-service-status-ready-zero-sessions,CAP-4-service-open-real-session-open-ok,CAP-5-session-uses-context-registry-projection,CAP-6-session-uses-injected-observer,CAP-7-session-uses-context-timer,CAP-8-no-hub-replication-service,CAP-9-plugin-replication-and-listener-undefined,CAP-11-teardown-sessions-closed-timers-cleared,CAP-13-require-helper-roundtrip-and-revoke,CAP-10-supplied-listener-adapter-never-called
+PROBE_RESULT 13/13
+FAILED_IDS 
+=== round 3 ===
+PROBE_RESULT 40/53
+FAILED_IDS CAP-12-public-entry-service-name-and-require-helper,CAP-1-listen-false-constructs-without-throw,CAP-2-session-host-service-published,CAP-3-service-status-ready-zero-sessions,CAP-4-service-open-real-session-open-ok,CAP-5-session-uses-context-registry-projection,CAP-6-session-uses-injected-observer,CAP-7-session-uses-context-timer,CAP-8-no-hub-replication-service,CAP-9-plugin-replication-and-listener-undefined,CAP-11-teardown-sessions-closed-timers-cleared,CAP-13-require-helper-roundtrip-and-revoke,CAP-10-supplied-listener-adapter-never-called
+PROBE_RESULT 13/13
+FAILED_IDS 

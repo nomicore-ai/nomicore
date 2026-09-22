@@ -1,0 +1,10 @@
+### SA6 issue-422 type-lock red (HEAD=4ad13a35f782411d3c48096c31afa724f6eae067) — 2026-09-22T07:15:26+08:00
+### run: pnpm exec tsc -p artifacts/sa6-issue422-type-lock-probe/tsconfig.json
+artifacts/sa6-issue422-type-lock-probe/probe.ts(14,3): error TS2724: '"@nomicore/ws-replication"' has no exported member named 'requireHubSessionHost'. Did you mean 'createHubSessionHost'?
+artifacts/sa6-issue422-type-lock-probe/probe.ts(15,3): error TS2305: Module '"@nomicore/ws-replication"' has no exported member 'NOMICORE_HUB_SESSION_HOST_SERVICE'.
+artifacts/sa6-issue422-type-lock-probe/probe.ts(19,8): error TS2724: '"@nomicore/ws-replication"' has no exported member named 'HubSessionHostService'. Did you mean 'HubSessionHost'?
+artifacts/sa6-issue422-type-lock-probe/probe.ts(20,8): error TS2724: '"@nomicore/ws-replication"' has no exported member named 'HubSessionHostStatus'. Did you mean 'HubSessionHost'?
+artifacts/sa6-issue422-type-lock-probe/probe.ts(26,54): error TS2322: Type 'boolean' is not assignable to type 'Readonly<{ readonly host: string; readonly port: number; readonly path?: string; }>'.
+artifacts/sa6-issue422-type-lock-probe/probe.ts(81,1): error TS2578: Unused '@ts-expect-error' directive.
+artifacts/sa6-issue422-type-lock-probe/probe.ts(83,1): error TS2578: Unused '@ts-expect-error' directive.
+[tsc exit: 2]
