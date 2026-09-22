@@ -92,6 +92,16 @@ const TEXT_LIB_ITEM =
   'type Item = { name: string; qty: number };\n'
   + 'type ROOT = { target: { value: number; note?: string }; library: YArray<Item> };';
 
+/** issue #436 定向重锚用局部 schema（**仅**「A-7 对称面」用例消费；共享 TEXT_LIB_ITEM
+ *  与其全部消费面〔A-1/A-6/A-7 等〕零触碰）：`library` 声明为 union 数组目标
+ *  （`A[] | B[]`）——ADR 0033 决策 1 立法**永久回退 legacy** 全量边界路径的面：整边界
+ *  提取/重建/校验照旧，边界内既存损坏仍响亮拒绝。授权链：ADR 0033 决策 1（union 永久
+ *  回退）+ 决策 4（非 union `T[]` 触达面收窄）+ ADR-0007 issue #237 修订节 ADR 0033
+ *  修订注记（同批交付）。断言语义面零放宽。 */
+const TEXT_LIB_ITEM_UNION =
+  'type Item = { name: string; qty: number };\n'
+  + 'type ROOT = { target: { value: number; note?: string }; library: YArray<Item> | YArray<string> };';
+
 function derivedOf(text: string): DerivedSchema {
   const parsed = parseVfsl(text);
   if (!parsed.ok) throw new Error(`前置 parseVfsl 失败（fixture 缺陷）：${JSON.stringify(parsed.issues)}`);
@@ -546,7 +556,12 @@ describe('A-7【SA2 裁决二锚】set 整值替换修复语义（声明 carve-o
   });
 
   it('对称面（绿锁定）：array-insert 目标数组内既存损坏元素（R4 边界内）→ 整批 ok:false 零写入', () => {
-    const { derived, doc } = fixtureOf(TEXT_LIB_ITEM, { target: { value: 0 }, library: librarySeed(3) });
+    // 锚定载体迁移（issue #436）：非 union `T[]` 自 ADR 0033 起走 fast path（区间外既存
+    // 损坏不再阻断写），故本用例改锚 union 数组目标的**永久 legacy 全量边界轨**
+    // （TEXT_LIB_ITEM_UNION；ADR 0033 决策 1）——「提取型边界内既存损坏仍响亮拒绝」的
+    // 意图锚与四断言（ok:false / 零写入 / 零 update / length 不变）逐字未改。授权链同
+    // 上（ADR 0033 决策 1/4 + ADR-0007 #237 修订节 ADR 0033 修订注记）。
+    const { derived, doc } = fixtureOf(TEXT_LIB_ITEM_UNION, { target: { value: 0 }, library: librarySeed(3) });
     expectValidBaseline(derived, doc);
     const library = doc.getMap('ROOT').get('library') as Y.Array<Y.Map<unknown>>;
     // 经 live carrier 写坏数组边界内元素（绕过一切校验）

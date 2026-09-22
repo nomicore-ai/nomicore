@@ -122,3 +122,19 @@ commits）。本节按「owner 授权 + 显式修订节」模式（ADR-0006 #64/
    （R6 set 目标位 O(1) 常数；array/Record/union 边界与 delete 父位按边界规模），
    与完整 ROOT 规模解耦；`set([])` 与顶层退化位仍为 O(ROOT)。owned Yjs update
    保持最小化（只修改目标 carrier）。
+
+### ADR 0033 修订注记（2026-09-22）
+
+授权链：ADR 0033（`docs/adr/0033-elementwise-yarray-mutation-validation.md`，状态已接受，
+决策 1–4）+ `docs/AGENTS.md`「Amend or supersede prior decisions explicitly instead of
+silently contradicting them」义务句；沿本仓「显式修订节」惯例（ADR-0006 #64/#79、
+ADR-0008 #93/#132、本节先例）。除下列明示句外，本节其余条款维持原文效力。
+
+> 本节条款 1 的「批量 values[] / count 一次整体判定，不逐元素」与条款 4(ii) 中的
+> 「数组位」字面，自 ADR 0033（`docs/adr/0033-elementwise-yarray-mutation-validation.md`
+> 决策 1–4）起就**非 union `T[]` 数组位**修订为：逐元素校验、触达面收窄为「数组载体 +
+> 变更区间」——区间外既存损坏不再被普通数组写发现（污染数组的 delete/insert 照常成功）；
+> 条款 7 的「array……按边界规模」成本句对该类目标相应为 O(变更量)。union 数组目标
+> （`A[] | B[]`）与本节其余边界种类（union 穿越位、Record 位、delete 父 map 位）按本节
+> 原文逐字保持；载体形态违规（条款 4(i)）不受影响。ADR-0010 issue #237 修订节后备句的
+> 数组含义同步随 ADR 0033 决策 4 修订（该节已被其标题点名，无需另行注记）。

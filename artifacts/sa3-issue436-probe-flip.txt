@@ -1,0 +1,17 @@
+# SA6 probe post-implementation delta (issue #436 SA3)
+# groups the probe itself declares post-change invariants (U/S/O/N + G2d): 26 PASS
+PASS total: 26
+# G group = probe self-labelled 'HEAD 现状 / fast path 未接线' gap assertions: 12 FAIL
+FAIL [G1] G1a 污染数组 delete（变更区间外非法）现状 :: result={"ok":true}；before=["oops",1,2,3,4,5]
+FAIL [G1] G1b 污染数组 insert（合法新值 + 区间外污染）现状 :: result={"ok":true}
+FAIL [G1] G1c 批量信封内污染数组 delete 现状 :: result={"ok":true}
+FAIL [G2] G2a insert-append n=512 读计数 ∝ n（现状） :: reads=1（阈值 n=512）result={"ok":true}
+FAIL [G2] G2b delete n=512 读计数 ∝ n（现状） :: reads=0（阈值 n=512）result={"ok":true}
+FAIL [G2] G2c 越界 delete 先整数组提取再拒（现状） :: reads=0（阈值 n=512）result={"ok":false,"issues":[{"message":"array-delete 范围越界（不 clamp、不接受越界 no-op）","path":["items",512]}]}
+FAIL [G2] G2a insert-append n=4096 读计数 ∝ n（现状） :: reads=1（阈值 n=4096）result={"ok":true}
+FAIL [G2] G2b delete n=4096 读计数 ∝ n（现状） :: reads=0（阈值 n=4096）result={"ok":true}
+FAIL [G2] G2c 越界 delete 先整数组提取再拒（现状） :: reads=0（阈值 n=4096）result={"ok":false,"issues":[{"message":"array-delete 范围越界（不 clamp、不接受越界 no-op）","path":["items",4096]}]}
+FAIL [G5] G5 成本随 n 增长（软证据） :: n=10^3 0.2ms vs n=10^5 0.3ms（×1.4）
+FAIL [G4] G4a insert：区间外元素被 observer 篡改 → 现状 E201-C :: thrown=undefined
+FAIL [G4] G4b delete：区间外元素被 observer 篡改 → 现状 E201-C :: thrown=undefined
+SUMMARY checks=38 failures=12

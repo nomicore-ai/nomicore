@@ -192,7 +192,7 @@ function trialMember(
 ): TrialResult {
   if (member.kind === 'map') {
     if (carrierOf(live) !== 'Y.Map') {
-      return { accept: false, issue: mismatchIssue(path, 'Y.Map', live) }; // 前置判定拒 + 真 issue
+      return { accept: false, issue: carrierMismatchIssue(path, 'Y.Map', live) }; // 前置判定拒 + 真 issue
     }
     const ymap = live as Y.Map<unknown>;
     const first = member.fields[0];
@@ -354,11 +354,14 @@ function makeIssue(path: Array<string | number>, expected: string, actual: strin
 
 /** 错位 → WalkResult（actual 由 carrierOf 重判；null 不可达态 → 崩溃边界 E100）。 */
 function mismatch(path: Array<string | number>, expected: string, live: unknown): WalkResult {
-  return { kind: 'issue', issue: mismatchIssue(path, expected, live) };
+  return { kind: 'issue', issue: carrierMismatchIssue(path, expected, live) };
 }
 
-/** 错位 → 直接取 issue（union 前置判定复用同款构造，R2/#5）。 */
-function mismatchIssue(path: Array<string | number>, expected: string, live: unknown): ExtractIssue {
+/** 错位 → 直接取 issue（union 前置判定复用同款构造，R2/#5）。
+ *  @internal issue #436 / ADR 0033 决策 4：doc-runtime fast path 的载体检查（mutation-local
+ *  F1）复用本构造，保证与 walk 首错**同文案、同 path**（防手拼字面量漂移；null 不可达态
+ *  行为随之一致）。不经 index.ts 公共入口导出。 */
+export function carrierMismatchIssue(path: Array<string | number>, expected: string, live: unknown): ExtractIssue {
   const actual = carrierOf(live);
   if (actual === null) {
     // 不可达态（D9①）：undefined 被 D4 先行拦截、function/symbol 直接位 set 期即抛、

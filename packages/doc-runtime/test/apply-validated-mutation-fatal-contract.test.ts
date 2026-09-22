@@ -214,8 +214,16 @@ describe('applyValidatedMutation — 领域失败面不进入 fatal 通道（AC-
     // - 原形态「ROOT 已损坏（count 在路径外）+ 写 title」在路径级/边界级校验下
     //   **合法转 ok:true**（触达面外损坏不再被普通写发现——E1/E3 声明的语义让渡）；
     // - W5 意图（领域失败留在 ok:false 联合、不被 fatal 通道吞并）改为**边界内**损坏
-    //   形态锚定：目标数组边界内既有元素值非法 → array-insert 的 R4 整批校验响亮拒绝。
-    const W5_TEXT = 'type Item = { name: string; qty: number };\ntype ROOT = { items: YArray<Item>; tag: string };';
+    //   形态锚定：目标数组边界内既有元素值非法 → array-insert 的整边界校验响亮拒绝。
+    // 锚定载体迁移（issue #436；授权链：ADR 0033 决策 1/4 + ADR-0007 #237 修订节
+    // ADR 0033 修订注记〔同批交付〕；断言语义面零放宽）：
+    // - 非 union `T[]` 自 ADR 0033 起走 fast path（触达面 = 数组载体 + 变更区间）：区间外
+    //   既存损坏不再阻断写——该新目标行为由 SA6 契约 FA 组锚定；
+    // - 本用例改锚**永久 legacy 全量边界轨**的 union 数组目标（A[] | B[]；ADR 0033
+    //   决策 1 立法保留）：整边界校验照旧整批响亮拒绝，W5 意图原样成立；
+    // - seed / 污染注入 / 操作 / 断言（ok:false + issues.length > 0 + stateBytes 不变）
+    //   逐字未改。
+    const W5_TEXT = 'type Item = { name: string; qty: number };\ntype ROOT = { items: YArray<Item> | YArray<string>; tag: string };';
     const doc = new Y.Doc();
     const root = doc.getMap('ROOT');
     const seed = materializeRoot(derivedOf(W5_TEXT), { items: [{ name: 'a', qty: 1 }], tag: 'x' }, doc);

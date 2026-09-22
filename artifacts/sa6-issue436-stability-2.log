@@ -1,0 +1,207 @@
+Testing types with tsc and vue-tsc is an experimental feature.
+Breaking changes might not follow SemVer, please pin Vitest's version when using it.
+
+ RUN  v3.2.7 /home/wangjian/nomicore-fix-issue-436
+
+ ❯ packages/doc-runtime/test/issue-436-array-fastpath-contract.test.ts (8 tests | 8 failed) 75ms
+   × issue #436 FA — 非 union T[] 目标走 fast path（跳过整数组提取；ADR 0033 决策 1/4） > FA1 区间外污染不阻断 array-delete：ok:true + 单 update + 污染保留（legacy 现状为响亮拒绝） 19ms
+     → expected { ok: false, issues: [ { …(2) } ] } to deeply equal { ok: true }
+   × issue #436 FA — 非 union T[] 目标走 fast path（跳过整数组提取；ADR 0033 决策 1/4） > FA2 区间外污染不阻断 array-insert（合法新值逐元素过 schema；污染元素不被读取/修复） 3ms
+     → expected { ok: false, issues: [ { …(2) } ] } to deeply equal { ok: true }
+   × issue #436 FA — 非 union T[] 目标走 fast path（跳过整数组提取；ADR 0033 决策 1/4） > FA3 批量信封内的数组分支同样按闸门分流：污染数组 delete 在批内 ok:true 2ms
+     → expected { ok: false, issues: [ { …(2) } ] } to deeply equal { ok: true }
+   × issue #436 FB — 单元素写不再整数组提取/重投影（ADR 0033 决策 2/6） > FB1 单元素 append 的元素读计数 ≤ k+余量 且与 n 解耦（legacy 现状 n=512→1026 / n=4096→8194） 25ms
+     → n=512 读计数应 ≈ k（≤8），实际 1026: expected 1026 to be less than or equal to 8
+   × issue #436 FB — 单元素写不再整数组提取/重投影（ADR 0033 决策 2/6） > FB2 单元素 delete 的元素读计数 ≤ 余量 且与 n 解耦（legacy 现状 n=512→1023 / n=4096→8191） 15ms
+     → n=512 读计数应 ≈ 0（≤8），实际 1023: expected 1023 to be less than or equal to 8
+   × issue #436 FB — 单元素写不再整数组提取/重投影（ADR 0033 决策 2/6） > FB3 越界拒绝基于 live 长度（O(1) 元素读）且逐字域规则不变（legacy 现状先 walk 全数组） 2ms
+     → 越界 delete 读计数应 O(1)（≤4），实际 512: expected 512 to be less than or equal to 4
+   × issue #436 FC — fast-path 提交仅安装事实核（区间外 observer 篡改不再 E201；已确认取舍） > FC1 fast-path insert：区间外元素被 observer 篡改 → 不抛 fatal、ok:true、doc 保持篡改状态 7ms
+     → 区间外篡改不应触发 fatal（实际 DOCRT-E201: mutation 边界安装后一致性校验偏离（边界 ROOT[0]）：键 "0" 读回 99 与对照安装读回 1 不等价（ROOT[0]）——疑似 observer 修改已安装边界；写入已提交，不回滚、不补偿，doc 保持 observer 留下的实际状态）: expected DocRuntimeFatalError: DOCRT-E201: mutatio… { …(2) } to be undefined
+   × issue #436 FC — fast-path 提交仅安装事实核（区间外 observer 篡改不再 E201；已确认取舍） > FC2 fast-path delete：区间外元素被 observer 篡改（长度不变）→ 不抛 fatal、ok:true 2ms
+     → 区间外篡改不应触发 fatal（实际 DOCRT-E201: mutation 边界安装后一致性校验偏离（边界 ROOT[0]）：键 "0" 读回 99 与对照安装读回 1 不等价（ROOT[0]）——疑似 observer 修改已安装边界；写入已提交，不回滚、不补偿，doc 保持 observer 留下的实际状态）: expected DocRuntimeFatalError: DOCRT-E201: mutatio… { …(2) } to be undefined
+ ✓ packages/doc-runtime/test/issue-436-array-fastpath-control.test.ts (17 tests) 47ms
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 8 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  packages/doc-runtime/test/issue-436-array-fastpath-contract.test.ts > issue #436 FA — 非 union T[] 目标走 fast path（跳过整数组提取；ADR 0033 决策 1/4） > FA1 区间外污染不阻断 array-delete：ok:true + 单 update + 污染保留（legacy 现状为响亮拒绝）
+AssertionError: expected { ok: false, issues: [ { …(2) } ] } to deeply equal { ok: true }
+
+- Expected
++ Received
+
+  {
+-   "ok": true,
++   "issues": [
++     {
++       "message": "类型不匹配：期望 number，实际 string",
++       "path": [
++         "items",
++         0,
++       ],
++     },
++   ],
++   "ok": false,
+  }
+
+ ❯ packages/doc-runtime/test/issue-436-array-fastpath-contract.test.ts:38:29
+     36|     fx.items.insert(0, ['oops' as unknown as number]); // raw replicat…
+     37|     const captured = withUpdates(fx.doc, () => run(fx, { op: 'array-de…
+     38|     expect(captured.result).toEqual({ ok: true });
+       |                             ^
+     39|     expect(captured.count).toBe(1);
+     40|     expect(fx.items.toJSON()).toEqual(['oops', 1, 3, 4, 5]);
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/8]⎯
+
+ FAIL  packages/doc-runtime/test/issue-436-array-fastpath-contract.test.ts > issue #436 FA — 非 union T[] 目标走 fast path（跳过整数组提取；ADR 0033 决策 1/4） > FA2 区间外污染不阻断 array-insert（合法新值逐元素过 schema；污染元素不被读取/修复）
+AssertionError: expected { ok: false, issues: [ { …(2) } ] } to deeply equal { ok: true }
+
+- Expected
++ Received
+
+  {
+-   "ok": true,
++   "issues": [
++     {
++       "message": "类型不匹配：期望 number，实际 string",
++       "path": [
++         "rows",
++         0,
++         "qty",
++       ],
++     },
++   ],
++   "ok": false,
+  }
+
+ ❯ packages/doc-runtime/test/issue-436-array-fastpath-contract.test.ts:48:29
+     46|     const captured = withUpdates(fx.doc, () =>
+     47|       run(fx, { op: 'array-insert', path: ['rows'], index: 1, values: …
+     48|     expect(captured.result).toEqual({ ok: true });
+       |                             ^
+     49|     expect(captured.count).toBe(1);
+     50|     expect(fx.rows.length).toBe(4);
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/8]⎯
+
+ FAIL  packages/doc-runtime/test/issue-436-array-fastpath-contract.test.ts > issue #436 FA — 非 union T[] 目标走 fast path（跳过整数组提取；ADR 0033 决策 1/4） > FA3 批量信封内的数组分支同样按闸门分流：污染数组 delete 在批内 ok:true
+AssertionError: expected { ok: false, issues: [ { …(2) } ] } to deeply equal { ok: true }
+
+- Expected
++ Received
+
+  {
+-   "ok": true,
++   "issues": [
++     {
++       "message": "类型不匹配：期望 number，实际 string",
++       "path": [
++         "items",
++         0,
++       ],
++     },
++   ],
++   "ok": false,
+  }
+
+ ❯ packages/doc-runtime/test/issue-436-array-fastpath-contract.test.ts:59:20
+     57|     fx.items.insert(0, ['oops' as unknown as number]);
+     58|     const result = run(fx, { ops: [{ op: 'array-delete', path: ['items…
+     59|     expect(result).toEqual({ ok: true });
+       |                    ^
+     60|     expect(fx.items.toJSON()).toEqual(['oops', 1, 3, 4, 5]);
+     61|   });
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[3/8]⎯
+
+ FAIL  packages/doc-runtime/test/issue-436-array-fastpath-contract.test.ts > issue #436 FB — 单元素写不再整数组提取/重投影（ADR 0033 决策 2/6） > FB1 单元素 append 的元素读计数 ≤ k+余量 且与 n 解耦（legacy 现状 n=512→1026 / n=4096→8194）
+AssertionError: n=512 读计数应 ≈ k（≤8），实际 1026: expected 1026 to be less than or equal to 8
+ ❯ packages/doc-runtime/test/issue-436-array-fastpath-contract.test.ts:88:53
+     86|     const at512 = appendReads(512);
+     87|     const at4096 = appendReads(4096);
+     88|     expect(at512, `n=512 读计数应 ≈ k（≤8），实际 ${at512}`).toBeLessThanOrEqua…
+       |                                                     ^
+     89|     expect(at4096, `n=4096 读计数应 ≈ k（≤8），实际 ${at4096}`).toBeLessThanOrE…
+     90|     expect(at4096, `读计数应由变更量决定而非 n：n=512→${at512} vs n=4096→${at4096}`…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[4/8]⎯
+
+ FAIL  packages/doc-runtime/test/issue-436-array-fastpath-contract.test.ts > issue #436 FB — 单元素写不再整数组提取/重投影（ADR 0033 决策 2/6） > FB2 单元素 delete 的元素读计数 ≤ 余量 且与 n 解耦（legacy 现状 n=512→1023 / n=4096→8191）
+AssertionError: n=512 读计数应 ≈ 0（≤8），实际 1023: expected 1023 to be less than or equal to 8
+ ❯ packages/doc-runtime/test/issue-436-array-fastpath-contract.test.ts:96:53
+     94|     const at512 = deleteReads(512);
+     95|     const at4096 = deleteReads(4096);
+     96|     expect(at512, `n=512 读计数应 ≈ 0（≤8），实际 ${at512}`).toBeLessThanOrEqua…
+       |                                                     ^
+     97|     expect(at4096, `n=4096 读计数应 ≈ 0（≤8），实际 ${at4096}`).toBeLessThanOrE…
+     98|     expect(at4096, `读计数应由变更量决定而非 n：n=512→${at512} vs n=4096→${at4096}`…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[5/8]⎯
+
+ FAIL  packages/doc-runtime/test/issue-436-array-fastpath-contract.test.ts > issue #436 FB — 单元素写不再整数组提取/重投影（ADR 0033 决策 2/6） > FB3 越界拒绝基于 live 长度（O(1) 元素读）且逐字域规则不变（legacy 现状先 walk 全数组）
+AssertionError: 越界 delete 读计数应 O(1)（≤4），实际 512: expected 512 to be less than or equal to 4
+ ❯ packages/doc-runtime/test/issue-436-array-fastpath-contract.test.ts:109:66
+    107|       issues: [{ message: 'array-delete 范围越界（不 clamp、不接受越界 no-op）', pa…
+    108|     });
+    109|     expect(del.reads, `越界 delete 读计数应 O(1)（≤4），实际 ${del.reads}`).toBeL…
+       |                                                                  ^
+    110|
+    111|     const fxInsert = fixture({ n: 512 });
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[6/8]⎯
+
+ FAIL  packages/doc-runtime/test/issue-436-array-fastpath-contract.test.ts > issue #436 FC — fast-path 提交仅安装事实核（区间外 observer 篡改不再 E201；已确认取舍） > FC1 fast-path insert：区间外元素被 observer 篡改 → 不抛 fatal、ok:true、doc 保持篡改状态
+AssertionError: 区间外篡改不应触发 fatal（实际 DOCRT-E201: mutation 边界安装后一致性校验偏离（边界 ROOT[0]）：键 "0" 读回 99 与对照安装读回 1 不等价（ROOT[0]）——疑似 observer 修改已安装边界；写入已提交，不回滚、不补偿，doc 保持 observer 留下的实际状态）: expected DocRuntimeFatalError: DOCRT-E201: mutatio… { …(2) } to be undefined
+
+- Expected:
+undefined
+
++ Received:
+DocRuntimeFatalError {
+  "message": "DOCRT-E201: mutation 边界安装后一致性校验偏离（边界 ROOT[0]）：键 \"0\" 读回 99 与对照安装读回 1 不等价（ROOT[0]）——疑似 observer 修改已安装边界；写入已提交，不回滚、不补偿，doc 保持 observer 留下的实际状态",
+  "committed": true,
+  "phase": "post-commit-verification",
+  "name": "DocRuntimeFatalError",
+}
+
+ ❯ packages/doc-runtime/test/issue-436-array-fastpath-contract.test.ts:135:76
+    133|     const thrown = capture(() => run(fx, { op: 'array-insert', path: […
+    134|     const summary = summarizeThrown(thrown);
+    135|     expect(thrown, `区间外篡改不应触发 fatal（实际 ${summary.message.slice(0, 160)…
+       |                                                                            ^
+    136|     expect(fx.items.toJSON()).toEqual([99, 2, 3, 22, 4, 5]);
+    137|   });
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[7/8]⎯
+
+ FAIL  packages/doc-runtime/test/issue-436-array-fastpath-contract.test.ts > issue #436 FC — fast-path 提交仅安装事实核（区间外 observer 篡改不再 E201；已确认取舍） > FC2 fast-path delete：区间外元素被 observer 篡改（长度不变）→ 不抛 fatal、ok:true
+AssertionError: 区间外篡改不应触发 fatal（实际 DOCRT-E201: mutation 边界安装后一致性校验偏离（边界 ROOT[0]）：键 "0" 读回 99 与对照安装读回 1 不等价（ROOT[0]）——疑似 observer 修改已安装边界；写入已提交，不回滚、不补偿，doc 保持 observer 留下的实际状态）: expected DocRuntimeFatalError: DOCRT-E201: mutatio… { …(2) } to be undefined
+
+- Expected:
+undefined
+
++ Received:
+DocRuntimeFatalError {
+  "message": "DOCRT-E201: mutation 边界安装后一致性校验偏离（边界 ROOT[0]）：键 \"0\" 读回 99 与对照安装读回 1 不等价（ROOT[0]）——疑似 observer 修改已安装边界；写入已提交，不回滚、不补偿，doc 保持 observer 留下的实际状态",
+  "committed": true,
+  "phase": "post-commit-verification",
+  "name": "DocRuntimeFatalError",
+}
+
+ ❯ packages/doc-runtime/test/issue-436-array-fastpath-contract.test.ts:147:76
+    145|     const thrown = capture(() => run(fx, { op: 'array-delete', path: […
+    146|     const summary = summarizeThrown(thrown);
+    147|     expect(thrown, `区间外篡改不应触发 fatal（实际 ${summary.message.slice(0, 160)…
+       |                                                                            ^
+    148|     expect(fx.items.toJSON()).toEqual([99, 2, 3, 5]);
+    149|   });
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[8/8]⎯
+
+
+ Test Files  1 failed | 1 passed (2)
+      Tests  8 failed | 17 passed (25)
+Type Errors  no errors
+   Start at  13:16:08
+   Duration  873ms (transform 285ms, setup 0ms, collect 459ms, tests 121ms, environment 0ms, prepare 90ms)
