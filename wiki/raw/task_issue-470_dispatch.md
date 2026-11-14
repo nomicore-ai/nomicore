@@ -44,3 +44,7 @@ Commit `473f83e9ce1dbf44f46c2156768e36099a35a0a1` on `mabf/issue-470` (parent `2
 | 24 | mabf-sa8 | conflict-gate | 3 | sa-143cc61f-ffa2-41fb-96d2-56b629829eb6 | wiki/raw/task_issue-470_impl_conflict_report.md (rev) | reviewGroup rg-470-impl-iter1 — verdict=clear; M2 delta is N2-only pure append, DENY surfaces zero diff, evidence falsifiable, zero behavior change, I-6 all still hold |
 
 Delivery disclosures (binding, from SA8 I-6 rev): root-test cell is RED (32 = 28 environment + 4 pre-existing); never claim "root test green"/"CI green"; BASE reproduction and packageManager-aligned rerun evidence coexist with the red matrix (`fail`/exit 1).
+| 25 | mabf-sa9 | standards-review | 1 | sa-90c51f3f-8430-4e16-965b-d418bc7a3e77 | wiki/raw/task_issue-470_sa9_standards.md (rev) | reviewGroup rg-470-final-iter1 — verdict=approve on delta 473f83e..9f5afda (pure +222 test append); prior approval holds; S9-M1..M4 unchanged, 0 new findings |
+| 26 | mabf-sa10 | spec-review | 1 | sa-1b77348c-91c3-46f1-8dee-2afc89e3f6d1 | wiki/raw/task_issue-470_sa10_spec.md (rev) | reviewGroup rg-470-final-iter1 — verdict=approve over final range 279dba4..9f5afda; M1 and M2 closed; AC1–AC9 (incl. derived AC9) satisfied; ADR 0035 + I-6 seven disclosures hold |
+
+Round 1 closure: final SA9 (standards) + SA10 (spec) both approve the delivered content at `9f5afda`; Controller finalizing local completion.

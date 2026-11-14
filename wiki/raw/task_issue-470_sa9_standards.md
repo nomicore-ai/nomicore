@@ -122,3 +122,59 @@
 ## 9. 最终结论
 
 本交付满足 SA9 所负责的仓库与工程标准面：生产所有权、导出与生命周期边界清楚；测试可发现、可判真假且无 skip/降级；规范文档和 release/frozen 面保持封闭。4 个 MINOR 已给出最小修法，均不阻断 approve。Controller/SA10 可直接以本文件 §8 作为交付摘要的 standards 限定清单。
+
+---
+
+## 10. iteration 1（delta 复审）
+
+- Dispatch：`sa-90c51f3f-8430-4e16-965b-d418bc7a3e77`，phase = standards-review，iteration 1。
+- Reviewed subject：最终 HEAD `9f5afdaede1f196c99599b8c203e578737b1240f`；delta = `473f83e9ce1dbf44f46c2156768e36099a35a0a1..9f5afda`；base 仍为 `279dba4ac81b7c7520e3d0b87b5c4d621a86a517`。父链实测为 `279dba4 → 473f83e → 9f5afda`。
+- 范围：逐行审查 delta 的测试全文与 wiki 改动，核对 SA10 M1/M2、SA4 §14、SA3 §9.6、SA8 iteration-3 与既有 `.cache` 证据；执行只读 git 范围、hash、whitespace、ignore、worktree/status 检查。**本轮未运行测试或 `gates.mjs`，也未把既有测试证据冒充为本轮重跑证据。**
+
+### 10.1 Delta verdict
+
+**approve — 0 BLOCKER / 0 MAJOR；上轮 4 项 MINOR 原样存续、未被引入或加重；本轮无新增 finding。**
+
+`473f83e..9f5afda` 的产品代码面恰为 `packages/persistence/test/cordis-root-real-timer.test.ts` **+222/−0 纯追加**；其余 6 个文件均为 `wiki/raw/task_issue-470*.md` 评审/台账产物。生产源码、runner/gates、manifests/lock、公共 entry、docs/ADR、配置与 artifacts 在 delta 中零变化。因此 iteration 0 对生产 seam、模块责任、生命周期、公共导出和冻结面的 approve 结论在 `9f5afda` 上无回归。
+
+### 10.2 新增 AC3(c) 测试的仓库标准 — 通过
+
+- **真实 Timer，非 fake**：新用例沿用 `createContext()` 的 `createSystemClockPlugin` + `new TimerService(ctx)`（`cordis-root-real-timer.test.ts:146-151,586`），从公开 Memory 插件和 Root 通道驱动调度；没有 fake scheduler/fake timer，也没有为新用例注入替代 scheduler。`TimerService.prototype.timeout` instrumentation 仍在任何用例构造服务前的 `beforeAll` 安装（`:63-91`），并在 `afterAll` 恢复原方法（`:93-97`）；delta 未改变这一全局 patch 的安装/恢复对称性。
+- **deadline 谓词，而非猜时序**：新用例的正向等待全部复用 `waitFor` 的 5s wall-clock deadline + 5ms 谓词轮询（`:120-127,647,653-662,672-675`），等待 gate 进入、两个 fiber 的 UNLOADING 锚和最新 generation 提交。没有固定轮数 settle，也没有新增 `delay`/sleep 来猜正向完成。`:685-687` 的单个 `setImmediate` 只用于 unhandledRejection 的宏任务排空边界，与同目录/Registry 既有惯例一致，不是业务完成判据。
+- **窗口、提交与事件序均可证伪**：放行前断言 service 已撤销、dependent 正在 unload、写仍在途、adapter dispose 未开始且 store 仍 gen1（`:647-665`）；随后等待 store 解码为 gen2，并断言真实 Timer arm 增量、adapter 仍未 dispose、persistence fiber 仍 UNLOADING（`:670-681`）。最后断言完整事件序 `snapshot-committed → adapter-dispose-start → adapter-dispose-complete`、严格偏序、disposed 状态和零 unhandled（`:683-693`）。没有用 drain/manual flush/测试直写 store 代替被测路径。
+- **清理与泄漏边界合格**：`saveGate`、dependent barrier 在 finally 中释放，disposal 被等待，根 Context 被 dispose，process listener 对称移除（`:694-700`）。adapter 的 `saveDoc`/`dispose` monkey-patch 只作用于本用例创建并销毁的实例；文件级 prototype patch 由上述 `afterAll` 恢复，没有新增跨用例全局状态或 listener 泄漏。
+- **测试卫生**：delta 无 `.only`/`.skip`/`.todo`/`xit`/`xdescribe`，无 `@ts-ignore`/`@ts-expect-error`/`as any`，无新增 `export`。新增 `DocPersistence` 仅为既有公共类型的 type-only import；`deferred`、`DependentWriter`、`FIBER_STATE_UNLOADING` 均有实际用途，没有新增死代码。SA4 §14.3 的 O8–O10 属可选加固/覆盖注记，不构成本轮新的 SA9 标准违例。
+- **运行时长/既有证据**：三份 `.cache/cordis-baselines/evidence/{B1,B2,B3}/real-timer.json` 均记录 11/11、三次顺序运行 exit 0、`allFilesPresent:true`，且 `testNames` 含新用例；当前测试文件及 `9f5afda` 内 blob 的 sha256 均为 `6117927d…efc4f5`，与 M2 汇总及 BASE 取证钉值一致。B3 第三次日志为 11/11、tests 562ms / Duration 851ms；默认布局 M2 日志为两文件 17/17、real-timer tests 586ms。新用例没有固定长等待或显著运行时扩张。上述是既有证据复核，不是本轮重跑。
+
+### 10.3 依赖、文件范围与证据落盘 — 通过
+
+- delta 没有新增任何包 import；既有的 `@deepseek-ai/cordis`、`@deepseek-ai/cordis-plugin-timer`、`@nomicore/clock` 测试依赖保持不变，没有跨包逆向依赖或生产依赖扩散。`packages/persistence/src/**`、`packages/ws-replication/**`、`packages/namespace-registry/**` 在 delta 中零 diff。
+- 最终 base→HEAD 产品路径仍恰为原 6 修改 + 11 新增；delta 未新增/删除产品路径，未触碰 Registry R5P 源文件、公共入口、docs、协议、manifests、lock、artifacts、tsconfig/vitest 配置或 release 面。
+- M2 的运行证据位于 `.cache/cordis-baselines/{evidence,evidence-base,m2-green}/**`；`git check-ignore` 实测由根 `.gitignore:18` 的 `.cache/` 覆盖。delta 的 `.cache`/`.worktrees`/`artifacts` tracked diff 均为空，没有误写 tracked 证据。
+- 审查开始时 worktree clean；`git worktree list --porcelain` 仅主仓与本任务 worktree，无 `base-snapshot`/`base-m2` 残留。
+
+### 10.4 Gates、whitespace 与最终状态 — 通过，保留证据 vintage 限定
+
+- 本轮独立执行 `git diff --check 473f83e..9f5afda`、`git diff --check 279dba4..9f5afda` 和当前 `git diff --check`，均 clean。M2 过程中 SA3/SA8 记录的 **8/9** 唯一红点为未提交 `task_issue-470_dispatch.md` 的 EOF 空白行；该文件已进入最终 delta 且最终 range whitespace 检查通过，该临时 G6 原因不再存在。
+- 既有 `.cache/cordis-baselines/evidence/gates/gates.{json,log}` 记录 **9/9 PASS / exit 0**，无 G5 cleanup WARN；但其 mtime 早于 M2 delta。M2 delta 对 G1′/G2/G3/G4/G5/G7/G8/G9 的 gated 输入零变化，G6 的最终交付 range 又已由本轮独立检查覆盖，因此没有 gate 回归事实。
+- **不得把上一项写成“SA9 本轮对 9f5afda 重跑 gates 并新鲜取得 9/9”**：`gates.mjs` 的 G5 会调用 Vitest，本轮遵守 SA9 不运行测试的边界，未重跑该脚本。本轮结论是既有 9/9 证据仍适用、过程性 G6 红因已消除、最终静态/范围检查无回归；若交付流程要求 commit 后第一手 9/9 日志，应由获授权的执行角色补跑并另查无 cleanup WARN/worktree 残留。这是验证 vintage 限定，不是新增 finding。
+
+### 10.5 提交拆分与叙述边界 — 通过
+
+- `473f83e` 以 `feat(persistence)` 承载主体，`9f5afda` 以 `test(persistence)` 承载 AC3(c) 测试修复与评审产物；两个 commit 均沿仓库既有 conventional subject + issue 编号惯例，父子关系正确，拆分没有把主体修复混入无关产品面。
+- `9f5afda` 正文声称的 AC3(c) 场景、三基线 11/11×3、BASE B3 目标原因红均有对应源码与 `.cache` 证据；“记录最终 SA9/SA10 评审”没有宣称 SA10 approve，也没有 root-test/CI 全绿表述。
+- SA10 M1 所指 SA4 原越界句已改为“本票相关文件在 root-test 中全部通过”并同句保留整体 cell 红；SA4 `:84` 的等价歧义亦收窄为文件级 6/6。其余搜索命中均为历史引文、禁令、条件句或带文件/环境限定的表述，**当前没有新的未限定 root-test/默认全量/既有测试/CI 全绿宣称**。
+- §8 的全部交付限定继续有效，并叠加 SA8 iteration-3 I3-8 的 vintage 口径：root-test 三套证据仍是 M2 前的 5912-total 记录，cell 保持 fail/exit 1、32 = 28 环境 + 4 既有；新用例使当前树若重跑的聚合总数增加 1，不得把旧 5912 记录描述为当前树的新鲜全量结果。M2 后点名族计数为 real-timer 11/11×3、contract 243/243/247；三基线 15-project 汇总 cell 也是 M2 前证据，persistence 新输入由 SA8 的三 overlay 单 project typecheck 桥接。不得声称根 test 全绿。
+
+### 10.6 上轮 4 项 MINOR 现状
+
+| Finding | 在 9f5afda 的现状 | 是否被 delta 引入/加重 |
+|---|---|---|
+| **S9-M1** G5 cleanup catch 仅 WARN | `gates.mjs:259-266` 零变化；当前无 worktree 残留 | 否；仍按原 MINOR 保留 |
+| **S9-M2** root-test 后裸 `pnpm --version` 诊断 | `run-baseline.mjs:717` 零变化；仍只是 diagnostics | 否；仍按原 MINOR 保留 |
+| **S9-M3** G6 无 base 的 `git diff --check` 盲点 | `gates.mjs:369-380` 零变化；本轮已独立检查 delta 与完整 base range，均 clean | 否；实际交付无 whitespace 缺陷 |
+| **S9-M4** 局部死代码/死路径 | issue299 未用 helper、runner 未用常量/参数/`--suite gates` 死路径、acquire `writeSurface` 字段均零变化；新测试未新增死代码 | 否；仍按原 MINOR 保留 |
+
+### 10.7 最终 re-review 结论
+
+`9f5afda` 的纯追加测试满足 persistence 模块的确定性并发测试、生命周期次序、类型与导出纪律；没有新增依赖、tracked 证据、全局泄漏或范围越界。iteration 0 的 approve 对最终 HEAD 仍成立：**0 BLOCKER / 0 MAJOR / 4 既有 MINOR，0 新增 finding**。交付摘要仍须携带 §8 与本节 §10.4–10.5 的证据 vintage/叙述限定。
