@@ -203,23 +203,82 @@ interface OwnedTimer {
   dispose(): void;
 }
 
+/**
+ * Cordis Root timer channel resolution (ADR 0035 §2) — package-private: no new
+ * file, no new public export (this module is not re-exported by `src/index.ts`).
+ *
+ * Shape mirrors the persistence seam: `Symbol.for('cordis.root')` first, legacy
+ * `root` instance property as fallback. A channel that is PRESENT but malformed
+ * never falls through to the other channel or to another host — it fails loudly
+ * and synchronously with the frozen message below. A rejected read (Proxy
+ * denial) is normalised to "this channel is absent", after which only the
+ * documented fallback chain advances (C-R4a–d).
+ */
+const CORDIS_ROOT_SYMBOL = Symbol.for('cordis.root');
+
+/** The scheduler only needs a callable `timeout`; no other timer capability is probed. */
+interface RootTimerSource {
+  timeout(callback: () => void, delayMs: number): () => void;
+}
+
+function throwRootTimerUnavailable(): never {
+  throw new Error('required Cordis root timer context is unavailable');
+}
+
+/** C-R4a: try/catch wraps one `Reflect.get` only; the shape assertion stays outside. */
+function safeReadChannel(host: object, key: PropertyKey): unknown {
+  try {
+    return Reflect.get(host, key);
+  } catch {
+    return undefined;
+  }
+}
+
+function assertRootTimerShape(candidate: unknown): RootTimerSource {
+  if (typeof (candidate as RootTimerSource | null | undefined)?.timeout !== 'function') {
+    throwRootTimerUnavailable();
+  }
+  return candidate as RootTimerSource;
+}
+
+function tryResolveRootTimer(host: unknown): RootTimerSource | undefined {
+  // F5: a non-object host is malformed (not "absent") — fail loudly instead of
+  // producing `Reflect.get(null, …)` TypeError noise or cascading to another host.
+  if (host === null || typeof host !== 'object') throwRootTimerUnavailable();
+  // symbol first: a symbol that exists is never bypassed in favour of legacy.
+  const symbolRoot = safeReadChannel(host, CORDIS_ROOT_SYMBOL);
+  if (symbolRoot !== undefined && symbolRoot !== null) return assertRootTimerShape(symbolRoot);
+  const legacyRoot = safeReadChannel(host, 'root');
+  if (legacyRoot !== undefined && legacyRoot !== null) return assertRootTimerShape(legacyRoot);
+  return undefined;
+}
+
 function timerFromContext(ctx: Context): OwnedTimer {
   const timer = ctx.get('timer') as {
-    ctx?: Context;
+    ctx?: object | null;
     timeout?: unknown;
   } | undefined;
   if (timer === undefined || typeof timer.timeout !== 'function') {
     throw new Error('required Cordis service "timer" is unavailable');
   }
-  const root = timer.ctx?.root ?? ctx.root;
-  if (typeof root.timeout !== 'function') {
-    throw new Error('required Cordis root timer context is unavailable');
-  }
+  // Host cascade keeps the legacy `timer.ctx?.root ?? ctx.root` host selection
+  // semantics: the timer service's own context first, then this plugin's context.
+  // The cascade runs only when a WHOLE host is absent (never for a present but
+  // malformed channel). `timer.ctx === undefined` still cascades; `timer.ctx ===
+  // null` is the synthetic malformed shape and fails loudly (F5).
+  const rootTimer = (timer.ctx !== undefined ? tryResolveRootTimer(timer.ctx) : undefined)
+    ?? tryResolveRootTimer(ctx)
+    ?? throwRootTimerUnavailable();
   const handles = new Set<() => void>();
   return {
+    // Capture the rootTimer OBJECT reference and arm it as a method call.
+    // NEVER detach the function (`const t = rootTimer.timeout`):
+    // TimerService.timeout's body starts with `this.ctx.effect(...)`, so a
+    // detached call throws on the first arm — the delayed failure mode this seam
+    // removes.
     setTimeout(callback, delayMs) {
       let dispose!: () => void;
-      dispose = root.timeout(() => {
+      dispose = rootTimer.timeout(() => {
         handles.delete(dispose);
         callback();
       }, delayMs);

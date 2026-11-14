@@ -1,0 +1,123 @@
+{
+  "schemaVersion": 1,
+  "base": "279dba4ac81b7c7520e3d0b87b5c4d621a86a517",
+  "dshCommit": "1511a6ed442c207919142a4b0e6c4916f96d2c3b",
+  "dshRepository": "https://github.com/deepseek-ai/deepseek-harness.git",
+  "comment": "Three artifact baselines for issue #470 (ADR 0035). Integrity values are pinned here and never trusted from live registry metadata (SA6 appendix A / design §8.2). B3 is the vendored rc.12 source at dshCommit, minimal tsc source-build (see provenance-b3.json, non-official pipeline).",
+  "suites": [
+    "provenance",
+    "root-probe",
+    "contract",
+    "real-timer",
+    "dsh-profile",
+    "unload"
+  ],
+  "baselines": {
+    "B1": {
+      "id": "B1",
+      "kind": "npm",
+      "description": "npm @deepseek-ai/cordis 4.0.1 + cordis-plugin-timer 1.1.3 + cosmokit 1.8.2 — legacy instance `root` channel (repository default layout)",
+      "expectedChannel": "legacy",
+      "packages": {
+        "@deepseek-ai/cordis": {
+          "version": "4.0.1",
+          "integrity": "sha512-YBdskTU2Po1kru3GgcUWUbkTsPMA9LkSQDAY8rBkFJeajdgcQad3QPJZE26JyK99Xb6HaASvoXg2DSUTeN/0Nw=="
+        },
+        "@deepseek-ai/cordis-plugin-timer": {
+          "version": "1.1.3",
+          "integrity": "sha512-IOkey1VNmJwYa5U8bksyMOnM7mtirqjjbWLr3xA8QybLMK0sMooG3a6iJwtvd8P3MFwo3FQibEg+JPixp37MEw=="
+        },
+        "@deepseek-ai/cosmokit": {
+          "version": "1.8.2",
+          "integrity": "sha512-muBOKtSrUKU5m/xpq8ZXWL6hQ/jgd4PhU2PqH97bcxIiLEJfNwZOGQEx4t/aS/GgxRAR+ra9pMHPMtTHU4sqqA=="
+        }
+      },
+      "support": {
+        "@standard-schema/spec": {
+          "version": "1.1.0",
+          "integrity": "sha512-l2aFy5jALhniG5HgqrD6jXLi/rUWrKvqN/qJx6yoJsgKhblVd+iqqU4RCXavm/jPityDo5TCvKMnpjKnOriy0w=="
+        }
+      }
+    },
+    "B2": {
+      "id": "B2",
+      "kind": "npm",
+      "description": "npm @deepseek-ai/cordis 4.1.0 + cordis-plugin-timer 1.2.0 + cosmokit 1.9.0 — same version number as rc.12 but still the legacy instance `root` channel",
+      "expectedChannel": "legacy",
+      "packages": {
+        "@deepseek-ai/cordis": {
+          "version": "4.1.0",
+          "integrity": "sha512-CJrjNyBkKn1SfvBQUcgFYKFnLjS+uKrhdMsbHU60xabvi12d+xQ+IQSNlME5Z+B+4Zi6n4BDknKY94tEPeo47w=="
+        },
+        "@deepseek-ai/cordis-plugin-timer": {
+          "version": "1.2.0",
+          "integrity": "sha512-DTFp2IcK4Xnp0BWG546fwgeKjrBcSm9a9QjCtaV5Ko9hxiB/Cg03FINSNiR7OEbeg7/s4Y7QBxgQYFVYRl9V+g=="
+        },
+        "@deepseek-ai/cosmokit": {
+          "version": "1.9.0",
+          "integrity": "sha512-5O1S53mZiJyZYcvxxD0Qv1EY7qFPSxbGyD8CbVK6gw7W9FvcXZj2YIX1ZkOqyQQ3Xt2rFkZDHJv0+V3Zmmp8CA=="
+        }
+      },
+      "support": {
+        "@standard-schema/spec": {
+          "version": "1.1.0",
+          "integrity": "sha512-l2aFy5jALhniG5HgqrD6jXLi/rUWrKvqN/qJx6yoJsgKhblVd+iqqU4RCXavm/jPityDo5TCvKMnpjKnOriy0w=="
+        }
+      }
+    },
+    "B3": {
+      "id": "B3",
+      "kind": "dsh",
+      "description": "DSH commit 1511a6ed442c207919142a4b0e6c4916f96d2c3b vendored Cordis 4.1.0 (rc.12) + timer 1.2.0 + cosmokit 1.9.0 — `Symbol.for('cordis.root')` channel; minimal tsc source-build",
+      "expectedChannel": "symbol",
+      "commit": "1511a6ed442c207919142a4b0e6c4916f96d2c3b",
+      "sparseCheckout": [
+        "vendor/cordis",
+        "vendor/timer",
+        "vendor/cosmokit",
+        "tsconfig.base.json"
+      ],
+      "packages": {
+        "@deepseek-ai/cordis": {
+          "version": "4.1.0",
+          "source": "dsh-build",
+          "vendoredPath": "vendor/cordis"
+        },
+        "@deepseek-ai/cordis-plugin-timer": {
+          "version": "1.2.0",
+          "source": "dsh-build",
+          "vendoredPath": "vendor/timer"
+        },
+        "@deepseek-ai/cosmokit": {
+          "version": "1.9.0",
+          "source": "dsh-build",
+          "vendoredPath": "vendor/cosmokit"
+        }
+      },
+      "support": {
+        "@standard-schema/spec": {
+          "version": "1.1.0",
+          "integrity": "sha512-l2aFy5jALhniG5HgqrD6jXLi/rUWrKvqN/qJx6yoJsgKhblVd+iqqU4RCXavm/jPityDo5TCvKMnpjKnOriy0w=="
+        }
+      },
+      "honestyNote": "minimal tsc source-build, NOT the official DSH tsc -b + tsdown pipeline (design §8.3 item 8 / SA6 §9.2). Package versions 4.1.0/1.2.0/1.9.0 are auxiliary evidence only and prove nothing about the Root API shape."
+    }
+  },
+  "probes": {
+    "comment": "Runtime Root probe expectations (SA6 §12.3 / design §8.5). `rootCtxLegacy` / `rootCtxSymbol` describe Reflect.get on the root context; `fiberLegacy` describes a plugin-fiber context; `contextRootStatic` describes the Context.root static; `hitChannelTimeout` describes `.timeout` on the hit channel.",
+    "legacy": {
+      "rootCtxLegacy": "root-context",
+      "rootCtxSymbol": "absent",
+      "fiberLegacy": "root-context",
+      "contextRootStatic": "absent",
+      "hitChannelTimeout": "function"
+    },
+    "symbol": {
+      "rootCtxLegacy": "absent",
+      "rootCtxSymbol": "root-context",
+      "fiberLegacy": "absent-or-throw",
+      "contextRootStatic": "symbol",
+      "hitChannelTimeout": "function"
+    }
+  }
+}
