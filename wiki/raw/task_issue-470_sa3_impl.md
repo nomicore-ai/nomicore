@@ -3,6 +3,7 @@
 - Worktree/HEAD：`/home/wangjian/nomicore-fix-issue-470`，分支 `mabf/issue-470`，HEAD = base = `279dba4ac81b7c7520e3d0b87b5c4d621a86a517`（**改动全部留在工作树，未 add / 未 commit / 未 push**）。
 - 施工图：`wiki/raw/task_issue-470_design.md`（iteration 1，approved）。本报告按设计 §14 的实施序落证；设计 artifact 未被回改。
 - 结论（待 Controller 裁决）：**实现完成、TDD 红→绿成立、三基线 15-project typecheck 全绿、4 负控全部按预期判红（本轮四枚证据已齐备，见 §6.1）、G1′–G9 全绿、`ws-package` cell 绿（R-5 后复跑 66/66）**。唯一红 cell = `root-test`（默认布局全量 vitest）：矩阵运行 5880/5912、**32 failed = 28 环境 + 4 既有**（28 = 环境 pnpm（corepack 11.28.5）违反仓库 `packageManager: pnpm@10.28.2` 声明所致子进程失败；4 = 既有 `ws-replication-issue421-edge-factory-api.test-d.ts` 可选参数元组断言与 expect-type@1.4.0 / vitest 3.2.7 不兼容），32 例已在 **BASE 279dba4 上等量复现**且证据已持久化（§8.1）；在 packageManager 对齐环境复跑全量为 **5908/5912，仅余 4 例既有红**（§9.5 R-3）。红因均非本票改动引入，且无法在 §11.1 ALLOW 内修复。**本报告任何位置均不声称「根 test 全绿 / 默认布局全量通过 / 既有测试全绿」**（SA8 §4.2(c) 约束，逐条见 §9.5「交付叙述约束」）。
+- **iteration 2（SA10 最终 spec-review，`wiki/raw/task_issue-470_sa10_spec.md`）**：必修项 M2（AC3(c) 持久化结果断言缺失）已在本轮闭合——在既有 ALLOW 内的 N2 新增可证伪断言，三基线 real-timer 11/11 绿、BASE+B3 目标原因红；详见 **§9.6**。M1（`task_issue-470_sa4_review.md:155` 的「root-test 全绿」叙述）属 SA4 自有 review 工件，不属 SA3 范围，未改动。
 
 ---
 
@@ -48,7 +49,7 @@ diffstat：**R-5 后实测 `6 files changed, 177 insertions(+), 30 deletions(-)`
 | # | Path | 承载 |
 |---|---|---|
 | N1 | `packages/persistence/test/cordis-root-channel.test.ts` | AC1 全判据 + AC5 生产通道 sentinel + AC9 默认 options + B6 两条 pin（D10/D11）+ 基线形状（含 legacy-shim 故障注入点） |
-| N2 | `packages/persistence/test/cordis-root-real-timer.test.ts` | AC2 三基线 × {memory,file} × {flush,retry,drain,dispose,service-revoke}，真实 `TimerService` |
+| N2 | `packages/persistence/test/cordis-root-real-timer.test.ts` | AC2 三基线 × {memory,file} × {flush,retry,drain,dispose,service-revoke}，真实 `TimerService`；**iteration 2 追加** AC3(c)「UNLOADING 窗口内已接纳写在真实 Timer 上提交最新 generation」断言（§9.6） |
 | N3 | `packages/persistence/test/cordis-baseline-provenance.test.ts` | AC4/AC5 身份断言（双位置 realpath、版本/integrity 钉值、无第二份、B3 clone/ls-tree/输出哈希/配方/诚实标注） |
 | N4 | `packages/persistence/test/cordis-public-surface.test.ts` | AC7 runtime 导出面快照（persistence + `/testing` + dsh + ws 4 entry） |
 | N5 | `packages/persistence/test/fixtures/cordis-baselines/baselines.json` | 三基线清单 + integrity 钉值 + probe 期望表 + suite 清单 |
@@ -341,6 +342,63 @@ SA8 实现级复查（`wiki/raw/task_issue-470_impl_conflict_report.md`，verdic
 
 ---
 
+### 9.6 SA10 M2 闭合（iteration 2：AC3(c) 持久化结果断言）
+
+SA10 最终 spec-review（`wiki/raw/task_issue-470_sa10_spec.md` §1「必须修项」**M2**、§2 AC3 核销段、§6 I-7 边界）判定 SA6 §12.2 AC3 的 **(c)「随后 flush 在 deadline 内提交最新 snapshot」**没有任何直接断言或证据（既有 R5P 只证明 dirty notification、`fatal=null`、事件序与零 unhandled）。本轮在**既有 ALLOW 清单内**（§11.1 N2）新增一条可证伪的持久化结果断言；**未触碰** `packages/namespace-registry/test/**`（SA10 明示：若需改 Registry 测试必须先修订并复审设计范围，本轮 dispatch 不批准该路径——故按 dispatch 要求走 persistence 侧等价场景），**未改 seam 行为**（`service.ts`/`plugin.ts` 零 diff；新断言未暴露 seam 缺陷），**未新增文件**。
+
+#### 9.6.1 断言位置与测试名
+
+- 文件：`packages/persistence/test/cordis-root-real-timer.test.ts`（§11.1 N2），新增顶层 describe `AC3(c) UNLOADING 窗口 × 真实 Timer（三基线）`。
+- 测试名（runner 证据 `testNames` 逐字）：`AC3(c) UNLOADING 窗口 × 真实 Timer（三基线） dependent 排空窗口内已接纳写在真实 Timer 上提交最新 generation；adapter dispose 严格晚于该提交；零 unhandled`。
+
+#### 9.6.2 场景（persistence 侧 R5P 等价构造）
+
+1. **真实 Timer**：`createContext()` = `createSystemClockPlugin().apply(ctx)` + `new TimerService(ctx)`；`TimerService.prototype.timeout` 在**任何构造之前** instrument（meter 计 arm/pending）——**无 fake scheduler、无 fake timer**。
+2. **`ctx.plugin(...)` 形态的 persistence fiber**：`ctx.plugin(createMemoryPersistencePlugin({ schedule: { debounceMs: 10, maxDirtyMs: 40, retryDelayMs: 10 }, writeSnapshot }))`，store hook 记录写入的 snapshot（key = `userId\u0000docId`）。
+3. **dependent plugin/fiber 承载被 gate 的 `saveDoc`**：`ctx.plugin({inject: ['nomicorePersistence'], apply(ctx){...}})`——经 `inject` 消费 persistence service；`open(1)` 用注入的 service `createDoc` 建立 live doc + 初始 committed snapshot（generation 1）；`write(2)` = dependent 的已接纳写路径（`adapter.saveDoc`）。其卸载 effect 先 `await` 在途写、再 await 测试锚定的 drain barrier（窗口只由 dependent 自身 settle 决定，与 R5P 用 pending `shutdown` 拉开窗口同构）。
+4. **写槽 gate**（R5P 的 S6 锚点，persistence 侧）：包装 `adapter.saveDoc`——首次进入即挂起，直到测试放行。
+5. **`persistenceFiber.dispose()`**：服务撤销 → dependent fiber 级联卸载 → drainStep 等待依赖 settle ⇒ persistence fiber 停在 `UNLOADING`、`adapter.dispose` 未发生、服务已不在 store。
+6. **放行前窗口断言**：fiber `state === 5 (UNLOADING)`、`ctx.get('nomicorePersistence') === undefined`、dependent fiber 也 `UNLOADING` 且卸载已开始、adapter dispose 事件为空、`writeSettled === false`、store 仍是 generation 1。
+7. **放行 gate**：`await expect(writePromise).resolves.toBeUndefined()` ⇒ 已接纳写在 UNLOADING 窗口内仍完成 dirty notification（AC3(b) 的 persistence 侧等价：不再是 B3 base 的 reject）。
+8. **deadline 谓词轮询**（`DEADLINE_MS = 5000`、5ms 间隔；**无固定轮数、无 sleep 猜**）等待 store 解码为 generation 2；随后断言 `meter.arms` 增量 > 0（真实 `TimerService` 武装了 flush；ambient timer 不会计入 meter）、fiber 仍 `UNLOADING`、adapter dispose 事件仍为空。
+9. **释放 dependent drain barrier** → `adapter-dispose-start`/`adapter-dispose-complete` 严格晚于 `snapshot-committed`（事件序断言，AC3(d)/(f) 的 persistence 侧等价）；`adapter.getStatus() === 'disposed'`；`ctx.get(...) === undefined`；**零 unhandled rejection**（AC3(e)）。
+- **不强制 flush**：测试不调用 `adapter.drain()`/flush、不直接写 store；窗口内唯一提交通道是 `saveDoc` 的 dirty notification 所武装的 debounce timer。drain barrier 只决定 dependent **何时** settle（窗口长度），不改变「窗口内必须提交最新 generation」这一判据——否则 BASE B3 不会在该点判红。
+
+#### 9.6.3 三基线绿（fixed tree：`473f83e` + 本轮 N2 修改）
+
+| baseline | real-timer（含新断言；`--repeat 3` = 3 次顺序运行） | contract（persistence 目录 glob 双跑，含新断言） | unload（R5P，源文件零改动） | 证据 |
+|---|---|---|---|---|
+| B1 | pass **11/11 ×3**（三次 exit 0） | pass **243/243** | pass **6/6**，`r5p.present=true, r5p.passed=true` | `.cache/cordis-baselines/evidence/B1/{real-timer,contract,unload}.json` |
+| B2 | pass **11/11 ×3** | pass **243/243** | pass **6/6** 同上 | `.cache/cordis-baselines/evidence/B2/{...}.json` |
+| B3 | pass **11/11 ×3** | pass **247/247** | pass **6/6** 同上 | `.cache/cordis-baselines/evidence/B3/{...}.json` |
+
+- 命令（§8.6 命令与聚合语义**零变化**，runner 未修改）：`node packages/persistence/test/fixtures/cordis-baselines/run-baseline.mjs --baseline <B1|B2|B3> --suite <contract|real-timer|unload>`；新测试自动进入 real-timer suite（11 例）与 contract glob 的 `testNames`/计数（原 10/242/242/246 → 11/243/243/247）。
+- 默认布局复跑：`NODE_OPTIONS=--conditions=nomicore-source node node_modules/vitest/vitest.mjs run packages/persistence/test/cordis-root-real-timer.test.ts packages/namespace-registry/test/registry-sa7-rev1.test.ts` → **2 files / 17 tests 全绿、Type Errors no errors**（`.cache/cordis-baselines/m2-green/default-layout.log`）；`node node_modules/typescript/bin/tsc -p packages/persistence/tsconfig.json` → **exit 0**（`.cache/cordis-baselines/m2-green/persistence-tsc.log`）。
+- 绿矩阵原始日志：`.cache/cordis-baselines/green-m2.log`。
+
+#### 9.6.4 BASE HEAD 目标原因红（seam 未实现；`279dba4`）
+
+- 机制沿用 §5.1：`git worktree add --detach .worktrees/base-m2 279dba4` + 同款 `.cache/cordis-baselines/base-farm.mjs` farm（**109 links / 16 packages**）+ 把 N1–N11 从主树复制进 BASE 工作树（real-timer 文件 sha256 与主树**逐字节相同**：`6117927d…efc4f5`）+ runner 以 working tree ∪ NEW_FILES 物化（`3415 tracked + 11 new files`，`allFilesPresent=true`，无 missing-file 红）；取证完毕已 `git worktree remove`。
+- 结果（完整 real-timer suite = 既有 10 例 + 新断言 1 例）：
+  - **BASE + B3：fail 0/11**（1 次运行即停）。新的 AC3(c) 用例失败点 = `await expect(writePromise).resolves.toBeUndefined()`（复制后文件行 670），原文 `Error: promise rejected "Error: cannot get property "root" without inject" instead of resolving`——即**UNLOADING 窗口内已接纳 `saveDoc` 在 base 的惰性 `ctx.root` 读取处 reject、无法提交**。该用例的**窗口锚定断言在 base 上均已通过**（fiber UNLOADING、service 已撤销、adapter dispose 未发生、写在途、store 仍 generation 1），故红因精确落在 dispatch 指定的目标原因上。
+  - **BASE + B1 / B2：pass 11/11 ×3**（三次顺序运行 exit 0）——证明该断言不是「恒红」：其红/绿分界正是 seam 的 legacy/symbol 通道差异（legacy 在 npm 基线可用、rc.12 需 symbol）。
+- 证据（全部在 `.cache/cordis-baselines/**`）：
+  - `evidence-base/m2/{B3,B1,B2}/real-timer.json` + 各 `*-real-timer-repeat1.{log,vitest.json}`；
+  - `evidence-base/m2/base-head.txt`、`base-farm.log`、`base-real-timer-test.sha256`、`base-<B>-real-timer.run.log`、`worktree-add.log`、`overlay-links.log`；
+  - 机读汇总 `evidence-base/m2/m2-summary.json`（含 fixed-tree / BASE 每 cell 状态、计数、repeatRuns、证据 sha256、BASE 新用例失败原文、gates 结果、tracked 改动清单）。
+- **既有 BASE 红证据未删除、未改写**：`evidence-base/red-matrix-summary.json`、`evidence-base/base-repro/**`（以及 `evidence-base/{B1,B2,B3}/**` 既有 cell）原样保留；`evidence/{B1,B2,B3}/{contract,real-timer,unload}.json` 为本次重跑生成的新鲜绿 cell（real-timer 10/10 → 11/11、contract 计数随 glob 双跑同步 +1）。
+- 注：BASE cell JSON 的 `logPath` 指向已删除的临时 worktree；原始日志已按 baseline 复制到 `evidence-base/m2/<B>/` 并存（`m2-summary.json` 中 `baseHead.logPathNote` 已注明）。
+
+#### 9.6.5 范围与纪律（本轮）
+
+- tracked 改动：**仅** `packages/persistence/test/cordis-root-real-timer.test.ts`（§11.1 N2）；总 diff 面仍 = **6 修改 + 11 新增**，**不新增文件**。
+- 未改 `packages/namespace-registry/**`（R5P 源文件零 diff）、未改 `service.ts`/`plugin.ts`、未改 runner/fixtures（N9 零 diff；`--all --matrix` 聚合语义不变）、未改 tsconfig/vitest.config/package.json/pnpm-lock/docs/artifacts/.gitignore。
+- **本轮未重跑 `root-test` cell**（dispatch 的复跑范围 = 三基线 real-timer + unload；SA8 §4.2(c)-7 / SA10 §4 I-7 要求三套 root-test 证据**并存不得覆盖**）：该 cell 证据仍为上一轮生成件（矩阵件 `evidence/root-test/root-test.json`：fail/exit 1、5880 passed / 5912 total / 32 failed；对齐复跑件 `evidence/root-test/root-test-pnpm10282.json`：5908/5912、余 4 既有红），红因与失败集合不变；新断言会使默认布局聚合 **+1 test**（若重跑预期 5913 total、仍 32 failed）。**本报告不声称根 test/CI 全绿**。
+- `node …/gates.mjs`（本轮重跑）：G1′/G2/G3/G4/G5/G7/G8/G9 **PASS**；**G6 FAIL**，唯一原因是 **Controller/Host 自有的未提交 wiki 修改** `wiki/raw/task_issue-470_dispatch.md:40 new blank line at EOF`（本 dispatch 开工前即存在；`git status` 首次快照已含 `M wiki/raw/task_issue-470_dispatch.md`），**非代码面**；代码面 `git diff --check -- packages apps domains docs '*/package.json' pnpm-lock.yaml` **exit 0**。修复该 wiki 文件不属 SA3 范围（Host/Controller 工件面；本轮证据只写 `.cache/cordis-baselines/**`，未写 marker）。
+- 未执行 `git add`/`git commit`/`git push`。
+
+---
+
 ## 10. 供 Controller 精确 `git add` 的最终路径清单
 
 **tracked 修改（6）**
@@ -371,6 +429,8 @@ packages/persistence/test/fixtures/cordis-baselines/gates.mjs
 ```
 
 **iteration 1（SA8 证据面闭合，§9.5）的改动全部落在上述既有路径内**（不新增/删除 tracked 路径）：`packages/persistence/test/fixtures/cordis-baselines/run-baseline.mjs`（R-4：root-test cell 补记 `testNames/failedTestNames`）与 `packages/ws-replication/test/ws-replication-guard-proxy-consumption.test.ts`（R-5：删除未使用 helper）。
+
+**iteration 2（SA10 M2 闭合，§9.6）的改动同样只落在既有路径内**：仅 `packages/persistence/test/cordis-root-real-timer.test.ts`（N2 原位增补 AC3(c) 断言 + 文件头注释）。路径集合与「6 修改 + 11 新增」均不变；`packages/namespace-registry/test/**` 与 `service.ts`/`plugin.ts` 零 diff。
 
 **明确不 add**：`.cache/cordis-baselines/**`（gitignored：tarball/clone/build/overlay/workspaces/evidence/evidence-base/pnpm-shim）、`.worktrees/**`（G5/红灯取证临时 worktree，用毕已删）、`wiki/raw/**`（Host/Controller 既有未 tracked 工件）、任何 marker 文件。
 

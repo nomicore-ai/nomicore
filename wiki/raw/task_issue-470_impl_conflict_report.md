@@ -1,6 +1,8 @@
 # SA8 实现级冲突复查 — issue #470：Cordis rc.12 双形态 Root tracer bullet（implementation 复查）
 
 > **iteration 2 复审（证据闭合核销）结论：verdict = `clear`，requiresConflictRecheck = `false`** —— iteration 1 的 `reject`（仅证据面）所列 §8 Required actions 已全部第一手核销闭合；交付条件在当前证据状态下重裁为「按 §4.2(c) 七条限定声明（iteration 2 修订版，见文末 I-6）收口，无需 owner 表态作为前置」。当前结论与裁定以文末「iteration 2 复审」小节为准；上文 iteration 1 内容按 dispatch 要求原样保留，仅作历史记录。
+>
+> **iteration 3 复查（M2 delta）：verdict = `clear`，requiresConflictRecheck = `false`** —— SA10 最终 spec-review 的两项必修（M1 叙述、M2 AC3(c) 证据）均已闭合并经本会话第一手核销（M2 = SA3 §9.6；M1 = SA4 §14.1，其修订于本轮复查进行中落盘）。当前交付状态与必须携带的限定声明以文末「iteration 3 复查（M2 delta）」小节为准；既有 iteration 1/2 内容原样保留。
 
 1. **Reviewed subject**: implementation（工作树未提交 diff：6 修改 + 11 新增；HEAD = BASE = `279dba4ac81b7c7520e3d0b87b5c4d621a86a517`，分支 `mabf/issue-470`）。触发依据 = SA8 设计后复查（iteration 1）§8「实现后必须复查项」+ 设计 §21 OPEN 1/2/5 + dispatch 专项（root-test 红 cell 规范裁定）。
 2. SA8 dispatch：`sa-24e49b7a-b51a-4332-92f7-fec7079b4c4d`，iteration 0。本报告为该被审对象的**首份**实现级报告（不覆盖设计后复查报告）。
@@ -321,3 +323,101 @@ iteration 1 §4.2(b)-1 的复跑条件（28 例在对齐环境转绿并留证）
 ## I-9. requiresConflictRecheck（iteration 2）
 
 **false** —— 无 pending 的决策面实现核对：无 evolution-required、无 override（I-5.2 明示「退回决策基准」非 override）、无公共 API/wire/schema/持久化/状态机/生命周期/失败语义待核对项；iteration 1 所列三项复查触发条件（负控证据闭合、对齐复跑并档、owner 表态合规）已分别由 I-1/I-3/I-5.2 闭合或消解。剩余义务为**叙述性**（I-6 交付声明、I-7 后续票边界），归 SA9/SA10/Controller 交付时执行，不构成冲突复查触发。
+
+---
+
+# iteration 3 复查（M2 delta）
+
+- **Reviewed subject**: implementation（HEAD = `473f83e9ce1dbf44f46c2156768e36099a35a0a1`，base = `279dba4…`，分支 `mabf/issue-470`）+ 未提交 SA10-M2 修复 delta。SA8 dispatch：`sa-143cc61f-ffa2-41fb-96d2-56b629829eb6`，iteration 3（reviewGroup rg-470-impl-iter1）。
+- **范围（窄，dispatch 逐项）**：(1) M2 delta 的 R2/ALLOW 遵守；(2) M2 证据强度是否核销 SA10 M2 / SA6 AC3(c)；(3) 是否引入新的规范/披露问题；(4) 既有 I-6 七条限定声明与 root-test 红证据完整性；(5) M1 叙述面规范裁定。不重做实现质量评审（SA4 §14.2 已复审，本会话仅冲突/义务面核证）。
+- **方法**：只读核证 + 只读验证命令，全部第一手：`git diff`/`status`/`ls-files` 逐文件；证据 JSON 逐字段脚本化提取（不信自述）；独立重跑 `gates.mjs`；独立复跑默认布局 2 文件（real-timer + R5P）；按 runner 同款命令（`tsc -p packages/persistence/tsconfig.json`，cwd=三基线 overlay workspace、剥离 `NODE_OPTIONS`、repo tsc）补齐 M2 代码的类型面核证。唯一写入 = 本报告。
+- **时间线注记（可复核性）**：SA4 的 M1 修善于 **2026-11-15 00:38:56** 落盘（本会话 00:33–00:37 首查时该文件与 HEAD 零 diff、:155 越界句仍在；00:38 后复核修订版，sha256 `dd7e6bddf50c9808609fb45658c80ab6f009f43c6ae2f3dd805d3552234bef8c`）。本节结论针对该终态。
+
+## I3-1. 结论 1：ALLOW / R2 遵守 — **持守**
+
+| 检查 | 第一手事实 | 证据 |
+|---|---|---|
+| 未提交代码面 delta | `git status --porcelain` 代码面**恰 1 文件** = `packages/persistence/test/cordis-root-real-timer.test.ts`（**+222/−0 纯追加**：文件头注释、`type DocPersistence` import、`deferred` helper、新顶层 describe；既有 10 用例逐字未动）；与 dispatch 申报的「测试 + 两份 wiki 笔记」一致（`task_issue-470_dispatch.md` 台账、`task_issue-470_sa3_impl.md` §9.6），另有 SA4 自有工件 `task_issue-470_sa4_review.md` 的 M1 修订（台账 row 21 申报） | git diff 全文 |
+| DENY 面零 diff | `service.ts`/`plugin.ts`/`packages/namespace-registry/**`/全部 manifests/`pnpm-lock.yaml`/`artifacts/`/`docs/`/tsconfig×/vitest.config×/`packages/persistence/test/fixtures/**`（runner、gates、钉值 JSON）—— 工作树 vs HEAD 全部零 diff | git diff 路径核证 |
+| 总 diff 面 | `279dba4..HEAD` 产品面**恰 6 修改（service.ts、plugin.ts、4 具名 fixture）+ 11 新增（4 `.test.ts` + 7 fixture）**；M2 delta 只编辑既有 N2（计数不变）、**无新文件**；untracked 仅 `wiki/raw/task_issue-470_{sa9_standards,sa10_spec}.md`（Host/SA 工件，非实现面，沿既有口径不计入产品面） | git name-status + ls-files |
+| gates 独立重跑 | **8/9 PASS**（G1′/G2/G3/G4/G5/G7/G8/G9；G2 changed=[service.ts]、G3 changed=[plugin.ts+4 fixture] ⊆ allowlist；G5 快照 4 entry 相等 + worktree 用毕清理，`git worktree list` 仅 2 项）；**G6 FAIL 唯一红点 = `wiki/raw/task_issue-470_dispatch.md:43 new blank line at EOF`**——Controller/Host 台账工件（SA3 开工前即存在），代码面 `git diff --check -- packages apps domains docs '*/package.json' pnpm-lock.yaml` exit 0 | 本会话 gates 输出 |
+
+## I3-2. 结论 2：M2 证据强度 — **成立，核销 SA10 M2 / SA6 AC3(c)**
+
+**(a) 断言真覆盖 AC3(c)**（对照 SA6 §12.2 AC3 通过判据逐项）：
+
+| SA6 判据 | 新断言形态（代码逐行 + 证据） |
+|---|---|
+| (a) 窗口锚定 | gate 释放**前**五锚齐断言：`persistenceFiber.state===5(UNLOADING)` ∧ `ctx.get(NOMICORE_PERSISTENCE_SERVICE)===undefined` ∧ dependent fiber `UNLOADING` 且 `unloadStarted` ∧ `events===[]`（adapter dispose 未启动）∧ `writeSettled===false` ∧ store 仍 generation 1 |
+| (b) gate 释放后写完成 | `await expect(writePromise).resolves.toBeUndefined()`——已接纳写在窗口内完成 dirty notification（persistence 侧等价；registry 侧 `fatal===null` 由零改动 R5P 承载） |
+| **(c) deadline 内提交最新 generation** | `waitFor(decode(store)===2)`：`DEADLINE_MS=5000` + 5ms 轮询谓词，无固定轮数/无 sleep 猜；且断言 `meter.arms > armsBeforeFlush`——meter 只计 `TimerService.prototype.timeout`（文件级 beforeAll 先于任何构造 instrument），ambient `setTimeout` 不计数 ⇒ **提交由真实 Timer 武装**。**非 drain 强制**：新 describe 全文零 `drain()`/flush API/测试直写 store（本会话代码通读 + grep），窗口内唯一提交通道 = dirty notification 武装的 debounce timer |
+| (d)/(f) dispose 次序 | 提交观测后**再次**断言 fiber 仍 `UNLOADING`、`events` 恰为 `['snapshot-committed']`（防「窗口关闭后才提交」的空转假绿）；barrier 释放后 `snapshot-committed < adapter-dispose-start < adapter-dispose-complete`（全序 + 严格偏序双断言，事件由 dispose wrapper 实推）；registry 侧「shutdown settle 严格早于 adapter dispose」由零改动 R5P 维持 |
+| (e) 零 unhandled | process 级收集器 `expect(unhandled.events).toEqual([])`（`await disposal` + 一个 setImmediate 后） |
+
+**(b) 三基线绿证据 + `--repeat 3`**：`evidence/{B1,B2,B3}/real-timer.json` 均 `pass`/exit 0、**11/11 × 3 次顺序运行**（`repeatRuns` 数组逐项核）、`testNames` 含新用例全名、realpath 钉在对应 overlay、`allFilesPresent:true`；contract 同步 **243/243/247**（目录 glob 双跑纳入新用例）、unload **6/6 ×3**（`r5p.present/passed=true`，R5P 源文件零 diff）；`green-m2.log` 9 cell 全 exit 0；`m2-green/default-layout.log` 2 文件 17/17、`persistence-tsc.log` exit 0。**本会话独立复跑默认布局同款命令：2 files / 17 tests 全绿、Type Errors no errors、exit 0（00:37:51）**；SA4 亦独立复跑单文件 11/11（00:36:23）——三方一致。
+
+**(c) BASE B3 红于目标原因（非构造错误）**：`evidence-base/m2/B3/B3-real-timer-repeat1.log` = 0/11；新用例失败点 = 复制件 `:670` `await expect(writePromise).resolves.toBeUndefined()`，根因栈 `cannot get property "root" without inject` ← BASE `service.ts:54:44`（惰性 legacy `ctx.root` 读取）← `PersistenceLifecycle.scheduleFlush` ← `saveDoc`——即**UNLOADING 窗口内已接纳写的 dirty-notification 提交通道在 base 的 rc.12 断层上 reject**；其**窗口锚定断言在 BASE 上全部通过**（红点位于放行后断言，非 waitFor 超时/构造错），`allFilesPresent:true`（非缺文件红）；real-timer 文件 sha256 与主树逐字节相同（`6117927d…efc4f5`，与当前树复验相等）。**BASE B1/B2 = 11/11 ×3 绿**（`m2-summary.json baseHead.cells`）⇒ 非恒红构造，红/绿分界恰为 seam 的 legacy/symbol 通道差异。B3 单次运行即停已如实申报（红确定性 0/11）。
+
+## I3-3. 结论 3：零行为变更 — **持守**
+
+- delta 仅 N2 测试文件 +222/−0 纯追加；`service.ts`/`plugin.ts`/runner（N9）/gates/钉值 JSON/tsconfig/vitest.config/manifests/lock 全零 diff（vs `473f83e`）——**未为绿改 seam、runner 命令（§8.6 逐字保持）或聚合语义**（`--all --matrix`「green cells never offset a red cell」代码未触碰）。
+- 新代码内的 `adapter.dispose`/`saveDoc` 包装为**测试局部** monkey-patch（与文件既有 `TimerService.prototype` instrumentation 同一纪律），不触生产；新 import `type DocPersistence` 为既有公共导出的 type-only 引用（G4/G5 公共面零变化）。
+- 本会话三基线 overlay `tsc -p packages/persistence` 均 exit 0（见 I3-5 注记），无 cast/skip 压静路径。
+
+## I3-4. 结论 4：I-6 七条限定声明复核 — **全部仍成立；root-test 红证据未被掩盖**
+
+| # | 复核结果（第一手） |
+|---|---|
+| 1 | M2 delta 与 SA3 §9.6 **未新增**任何越界宣称（§9.6.5 明文「本报告不声称根 test/CI 全绿」）；交付包内原 M1 越界句已由 SA4 修正（I3-6） |
+| 2 | `evidence/root-test/root-test.json` 仍 `fail`/exit 1/`failedTestNames`=32（mtime 11-14 23:53，**早于 M2 delta，未被重跑覆盖**）；**新增口径注记（绑定，见 I3-8 清单第 2 条）**：root-test 证据与对齐复跑件录制于 M2 用例加入前（5912 total 口径），当前树默认布局聚合 +1 test（新用例默认布局绿，SA4/SA8 双重复跑） |
+| 3 | BASE 等量复现 `evidence-base/base-repro/**` 原样在盘（mtime 23:38，先于 M2）；`evidence-base/red-matrix-summary.json`（23:14）未删改 |
+| 4 | `root-test-pnpm10282.*`（23:45/23:56）原样在盘；CI test-d lane 既有性记录不变 |
+| 5 | §17-3 阻断语义与 iteration-2 带红收口裁定（I-5.2）不受 M2 影响——M2 只补 AC3(c) 证据，未触碰 root-test 归因 |
+| 6 | AC6 表述限定维持；**计数口径更新义务**：contract/real-timer 交付引用须标注口径（iteration-0：contract 242/242/246、real-timer 10/10；M2 后新鲜 cell：contract 243/243/247、real-timer 11/11 ×3） |
+| 7 | 三套 root-test 证据并存核证（`root-test.matrix-run-2026-11-14T2311.*` + R-4 再生 `root-test.*` + `root-test-pnpm10282.*`）；矩阵 cell 保持 `fail`/exit 1；M2 证据（`evidence/{B1,B2,B3}` 与 `evidence-base/m2/**`）为**新增并存**，未覆盖任何 root-test/既有红证据 |
+
+**root-test 仍为 fail/exit 1：成立**（未以新绿证据掩盖——SA3 明文选择不重跑该 cell，本会话核其证据 mtime 与内容未动）。
+
+## I3-5. 主动扩查：typecheck cell 证据 vintage（新发现，非冲突，已第一手桥接）
+
+- 事实：`packages/persistence/tsconfig.json` `include` 含 `test/**/*.ts` ⇒ **M2 新测试代码位于 R1「15-project typecheck」cell 的输入集内**；SA3 本轮只重跑了 contract/real-timer/unload（`evidence/{B1,B2,B3}/typecheck.json` 为 M2 前生成件），且行为 suite 走 vitest 无 `--typecheck`（root vitest config 的 typecheck 仅覆盖 `*.test-d.ts`）——**SA3 未申报该 vintage**。
+- 桥接（本会话第一手，方法学等价 runner `runTscProject`：repo tsc、cwd=overlay workspace、剥离 `NODE_OPTIONS`）：`tsc -p packages/persistence/tsconfig.json` 在 **B1/B2/B3 三 overlay 均 exit 0**（workspace 内该测试文件 sha256 与主树相同）；其余 14 project 的输入集不受本 delta 影响（改动仅此一文件）。⇒ R1 义务实质保持，无新增红风险；**交付时二选一**：复跑三基线 typecheck cell 刷新证据，或按 I3-8 清单第 9 条披露 vintage + 本桥接。
+- 次要注记（非阻塞）：`evidence-base/m2/<B>/real-timer.json` 的 `logPath` 指向已删除的临时 worktree，原始日志已复制并存于同目录（`m2-summary.json baseHead.logPathNote` 如实申报）。
+
+## I3-6. 结论 5：M1 叙述面规范裁定 — **已满足（SA4 iteration-1 修订，本会话终态核销）**
+
+- 修正落盘：原 `:155`「contract 242/242 + **root-test 全绿**证明无既有 caller 被破坏」已就地重写为**有边界**表述——「三基线 contract cell 全绿（**iteration 0 口径** 242/242/242/246）＋**本票相关文件在 root-test 中全部通过**（§3.7 逐文件清单）；root-test cell 整体仍红（32 = 28 环境 + 4 既有，矩阵保持 fail/exit 1）…不得引申『root-test 全绿/CI 全绿』」——**恰为 SA10 M1 指定的修法形态**（有边界文件级表述 + 保留整体红事实）。
+- SA4 另主动收紧 `:84`（「root-test 双绿」→ 文件级 6/6 表述）并留 §14.1 全文件自查表；红事实（§2/§3.7/§10-1）原样保留。
+- **本会话独立复核**：对修订版全文 grep `全绿|全通过|双绿|CI 绿` 逐处裁定——剩余命中全部带文件级/cell 级/环境限定词或属禁令/条件句/引述（:26/:64/:74/:100/:101/:103/:156/:182/:184 及 §14.1 引文行），**无任何未限定宣称**。⇒ **I-6.1 满足，M1 闭合**。
+
+## I3-7. 结论 6：Frozen surfaces / Evolution / Hard conflicts
+
+- 冻结面全部持守：wire/状态机、两包公共导出（G4/G5）、ADR 0023 服务构造、ADR 0006/0009 生命周期语义（AC3(c) 断言为**既有语义的验证**，非改动——`bindPersistenceAdapterLifecycle` 零 diff）、manifests/lock/artifacts（G1′/G6 代码面）、docs（G7）、tsconfig/vitest.config（G9）、稳定错误文案（seam 零 diff）。
+- **无 evolution-required、无 override、无 hard-conflict**：M2 为 SA6 AC3(c)/SA10 M2 验收义务的兑现（implements-existing-decision），persistence 侧等价路径为 SA10 明示授权（「若需改 Registry 测试须先修订设计范围」——SA3 未走该路径，`packages/namespace-registry/**` 零 diff）。
+
+## I3-8. Required actions 与可引用的最终限定清单
+
+**必须修（交付前，均非冲突、角色明确）：**
+
+1. **Controller**：修剪 `wiki/raw/task_issue-470_dispatch.md` EOF 空行（:43）——当前 gates 8/9 的唯一红点；修剪后重跑 `gates.mjs` 应 9/9（代码面已 clean）。
+2. **Controller/SA9/SA10**：最终交付摘要/PR 正文逐条携带下述清单；SA4 修订文随包交付（其 §14.1 自查表可引）。
+3. **可选（Controller）**：复跑三基线 `--mode typecheck` 刷新 cell 证据；若不复跑，则按清单第 9 条披露。
+
+**交付摘要/PR 必须保留的最终限定（可直接引用；缺一即失实）：**
+
+1. **不得声称**「根 test 全绿 / 默认布局全量通过 / 既有测试全绿 / CI 全绿」或任何等价表述；「本票相关文件在 root-test 中全部通过」为允许的有边界形态。
+2. `root-test` cell 红 = **32 = 28 环境 + 4 既有**（28 = 环境 pnpm/corepack 11.28.5 违反 `packageManager: pnpm@10.28.2`，`pnpm --version` 独立 exit 1；4 = `ws-replication-issue421-edge-factory-api.test-d.ts` 可选参数元组断言 × expect-type@1.4.0/vitest 3.2.7，`Expected 1 arguments, but got 0`）。**口径注记**：root-test 矩阵件与对齐复跑件录制于 M2 用例加入前（5880/5912 与 5908/5912）；当前树默认布局聚合 +1 test（5913 total 口径，新 AC3(c) 用例默认布局绿——SA4 00:36 / SA8 00:37 双重复跑）。
+3. BASE 等量复现证据：`.cache/cordis-baselines/evidence-base/base-repro/**`（BASE 279dba4、逐族 4 命令、32/52/84、9/9 文件相等、诚实标注逐族复跑）。
+4. 对齐环境复跑：`evidence/root-test/root-test-pnpm10282.*`（单次完整全量 5912/5908/4；8 环境文件 76/76 绿）；该 4 例在 CI 自身 test-d lane（`ci.yml:44`）未改动布局即 `4 failed | 4 passed`（base 既有红）。
+5. §17-3 字面阻断 + 带红收口依据 = SA8 iteration-2 裁定（I-5.2）；4 例修复另立后续票（ALLOW/G1′/G3 外，触碰 issue #421 冻结面 pin 需专属评审）；owner 如另表态从其裁定（Issue 无评论，不得伪称已批准）。
+6. AC6 只可写点名族全绿；「现有 DSH 相关测试」总括必须附「packageManager 对齐环境下」；contract/real-timer 计数须标口径（iteration-0：242/242/246、10/10；M2 后：**243/243/247、11/11 ×3**）。
+7. 三套 root-test 证据并存不得覆盖；矩阵 cell 保持 `fail`/exit 1；M2 证据为新增并存（`evidence/{B1,B2,B3}/{real-timer,contract,unload}.json`、`evidence-base/m2/**`、`green-m2.log`、`m2-green/**`）。
+8. **M2 闭合声明**：AC3(c) 已按 SA10 授权路径在 persistence 侧核销——`cordis-root-real-timer.test.ts` 新用例（UNLOADING 窗口锚定 → gate 释放 → 真实 Timer deadline 内提交最新 generation → adapter dispose 严格其后 → 零 unhandled；无 drain 强制），三基线 11/11 ×3 绿 + BASE B3 目标原因红（0/11，红点 = 窗口内已接纳写在 base `service.ts:54` 惰性 `ctx.root` 读取处 reject）+ BASE B1/B2 绿（非恒红）；Registry 测试零改动，R5P unload 6/6 ×3 维持。
+9. **typecheck 口径注记**：三基线 15-project typecheck cell 录制于 M2 用例加入前；M2 代码位于 persistence project 输入集，SA8 iteration-3 已按 runner 同款命令在 B1/B2/B3 overlay 复跑 `tsc -p packages/persistence` 均 exit 0（其余 14 project 输入零变化）；或以复跑后的新鲜 cell 证据替代本注记。
+10. gates 现状披露：8/9（G6 唯一红点 = Host 台账 `dispatch.md` EOF 空行，非代码面；修剪后 9/9）。
+
+## I3-9. Verdict 与 requiresConflictRecheck（iteration 3，就 M2 delta/M1 复查范围取代前文）
+
+**verdict = `clear`** —— SA10 最终 reject 的两项必修均已闭合且经本会话第一手核销：M2（AC3(c) 可证伪断言 + 三基线 ×3 绿 + BASE 目标原因红 + 零行为变更 + ALLOW 内单文件纯追加）与 M1（SA4 §14.1 修订，无残余越界宣称）。决策集合层面：无 hard-conflict、无 evolution-required、无 override；冻结面全持守；I-6 七条限定声明全部成立，root-test 红（fail/exit 1/32）未被掩盖。**可进入最终 SA9/SA10 重审**，交付状态 = 本文件 I3-8 清单第 1–10 条全部携带 + Controller 修剪 `dispatch.md` EOF 空行（gates 9/9）。残余三项均非冲突（I3-8 必须修 1–3），归属 Controller/SA9/SA10 交付动作。
+
+**requiresConflictRecheck = `false`** —— 无 pending 的公共 API/wire/schema/持久化/状态机/生命周期/失败语义/override 实现核对：M2 证据面与 typecheck vintage 已在本轮闭合/桥接（I3-2/I3-5），M1 叙述面已终态核销（I3-6）；剩余义务为叙述性与交付卫生（I3-8），归 SA9/SA10/Controller 在最终重审与收口时执行，不构成新的冲突复查触发。

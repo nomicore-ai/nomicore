@@ -3,6 +3,7 @@
 - Reviewed at：2026-11-14 23:30（+0800）；worktree `/home/wangjian/nomicore-fix-issue-470`，分支 `mabf/issue-470`，HEAD = BASE = `279dba4`，实现全部在工作树未提交（与 SA3 报告一致）。
 - SA4 dispatch：`sa-d649e1ce-eed3-47c3-80fc-08ccb56dffc4`，iteration 0。
 - 验证方式：逐行读 6 个修改文件 diff + 11 个新增文件全文；独立重跑只读验证命令（gates、单测、typecheck、ws-package cell、三个 fault 负控、acquire 缓存复核、pnpm shim 探针）；逐字节核对证据缓存（`.cache/cordis-baselines/evidence*`、red/green matrix 日志）。**未修改任何 src/test/fixture/配置/文档**。
+- **iteration 1 复审（2026-11-15，dispatch `sa-f10be921-6088-483a-b6df-14e052132264`）**：reviewed state = HEAD `473f83e`（base `279dba4`）+ 未提交 N2 delta（`cordis-root-real-timer.test.ts` +222/-0）。本轮修正本文件 M1 越界叙述（§7/§3.5 两处）并静态复审 SA10 M2 新增 AC3(c) 断言，见 **§14**；iteration 0 各节原样保留为历史记录。
 
 ## 1. Reviewed inputs
 
@@ -80,7 +81,7 @@
 - **acquire**：`ensureTarball` cache 命中仍重算 sha512 与钉值比对（:143-154），不符 exit 2（**SA4 重跑 `--baseline B1` exit 0 走 cache 复核路径**）；B3 每次 acquire 重跑 sparse-checkout/checkout/rev-parse/porcelain/ls-tree 全表 + **重建三包**并比对输出哈希（:386-444，无「信任缓存」路径）。
 - **B3 provenance 8 项**：① commit/porcelain（clone 现存 HEAD=1511a6e…，porcelain 空——SA4 直查）；② ls-tree 全表——**SA4 独立执行 `git ls-tree -r <sha>` 得 32 blob，与 `provenance-b3.json` 逐文件哈希全等**（含 4 个 SA6 附录 A 锚：context.ts/utils.ts/timer index.ts/cosmokit types.ts）；③ 配方（toolchain + perPackage rootDir/outDir/declarationDir/rewrite/paths）；④ 输出哈希（overlay 重算比对，负控下实测 mismatch 红）；⑤ 双位置 realpath（evidence `resolvedRealpaths` 全在 overlay 内）；⑥ probe（B3 log：`rootCtxSymbol=root-context`、`rootCtxLegacy=absent`、`contextRootStatic=symbol`、fiber legacy `throws:cannot get property "root" without inject`——与 SA6 §12.3 逐项一致）；⑦ 四负控（下）；⑧ 诚实标注（`NOT the official DSH`，测试 `toContain` 断言）。
 - **临时 workspace 物化**：`copyTrackedTree`（`git ls-files`）∪ `NEW_FILES`（11 条逐条 existsSync 预检，缺失 exit 2 + 清单）均按**工作树内容**复制（run-baseline.mjs:173-199）——F3 落实；红灯每 cell `filesPresent: true` 落证。
-- **symlink farm/C13**：workspace 根 node_modules 实查仅 `tsx/@types/typescript/vitest`，**无任何 `@nomicore/*`**；`@nomicore/*` → ws 兄弟包、`@deepseek-ai/*` → overlay、其余 → 主仓 realpath；`core-dsh-boundary` 反向守卫在 ws contract suite（242/242）与 root-test 双绿——无假红/假绿。
+- **symlink farm/C13**：workspace 根 node_modules 实查仅 `tsx/@types/typescript/vitest`，**无任何 `@nomicore/*`**；`@nomicore/*` → ws 兄弟包、`@deepseek-ai/*` → overlay、其余 → 主仓 realpath；`core-dsh-boundary` 反向守卫在 ws contract suite（242/242）与 root-test 中该文件用例（6/6）均绿——文件级事实，非 root-test cell 整体表述——无假红/假绿。
 - **`--mode typecheck`**：project 清单从根 `package.json` `scripts.typecheck` 动态解析（run-baseline.mjs:636-641），**15 project** 与 package.json 逐项一致（SA4 比对）；逐 project 日志；B3 红时恰 7 project 红含 ws-replication——敏感性实证；G9 机械封锁 tsconfig/vitest 载体零 diff（无 skip/skipLibCheck/cast 掩蔽路径）。
 - **四负控「外层 exit 0 ⟺ 内层红」**：`runFault` 内层 `cells.some(status==='fail')` → observed/code/status，observed='pass' 时外层 exit 1（run-baseline.mjs:727-757）；内层用例为真实断言红（非 skip）：**SA4 独立重跑三条**——fallback（realpath 落 `node_modules/.pnpm/@deepseek-ai+cordis@4.0.1/…` + libTree hash drift）、substitute-npm（cordis realpath 落 overlay/B2 npm 4.1.0 + hash drift，同名同版本仍判红）、substitute-rc12（realpath 落 `dsh/build/cordis`）——三者均 `observed=fail, code=1, 外层 exit 0`；legacy-shim（F9 同一受控 ctx：`Object.defineProperty(ctx,'root',…)` 后断言 B3 legacy absent → 红）证据在库。
 - ⚠ 证据留痕缺口（MINOR，见 §12-O1）：`evidence/B3/fault-fallback.json`、`evidence/B3/fault-substitute-npm.json`、`evidence/B2/fault-substitute-rc12.json` 三份在评审时**不在盘**（仅 `fault-legacy-shim` 留存；三条 fault workspace 及其污染链接在盘，run-baseline.mjs mtime 23:02 晚于三条 workspace 23:01:44-49，疑首次运行早于 runner 定稿、证据未持久化）。SA3 §6.1 引用的观测消息与 SA4 重跑输出逐字吻合（runs 真实发生过）；且设计 §17 本就将 `.cache` 证据列为不提交、以命令重跑为复核口径。**SA4 重跑已再生三份证据（时间戳 2026-11-14 23:28-23:29）**，交付链应以重跑为准。
@@ -152,7 +153,7 @@
 
 | Contract | Caller | Actual handling | Risk |
 |---|---|---|---|
-| `createCordisPersistenceScheduler` 新增 apply 期 throw | memory/file 工厂 apply、dsh profile（间接） | throw 先于 service provision（AC1(c) 断言面）；旧「timer 在而 root 缺席」宿主从延迟噪声变 apply 稳定 throw——contract 242/242 + root-test 全绿证明无既有 caller 被破坏 | 低 |
+| `createCordisPersistenceScheduler` 新增 apply 期 throw | memory/file 工厂 apply、dsh profile（间接） | throw 先于 service provision（AC1(c) 断言面）；旧「timer 在而 root 缺席」宿主从延迟噪声变 apply 稳定 throw——无既有 caller 被破坏的证据为**有边界**表述：三基线 contract cell 全绿（iteration 0 口径 242/242/242/246）＋**本票相关文件在 root-test 中全部通过**（§3.7 逐文件清单）；root-test cell 整体仍红（32 failed = 28 环境性 + 4 既有，矩阵保持 fail/exit 1，见 SA8 I-6 与 §3.7），不得引申「root-test 全绿/CI 全绿」〔iteration 1 修订：原文「contract 242/242 + root-test 全绿证明……」系越界叙述，见 §14.1〕 | 低 |
 | ws `timerFromContext` 失败时点不变（apply 期） | hub `:513`/peer `:708` | 时点/文案零漂移；唯一新结局为设计裁定的三类收紧（§3.2），B1/B2 不可达 | 低 |
 | `PersistenceScheduler` 接口零变化 | lifecycle.ts 调度面 | 零改动 | 无 |
 
@@ -214,4 +215,57 @@ node …/run-baseline.mjs --baseline B2 --fault substitute-rc12 --suite provenan
 NODE_OPTIONS=--conditions=nomicore-source node node_modules/vitest/vitest.mjs run packages/persistence/test/cordis-*.test.ts  # 31/31
 node node_modules/typescript/bin/tsc -p packages/persistence/tsconfig.json && node node_modules/typescript/bin/tsc -p packages/ws-replication/tsconfig.json  # 均 0
 PATH=$PWD/.cache/pnpm-shim:$PATH … vitest run packages/vfsl/test/schema-check-cli.test.ts packages/dsh-persistence/test/dsh-probe-cli.test.ts  # 13/13（环境归因）
+NODE_OPTIONS=--conditions=nomicore-source node node_modules/vitest/vitest.mjs run packages/persistence/test/cordis-root-real-timer.test.ts  # iteration 1：11/11（SA4 重跑 exit 0，含 AC3(c) 新用例）
 ```
+
+---
+
+## 14. iteration 1：M1 叙述修正 + M2 断言复审（2026-11-15）
+
+Reviewed state：HEAD = `473f83e`（parent = base `279dba4`）+ 未提交 delta；tracked 代码面改动**恰为** `packages/persistence/test/cordis-root-real-timer.test.ts`（+222/−0，纯追加），其余为 Host/Controller 工件（`wiki/raw/task_issue-470_{dispatch,sa3_impl}.md` 修改、sa9/sa10 新增）。`packages/persistence/src/**`、`packages/ws-replication/src/**`、`packages/namespace-registry/**` **零 diff**（`git diff HEAD --name-only -- <三路径>` 空，SA4 实查）；总 diff 面仍 = 6 修改 + 11 新增。
+
+### 14.1 M1 — 本文件越界叙述修正（SA10 spec §1-M1 / SA8 I-6.1）
+
+| 项 | 内容 |
+|---|---|
+| 修正点 | 原 §7 契约连锁表第 1 行「……apply 稳定 throw——contract 242/242 + **root-test 全绿**证明无既有 caller 被破坏」 |
+| 新表述（已就地替换） | 「……无既有 caller 被破坏的证据为**有边界**表述：三基线 contract cell 全绿（iteration 0 口径 242/242/242/246）＋**本票相关文件在 root-test 中全部通过**（§3.7 逐文件清单）；root-test cell 整体仍红（32 failed = 28 环境性 + 4 既有，矩阵保持 fail/exit 1，见 SA8 I-6 与 §3.7），不得引申『root-test 全绿/CI 全绿』」 |
+| 红色事实 | §2 交付限定、§3.7 归因、§10-1 禁令**原样保留**，未删除/改写任何红事实；本次修订只收窄越界宣称，不改变 iteration 0 任何证据结论 |
+
+**全文件自查（`全绿|全通过|CI 绿|双绿` 全量 grep，逐处裁定）**：
+
+| 位置 | 原文摘要 | 裁定 | 处置 |
+|---|---|---|---|
+| :25 | 「root-test cell 为**红**（32 = 28 环境 + 4 既有）……不得声称『根 test 全绿』」 | 红事实 + 禁令 | 保留 |
+| :64 | 「root-test 默认布局**同文件**全绿（guard-proxy 2/2 + 4/4、issue299 7/7、issue422 42/42、plugin 15/15）」 | 文件级限定（I-6.6 允许形态） | 保留 |
+| :74 | 「4 文件 31 tests 全绿 + gates G5 PASS」 | 限 SA4 复跑的 4 个 public-surface 文件 | 保留 |
+| :84 | 原「反向守卫在 ws contract suite（242/242）与 root-test **双绿**」 | 主语虽是文件级守卫，但「root-test 双绿」并置可被断章引申为 cell 整体绿——等价越界风险 | **已收紧**为「在 ws contract suite（242/242）与 root-test 中该文件用例（6/6）均绿——文件级事实，非 root-test cell 整体表述」 |
+| :100 | 「**本票相关文件**在 root-test 中全绿（channel 12/12、real-timer 10/10、……逐文件计数）」 | 恰为 dispatch 认可的有边界形态 | 保留 |
+| :101 | 「两文件 13/13 全绿（pinned-pnpm shim 下）」 | 文件级 + 环境限定 | 保留 |
+| :103 | 「字面义务（全绿）在当前环境不可满足」 | 引述义务而非宣称 | 保留 |
+| :156 | 「contract 242/242 + root-test 全绿证明……」 | **越界（SA10 M1 所指，本节修正对象）** | **已重写**（见上表） |
+| :182/:184 | §10-1 禁令原文 /「若 Controller 要求 root-test 全绿再放行」 | 禁令与条件句，非宣称 | 保留 |
+
+结论：修正后全文件**无任何未限定的**「root-test / 默认布局全量 / 既有测试 / CI 全绿（或等价）」宣称；所有「绿」均带文件级或 cell 级限定词。
+
+### 14.2 M2 — AC3(c) 断言静态复审（SA3 §9.6 delta）
+
+复审对象：`packages/persistence/test/cordis-root-real-timer.test.ts` 新增顶层 describe `AC3(c) UNLOADING 窗口 × 真实 Timer（三基线）`（:583-702，1 用例）+ 文件头注释 + `DocPersistence` type import + `deferred` helper；**既有 10 用例与断言零改动**（diff +222/−0 纯追加）。逐核对点：
+
+| 核对点 | 结论 | 证据 |
+|---|---|---|
+| 1) 真实 TimerService，非 fake schedule；不调 drain/flush，仅窗口内 timer 驱动提交 | ✅ | `createContext()` = `createSystemClockPlugin` + `new TimerService(ctx)`（真基线服务）；meter 在文件级 `beforeAll` patch `TimerService.prototype.timeout`，先于任何 `it` 内构造（F8 保持）。AC3(c) 块内**无** `drain()`/flush API/测试直接写 store（逐行读 :583-702）；插件工厂从 Root 通道导出 scheduler（无注入 scheduler）；窗口内唯一提交通道 = `saveDoc` dirty notification 武装的 debounce timer（`SCHEDULE.debounceMs=10`） |
+| 2) 窗口锚定真实，无「窗口已结束仍判绿」空转路径 | ✅ | 放行前五锚齐断言（:653-664）：`persistenceFiber.state===5` ∧ `ctx.get(NOMICORE_PERSISTENCE_SERVICE)===undefined` ∧ `dependentFiber.state===5 && unloadStarted` ∧ `events===[]`（adapter dispose 未启动）∧ `writeSettled===false` ∧ store 仍 gen1。**反空转关键锚**：gen2 提交观测后**再次**断言 fiber 仍 UNLOADING（:681）且 events 仍恰为 `['snapshot-committed']`（:680）——若提交发生在窗口关闭后必红；提交严格先于 `releaseUnloadBarrier()`，dispose 在结构上不可能先行。结构支撑（SA4 读生产码）：`bindPersistenceAdapterLifecycle`（`service.ts:157-174`）有序 effect = `revoke`（撤服务 → 级联依赖 fiber 卸载）→ `await` 依赖 settle → `finally adapter.dispose()`，且为动态属性调用（`adapter.dispose()`），测试 wrapper 必被截获——若生产码早绑定引用则末尾 `toEqual` 必红（可证伪）。`FIBER_STATE_UNLOADING=5` 与三基线 overlay 的 `FiberState` 枚举逐个实查一致（PENDING0/LOADING1/ACTIVE2/FAILED3/DISPOSED4/**UNLOADING5**，B1/B2/B3） |
+| 3) deadline 谓词轮询，无固定轮数/无 sleep 猜时序；meter.arms 区分 ambient | ✅ | `waitFor` = `DEADLINE_MS=5000` deadline + 5ms 轮询谓词，无固定轮数；事件顺序判据全部来自 events 数组与显式 `await`（`expect(writePromise).resolves`、`await disposal`），唯一 `setImmediate` 是 unhandledRejection 排空的宏任务边界（与既有 service-revoke 同款），非顺序猜测。`armsBeforeFlush` 在窗口开启时点捕获（:665）、提交后断言 `meter.arms > armsBeforeFlush`（:679）：meter 只计 `TimerService.prototype.timeout` arm——`waitFor` 自身与任何生产 ambient `setTimeout` 均不计数，ambient timer 驱动的提交会使该断言红；提交本体另有 store 解码 `===2` 谓词（:672-675），两断言三角定位 |
+| 4) 事件序（snapshot-committed 早于 adapter-dispose）与零 unhandled 真断言 | ✅ | `expect(events).toEqual(['snapshot-committed','adapter-dispose-start','adapter-dispose-complete'])` + `indexOf('snapshot-committed') < indexOf('adapter-dispose-start')`（:689-690，全序 + 严格偏序双断言，事件由 dispose wrapper 实推非推断）；零 unhandled = process 级 `collectUnhandledRejections` 收集器 `expect(unhandled.events).toEqual([])`（:693），于 `await disposal` + 一个 setImmediate 宏任务后断言（注记 O8） |
+| 5) BASE B3 红于目标原因；BASE B1/B2 绿（红在目标原因非构造错误） | ✅ | SA4 直读证据：`evidence-base/m2/B3/B3-real-timer-repeat1.vitest.json` = **0/11**，新用例失败原文 `Error: promise rejected "Error: cannot get property "root" without inject" instead of resolving` @ `__VITEST_RESOLVES__`（即复制件 :670 `expect(writePromise).resolves` 处；根因栈落 BASE `service.ts:54:44` 惰性 legacy `ctx.root` 读取）——**窗口锚定断言在 BASE 上全部通过**，红精确落在 seam 依赖的 dirty-notification 提交路径；BASE B1/B2 = 11/11 pass（B1 ×3 顺序、B2 见 `m2-summary.json baseHead.cells`）→ 非恒红构造错误，红/绿分界 = legacy/symbol 通道差异。固定树三基线 real-timer 11/11×3、contract 243/243/247、unload 6/6（`evidence/{B1,B2,B3}/*.json`，realpath 钉在 overlay、`allFilesPresent:true`） |
+| 6) 无弱化/无新增 skip/`.only`/降级；新代码只在 ALLOW 内 | ✅ | diff +222/−0 纯追加（既有 10 用例逐字未动，断言面零弱化）；`\.skip\|\.only\|\.todo\|xit\|xdescribe` grep 零命中；改动恰在 ALLOW **N2 单文件**；`packages/{persistence,ws-replication}/src`、`packages/namespace-registry/**` 零 diff（§14 开头实查）；runner/fixtures 零改动（real-timer suite glob 自动纳入新用例——evidence `testNames` 已含其全名，计数 10→11）；registry R5P 源文件零 diff、unload 6/6 维持。**SA4 独立重跑（本 dispatch 授权）**：`NODE_OPTIONS=--conditions=nomicore-source node node_modules/vitest/vitest.mjs run packages/persistence/test/cordis-root-real-timer.test.ts` → **11/11、exit 0、Type Errors no errors**（00:36:23） |
+
+**M2 判定：accept（无条件）。** SA10 M2 要求的可证伪持久化结果断言成立且证据在盘可复核：UNLOADING 窗口内释放已接纳写 → 真实 Timer deadline 内提交最新 generation → adapter dispose 严格其后 → 零 unhandled；三基线绿（11/11×3 + contract 双跑计数同步）+ BASE/B3 目标原因红 + BASE B1/B2 绿（非构造性红）。SA6 §12.2 AC3(c)「随后 flush 在 deadline 内提交最新 snapshot」在 persistence 侧核销；registry 侧 R5P 既有 unload 证据维持（6/6×3，零 diff）。
+
+### 14.3 iteration 1 附注（MINOR，非阻断）
+
+- **O8（零 unhandled 断言窗口）**：M2 用例在 `await disposal` + 单个 setImmediate 后即断言零 unhandled；AC2 既有 service-revoke 用例额外等待 ~70ms（`debounceMs*4+30`）。M2 的全部 rejection 面均被显式 await（`expect.resolves`、`await disposal`），且 adapter dispose 清理全部 timer（`service.ts:144-147` 语义），残留暴露面为理论性；后续复用该模式时可补一段 delay 再断言。
+- **O9（AC3(c) 单 adapter）**：新断言仅 Memory 侧。scheduler seam（`createCordisPersistenceScheduler`）为两 adapter 共享，AC2 已分别覆盖 File 的 flush/retry/drain/dispose/service-revoke；AC3(c) 的窗口判据与 adapter I/O 形态无关。可后续票在 File 侧补对称用例。
+- **O10（`FIBER_STATE_UNLOADING = 5` 字面量钉值）**：cordis 以 `const enum` 声明、无运行时值，测试钉 `5`；三基线 overlay 枚举实查一致。若上游变更该值，用例将以 waitFor 超时**红**（非假绿）——可证伪方向安全；代码注释已说明缘由。
+- 本节不解除 §2/§10 与 SA8 I-6 七条交付限定中的任何一项；root-test cell 仍为红（32 = 28 环境 + 4 既有），交付叙述约束不变。

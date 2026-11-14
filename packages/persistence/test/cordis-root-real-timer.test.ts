@@ -4,6 +4,14 @@
  * dispose / service-revoke on every baseline through the real baseline
  * `TimerService` (no fake scheduler anywhere in this file).
  *
+ * It also carries the AC3(c) persistence-result assertion (SA6 §12.2 AC3 (c);
+ * SA10 M2): a dependent fiber consumes `nomicorePersistence` through `inject`,
+ * its accepted `saveDoc` is gated inside the write slot, the persistence fiber is
+ * disposed (service revoked → dependent unloading → adapter NOT disposed), and
+ * after the gate releases the newest generation must reach the store within the
+ * deadline through the real `TimerService` — observed strictly before the adapter
+ * dispose event, with zero unhandled rejections.
+ *
  * Real-Timer evidence: `TimerService.prototype.timeout` is instrumented BEFORE
  * any `TimerService` is constructed (design §8.6 / SA2 F8: the timer mixes its
  * methods into the context at provide time, so the patch must precede
@@ -30,6 +38,7 @@ import {
   createFilePersistencePlugin,
   createMemoryPersistencePlugin,
   type DocHandle,
+  type DocPersistence,
   type FilePersistence,
   type MemoryPersistence,
 } from '../src/index.js'
@@ -119,6 +128,19 @@ async function waitFor(predicate: () => boolean, label: string, deadlineMs = DEA
 
 function delay(milliseconds: number): Promise<void> {
   return new Promise<void>((resolve) => setTimeout(resolve, milliseconds))
+}
+
+interface Deferred {
+  readonly promise: Promise<void>
+  resolve(): void
+}
+
+function deferred(): Deferred {
+  let resolve!: () => void
+  const promise = new Promise<void>((res) => {
+    resolve = res
+  })
+  return { promise, resolve }
 }
 
 function createContext(): Context {
@@ -475,6 +497,206 @@ describe('AC2 真实 Timer × File 适配器（三基线）', () => {
     } finally {
       unhandled.dispose()
       await ctx.fiber.dispose()
+    }
+  })
+})
+
+// ---------------------------------------------------------------- AC3(c) unload window
+
+/** `FiberState.UNLOADING` (cordis declares it as a `const enum`, no runtime value). */
+const FIBER_STATE_UNLOADING = 5
+
+interface DependentWriter {
+  readonly name: string
+  readonly inject: readonly string[]
+  apply(ctx: Context): void
+  /** Create the dependent's live document (the Registry `create` counterpart). */
+  open(initialValue: number): Promise<void>
+  /** The dependent's accepted-write path (the Registry `mutateData` counterpart). */
+  write(value: number): Promise<void>
+  /** Release the dependent's drain barrier (the dependent's own shutdown settle). */
+  releaseUnloadBarrier(): void
+  readonly adapter: DocPersistence | undefined
+  readonly unloadStarted: boolean
+}
+
+/**
+ * Dependent fiber for the AC3(c) window, i.e. the persistence-side equivalent of
+ * the Registry R5P dependency (SA10 M2 requires the equivalent scenario on the
+ * persistence side; `packages/namespace-registry/test/**` is outside this
+ * iteration's ALLOW list).
+ *
+ * It consumes `nomicorePersistence` through `inject`, so revoking the service
+ * cascades into this fiber's unload. Its unload effect (a) awaits the accepted
+ * in-flight write and (b) then awaits a test-anchored drain barrier. That is what
+ * keeps the persistence fiber in `UNLOADING` — service already revoked, adapter
+ * NOT disposed — while the real baseline `TimerService` commits the newest
+ * generation. No persistence API is called to force the flush: the only commit
+ * path inside the window is the debounce timer armed by the dirty notification.
+ */
+function createDependentWriter(docId: string): DependentWriter {
+  const barrier = deferred()
+  let adapter: DocPersistence | undefined
+  let doc: Y.Doc | undefined
+  let handle: DocHandle | undefined
+  let inFlight: Promise<void> | undefined
+  let unloadStarted = false
+  return {
+    name: 'ac3c-dependent-writer',
+    inject: [NOMICORE_PERSISTENCE_SERVICE],
+    apply(ctx: Context) {
+      // Capture the injected service once: the dependent writes through the public
+      // persistence service, exactly like the Registry does while draining writes.
+      adapter = ctx.nomicorePersistence
+      ctx.effect(() => async () => {
+        unloadStarted = true
+        await inFlight // the write accepted before the unload window must settle
+        await barrier.promise // the dependent's own drain quiescence (test-anchored)
+      }, 'ac3c-dependent-unload')
+    },
+    async open(initialValue: number): Promise<void> {
+      if (adapter === undefined) throw new Error('dependent writer is not applied')
+      const created = makeDoc(docId, initialValue)
+      doc = created
+      handle = await adapter.createDoc(ROOT_USER, docId, created)
+    },
+    async write(value: number): Promise<void> {
+      if (adapter === undefined || doc === undefined || handle === undefined) {
+        throw new Error('dependent writer has no live document')
+      }
+      doc.getMap('ROOT').set('n', value)
+      inFlight = adapter.saveDoc(handle)
+      return inFlight
+    },
+    releaseUnloadBarrier: () => {
+      barrier.resolve()
+    },
+    get adapter() {
+      return adapter
+    },
+    get unloadStarted() {
+      return unloadStarted
+    },
+  }
+}
+
+describe('AC3(c) UNLOADING 窗口 × 真实 Timer（三基线）', () => {
+  it('dependent 排空窗口内已接纳写在真实 Timer 上提交最新 generation；adapter dispose 严格晚于该提交；零 unhandled', async () => {
+    const unhandled = collectUnhandledRejections()
+    const ctx = createContext()
+    const docId = 'd-unload-window'
+    const snapshots = new Map<string, Uint8Array>()
+    const events: string[] = []
+    const saveGate = deferred()
+    let saveGateEntered = false
+    let writeSettled = false
+    let dependent: DependentWriter | undefined
+    let dependentFiber: ReturnType<Context['plugin']> | undefined
+    let persistenceFiber: ReturnType<Context['plugin']> | undefined
+    let disposal: Promise<void> | undefined
+    try {
+      const plugin = createMemoryPersistencePlugin({
+        schedule: SCHEDULE,
+        writeSnapshot: async (key, snapshot) => {
+          snapshots.set(key, snapshot.slice())
+        },
+      })
+      persistenceFiber = ctx.plugin(plugin)
+      await persistenceFiber
+      const adapter = plugin.instance!
+      expect(adapter.getStatus()).toBe('ready')
+
+      dependent = createDependentWriter(docId)
+      dependentFiber = ctx.plugin(dependent)
+      await dependentFiber
+      expect(dependent.adapter).toBe(adapter)
+      expect(ctx.get(NOMICORE_PERSISTENCE_SERVICE)).toBe(adapter)
+
+      // The dependent's live doc + initial committed snapshot (generation 1).
+      await dependent.open(1)
+      expect(decode(snapshots.get(storeKey(docId)))).toBe(1)
+
+      // Adapter dispose is recorded as an event so "strictly after the commit" is
+      // an observable order, not an inference (R5P's event-order discipline).
+      const originalDispose = adapter.dispose.bind(adapter)
+      adapter.dispose = async () => {
+        events.push('adapter-dispose-start')
+        await originalDispose()
+        events.push('adapter-dispose-complete')
+      }
+      // Gate the accepted write inside the write slot (R5P's S6 anchor): saveDoc is
+      // entered but does not reach the lifecycle until the gate releases.
+      const originalSaveDoc = adapter.saveDoc.bind(adapter)
+      adapter.saveDoc = async (handle: DocHandle) => {
+        if (!saveGateEntered) {
+          saveGateEntered = true
+          await saveGate.promise
+        }
+        return originalSaveDoc(handle)
+      }
+
+      const writePromise = dependent.write(2)
+      void writePromise.then(
+        () => {
+          writeSettled = true
+        },
+        () => {
+          writeSettled = true
+        },
+      )
+      await waitFor(() => saveGateEntered, 'accepted write entered the gated saveDoc slot')
+      expect(decode(snapshots.get(storeKey(docId)))).toBe(1) // newest generation not committed yet
+
+      // Unload the persistence fiber: service revoked → dependent fiber unloading →
+      // adapter NOT disposed (the ordered lifecycle effect awaits the dependent).
+      disposal = persistenceFiber.dispose()
+      await waitFor(
+        () =>
+          persistenceFiber!.state === FIBER_STATE_UNLOADING
+          && ctx.get(NOMICORE_PERSISTENCE_SERVICE) === undefined,
+        'persistence fiber is UNLOADING and the service is already revoked',
+      )
+      await waitFor(
+        () => dependentFiber!.state === FIBER_STATE_UNLOADING && dependent!.unloadStarted,
+        'dependent fiber is UNLOADING and awaiting the accepted write',
+      )
+      expect(events).toEqual([]) // adapter dispose has not started
+      expect(writeSettled).toBe(false) // the accepted write is still in flight
+      const armsBeforeFlush = meter.arms
+
+      // Release the accepted write. Only the dirty notification may commit from
+      // here on: no adapter.drain(), no manual flush, no store write by the test.
+      saveGate.resolve()
+      await expect(writePromise).resolves.toBeUndefined()
+
+      await waitFor(
+        () => decode(snapshots.get(storeKey(docId))) === 2,
+        'newest generation snapshot committed inside the UNLOADING window',
+      )
+      events.push('snapshot-committed')
+      // The commit was armed on the real baseline TimerService (meter counts
+      // `TimerService.prototype.timeout` arms) — an ambient timer would not.
+      expect(meter.arms).toBeGreaterThan(armsBeforeFlush)
+      expect(events).toEqual(['snapshot-committed']) // still no adapter dispose
+      expect(persistenceFiber.state).toBe(FIBER_STATE_UNLOADING) // the window is still open
+
+      dependent.releaseUnloadBarrier()
+      await disposal
+      await new Promise<void>((resolve) => {
+        setImmediate(resolve)
+      })
+
+      expect(events).toEqual(['snapshot-committed', 'adapter-dispose-start', 'adapter-dispose-complete'])
+      expect(events.indexOf('snapshot-committed')).toBeLessThan(events.indexOf('adapter-dispose-start'))
+      expect(adapter.getStatus()).toBe('disposed')
+      expect(ctx.get(NOMICORE_PERSISTENCE_SERVICE)).toBeUndefined()
+      expect(unhandled.events).toEqual([])
+    } finally {
+      saveGate.resolve()
+      dependent?.releaseUnloadBarrier()
+      await disposal?.catch(() => {})
+      await ctx.fiber.dispose()
+      unhandled.dispose()
     }
   })
 })
