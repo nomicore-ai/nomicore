@@ -1,0 +1,136 @@
+{
+  "schemaVersion": 1,
+  "commit": "1511a6ed442c207919142a4b0e6c4916f96d2c3b",
+  "repository": "https://github.com/deepseek-ai/deepseek-harness.git",
+  "sparseCheckout": [
+    "vendor/cordis",
+    "vendor/timer",
+    "vendor/cosmokit",
+    "tsconfig.base.json"
+  ],
+  "cleanCheck": {
+    "command": "git -C <clone> rev-parse HEAD && git -C <clone> status --porcelain",
+    "expectedHead": "1511a6ed442c207919142a4b0e6c4916f96d2c3b",
+    "expectedPorcelain": ""
+  },
+  "buildRecipe": {
+    "command": "node <repo>/node_modules/typescript/bin/tsc -p <cache>/dsh/build/<pkg>/tsconfig.build.json",
+    "toolchain": {
+      "node": "v24.13.0",
+      "typescript": "5.9.3"
+    },
+    "honestyNote": "minimal tsc source-build, NOT the official DSH `tsc -b` + tsdown pipeline (design §8.3 item 8 / SA6 §9.2). Package versions 4.1.0/1.2.0/1.9.0 are auxiliary metadata only and prove nothing about the Root API shape.",
+    "perPackage": {
+      "@deepseek-ai/cosmokit": {
+        "vendoredPath": "vendor/cosmokit",
+        "rootDir": "src",
+        "outDir": "lib",
+        "declaration": true,
+        "declarationDir": "lib/types",
+        "allowImportingTsExtensions": true,
+        "rewriteRelativeImportExtensions": true,
+        "module": "ESNext",
+        "moduleResolution": "Bundler",
+        "target": "ES2024",
+        "paths": {}
+      },
+      "@deepseek-ai/cordis": {
+        "vendoredPath": "vendor/cordis",
+        "rootDir": "src",
+        "outDir": "lib",
+        "declaration": true,
+        "declarationDir": "lib/types",
+        "allowImportingTsExtensions": true,
+        "rewriteRelativeImportExtensions": true,
+        "module": "ESNext",
+        "moduleResolution": "Bundler",
+        "target": "ES2024",
+        "paths": {
+          "@deepseek-ai/cosmokit": [
+            "/home/wangjian/nomicore-fix-issue-470/.cache/cordis-baselines/dsh/build/cosmokit/lib/types/index.d.ts"
+          ],
+          "@standard-schema/spec": [
+            "/home/wangjian/nomicore-fix-issue-470/.cache/cordis-baselines/overlay/B3/node_modules/@standard-schema/spec/dist/index.d.ts"
+          ]
+        }
+      },
+      "@deepseek-ai/cordis-plugin-timer": {
+        "vendoredPath": "vendor/timer",
+        "rootDir": "src",
+        "outDir": "lib",
+        "declaration": true,
+        "declarationDir": "lib/types",
+        "allowImportingTsExtensions": true,
+        "rewriteRelativeImportExtensions": true,
+        "module": "ESNext",
+        "moduleResolution": "Bundler",
+        "target": "ES2024",
+        "paths": {
+          "@deepseek-ai/cosmokit": [
+            "/home/wangjian/nomicore-fix-issue-470/.cache/cordis-baselines/dsh/build/cosmokit/lib/types/index.d.ts"
+          ],
+          "@deepseek-ai/cordis": [
+            "/home/wangjian/nomicore-fix-issue-470/.cache/cordis-baselines/dsh/build/cordis/lib/types/index.d.ts"
+          ]
+        }
+      }
+    }
+  },
+  "sourceBlobs": {
+    "vendor/cordis/bin.js": "e5ee5224f7b2cd12e636dabb0da6b1d12b0c1c86",
+    "vendor/cordis/LICENSE": "9fdec8c979b135b9433ad31949828f42a8eaa8a6",
+    "vendor/cordis/package.json": "1699637857f8fce16fc107544e0745c162ea8e57",
+    "vendor/cordis/README.md": "950d4e683a55bfd6b8811caab97eeac04ca93b65",
+    "vendor/cordis/src/context.ts": "951a0ddae440787d15798144370bf57508c390d3",
+    "vendor/cordis/src/events.ts": "f0dc92fbe2387e70afeb4db0d4c74d4503cf9ef2",
+    "vendor/cordis/src/fiber.ts": "08a75215d6c8e6837d9e6219f6a3d8678752db9f",
+    "vendor/cordis/src/index.ts": "5c27008b44d50b8319ab3828ba02bd94adc5aa16",
+    "vendor/cordis/src/logger.ts": "ff35b70de5d408b700178815c3be42bd5db59de9",
+    "vendor/cordis/src/reflect.ts": "c2256a3534de7aa531d6ec138ebbc7e77a575a08",
+    "vendor/cordis/src/registry.ts": "fe988a2b14b3812473876f7b9c9e0f6c3098666e",
+    "vendor/cordis/src/service.ts": "c6ac63e30f4ed0db8821fbc60b30a0e26feab7f0",
+    "vendor/cordis/src/utils.ts": "4337b9d6c213ef90f47b982675e92302ba117f9a",
+    "vendor/cordis/tsconfig.json": "c7357481fd113a3437b253c7c55cd4c545562df3",
+    "vendor/cosmokit/LICENSE": "9fdec8c979b135b9433ad31949828f42a8eaa8a6",
+    "vendor/cosmokit/package.json": "68a8153db08b194a688a51684f512eeeb4ff0928",
+    "vendor/cosmokit/README.md": "7cdc1d17041051782955f3394068f7f7c807cd46",
+    "vendor/cosmokit/src/array.ts": "18ed5e407fe6932b2ca9eb2267d63deffca3a8cf",
+    "vendor/cosmokit/src/index.ts": "b6b7144168ae62cf1242fe051baa4ba35babcaa7",
+    "vendor/cosmokit/src/misc.ts": "11ed0a8597b12314f99cf39db10fec71cede8067",
+    "vendor/cosmokit/src/string.ts": "6f7084488196e9d73075dfcdb72cd5998ba6dfe6",
+    "vendor/cosmokit/src/time.ts": "6f9065493e56e8a5592704858a51a5d25f605a88",
+    "vendor/cosmokit/src/types.ts": "0aab4420c16776750ae4c5891ec3d6c3a1a8231b",
+    "vendor/cosmokit/src/volatile.ts": "a64c35f253e1619c20b8f95ee32fab0e1eb2684b",
+    "vendor/cosmokit/tsconfig.json": "b7411f94f27115c67c45e5fbff0bdf5ea85d450e",
+    "vendor/timer/LICENSE": "9fdec8c979b135b9433ad31949828f42a8eaa8a6",
+    "vendor/timer/locale/en.json": "525d713f465f57c71b4880884ca0ef5b5b532c19",
+    "vendor/timer/locale/zh.json": "b87792d10579f84bfcb88039ddde5e7e4ecb9b7d",
+    "vendor/timer/package.json": "9f3abfacfc92caf2a9b70b01f0459a5eb972218f",
+    "vendor/timer/README.md": "9735030a27295c53a4e835ba0abd036ff5d0eaeb",
+    "vendor/timer/src/index.ts": "8d133e5c7ffab583e4612d51217d203b7913de72",
+    "vendor/timer/tsconfig.json": "843303e870c287fcbd7707649a37b962618c872d"
+  },
+  "outputs": {
+    "@deepseek-ai/cosmokit": {
+      "libTreeSha256": "af9297c4b1eae626f12d02bb5ce267fc5a7bc25aa25d5ef92768340fd0721b55",
+      "libIndexSha256": "79fdda555a902d1bbb66f93d2d5af13f2766ecd044916bb782967137dd5d6d69",
+      "typesIndexSha256": "731fdb0be8334e6c621cc14fa9a61a1f6b0f2a38ffcb5b8d5f47b07aac068a4b"
+    },
+    "@deepseek-ai/cordis": {
+      "libTreeSha256": "9bb7ac5977811a5f506dd6e276ad03d1694d99ac1adb7dd55d6da4d807c8e330",
+      "libIndexSha256": "dbc5668cf4f6e728a0173dbbebace107d30d56ffe5698356f8e07cd3a9f57551",
+      "typesIndexSha256": "958249889830102ac7af78a89c28ba3ca2a5d51037a5392850b3fbbc33d58862"
+    },
+    "@deepseek-ai/cordis-plugin-timer": {
+      "libTreeSha256": "c43884d0026e5fc0897d78896ed2f03e74b75d90cc7a3da9d316ea50bafb0731",
+      "libIndexSha256": "c450ed6cd120a92e936966d8e486b7524f8f888afbac3b25d87310d313e9c5ed",
+      "typesIndexSha256": "a0cbbaa9ebe6a78ca8a62d39e2b6a97fb9c81e9e6e068df3539bc1ac64579487"
+    }
+  },
+  "crossChecks": {
+    "contextTs": "951a0ddae440787d15798144370bf57508c390d3",
+    "utilsTs": "4337b9d6c213ef90f47b982675e92302ba117f9a",
+    "timerIndexTs": "8d133e5c7ffab583e4612d51217d203b7913de72",
+    "cosmokitTypesTs": "0aab4420c16776750ae4c5891ec3d6c3a1a8231b"
+  }
+}
