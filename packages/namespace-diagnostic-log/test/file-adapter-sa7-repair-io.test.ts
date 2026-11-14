@@ -22,7 +22,7 @@ import { join } from 'node:path'
 import { afterEach, describe, expect, it } from 'vitest'
 import { readStreamStrict } from '../src/index.js'
 import type { FileDiagnosticLogConfig } from '../src/index.js'
-import { baseEmission } from './helpers/base.js'
+import { baseEmission, OBSERVED_AT } from './helpers/base.js'
 import {
   concatU8,
   encodeFrame,
@@ -91,7 +91,14 @@ function makeResumeLog(
   ns: string,
   extra: Partial<FileDiagnosticLogConfig> = {},
 ): AssembledFileLog {
-  return makeFileLog({ rootDir: root, namespaceId: ns, updateCapture: true, ...extra })
+  return makeFileLog({
+    rootDir: root,
+    namespaceId: ns,
+    updateCapture: true,
+    // fixture observedAt 与 reopen sweep 共用同一时钟，避免墙钟老化闭组并掩盖 repair-io-failure。
+    clock: { now: () => Date.parse(OBSERVED_AT) },
+    ...extra,
+  })
 }
 
 /** rotate 证明模板：恰一次 rotated{cause} + 新 streamId + current.json 愈合。 */

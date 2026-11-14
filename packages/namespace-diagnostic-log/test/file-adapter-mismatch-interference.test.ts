@@ -22,7 +22,7 @@
 import { existsSync, mkdirSync, readFileSync, rmdirSync, rmSync } from 'node:fs'
 import { afterEach, describe, expect, it } from 'vitest'
 import { crc32cHex } from '../src/crc32c.js'
-import { baseEmission } from './helpers/base.js'
+import { baseEmission, OBSERVED_AT } from './helpers/base.js'
 import {
   eventsOfType,
   eventsOfTypeRaw,
@@ -286,7 +286,14 @@ describe('ADR 0014 验收门槛 10：manifest envelope/schema fingerprint 不匹
 
     // 打开：fingerprint 不匹配 → rotate（事件通道从 stream-init-failed/manifest-mismatch
     // 迁移到 stream-generation-rotated{cause:'stream-incompatible'}，§11.3）
-    const { log, events } = makeFileLog({ rootDir: root, namespaceId: ns, resumeStreamId: oldStream, updateCapture: true })
+    const { log, events } = makeFileLog({
+      rootDir: root,
+      namespaceId: ns,
+      resumeStreamId: oldStream,
+      updateCapture: true,
+      // fixture observedAt 固定在 2026-08-28；reopen sweep 必须使用同一时钟，避免墙钟超过默认 30 天 retention。
+      clock: { now: () => Date.parse(OBSERVED_AT) },
+    })
     expect(log.streamId).not.toBe(oldStream)
     expect(log.streamId).toMatch(/^log-[0-9a-f]{32}$/)
     const rotated = eventsOfTypeRaw(events, 'stream-generation-rotated')
