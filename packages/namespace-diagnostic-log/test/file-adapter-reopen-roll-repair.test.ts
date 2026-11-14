@@ -41,7 +41,7 @@ import { afterEach, describe, expect, it } from 'vitest'
 import { readStreamStrict } from '../src/index.js'
 import type { FileDiagnosticLogConfig } from '../src/index.js'
 import { createFileDiagnosticLogPresetSequence } from '../src/testing.js'
-import { baseEmission } from './helpers/base.js'
+import { baseEmission, OBSERVED_AT } from './helpers/base.js'
 import {
   concatU8,
   encodeFrame,
@@ -130,9 +130,14 @@ function makeRollFileLog(config: Partial<FileDiagnosticLogConfig> & RollConfigKe
   return makeFileLog({ updateCapture: true, ...config } as Partial<FileDiagnosticLogConfig>)
 }
 
-/** resume 构造的默认模板（17 键 fixture 的冻结面一致参数）。 */
+/** resume 构造的默认模板（17 键 fixture 的冻结面一致参数；sweep 时钟与固定 observedAt 对齐，避免墙钟老化测试闭组）。 */
 function makeResumeLog(root: string, ns: string, extra: Partial<FileDiagnosticLogConfig> & RollConfigKeys = {}): AssembledFileLog {
-  return makeRollFileLog({ rootDir: root, namespaceId: ns, ...extra })
+  return makeRollFileLog({
+    rootDir: root,
+    namespaceId: ns,
+    clock: { now: () => Date.parse(OBSERVED_AT) },
+    ...extra,
+  })
 }
 
 // ============================================================================
