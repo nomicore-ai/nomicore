@@ -31,6 +31,16 @@ import { createHubReplicationPlugin, requireHubReplication } from '@nomicore/ws-
 
 const DEADLINE_MS = 5000
 
+/** Predicate polling with a hard deadline — never a fixed wall-clock wait (SA9-5). */
+async function waitFor(predicate: () => boolean, label: string, deadlineMs = 2000): Promise<void> {
+  const start = Date.now()
+  while (Date.now() - start < deadlineMs) {
+    if (predicate()) return
+    await new Promise<void>((resolve) => setTimeout(resolve, 2))
+  }
+  throw new Error(`waitFor timed out after ${deadlineMs}ms: ${label}`)
+}
+
 function deadline<T>(promise: Promise<T>, label: string): Promise<T> {
   return Promise.race([
     promise,
@@ -75,7 +85,7 @@ describe('O.timer-ownership', () => {
         armed = true
       }, 1)
       expect(typeof dispose).toBe('function')
-      await new Promise<void>((resolve) => setTimeout(resolve, 30))
+      await waitFor(() => armed, 'the surviving timer fires its armed callback')
       // …and can still arm: the armed callback ran on the root timer.
       expect(armed, 'the surviving timer can still arm and fire').toBe(true)
       dispose()
@@ -107,7 +117,7 @@ describe('O.timer-ownership', () => {
       expect(typeof after!.timeout).toBe('function')
       let fired = false
       const dispose = after!.timeout(() => { fired = true }, 1)
-      await new Promise<void>((resolve) => setTimeout(resolve, 25))
+      await waitFor(() => fired, 'the orphaned-by-design root timer fires its armed callback')
       expect(fired, 'the orphaned-by-design root timer still arms').toBe(true)
       dispose()
       expect(ctx.get('nomicorePersistence')).toBeUndefined()

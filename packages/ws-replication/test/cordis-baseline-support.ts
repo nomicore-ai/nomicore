@@ -7,14 +7,16 @@
  * `run-baseline.mjs` `NEW_FILES` so the baseline workspaces receive it.
  *
  * It is a test observation helper (meter / predicate polling / controlled channel
- * shapes), NOT a second verification facility: the single artifact acquisition
- * (`acquire.mjs`), probe (`root-probe.mjs`) and runner (`run-baseline.mjs`) stay
- * untouched (AC7 / design §8.1).
+ * shapes), NOT a second verification facility: `acquire.mjs` stays the only artifact
+ * acquisition, `root-probe.mjs` the only channel probe and `run-baseline.mjs` the only
+ * baseline runner (this ticket edits that single canonical runner — no parallel one
+ * exists; AC7 / design §8.1).
  *
  * Naming (design §8.1 / D-7 / T-1a):
  *   describe label   = NOMICORE_CORDIS_BASELINE ?? 'default'
  *   lifecycle unit   = L.<entry>.<scenario>   (baseline segment lives in the label)
- *   JSON full name   = `<label> > L.<entry>.<scenario>`
+ *   JSON full name   = `<label> L.<entry>.<scenario>` (vitest joins ancestor titles with
+ *                      one space; there is no `' > '` separator)
  *
  * No test hard-codes a `.cache` path (SA8 B-2): the runner injects the only
  * baseline identity env the tests read.
@@ -36,10 +38,8 @@ export const EXPECTED_CHANNEL: 'legacy' | 'symbol' | undefined =
   process.env.NOMICORE_CORDIS_EXPECTED_CHANNEL === 'legacy' || process.env.NOMICORE_CORDIS_EXPECTED_CHANNEL === 'symbol'
     ? (process.env.NOMICORE_CORDIS_EXPECTED_CHANNEL as 'legacy' | 'symbol')
     : undefined
-/** Runner mode flag — strict identity equality assertions only run here (design D-7). */
-export const RUNNER_MODE: boolean = process.env.NOMICORE_CORDIS_RUNNER_MODE === '1'
 /** N-2 legacy-shim fault injection (design §9.1 fault consumption discipline). */
-export const FAULT: string | undefined = process.env.NOMICORE_CORDIS_FAULT
+const FAULT: string | undefined = process.env.NOMICORE_CORDIS_FAULT
 
 export const ROOT_SYMBOL = Symbol.for('cordis.root') as unknown as symbol
 /** Legacy Root channel property key (kept as a constant so the literal never sits in a call-arg position). */
@@ -144,7 +144,7 @@ export function installRealTimerMeter(): { meter: TimerMeter; restore: () => voi
 
 // ---------------------------------------------------------------- helpers
 
-export function delay(milliseconds: number): Promise<void> {
+function delay(milliseconds: number): Promise<void> {
   return new Promise<void>((resolve) => setTimeout(resolve, milliseconds))
 }
 
@@ -168,30 +168,6 @@ export async function expectQuiet(
   while (Date.now() - start < windowMs) {
     if (predicate()) throw new Error(`unexpected consequence inside the quiet window: ${label}`)
     await delay(2)
-  }
-}
-
-export function captureMessage(action: () => unknown): string {
-  try {
-    action()
-  } catch (error) {
-    return (error as Error).message
-  }
-  return '<no throw>'
-}
-
-export interface EventSink<T> {
-  readonly events: T[]
-  push(event: T): void
-}
-
-export function createEventSink<T>(): EventSink<T> {
-  const events: T[] = []
-  return {
-    events,
-    push(event: T) {
-      events.push(event)
-    },
   }
 }
 
@@ -325,25 +301,6 @@ export function recordingTimerService(): { timeout: (callback: () => void, delay
   return probe
 }
 
-export interface RuntimeDependencies {
-  readonly role: 'hub' | 'peer'
-  readonly instanceId: string
-  readonly registry?: unknown
-  readonly timer?: unknown
-}
-
-/**
- * Minimal Host dependency shim: Instance → Clock → Timer → Registry. The timer
- * value is injected verbatim (`{ timeout, ctx }` capability or a real
- * `TimerService`), so the production seam performs its own two-hop resolution.
- */
-export function provideRuntimeDependencies(ctx: Context, options: RuntimeDependencies): void {
-  provideInstance(ctx, Object.freeze({ instanceId: options.instanceId, role: options.role }) as never)
-  provideClock(ctx, { now: () => 1 })
-  ctx.provide('timer', (options.timer ?? recordingTimerService()) as never)
-  provideNomicoreRegistry(ctx, (options.registry ?? { open: () => undefined }) as unknown as NamespaceRegistry)
-}
-
 export interface RealTimerAssembly {
   readonly ctx: Context
   readonly base: Context
@@ -392,21 +349,4 @@ export function timerBridge(service: TimerService): ReplicationTimer {
       if (typeof handle === 'function') (handle as () => void)()
     },
   }
-}
-
-/** `DuplexTransport` close recorder over the memory duplex ends used by the suites. */
-export interface CloseRecorder {
-  readonly closes: Array<Readonly<{ code: number; reason: string }>>
-  readonly closed: () => boolean
-}
-
-export function recordCloses(transport: {
-  closed: boolean
-  onClose(listener: (info: { code: number; reason: string }) => void): () => void
-}): CloseRecorder {
-  const closes: Array<Readonly<{ code: number; reason: string }>> = []
-  transport.onClose((info) => {
-    closes.push({ code: info.code, reason: info.reason })
-  })
-  return { closes, closed: () => transport.closed }
 }

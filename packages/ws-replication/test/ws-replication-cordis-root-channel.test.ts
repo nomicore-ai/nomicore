@@ -40,7 +40,6 @@ import {
   BASELINE_LABEL,
   controlledContext,
   createRealTimerAssembly,
-  delay,
   EXPECTED_CHANNEL,
   expectQuiet,
   recordingRootTimer,
@@ -50,6 +49,18 @@ import {
   type ChannelMode,
   type RecordingRootTimer,
 } from './cordis-baseline-support.js'
+
+/** Package-local guard Proxy (ADR 0023 L90: no new shared facility; same helper shape as
+ * `ws-replication-guard-proxy-consumption.test.ts`). It wraps every function member. */
+function guardProxy<T extends object>(target: T): T {
+  return new Proxy(target, {
+    get(t, prop, receiver) {
+      const value = Reflect.get(t, prop, receiver)
+      if (typeof value !== 'function') return value
+      return (...args: unknown[]) => Reflect.apply(value, receiver, args)
+    },
+  }) as T
+}
 
 const ROOT_TIMER_MESSAGE = 'required Cordis root timer context is unavailable'
 const TIMER_SERVICE_MESSAGE = 'required Cordis service "timer" is unavailable'
@@ -438,7 +449,6 @@ describe(BASELINE_LABEL, () => {
         // Fire only the entry's configured delay: an earlier arm from the registry test
         // scheduler (10 s) must not be consumed by the sentinel.
         expect(sentinel.fireDelay(HELLO_TIMEOUT_MS)).toBeGreaterThan(0)
-        await delay(2)
         // Firing the sentinel explicitly is what produces the consequence.
         await waitFor(() => mounted.consequences.count() > 0, `${entry}: consequence after explicit fire`)
         await mounted.dispose()
@@ -464,5 +474,119 @@ describe(BASELINE_LABEL, () => {
       }
       await assembly.dispose()
     })
+  })
+
+  // ------------------------------------------------------------ A6-1 SessionHost guard-Proxy
+  //
+  // SA10 §3.3: A6-1 names five guard-Proxy faces (clock, Registry, Hub, Peer, SessionHost).
+  // The BASE-frozen Hub/Peer guard file cannot be edited, so the `nomicoreHubSessionHost`
+  // consumption evidence lives here and this file is registered in the runner's
+  // GUARD_PROXY_FILES (three baselines).
+  describe('C.guard-proxy.session-host', () => {
+    it(`C.guard-proxy.session-host.${BASELINE_LABEL}`, async () => {
+      const SESSION_HOST_MEMBERS = ['status', 'open', 'stop'] as const
+      const node = makeNode('hub')
+      const fixture = await makeHubNamespace(node)
+      const assembly = createRealTimerAssembly({
+        role: 'hub',
+        instanceId: 'hub-one',
+        registry: node.registry,
+        withRegistry: true,
+      })
+      const plugin = createHubReplicationPlugin({ listen: false, timeouts: { bootstrapTimeoutMs: 500 } })
+      const fiber = assembly.ctx.plugin(plugin)
+      await fiber.await()
+      try {
+        const service = requireHubSessionHost(assembly.ctx) as unknown as Record<string, unknown> & {
+          status: { state: string; sessions: number }
+          open: (input: unknown) => { close: () => Promise<void> }
+          stop: () => Promise<void>
+        }
+        // sensitivity positive control: the guard helper still refuses frozen data members
+        const frozenDataSurface = Object.freeze({ probe: (): number => 1 })
+        expect(() => guardProxy(frozenDataSurface).probe).toThrow(TypeError)
+        // honest Proxy negative control: an honest passthrough never throws
+        const honest = new Proxy(service, { get: (t, prop, receiver) => Reflect.get(t, prop, receiver) })
+        expect(() => (honest as Record<string, unknown>).open).not.toThrow()
+
+        // every member is consumable through the DSH guard Proxy (wraps each function)
+        const guarded = guardProxy(service)
+        const outcomes: Record<string, string> = {}
+        for (const member of SESSION_HOST_MEMBERS) {
+          try {
+            void (guarded as Record<string, unknown>)[member]
+            outcomes[member] = 'ACCESS_OK'
+          } catch (error) {
+            outcomes[member] = error instanceof TypeError ? 'THROW:TypeError' : `THROW:${String(error)}`
+          }
+        }
+        expect(outcomes).toEqual(Object.fromEntries(SESSION_HOST_MEMBERS.map((member) => [member, 'ACCESS_OK'])))
+
+        // status is a getter snapshot; open is a stable closure; stop caches its Promise
+        expect(guarded.status).toEqual({ state: 'ready', sessions: 0 })
+        const opened = guarded.open({
+          connectionKey: 'conn-guard-proxy',
+          remoteInstanceId: PEER_INSTANCE,
+          namespaceId: fixture.namespaceId,
+          authorization: AUTHORIZATION,
+          selectedCapabilities: 0,
+        })
+        expect(guarded.status.sessions, 'the guarded open() really opened a session').toBe(1)
+        expect(service.open).toBe(service.open)
+        expect(service.stop).toBe(service.stop)
+        const first = service.stop()
+        expect(guarded.stop()).toBe(first)
+        await first
+        expect(guarded.status).toEqual({ state: 'stopped', sessions: 0 })
+        expect(() => guarded.open({
+          connectionKey: 'conn-after-stop',
+          remoteInstanceId: PEER_INSTANCE,
+          namespaceId: fixture.namespaceId,
+          authorization: AUTHORIZATION,
+          selectedCapabilities: 0,
+        })).toThrow(/stopped/)
+        await opened.close()
+
+        // ADR 0023 accessor posture: no data property, no setter, frozen, writes rejected
+        for (const member of SESSION_HOST_MEMBERS) {
+          const descriptor = Object.getOwnPropertyDescriptor(service, member)!
+          expect(descriptor, `${member} descriptor`).toBeDefined()
+          expect('value' in descriptor).toBe(false)
+          expect(typeof descriptor.get).toBe('function')
+          expect(descriptor.set).toBeUndefined()
+          expect(descriptor.configurable).toBe(false)
+          expect(descriptor.enumerable).toBe(true)
+          expect(Object.isFrozen(service)).toBe(true)
+          expect(() => {
+            ;(service as Record<string, unknown>)[member] = () => 1
+          }).toThrow(TypeError)
+          expect(() => Object.defineProperty(service, member, { value: () => 1 })).toThrow(TypeError)
+        }
+        expect(Object.keys(service)).toEqual([...SESSION_HOST_MEMBERS])
+      } finally {
+        await fiber.dispose()
+        await assembly.dispose()
+      }
+    })
+  })
+
+  // ------------------------------------------------------------ A6-2 extra public entry surface
+  //
+  // SA10 §3.3 / A6-2: the frozen `public-surface.base.json` covers 4 of the 7 required
+  // entries and must not be edited. The remaining three entries are pinned here from a
+  // clean BASE (`d59a4d1`) runtime capture — see
+  // `.cache/export-capture/base-exports.json` (capture.mjs reproduces the G5 farm).
+  describe('C.public-surface.extra-entries', () => {
+    const EXTRA_ENTRIES = [
+      ['@nomicore/clock', '../../clock/src/index.js', ['CLOCK_SERVICE', 'createSystemClockPlugin', 'provideClock', 'requireClock', 'systemClock']],
+      ['@nomicore/namespace-registry', '../../namespace-registry/src/index.js', ['DEFAULT_IDLE_TIMEOUT_MS', 'NOMICORE_REGISTRY_SERVICE', 'NamespaceLeaseReleasedError', 'NamespaceRegistryFatalError', 'NamespaceRegistryShutdownError', 'createNamespaceRegistry', 'createNamespaceRegistryPlugin', 'provideNomicoreRegistry', 'requireNomicoreRegistry']],
+      ['@nomicore/ws-replication/testing', '../src/testing.js', ['createHubReplicationForTesting', 'createMemoryDuplexTransport', 'safeStateVector', 'stateVectorBytesEqual', 'stateVectorSafeDigest']],
+    ] as const
+    for (const [name, modulePath, expected] of EXTRA_ENTRIES) {
+      it(`C.public-surface.${name}`, async () => {
+        const module = (await import(modulePath)) as Record<string, unknown>
+        expect(Object.keys(module).sort(), `${name} runtime export names must equal the BASE d59a4d1 capture`).toEqual([...expected])
+      })
+    }
   })
 })

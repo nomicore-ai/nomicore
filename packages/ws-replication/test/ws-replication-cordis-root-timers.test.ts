@@ -27,6 +27,7 @@ import {
   createPeerReplicationPlugin,
   requireHubReplication,
   requireHubSessionHost,
+  requirePeerReplication,
   type DuplexTransport,
   type HubReplication,
   type PeerReplication,
@@ -66,10 +67,11 @@ const resetAfterMs = 20
 const bootstrapMs = 4321
 const bootstrapFastMs = 40
 const closeMs = 45
+const cancelMs = 1000
 const assemblyMs = 66
 const assemblyFastMs = 40
 const ackMs = 28
-const reconcileIntervalMs = 44
+const reconcileIntervalMs = 60
 const waitForLiveMs = 25
 
 /**
@@ -132,6 +134,14 @@ function stallAfterFirstKind2Chunk(end: DuplexTransport): { end: DuplexTransport
   return { end: wrapped, held: () => held }
 }
 
+/** Round ids of the peer-initiated SYNC_STEP1 frames on one wire (monotonic per peer). */
+function peerRoundIds(wire: Wire): number[] {
+  return wire.peerToHub
+    .map((bytes) => decodeMessage(bytes).message)
+    .filter((message) => message.kind === 'SYNC_STEP1')
+    .map((message) => message.syncRoundId)
+}
+
 let meter: TimerMeter
 let restoreMeter: () => void
 
@@ -183,6 +193,7 @@ async function bootLivePair(options: {
   hubTimeouts?: Partial<ReplicationTimeouts>
   peerTimeouts?: Partial<ReplicationTimeouts>
   hubObserver?: (event: ReplicationObserverEvent) => void
+  peerObserver?: (event: ReplicationObserverEvent) => void
   chunkedUpdate?: boolean
   /** Shared limit profile for both halves (kind=2 trigger profile in the assembly families). */
   limits?: Readonly<Partial<ReplicationLimits>>
@@ -237,6 +248,7 @@ async function bootLivePair(options: {
     targets: [{ namespaceId: fixture.namespaceId, localOwner: PEER_OWNER }],
     ...(options.limits === undefined ? {} : { limits: options.limits }),
     ...(options.peerTimeouts === undefined ? {} : { timeouts: options.peerTimeouts }),
+    ...(options.peerObserver === undefined ? {} : { observer: options.peerObserver }),
     ...(options.chunkedUpdate === undefined ? {} : { chunkedUpdate: options.chunkedUpdate }),
     dial: () => {
       const wire = makeWire()
@@ -455,47 +467,45 @@ describe(BASELINE_LABEL, () => {
   }, 20_000)
 
   it('T.close-drain-deadline', async () => {
-    const hubNode = makeNode('hub')
-    const { hub, dispose } = createHubFactory({
-      registry: hubNode.registry,
-      timeouts: { helloTimeoutMs: helloMs, closeTimeoutMs: closeMs },
-    })
-    const peerAssembly = createRealTimerAssembly({ role: 'peer', instanceId: PEER_INSTANCE })
-    const closes: Array<{ code: number; reason: string }> = []
+    // AC1 / design §9.1 close/drain row: the **namespace CLOSE drain** path, configured by
+    // `closeTimeoutMs` (peer-namespace `armTimer('close')`, `TIMER_DELAY_FIELD.close`). The
+    // CLOSE_NAMESPACE frame is withheld at the transport seam, so the drain deadline is the
+    // thing that收口s the namespace. The driver is `removeTarget`, NOT `requestReauth`: the
+    // reauth family keeps its own test below, and each family negatively controls the
+    // other's marker (no GOAWAY here, no connection-level 'hub-reauth' close).
+    const first = await bootLivePair({ peerTimeouts: { closeTimeoutMs: closeMs } })
+    const firstWire = first.wires[0]!
     try {
-      const wire = makeWire()
-      wire.peerEnd.onClose((info) => closes.push({ code: info.code, reason: info.reason }))
-      await hub.accept(wire.hubEnd, { token: TEST_TOKEN })
-      wire.peerEnd.send(encodeMessage({
-        kind: 'HELLO',
-        peerInstanceId: PEER_INSTANCE,
-        expectedHubInstanceId: HUB_INSTANCE,
-        protocolVersions: [1],
-        requiredCapabilities: 0,
-        optionalCapabilities: 0,
-        connectionNonce: new Uint8Array(16),
-      }, { sequence: 1 }))
-      await settleUntil(() => wire.hubToPeer.some((bytes) => decodeMessage(bytes).message.kind === 'HELLO_ACK'), 'HELLO_ACK')
-      // arm: the hub's GOAWAY drain budget is the configured closeTimeoutMs; the peer
-      // arms its local elapsed deadline with exactly that budget.
-      await hub.requestReauth(PEER_INSTANCE)
-      await settleUntil(
-        () => wire.hubToPeer.some((bytes) => {
-          const decoded = decodeMessage(bytes)
-          return decoded.message.kind === 'GOAWAY' && decoded.message.reasonCode === 'REAUTH_REQUIRED'
-        }),
-        'GOAWAY REAUTH_REQUIRED',
-      )
-      await waitFor(() => meter.includes(closeMs), 'drain/reauth deadline armed with closeTimeoutMs')
-      await waitFor(() => closes.some((close) => close.code === 1001), 'deadline closes the connection 1001')
-      await hub.close()
-      expect(meter.pendingFor(closeMs), 'hub close clears the drain timers').toBe(0)
-      expect(peerAssembly.timer).toBeDefined()
+      firstWire.dropNextPeerToHub((bytes) => decodeMessage(bytes).message.kind === 'CLOSE_NAMESPACE')
+      const removal = first.peer.removeTarget(first.namespaceId)
+      // arm: the outstanding CLOSE_OK wait uses exactly closeTimeoutMs
+      await waitFor(() => meter.includes(closeMs), 'close drain deadline armed with closeTimeoutMs')
+      expect(meter.pendingFor(closeMs), 'the close drain deadline stays armed while CLOSE_OK is withheld').toBeGreaterThan(0)
+      // trigger: the deadline fires and收口s the namespace locally (no CLOSE_OK ever arrived)
+      await waitFor(() => first.peer.getNamespaceState(first.namespaceId) === 'closed', 'close deadline收口s the namespace')
+      await removal
+      expect(firstWire.droppedPeerToHub.some((bytes) => decodeMessage(bytes).message.kind === 'CLOSE_NAMESPACE'), 'the CLOSE_NAMESPACE frame was withheld at the seam').toBe(true)
+      // cancel: the fired deadline leaves no live timer behind
+      await waitFor(() => meter.pendingFor(closeMs) === 0, 'the fired close deadline clears itself')
+      // negative control vs the reauth family: this path is not a GOAWAY/REAUTH drain
+      expect(firstWire.hubToPeer.some((bytes) => decodeMessage(bytes).message.kind === 'GOAWAY')).toBe(false)
+      expect(first.peer.getConnectionState()).toBe('ready')
     } finally {
-      await peerAssembly.dispose()
-      await dispose()
+      await first.dispose()
     }
-  }, 20_000)
+
+    // cancel segment on the normal path: CLOSE_OK arrives before the deadline, so the timer
+    // is cleared without ever firing (`cancelMs` is a distinct, observable budget).
+    const second = await bootLivePair({ peerTimeouts: { closeTimeoutMs: cancelMs } })
+    try {
+      await second.peer.removeTarget(second.namespaceId)
+      await waitFor(() => second.peer.getNamespaceState(second.namespaceId) === 'closed', 'CLOSE_OK收口s the namespace')
+      await waitFor(() => meter.pendingFor(cancelMs) === 0, 'CLOSE_OK clears the close drain deadline')
+      expect(meter.entries.filter((entry) => entry.delay === cancelMs).every((entry) => !entry.fired), 'the cancelled deadline never fired').toBe(true)
+    } finally {
+      await second.dispose()
+    }
+  }, 30_000)
 
   it('T.reauth-deadline', async () => {
     const hubNode = makeNode('hub')
@@ -521,11 +531,18 @@ describe(BASELINE_LABEL, () => {
       await settleUntil(() => wire.hubToPeer.some((bytes) => decodeMessage(bytes).message.kind === 'HELLO_ACK'), 'HELLO_ACK')
       expect(accepted!.state).toBe('ready')
       await hub.requestReauth(PEER_INSTANCE)
-      // arm + trigger: the GOAWAY deadline is armed with the configured closeTimeoutMs
-      // and closes the transport with the frozen reauth reason.
+      // arm + trigger: the GOAWAY(REAUTH_REQUIRED) deadline is armed with the configured
+      // closeTimeoutMs and closes the transport with the frozen reauth reason.
       await waitFor(() => meter.includes(closeMs), 'reauth deadline armed with closeTimeoutMs')
       await waitFor(() => closes.some((close) => close.reason === 'hub-reauth'), 'reauth deadline closes 1001 hub-reauth')
       expect(closes.find((close) => close.reason === 'hub-reauth')?.code).toBe(1001)
+      // negative control: the reauth driver is not the namespace CLOSE drain driver
+      expect(wire.peerToHub.some((bytes) => decodeMessage(bytes).message.kind === 'CLOSE_NAMESPACE'), 'reauth never sends CLOSE_NAMESPACE').toBe(false)
+      expect(wire.hubToPeer.some((bytes) => {
+        const decoded = decodeMessage(bytes)
+        return decoded.message.kind === 'GOAWAY' && decoded.message.reasonCode === 'REAUTH_REQUIRED'
+      }), 'reauth is a GOAWAY(REAUTH_REQUIRED) drain').toBe(true)
+      expect(closes.some((close) => close.reason === 'blocked-deadline' || close.reason === 'goaway-drain'), 'reauth must not take the generic GOAWAY drain reasons').toBe(false)
       await hub.close()
       expect(meter.pendingFor(closeMs)).toBe(0)
     } finally {
@@ -584,35 +601,78 @@ describe(BASELINE_LABEL, () => {
   }, 20_000)
 
   it('T.peer-wait-for-live', async () => {
+    // AC1 / design §9.1 `waitForLive` row: the 25 ms literal in `plugin.ts` is a poll read
+    // point, so the test observes (a) the poll timer being armed, (b) the poll timer
+    // actually FIRING and driving a state check while the namespace is not live, (c) the
+    // live transition resolving the waiter, and (d) the independent stop→reject path.
+    const hubNode = makeNode('hub')
     const peerNode = makeNode('peer')
-    const assembly = createRealTimerAssembly({
+    const fixtureA = await makeHubNamespace(hubNode)
+    const fixtureB = await makeHubNamespace(hubNode)
+    const hubAssembly = createRealTimerAssembly({ role: 'hub', instanceId: HUB_INSTANCE })
+    const peerAssembly = createRealTimerAssembly({
       role: 'peer',
       instanceId: PEER_INSTANCE,
       registry: peerNode.registry,
       withRegistry: true,
     })
+    const wires: Wire[] = []
+    const hub = createHubReplication({
+      instanceId: HUB_INSTANCE,
+      registry: hubNode.registry,
+      authorize: hubAuth() as never,
+      verifyToken: verifier() as never,
+      timer: hubAssembly.timer,
+    })
     try {
-      const target = `ns-${'b2'.repeat(16)}`
       const plugin = createPeerReplicationPlugin(
-        { expectedHubInstanceId: HUB_INSTANCE },
-        { timeouts: { helloTimeoutMs: pongMs }, dial: () => createMemoryDuplexTransport().peer },
+        {
+          expectedHubInstanceId: HUB_INSTANCE,
+          timeouts: { helloTimeoutMs: 5000 },
+          targets: [{ namespaceId: fixtureA.namespaceId, localOwner: PEER_OWNER }],
+        },
+        {
+          dial: () => {
+            const wire = makeWire()
+            wires.push(wire)
+            void hub.accept(wire.hubEnd, { token: TEST_TOKEN })
+            return wire.peerEnd
+          },
+        },
       )
-      const fiber = assembly.ctx.plugin(plugin)
+      const fiber = peerAssembly.ctx.plugin(plugin)
       await fiber.await()
-      const service = (await import('@nomicore/ws-replication')).requirePeerReplication(assembly.ctx)
-      const pending = service.waitForLive(target)
-      // arm: the fixed 25 ms polling literal is not a timeout knob — it is the read
-      // point (`plugin.ts` waitForLive) and must be observed as such.
-      await waitFor(() => meter.includes(waitForLiveMs), 'waitForLive polling timer armed at the literal 25 ms')
-      // cancel + trigger(failure): stop rejects the waiter and clears the poll timer
+      const service = requirePeerReplication(peerAssembly.ctx)
+      await waitFor(() => service.status.getNamespaceState(fixtureA.namespaceId) === 'live', 'target A live')
+      // (a) arm: target B is not a target yet, so the waiter starts its 25 ms poll
+      const pending = service.waitForLive(fixtureB.namespaceId)
+      await waitFor(() => meter.includes(waitForLiveMs), 'waitForLive poll armed at the literal 25 ms')
+      // (b) the poll must fire and drive a state read (a merely-armed timer is no trigger)
+      await waitFor(
+        () => meter.entries.some((entry) => entry.delay === waitForLiveMs && entry.fired),
+        'the 25 ms poll fired once while target B is not live',
+      )
+      expect(service.status.getNamespaceState(fixtureB.namespaceId), 'the poll re-checked a non-live namespace').not.toBe('live')
+      // (c) live resolve: adding the target opens/bootstraps B and resolves the waiter
+      service.addTarget({ namespaceId: fixtureB.namespaceId, localOwner: PEER_OWNER })
+      await expect(pending).resolves.toBeUndefined()
+      expect(service.status.getNamespaceState(fixtureB.namespaceId)).toBe('live')
+      // (d) independent stop→reject path + cleanup
+      const rejected = service.waitForLive(`ns-${'b9'.repeat(16)}`)
+      await waitFor(
+        () => meter.entries.some((entry) => entry.delay === waitForLiveMs && !entry.settled),
+        'a new 25 ms poll is armed for the rejecting waiter',
+      )
       await service.stop()
-      await expect(pending).rejects.toThrow(/peer replication stopped/)
+      await expect(rejected).rejects.toThrow(/peer replication stopped/)
       expect(meter.pendingFor(waitForLiveMs)).toBe(0)
       await fiber.dispose()
     } finally {
-      await assembly.dispose()
+      await hub.close()
+      await hubAssembly.dispose()
+      await peerAssembly.dispose()
     }
-  }, 20_000)
+  }, 30_000)
 
   it('T.fence-watchdog', async () => {
     const node = makeNode('hub')
@@ -681,56 +741,65 @@ describe(BASELINE_LABEL, () => {
   }, 20_000)
 
   it('T.reconcile-interval', async () => {
-    const pair = await bootLivePair({ peerTimeouts: { reconcileIntervalMs, reconcileTimeoutMs: 40 } })
+    const pair = await bootLivePair({ peerTimeouts: { reconcileIntervalMs, reconcileTimeoutMs: 400 } })
     try {
       // arm: periodic reconciliation rhythm on the peer namespace
-      await waitFor(() => meter.includes(reconcileIntervalMs), 'reconcile interval armed')
-      expect(meter.pendingFor(reconcileIntervalMs)).toBeGreaterThan(0)
-      // trigger: at least one periodic round happens (arm count grows or a second arm)
+      await waitFor(() => meter.includes(reconcileIntervalMs), 'reconcile interval armed with reconcileIntervalMs')
+      expect(meter.pendingFor(reconcileIntervalMs), 'the periodic rhythm is live before the trigger').toBeGreaterThan(0)
+      // trigger baseline: the peer round ids observed BEFORE the interval may fire. The
+      // trigger below is a strictly new round id — the first arm alone can never satisfy it.
+      const before = peerRoundIds(pair.wires[0]!)
+      const baselineMax = Math.max(0, ...before)
       await waitFor(
-        () => meter.armsFor(reconcileIntervalMs) >= 1 && meter.pendingFor(reconcileIntervalMs) >= 1,
-        'reconcile round keeps the rhythm armed',
+        () => peerRoundIds(pair.wires[0]!).some((roundId) => roundId > baselineMax),
+        'a periodic reconcile round started a NEW SYNC_STEP1 round after the interval',
       )
+      // the round settles back to live and re-arms the rhythm (second cadence observable)
+      await waitFor(() => meter.armsFor(reconcileIntervalMs) >= 2, 'the periodic rhythm re-armed after the round')
+      // cancel: peer stop clears the reconcile rhythm (both timer kinds)
       await pair.peer.stop()
-      expect(meter.pendingFor(reconcileIntervalMs), 'peer stop clears the reconcile rhythm').toBe(0)
+      expect(meter.pendingFor(reconcileIntervalMs), 'peer stop clears the periodic reconcile rhythm').toBe(0)
+      expect(meter.pendingFor(400), 'peer stop clears the reconcile-round deadline').toBe(0)
     } finally {
       await pair.dispose()
     }
   }, 30_000)
 
   it('T.chunked-bulk-ack', async () => {
-    // design §9.1 bulk/assembly row, converged form: the inbound budget is armed by a
-    // REAL kind=2 chunked SYNC_STEP2 ("kind=2 self-held ACK") at the production arm
-    // point (`hub-namespace.ts` `afterAssemblyAccept` → `armTimer('assembly')`), not by
-    // a synthetic kind=0 injection. The tail frames are withheld at the transport seam so
-    // the assembly stays busy (a dropped frame would open a connection-level sequence gap
-    // and kill the connection instead of the transfer).
-    let gate: ReturnType<typeof stallAfterFirstKind2Chunk> | undefined
+    // design §9.1 bulk/assembly row: the inbound budget is armed by a REAL kind=2 chunked
+    // SYNC_STEP2 at the production arm point (`hub-namespace.ts` `afterAssemblyAccept` →
+    // `armTimer('assembly')`), and the trigger is the real ACK settlement: the final frame
+    // is delivered normally and the hub observes `chunked-sync-acked` when the peer's
+    // SYNC_APPLIED settles the transfer (no synthetic injection, no stall in this case).
+    const events: ReplicationObserverEvent[] = []
     const pair = await bootLivePair({
       schema: CHUNKED_SYNC_SCHEMA,
       root: { n: 1, blurb: 'seed' },
       limits: CHUNKED_SYNC_LIMITS,
       hubTimeouts: { assemblyTimeoutMs: assemblyMs, ackTimeoutMs: 4000 },
       peerTimeouts: { reconcileIntervalMs: 1000, ackTimeoutMs: 4000 },
+      peerObserver: (event) => events.push(event),
       chunkedUpdate: true,
-      wrapHubEnd: (end) => {
-        gate = stallAfterFirstKind2Chunk(end)
-        return gate.end
-      },
     })
     try {
-      const wire = pair.wires[0]!
       await pair.peerWrite({ blurb: CHUNKED_SYNC_BLURB })
+      // arm: the assembly deadline was armed with the configured assemblyTimeoutMs
       await waitFor(() => meter.includes(assemblyMs), 'assembly budget armed with assemblyTimeoutMs')
+      const wire = pair.wires[0]!
       const kind2Chunks = wire.peerToHub
         .map((bytes) => decodeMessage(bytes, { selectedCapabilities: CAP_CHUNKED_UPDATE }).message)
         .filter((message) => message.kind === 'UPDATE_CHUNK' && message.transferKind === 2)
       expect(kind2Chunks.length, 'the arm point must be fed by real kind=2 chunks').toBeGreaterThanOrEqual(2)
-      expect(gate!.held(), 'the tail frames were withheld at the transport seam').toBeGreaterThan(0)
-      expect(meter.pendingFor(assemblyMs), 'the stalled assembly leaves a live budget timer').toBeGreaterThan(0)
-      // cancel: closing the connection clears the pending assembly budget
+      // trigger: the delivered tail frame + peer ACK settle the transfer (real ACK event)
+      await waitFor(
+        () => events.some((event) => event.type === 'chunked-sync-acked' && event.side === 'peer'),
+        'the sending peer observed the real chunked ACK settlement',
+      )
+      // cancel: ACK settlement clears the assembly deadline, and no timeout-abort occurred
+      await waitFor(() => meter.pendingFor(assemblyMs) === 0, 'the acked assembly cleared its deadline')
+      expect(events.some((event) => event.type === 'chunked-sync-aborted'), 'a completed transfer is never aborted').toBe(false)
       await pair.hub.close()
-      await waitFor(() => meter.pendingFor(assemblyMs) === 0, 'connection close clears the assembly budget')
+      expect(meter.pendingFor(assemblyMs), 'connection close leaves no assembly budget behind').toBe(0)
     } finally {
       await pair.dispose()
     }

@@ -81,6 +81,10 @@ const GUARD_PROXY_FILES = [
   'packages/ws-replication/test/ws-replication-issue246-interop-matrix.test.ts',
   'packages/ws-replication/test/ws-replication-issue418-edge-session-split-contract.test.ts',
   'packages/ws-replication/test/ws-replication-issue418-edge-session-split-structure.test.ts',
+  // A6-1 (SA10 §3.3): `nomicoreHubSessionHost` is the fifth guard-Proxy face. Its
+  // consumption assertions live in the new channel file (the existing Hub/Peer guard file
+  // is BASE-frozen), so the guard-proxy suite must run that file on every baseline.
+  WS_CHANNEL_TEST,
 ]
 const APP_COMPOSITION_FILES = [
   'apps/yjs-server/test/third-party-composition-red.test.ts',
@@ -616,6 +620,35 @@ function lifecycleUnits(assertions) {
   }
 }
 
+/**
+ * Per-repeat lifecycle judgement (SA9-4): 23/23 pinned units observed, the `coverage`
+ * self-check green, no `L.` name outside the pinned enumeration, and the AC8-③ issue420
+ * session-host round contributing at least one test — computed for one run.
+ */
+function lifecycleJudgement(run) {
+  const judgement = lifecycleUnits(run.assertions)
+  // AC8-③/F-3: the issue420 session-host round belongs to this suite — the evidence must
+  // show that file contributing tests, not merely "some names".
+  const issue420 = (run.evidence?.testResults ?? []).find((file) =>
+    String(file.name ?? '').replaceAll('\\', '/').endsWith('packages/ws-replication/test/ws-replication-issue420-session-host-round.test.ts'),
+  )
+  const issue420Tests = (issue420?.assertionResults ?? []).length
+  const hasIssue420 = issue420Tests > 0
+  // T-1a pass predicate: 23/23 units observed, the `coverage` self-check green, no `L.`
+  // name outside the pinned enumeration, and the issue420 round present (fail-closed).
+  const ok = judgement.units.observed === LIFECYCLE_UNITS.length
+    && judgement.coverage
+    && judgement.foreignUnits.length === 0
+    && hasIssue420
+  return {
+    units: judgement.units,
+    foreignUnits: judgement.foreignUnits,
+    coverage: judgement.coverage,
+    issue420: { present: hasIssue420, tests: issue420Tests },
+    ok,
+  }
+}
+
 function runSuite(baselineId, suite, materialized, fault, evidenceSubdir) {
   const cell = baseCell(baselineId, suite, materialized)
   const evidenceDir = path.join(EVIDENCE, baselineId, evidenceSubdir ?? '')
@@ -668,24 +701,17 @@ function runSuite(baselineId, suite, materialized, fault, evidenceSubdir) {
     }
     let lifecycleOk = true
     if (suite === 'replication-lifecycle') {
-      const judgement = lifecycleUnits(run.assertions)
-      cell.units = judgement.units
-      cell.foreignUnits = judgement.foreignUnits
-      cell.coverage = judgement.coverage
-      // AC8-③/F-3: the issue420 session-host round belongs to this suite — the
-      // evidence must show that file contributing tests, not merely "some names".
-      const issue420 = (run.evidence?.testResults ?? []).find((file) =>
-        String(file.name ?? '').replaceAll('\\', '/').endsWith('packages/ws-replication/test/ws-replication-issue420-session-host-round.test.ts'),
-      )
-      const issue420Tests = (issue420?.assertionResults ?? []).length
-      const hasIssue420 = issue420Tests > 0
-      cell.issue420 = { present: hasIssue420, tests: issue420Tests }
-      // T-1a pass predicate: 23/23 units observed, the `coverage` self-check green, no
-      // `L.` name outside the pinned enumeration, and no failure at all (fail-closed).
-      lifecycleOk = judgement.units.observed === LIFECYCLE_UNITS.length
-        && judgement.coverage
-        && judgement.foreignUnits.length === 0
-        && hasIssue420
+      // SA9-4: the 23-name enumeration / coverage / foreign-name / issue420 predicates are
+      // evaluated for EVERY repeat, not only for the last one, and all of them must pass.
+      // A later repeat can otherwise mask a collection or naming defect in an earlier one.
+      const judgements = runs.map((entry) => lifecycleJudgement(entry))
+      cell.repeatJudgements = judgements
+      const last = judgements[judgements.length - 1]
+      cell.units = last.units
+      cell.foreignUnits = last.foreignUnits
+      cell.coverage = last.coverage
+      cell.issue420 = last.issue420
+      lifecycleOk = runs.length === repeat && judgements.every((entry) => entry.ok)
     }
     const everyRepeatGreen = runs.every((entry) => entry.exitCode === 0 && entry.counts.failed === 0 && entry.counts.total > 0)
     cell.status = everyRepeatGreen && lifecycleOk && (!cell.r5p || cell.r5p.passed) ? 'pass' : 'fail'
@@ -876,20 +902,54 @@ function runRootTestCell() {
   const jsonPath = path.join(EVIDENCE, 'root-test', 'root-test.vitest.json')
   mkdirp(path.dirname(logPath))
   if (!fs.existsSync(VITEST)) fail('root-test', `default layout vitest missing at ${relative(VITEST)}`)
-  const result = spawnSync(NODE, [VITEST, 'run', '--typecheck', '--reporter=default', '--reporter=json', `--outputFile.json=${jsonPath}`], {
-    cwd: REPO,
-    encoding: 'utf8',
-    env: { ...process.env, NODE_OPTIONS: '--conditions=nomicore-source' },
-    maxBuffer: 256 * 1024 * 1024,
-  })
+  // SA9-1 (evidence fail-closed): the JSON reporter file is the ONLY accepted evidence, and
+  // it must be produced by THIS run. A JSON left behind by an earlier run is not evidence:
+  // delete it before the run, then require presence, parsability, a fresh mtime, a positive
+  // total and exact name/count agreement. Any failure is a red cell — the known-red ledger
+  // may explain failures, never missing evidence.
+  fs.rmSync(jsonPath, { force: true })
+  const startedAt = Date.now()
+  const result = spawnSync(
+    NODE,
+    [
+      VITEST,
+      'run',
+      '--typecheck',
+      '--passWithNoTests=false',
+      '--reporter=default',
+      '--reporter=json',
+      `--outputFile.json=${jsonPath}`,
+    ],
+    {
+      cwd: REPO,
+      encoding: 'utf8',
+      env: { ...process.env, NODE_OPTIONS: '--conditions=nomicore-source' },
+      maxBuffer: 256 * 1024 * 1024,
+    },
+  )
   fs.writeFileSync(logPath, `${result.stdout ?? ''}\n${result.stderr ?? ''}`)
+  const problems = []
+  if (result.status === null) problems.push('root-test vitest process was terminated by a signal')
+  let json
+  if (!fs.existsSync(jsonPath)) {
+    problems.push('root-test JSON evidence missing: the reporter wrote no file for this run')
+  } else {
+    try {
+      json = JSON.parse(fs.readFileSync(jsonPath, 'utf8'))
+    } catch (error) {
+      problems.push(`root-test JSON unparsable: ${error.message}`)
+    }
+    const writtenAt = fs.statSync(jsonPath).mtimeMs
+    if (writtenAt < startedAt) {
+      problems.push(`root-test JSON is stale: mtime=${new Date(writtenAt).toISOString()} predates this run (${new Date(startedAt).toISOString()})`)
+    }
+  }
   // B-3b: failedTestNames must be extracted from the JSON reporter (incl. the test-d
   // lane). A count-level approximation is never accepted.
   let counts
-  let testNames = []
-  let failedTestNames = []
-  try {
-    const json = JSON.parse(fs.readFileSync(jsonPath, 'utf8'))
+  const testNames = []
+  const failedTestNames = []
+  if (json !== undefined) {
     counts = { numTotalTests: json.numTotalTests, numPassedTests: json.numPassedTests, numFailedTests: json.numFailedTests }
     for (const testFile of json.testResults ?? []) {
       for (const assertion of testFile.assertionResults ?? []) {
@@ -898,8 +958,18 @@ function runRootTestCell() {
         if (assertion.status === 'failed') failedTestNames.push(name)
       }
     }
-  } catch {
-    counts = undefined
+    const finite = (value) => typeof value === 'number' && Number.isFinite(value)
+    if (![counts.numTotalTests, counts.numPassedTests, counts.numFailedTests].every(finite)) {
+      problems.push(`root-test JSON counts are not finite numbers: ${JSON.stringify(counts)}`)
+    } else {
+      if (counts.numTotalTests <= 0) problems.push('root-test JSON reports zero tests (--passWithNoTests=false must make that impossible)')
+      if (testNames.length !== counts.numTotalTests) {
+        problems.push(`root-test JSON test extraction mismatch: numTotalTests=${counts.numTotalTests} extracted=${testNames.length}`)
+      }
+      if (failedTestNames.length !== counts.numFailedTests) {
+        problems.push(`root-test JSON failed-name extraction mismatch: numFailedTests=${counts.numFailedTests} extracted=${failedTestNames.length}`)
+      }
+    }
   }
   const ledger = readKnownRedLedger()
   // B-3d: complete-test-name set inclusion (never a count-level approximation).
@@ -909,13 +979,14 @@ function runRootTestCell() {
     environmentRed: [...ledger.environmentRed].sort(),
     failedTestNames: [...failedTestNames].sort(),
     failedUnexpected: [...failedUnexpected].sort(),
-    statement: 'root-test is judged by the frozen known-red ledger (SA8 B-3a…e); this ticket does not claim the root-test / CI / all existing tests are green.',
+    statement: 'root-test is judged by the frozen known-red ledger (SA8 B-3a…e) on fresh, complete JSON evidence; this ticket does not claim the root-test / CI / all existing tests are green.',
   }
   const pnpmProbe = spawnSync('pnpm', ['--version'], { cwd: REPO, encoding: 'utf8' })
+  const evidenceOk = problems.length === 0
   return {
     baseline: 'default',
     suite: 'root-test',
-    status: failedUnexpected.length === 0 ? 'pass' : 'fail',
+    status: evidenceOk && failedUnexpected.length === 0 ? 'pass' : 'fail',
     exitCode: result.status,
     resolvedRealpaths: {},
     provenanceDigest: provenanceDigestFor('B1'),
@@ -923,12 +994,21 @@ function runRootTestCell() {
     failedTestNames,
     failedUnexpected,
     disclosure,
+    evidence: { jsonPath: relative(jsonPath), fresh: evidenceOk, problems },
+    ledger: { knownRed: ledger.knownRed.size, environmentRed: ledger.environmentRed.size },
     logPath: relative(logPath),
-    counts,
+    counts: counts === undefined
+      ? undefined
+      : {
+          passed: counts.numPassedTests,
+          failed: counts.numFailedTests,
+          total: counts.numTotalTests,
+          ...counts,
+        },
     diagnostics: {
       node: process.version,
       pnpmProbe: { exitCode: pnpmProbe.status, stdout: (pnpmProbe.stdout ?? '').trim().slice(0, 200), stderr: (pnpmProbe.stderr ?? '').trim().slice(0, 400) },
-      command: 'NODE_OPTIONS=--conditions=nomicore-source node <repo>/node_modules/vitest/vitest.mjs run --typecheck',
+      command: 'NODE_OPTIONS=--conditions=nomicore-source node <repo>/node_modules/vitest/vitest.mjs run --typecheck --passWithNoTests=false',
     },
   }
 }
@@ -985,7 +1065,11 @@ function printMatrix(cells) {
     cell.suite,
     cell.status,
     String(cell.exitCode ?? cell.counts?.failed ?? ''),
-    cell.counts === undefined ? (cell.projectCount !== undefined ? `${cell.projectCount} projects` : '-') : `${cell.counts.passed}/${cell.counts.total}`,
+    cell.counts === undefined
+      ? (cell.projectCount !== undefined ? `${cell.projectCount} projects` : '-')
+      // SA9-7-1: one field convention (`counts.passed/total`); the root-test row keeps its
+      // real counts and states the ledger size instead of printing `undefined/undefined`.
+      : `${cell.counts.passed}/${cell.counts.total}${cell.ledger === undefined ? '' : ` (${cell.counts.failed} known-red: ${cell.ledger.knownRed} frozen + ${cell.ledger.environmentRed} environment)`}`,
     cell.logPath,
   ])
   const widths = header.map((value, index) => Math.max(value.length, ...rows.map((row) => row[index].length)))

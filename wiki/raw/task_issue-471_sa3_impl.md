@@ -1,357 +1,311 @@
 # SA3 Implementation Report — issue #471（Cordis rc.12 Hub/Peer/SessionHost 全链兼容）
 
-状态：**实现与验证闭合（iteration 2：SA4/SA8 实现级评审阻断项已闭合）**。三基线矩阵 `41/41 PASS`（exit 0）、三基线 typecheck `3×15/15` project exit 0、每基线 `replication-lifecycle units.observed===23 && coverage` 在场、root-test 按 Step 0 BASE 台账判定 `failedUnexpected===[]`、负控 N-1/N-2 与变异 M-1/M-2 全部「应红实红」并逐字节还原。**iteration 2 修复**：G10 M4 跨行实参归属 + fail-closed（SA4-1 / SA8 §8-1(a)）、V_ctx 后缀边界（§8-1(b)）、自检表 12→16 行（§8-1(c)）、分类判定顺序按钉死表序（SA4-2）、`baselines.json` 最小 diff 还原（SA4-5）——逐条修法、修复前后分类差异与复跑证据见 **§9**。本文档只描述当前实现与当前验证结果；未闭合项与如实披露见 §8 与 §9.7。
-基线：worktree HEAD `d59a4d1`（= Issue `## Parent` PR #469 head；`git rev-parse HEAD` 核对）。
-设计真源：`wiki/raw/task_issue-471_design.md`（rev 3，§9.2 rev 2.1）；验收契约：`wiki/raw/task_issue-471_sa6_acceptance_contract.md`（AC1–AC9）；约束性裁决：`wiki/raw/task_issue-471_design_conflict_report.md`（§9.1 十文件 ALLOW、T-1…T-4、B-1…B-5、§9.3、§14 I-1@rev2.1）。
+状态：**iteration 3 实现闭合（SA9 ∥ SA10 双 reject 的 3 MAJOR + AC1/AC2/AC6/AC8 partial 全部闭合，证据已按冻结树重取）**。
+最终证据（冻结树）：gates `12/12 PASS`、`--all --matrix` **41/41 PASS（exit 0）**、三基线 typecheck **3×15/15 exit 0**、每基线 lifecycle `units.observed=23 && coverage && foreignUnits=[] && issue420`、root-test **5956/5988 passed、32 名失败 ⊆ 冻结台账、`failedUnexpected=[]`、fresh complete JSON**、负控 N-1/N-2 与变异 M-1/M-2/M-5 全部「应红实红」并逐字节还原。**生产 `src/**` 零 diff，改动面恰为 §12.1 十文件 ALLOW。**
+基线：`d59a4d1`（= Issue `## Parent` PR #469 head；`git rev-parse HEAD` 中该提交为父，起点提交为 `f7a3f74`）。
+设计真源：`wiki/raw/task_issue-471_design.md`（rev 3 / §9.2 rev 2.1）；验收契约：`wiki/raw/task_issue-471_sa6_acceptance_contract.md`（AC1–AC9）；约束性裁决：`wiki/raw/task_issue-471_design_conflict_report.md`（§9.1 十文件 ALLOW、T-1…T-4、B-1…B-5、§14 I-1@rev2.1、R-2）。
 
 ---
 
 ## 1. Inputs consumed
 
-- `wiki/raw/task_issue-471_design.md`（全 620 行；§5/§7/§8/§9.1/§9.2 rev 2.1/§10/§11/§12/§13/§14/§17）
-- `wiki/raw/task_issue-471_sa6_acceptance_contract.md`（§1–§5、§6.2、§9.4 M-1/M-2、§11、§12.0–§12.10、§13、附录 A）
-- `wiki/raw/task_issue-471_design_conflict_report.md`（§9.1/§9.2/§9.3、§12–§14 追认面；I-1/I-2/I-3）
-- `wiki/raw/task_issue-471_sa2_review.md`（approve；F-1…F-9）
-- iter-0 实现报告（`wiki/raw/task_issue-471_sa3_impl.md` 上一版）与 Host 审阅意见（本轮 8 项必须闭合项）
-- 源码/设施实读：`packages/ws-replication/src/plugin.ts`（seam 195–298、三处 `ctx.plugin` 消费点）、`hub-namespace.ts`（`afterAssemblyAccept`/`armTimer('assembly')`/`onAssemblyTimeout` 1969–2015、1050）、`peer-namespace.ts`（`sendStep2` kind=2 判据 1587–1640、`sendUpdateFrame` 1493）、`update-channel.ts`（`isChunkable`/`sendAndRegister` 363–420）、`defaults.ts`（`DEFAULT_REPLICATION_LIMITS`）、`apps/yjs-server/src/main.ts:36–37`（唯一合法 `process.env.NOMICORE_CONFIG`）、`packages/persistence/test/fixtures/cordis-baselines/{run-baseline.mjs,gates.mjs,baselines.json}`、`vitest.config.ts`、根 `package.json`（`packageManager=pnpm@10.28.2`、15-project typecheck）
-- 运行期取证（本轮新增/更新，均在 `.cache/`，gitignored）：`.cache/cordis-baselines/evidence/{matrix,gates,B1,B2,B3,root-test,root-test-base,negative}`、`.cache/mutations/`
+- `wiki/raw/task_issue-471_sa9_standards.md`（全 214 行；0 BLOCKER / 3 MAJOR=SA9-1/2/3 / 5 MINOR=SA9-4…SA9-8）
+- `wiki/raw/task_issue-471_sa10_spec.md`（全 164 行；AC3/4/5/7/9 satisfied；AC1/AC2/AC6/AC8 partially 阻断 + §3.1–§3.4 机械闭合判据 + §5 披露义务）
+- 本轮 dispatch（逐条阻断项、`不得改变` 钉死面、复跑与报告要求）
+- `wiki/raw/task_issue-471_design.md`（§9.1 十二 timer 族表、§9.2 G10 rev 2.1、§7.2 E1–E7、§13.0 B-3a…e、§12.1/§12.2 范围）
+- `wiki/raw/task_issue-471_sa6_acceptance_contract.md`（A1-8 三段证据、AC2 全矩阵、A6-1/A6-2、§12.0「无证据即不通过」）
+- `wiki/raw/task_issue-471_design_conflict_report.md`（SA8 裁决：B-3a…e、T-1a、R-2、§9.1 十文件闭合 ALLOW）
+- iteration-2 报告与本文件（`git show f7a3f74:wiki/raw/task_issue-471_sa3_impl.md`）作为待修订基线
+- 源码/设施实读（本轮）：`run-baseline.mjs`（root-test cell `:874–934`、lifecycle repeat 判定 `:619–692`、matrix 打印 `:981–995`）、`gates.mjs`（G10 词法/M4/探针）、`peer-namespace.ts`（`TIMER_DELAY_FIELD.close`、`removeTarget` 的 `armTimer('close')`、`onTimerFired('close')`、`startPeriodicReconcile`、`onGoaway`）、`hub-edge.ts`（`beginReauth` GOAWAY/deadline）、`plugin.ts`（`waitForLive` 25 ms 轮询、SessionHost 服务 getter 形态）、`ws-replication-guard-proxy-consumption.test.ts`（ADR 0023 断言形态）、`peer-connection.ts`（GOAWAY blocked deadline）
+- CSV/证据落盘：`.cache/cordis-baselines/evidence/**`、`.cache/mutations/**`、`.cache/negative/**`、`.cache/export-capture/**`
 
 ## 2. Existing worktree reconciliation
 
-iteration 1：起始工作树 = iter-0 的 10 文件实现 + 本轮修复。逐项核对最新设计后：保留符合设计的全部改动；**修正** 4 处（typecheck 的 `as never` 过度 cast、lifecycle 单元名提取口径、guard-proxy A6-4 判据、G8 扫描口径）；**补跑** §7 的 5 项负控/变异；**新捕获** Step 0 BASE 台账。未保留任何过时实现。
+起始工作树 = iteration-2 交付提交 `f7a3f74`（评审 reject 状态）。逐项核对 SA9 + SA10 后：
 
-**iteration 2（实现级评审闭合）reconciliation**：起始工作树 = iteration 1 的 10 文件实现（评审 reject 状态）。逐项核对 SA4 review + SA8 impl conflict report §8-1 后：**只修 `gates.mjs` 的 G10 四点**（M4 跨行 fail-closed、V_ctx 后缀边界、自检表 4 行、分类表序）并把 `baselines.json` 还原为最小 diff；其余 8 文件按「已闭合项不得回退」原样保留（零改动复核：`git status` 非 wiki 改动仍恰十文件）。修法、前后分类差异与复跑见 §9。
+- **保留** iteration-2 已闭合面：G10 M4 跨行归属/`V_ctx` 边界/自检 16 行/分类表序、`baselines.json` 最小 diff、三步 typecheck 修复、lifecycle 提取口径、guard-proxy a64 文件级判据、BASE 台账捕获、N-1/N-2/M-1/M-2 证据。
+- **本轮修改 7 个文件**（全部在十文件 ALLOW 内）：`run-baseline.mjs`、`gates.mjs`、`cordis-baseline-support.ts`、`ws-replication-cordis-root-channel.test.ts`、`ws-replication-cordis-root-timers.test.ts`、`ws-replication-cordis-baseline-lifecycle.test.ts`、`third-party-timer-ownership-red.test.ts`。
+- **本轮零改动**：`baselines.json`、`root-test-known-red.json`（台账集合与语义原样）、`dsh-profile-direct-apply-order.test.ts`（其固定等待为有界谓词轮询，SA9-5 未点名，保留）。
+- 未保留任何过时实现：旧 `T.close-drain-deadline`（走 `requestReauth`）、旧 `T.chunked-bulk-ack`（stall 却声称 ACK）、旧 reconcile trigger（首次 arm 同义反复）、旧 waitForLive（只测 stop reject）、旧 Fiber dispose（只查两个 30 ms delay）全部替换。
 
 ## 3. Changed paths（实际 10 文件 ⊆ §12.1 ALLOW）
 
 | Path | Design section | Change |
 |---|---|---|
-| `packages/persistence/test/fixtures/cordis-baselines/baselines.json` | §7.1 | `base` 重钉 `d59a4d1…`；`suites` 追加 6 项（ws-package / guard-proxy / ws-cordis-channel / ws-cordis-timers / replication-lifecycle / composition-root）；`comment` 增记 #471。**iteration 2 还原最小 diff**：以 BASE 字节为底只施加上述 3 处编辑，消除整文件重编码噪声（`+9/−3`，3 hunk；语义 `JSON.parse` 全等） |
-| `packages/persistence/test/fixtures/cordis-baselines/run-baseline.mjs` | §7.2 E1–E7 + E4a | E1 七组文件/单元常量（含 `LIFECYCLE_UNITS` 23 名钉死枚举）；E2 `NEW_FILES` +7；E3 suite 白名单由 manifest 驱动（删除 `'gates'` 死字面量）；E4/E4a `NOMICORE_CORDIS_FAULT` 贯通全部 `runVitest` 调用点、`unload` 双文件；E5 新 suite 分支（channel 单文件、timers/lifecycle repeat=3、guard-proxy/composition-root 逐文件）；E6 `--all` 删除 B1 专属 ws-package 块；E7 装载期 provenance→root-probe 自检；root-test cell 改台账判定。**本轮修正**：`unitNameOf` 改用 `assertion.title`（vitest JSON reporter 以空格拼 ancestorTitles，不产生 `' > '`）；`assertions[]` 随 `runVitest` 回流；lifecycle `units` 按 title+status 计数、`coverage` 同口径、`issue420` 改为文件级在场（含 tests>0）；guard-proxy `a64` 改为文件级「在场且该文件自身 exit0 ∧ 0 failed ∧ tests>0」。+217/−21 行（相对 BASE） |
-| `packages/persistence/test/fixtures/cordis-baselines/gates.mjs` | §7.3 | BASE 重钉 `d59a4d1`；G2=`assertNoChange`（三处 src）；G3=allowlist（恰 4 个 ws 新测试文件）；G6 挂基座 `git diff --check <BASE>`；**G10 新增**（§9.2 rev 2.1：R0 扫描面+设施排除、R1 M1–M4 + V_ctx/V_M4、R2 七行分类、类 6 空判定、两类自证伪、I-3 回归自检 12 行 + 15 cast/注释/大小写探针）；**G11 新增**（forbidden API 五种模式，允许清单空集）；**G12 新增**（设施 4 文件闭合白名单，目录内新增即红）。**本轮修正 D-3**：G8 改为「四类 src 全扫描 + 恰 2 行 BASE 合法 app 配置行钉死允许」，取消原「app edge 整树豁免」。+426/−28 行（相对 BASE）。**iteration 2 修复**：G10 M4 补跨行实参归属 + 不可归属 fail-closed（`m4ContextsOf`/`m4CandidateOf`，含 `callee=UNRESOLVED-CROSSLINE`）、V_ctx 后缀按钉死文锚定（去前置字符类）、自检表 12→16 行（补 4 锚点 + `none` 非候选断言）、R2 分类按钉死表序 1→2→3→4→5→5D→6、新增 8 条多行 M4 探针、删除死参数 `void minimum`/死常量 `ROOT_EXTS`；修复后 +606/−28 行（相对 BASE），G10 计数与全量命中记录零漂移（§9.3） |
-| `packages/ws-replication/test/ws-replication-cordis-root-channel.test.ts` | §9.1（A1-1…A1-7、A5-2/A5-4） | 新增 468 行：5 形态宿主 × 3 入口 + timer-service 缺失/畸形 + 两跳级联 4 例 + sentinel 3 例 + 基线通道身份 1 例 = 29 测试 |
-| `packages/ws-replication/test/ws-replication-cordis-root-timers.test.ts` | §9.1（A1-8、A3-4） | 新增 771 行：12 timer 族，真实基线 `TimerService` + 原型插桩 meter，每族 arm→trigger→cancel。**本轮 D-2 收敛**：bulk/assembly 两族改由**真实 kind=2 chunked SYNC_STEP2** 驱动 `armTimer('assembly')`（peer 100 KB 写 → live 不可分块 → 恢复 round diff > `maxSyncDiffBytes` → kind=2；尾帧在 transport seam 被 withhold 以观察滑动 deadline），删除原 kind=0 手工注入；`bootLivePair` 增 `limits/schema/root/peerWrite/wrapHubEnd` |
-| `packages/ws-replication/test/ws-replication-cordis-baseline-lifecycle.test.ts` | §8（AC2 全矩阵 + β/γ + N-5） | 新增 586 行：3 入口 ×7 场景 = 21 单元 + `L.edge-beta.minimal-round` + `L.async-gamma.minimal-round` + `coverage` 自检（= runner 侧 `units.observed===23` 的第二道面）；真实基线 `TimerService` |
-| `packages/ws-replication/test/cordis-baseline-support.ts` | §8.1（meter/宿主/装配/waitFor/sink） | 新增 412 行测试内共享支撑（非 `.test.ts`、不被根 glob 收集）；不含任何 `.cache` 路径解析（B-2） |
-| `apps/yjs-server/test/third-party-timer-ownership-red.test.ts` | §10（A3-2、A4-1…A4-3） | 新增 145 行：`O.timer-alive.*` / `O.last-release.*` / `O.no-auto-edge.*` / `O.no-cycle.*` 四例 |
-| `packages/dsh-persistence/test/dsh-profile-direct-apply-order.test.ts` | §10.1（A4-4） | 新增 91 行：直接 apply profile 的 dispose 序（adapter 先 → 根 fiber 后）+ 幂等 + 真实 TimerService 驱动 flush |
-| `packages/persistence/test/fixtures/cordis-baselines/root-test-known-red.json` | §13.0/D-6（A8-4；SA8 §9.1 第 10 项） | 由**空集骨架**改为 Step 0 BASE 捕获台账：`knownRed` 4 条 + `environmentRed` 28 条 + 逐条 `attribution` + `notes`（冻结纪律/名级谓词/披露禁令） |
+| `packages/persistence/test/fixtures/cordis-baselines/baselines.json` | §7.1 | `base` 重钉 `d59a4d1…`；`suites` 追加 6 项；`comment` 增记 #471。**本轮未改**；对 BASE 仍为 **1 hunk 内 3 处语义编辑**（`+9/−3`） |
+| `packages/persistence/test/fixtures/cordis-baselines/run-baseline.mjs` | §7.2 E1–E7 + E4a | **本轮**：root-test cell 改证据 fail-closed（删旧 JSON/新鲜度/完整提取/正数/名数一致）；matrix 统一 `counts.passed/total` 并显示 root-test 真实计数与台账分解；lifecycle 逐 repeat 判定（`repeatJudgements`）；`GUARD_PROXY_FILES` +新 channel 文件（A6-1）；`runs.length===repeat` fail-closed |
+| `packages/persistence/test/fixtures/cordis-baselines/gates.mjs` | §7.3 | **本轮**：G10 M4 词法器重写为显式规则（R-COMMENT/R-STRING/R-REGEX/R-TEMPLATE/R-FAILCLOSED，注释透明、regex 体不透明、嵌套模板栈、不可判定⇒`UNRESOLVED-CROSSLINE`⇒类 6）；探针 8→29（注释 9 + regex 5 + 模板 6 + 不可判定 1）；G10 计数与全量命中记录零漂移 |
+| `packages/ws-replication/test/ws-replication-cordis-root-channel.test.ts` | §9.1（A1-1…A1-7、A5-2/A5-4）+ **A6-1/A6-2** | **本轮**：新增 `C.guard-proxy.session-host.<baseline>`（SessionHost 三成员 guard-Proxy 消费 + 访问器姿态 + freeze 拒绝 + 稳定闭包 + `open/stop` 真实行为）与 `C.public-surface.{clock,namespace-registry,ws-replication/testing}`（BASE `d59a4d1` 运行时导出名钉死）；删除冗余固定 `delay(2)`。29→33 tests |
+| `packages/ws-replication/test/ws-replication-cordis-root-timers.test.ts` | §9.1（A1-8、A3-4） | **本轮**：close/drain 改真实 CLOSE drain（`removeTarget` + 缝上扣留 `CLOSE_NAMESPACE`，`closeTimeoutMs` 到期本地收口；正常 `CLOSE_OK` 为取消段；与 reauth 互斥负控）；reauth 保留 `requestReauth` 并加反向负控；waitForLive 观察 25 ms poll **fire** + live resolve + stop reject；reconcile 以**新 SYNC_STEP1 round id** 为 trigger；bulk ACK 正常放行末帧并观察 `chunked-sync-acked`（sender=peer）；删除装饰性 `peerAssembly.timer` 断言 |
+| `packages/ws-replication/test/ws-replication-cordis-baseline-lifecycle.test.ts` | §8（AC2 + β/γ + N-5） | **本轮**：fiber-dispose 改 `meter.pending()===0`（全 delay 族，非两个 30 ms）；删 `delay(5)` 改显式事件轮次；删 `createNamespaceRegistryForTesting` 装饰断言、未赋值 `sessionHandle`、装饰性 `sinkOpened`；JSON 命名注释改 Vitest 单空格 |
+| `packages/ws-replication/test/cordis-baseline-support.ts` | §8.1（meter/宿主/装配/waitFor/sink） | **本轮**：删死导出 `RUNNER_MODE`/`captureMessage`/`EventSink`/`createEventSink`/`RuntimeDependencies`/`provideRuntimeDependencies`/`CloseRecorder`/`recordCloses`；`delay`/`FAULT` 收为模块私有；头部「stay untouched」「`' > '`」注释纠正 |
+| `apps/yjs-server/test/third-party-timer-ownership-red.test.ts` | §10（A3-2、A4-1…A4-3） | **本轮**：两处固定 30/25 ms 等待改 `waitFor(predicate,label,deadline)`（慢 CI 不抖动） |
+| `packages/dsh-persistence/test/dsh-profile-direct-apply-order.test.ts` | §10.1（A4-4） | **本轮未改**（其 5 ms 为有界谓词轮询，非裸等待） |
+| `packages/persistence/test/fixtures/cordis-baselines/root-test-known-red.json` | §13.0/D-6（A8-4） | **本轮未改**：`knownRed=4` + `environmentRed=28` 集合原样；台账语义（B-3a…e）不放宽 |
 
-## 4. SA2 Finding 落实
+## 4. SA2 / SA4 / SA8 既有闭合（保留，不回退）
 
-| Finding ID | Implementation | Result |
+| Finding | 状态 |
+|---|---|
+| SA2 F-1（E4a fault 贯通全部 `runVitest`） | 保留；N-2 逐 suite fail 实跑复证 |
+| SA2 F-2/F-3/F-4/F-5r/F-6/F-7 | 保留（G10 词表、归置、23 名枚举、旋钮、G2/G3 形状） |
+| SA4-1 / SA8 §8-1(a)（M4 跨行 fail-closed） | 保留并**加强**为注释/正则/模板透明（SA9-2/SA9-8） |
+| SA4-2（分类表序）/ SA4-5（最小 diff）/ SA4-6（units 提取口径） | 保留 |
+| SA8 D-2/D-3（kind=2 装配、G8 两行钉死）/ I-2（G12） | 保留；矩阵与 gates 复证 |
+
+## 5. SA9 Finding 落实（本轮）
+
+### SA9-1（MAJOR）/ SA10-AC8 — root-test cell 证据 fail-closed
+
+**修前缺陷**：命令无 `--passWithNoTests=false`；`jsonPath` 不删除、无新鲜度校验；`JSON.parse` 失败只把 `counts=undefined`，`failedTestNames` 保持 `[]` ⇒ `failedUnexpected=[]` ⇒ `status:'pass'`。同一实现可「本轮无有效证据」仍产 PASS。
+
+**修法（`run-baseline.mjs` `runRootTestCell`）**：
+1. 运行前 `fs.rmSync(jsonPath,{force:true})` —— 上一轮 JSON 永不作为本轮证据；
+2. 命令显式 `--passWithNoTests=false`；
+3. 记录 `startedAt`；证据必须：存在 ∧ 可解析 ∧ `mtime >= startedAt` ∧ 三个 counts 均为有限数 ∧ `numTotalTests > 0` ∧ `testNames.length === numTotalTests` ∧ `failedTestNames.length === numFailedTests` ∧ 进程未被信号终止；
+4. 任一不满足 ⇒ `evidence.problems[]` 非空 ⇒ `status:'fail'`（台账只能解释失败名，不能解释证据缺失）；合法 32 名（4 knownRed + 28 environmentRed）仍判绿，`exitCode:1` 保留为诊断；
+5. `printMatrix` 统一 `counts.passed/total`，root-test 行显示真实计数与台账分解，不再 `undefined/undefined`。
+
+**修复前后差异**：`root-test.json` 现携带 `evidence:{jsonPath,fresh:true,problems:[]}`、`ledger:{knownRed:4,environmentRed:28}`、`counts{passed,failed,total,numTotalTests,…}`；矩阵行 `5956/5988 (32 known-red: 4 frozen + 28 environment)`。
+
+**负控（6/6 应红实红，`failedUnexpected=[]` 仍红）**：见 §9.4。
+
+**证据**：`.cache/cordis-baselines/evidence/root-test/{root-test.json,root-test.vitest.json,root-test.log}`；`.cache/negative/root-failclosed/{root-failclosed.json,run.mjs,fake-vitest.mjs,root-failclosed-*.log}`。
+
+### SA9-2（MAJOR）/ SA10-AC5 补强 — G10 对「注释后的跨行 `'root'` 实参」不再静默漏检
+
+**修前缺陷**：`previousNonSpace` 只跳空白不跳注释，注释文本末字母被当作实参前导字符 ⇒ `argumentStart=false` ⇒ 静默按非候选丢弃（违背「不可解析 ⇒ 候选 ⇒ 类 6」）。
+
+**修法（`gates.mjs` `m4ContextsOf`）**：M4 词法器重写为显式规则集（注释写在函数头）：
+- **R-COMMENT**：`//`、`/*…*/`（含 JSDoc）非代码，且对 token 邻接透明——`argumentStart` 的「前一有效 token」与被调点链都跳过注释；被调链与 `(` 之间夹注释也透明；
+- **R-STRING**：`'…'`/`"…"` 为代码定界，内部不透明；`'root'` 记录开启引号前的有效代码字符；
+- **R-REGEX / R-TEMPLATE / R-FAILCLOSED**：见 SA9-8；
+- **不可判定 ⇒ 候选 ⇒ 类 6**：`UNRESOLVED-CROSSLINE`。
+
+**修复前后差异**：注释形态由「静默非候选」变为「归属或被调 ⇒ 类 6」；BASE 实存零变化（见 §7）。新增探针 **8→29**：同行/跨行 × 块/行/JSDoc 9 条、被调链夹注释 2 条、注释散文负控 1 条、regex 5 条、嵌套模板 6 条、不可判定 1 条。
+
+**真实文件注入红证（3/3）**：`//` 跨行、块注释/JSDoc 跨行、regex+嵌套模板；均 G10 FAIL、`cat 6` 命中预期 callee、gates exit 1。变异 M-6（回退注释透明）⇒ 3 条探针 FAIL；M-7（回退 regex）⇒ 2 条；M-8（回退模板表达式）⇒ 1 条。
+
+**证据**：`.cache/negative/g10-iter3/{injections.json,gates-mutations.json,*.log}`；`.cache/cordis-baselines/evidence/gates/gates.log`（冻结树 29/29）；`.cache/gates-iter3-try3.log`（同判据复跑）；`.cache/gates-before-iter3.log`（修前 8/8）；`.cache/gates-hits-{before,final}.txt`（记录级 diff 仅行号位移）。
+
+### SA9-3（MAJOR）/ SA10-AC1 — 十二族 arm → trigger → cancel 全部可证伪
+
+| 族 | 本轮修法（trigger 证据） | before → after |
 |---|---|---|
-| F-1（E4a legacy-shim 全分支） | `run-baseline.mjs` `faultEnv(fault)` 注入全部 4 个 `runVitest` 调用点（通用/root-probe/逐文件/channel） | 已落实；N-2 按 `cells[]` 逐 suite fail（§7） |
-| F-2（G10 候选集） | gates.mjs G10 实现 M1–M4 + 词表 + 7 类 | 已落实；N-6 三形态定向红（§7） |
-| F-3（归置钉死） | E1 `GUARD_PROXY_FILES`（六文件，含 issue246 + 418×2）/ `WS_LIFECYCLE_FILES`（含 issue420） | 已落实；本轮 `issue420` 在场改为文件级可证 |
-| F-4/F-5/F-5r | E5 归类按 23 名钉死枚举 + 自检名 `coverage` | 已落实；本轮修正提取口径后每基线 `observed===23`、`coverage`/无 foreign（§6.1） |
-| F-6（旋钮） | timers 文件 12 族逐族使用 TIMEOUT_KEYS/BACKOFF_KEYS 或读取点字面量（waitForLive 25ms） | 已落实 |
-| F-7（G2/G3 形状） | G2=`assertNoChange` 三处 src；G3=allowlist 恰 4 ws 新文件 | 已落实（gates 实跑 PASS） |
-| F-8/X-1（G10 rev2/rev2.1） | G10 以 §9.2 文本语义落地（不照抄脚本）；**iteration 2 更正**：iteration 1 的 M4 实参位判定照抄了干跑脚本的跨行局限（只回溯本行、被调不可归属即静默 `continue`），与「以设计文本语义落地」自述不符——本轮已补跨行实参归属 + 不可归属 fail-closed ⇒ 类 6（§9.2(a)） | §9.2(a)、§9.3、§7 N-6 |
-| F-9（取证对齐） | 落地直接采用 rev 2.1 语义 | 已落实 |
-| 本轮 Host 审阅 1（typecheck 3 cell） | 移除 `ctx.plugin(plugin as never)` 的 `as never`（P=never ⇒ `Spread<GetPluginConfig<never>>` 变必填二元组） | 3×15/15 project exit 0（§6.2） |
-| 本轮 Host 审阅 2（lifecycle 3 cell） | `unitNameOf`/`coverage`/`foreign` 改按 `assertion.title`（避免依赖不存在的 `' > '` 分隔符） | 每基线 `observed===23`、`coverage=true`、`issue420.present=true`（§6.1） |
-| 本轮 Host 审阅 3（guard-proxy 3 cell） | A6-4 改为文件级在场+自身绿（原英文子串匹配中文标题恒 false） | 三基线 38/38、`a64` 三项 true（§6.1） |
-| 本轮 Host 审阅 4（台账） | Step 0 BASE 干净副本捕获 → 32 条台账 | `failedUnexpected=[]`（§6.3） |
-| 本轮 Host 审阅 5（负控/变异） | N-1/N-2/M-1/M-2 全部实跑 + 还原校验 | 全部「应红实红」（§7） |
-| 本轮 Host 审阅 7（D-2/D-3） | D-2 收敛到真实 kind=2；D-3 收敛到四类 src 全扫描 + 2 行钉死 | §8-3/§8-4 |
+| reconcile interval | 记录触发前 peer 轮次基线 `peerRoundIds(wire)`，要求**严格更大的新 `SYNC_STEP1` syncRoundId** 出现（周期回合真实启动），再要求 rhythm 二次 arm；`peer.stop()` 后 `pendingFor(interval)=0` 且 round 截止 0 | 「首 arm 后恒真」→ 新 round id（M-5 变异：禁止周期回合 ⇒ 恰该用例红，其余 0 红） |
+| peer `waitForLive` | (a) 25 ms poll arm；(b) poll **真实 fire**（`entry.fired`）；(c) 非 live 状态复检；(d) `addTarget` 后 **live resolve**；(e) 独立 stop→reject + pending=0 | 只测 stop reject → 五段可观察 |
+| close/drain deadline | 真实 CLOSE 排水：`peer.removeTarget` + 缝上扣留 `CLOSE_NAMESPACE`（`makeWire.dropNextPeerToHub`）⇒ `armTimer('close')=closeTimeoutMs` 到期本地收口（namespace `closed`）；取消段＝正常 `CLOSE_OK` 在预算内清定时器且**从未 fire**；负控：无 GOAWAY、连接保持 ready（不是 reauth 路径） | 与 reauth 共用 `requestReauth` → 独立 driver + 互斥负控 |
+| reauth deadline | `hub.requestReauth`：GOAWAY(REAUTH_REQUIRED) → `close(1001,'hub-reauth')`；负控：无 `CLOSE_NAMESPACE`、非 `blocked-deadline`/`goaway-drain` | 保留 + 反向负控 |
+| bulk-transfer ACK | 正常放行末帧（不 stall）：真实 kind=2 chunked SYNC_STEP2（≥2 chunk）→ sender(peer) 观察 **`chunked-sync-acked`** 结算 → assembly 预算清零且无 `chunked-sync-aborted` | 「stall 却声称 ACK」→ 真实 ACK；独立 `T.assembly-timeout` 保留 `reason:'timeout'` |
+| 装饰性断言 | 删除 `peerAssembly.timer` defined、`sinkOpened` 自增断言、`createNamespaceRegistryForTesting` 恒真断言、未赋值 `sessionHandle` | SA9-6 同步清理 |
 
-## 5. G10 首落地与 I-1@rev2.1 对账（本轮复跑）
+### SA9-4（MINOR）— 逐 repeat 判定
 
-命令：`node packages/persistence/test/fixtures/cordis-baselines/gates.mjs`（证据 `.cache/cordis-baselines/evidence/gates/gates.log`）。
+`run-baseline.mjs` 现在对 **每个 repeat** 计算 23 名/`coverage`/`foreignUnits`/issue420，全部须通过（`cell.repeatJudgements[]` 留证），且 `runs.length === repeat` 失败即红；最后一轮不再掩盖前轮。**证据**：三基线 `replication-lifecycle.json` 的 `repeatJudgements` 均为 `[true,true,true]`。
 
-实跑分类计数：`{"1":20,"2":13,"3":9,"5":4,"5D-R":197,"5D-C":46,"6":0}`，`scanned=738 cordis_faced=51`，**第 6 类恰空 ✓**，两 seam 第 1 类命中 2/2 ✓，回归自检 12/12 ✓，cast 探针 15/15 ✓，G8 新口径 PASS。
+### SA9-5（MINOR）— 固定墙钟等待改谓词
 
-与 I-1@rev2.1 基线（`cat_1=19 cat_2=13 cat_3=7 cat_5=4 cat_5DR=196 cat_5DC=46 cat_6=0`，285 条）的 delta —— 全部来自本票新增文件，BASE 实存锚点零漂移：
+- `apps/yjs-server/test/third-party-timer-ownership-red.test.ts`：30 ms/25 ms 固定 wait → `waitFor(() => armed/fired, label, deadline)`；`expectQuiet` 的「持续不发生」判据保留。
+- lifecycle fiber-dispose 的 `delay(5)` → 两次显式 `setImmediate` 事件轮次（有界、非墙钟）。
 
-| 类别 | 基线 | 实跑 | delta 解释 |
-|---|---|---|---|
-| cat_1 | 19 | 20 | `ws-replication-cordis-root-channel.test.ts:453` `Reflect.get(assembly.base,'root')` —— T-2 文件级许可的通道探针行（记录类，非新增许可） |
-| cat_3 | 7 | 9 | `cordis-baseline-support.ts:44` `Symbol.for('cordis.root')`、`apps/yjs-server/test/third-party-timer-ownership-red.test.ts:87` 测试名 `O.last-release.root-fiber-dispose` —— 新增文件内字符串字面量（类 3 = 排除类） |
-| cat_5D-R | 196 | 197 | `ws-replication-cordis-root-timers.test.ts:212` `root: options.root ?? { n: 1 },`（**本轮 D-2 收敛新增的 namespace 创建参数行**）—— 5D-R = 域数据/载荷键类排除类，无门禁影响；BASE 文件零新增命中 |
-| cat_2/5/5D-C/6 | 13/4/46/0 | 一致 | BASE 锚点逐项复现 |
+### SA9-6（MINOR）— 死导出/死变量/装饰断言
 
-> 结论：**未出现「超出清单」的差异**；上表三处 delta 100% 由 ticket 新增文件解释。允许清单零增删（2 seam 行 + 3 fixture 双读行 + 恰 2 文件级许可）。I-2：G12 维持现行钉死值，实跑 PASS。
->
-> **iteration 2 复核（M4 跨行实参归属落地后）**：分类计数与全量命中记录**逐字节不变**（`{"1":20,"2":13,"3":9,"5":4,"6":0,"5D-R":197,"5D-C":46}`；289 条命中 `diff` 为空），BASE 子集仍恰 `1=19 2=13 3=7 5=4 5D-R=196 5D-C=46 6=0`（= I-1@rev2.1 逐项），新增文件仍恰 4 条。详见 §9.3。
+见 §3 表。`cordis-baseline-support.ts` 仅保留被消费的导出；两处测试装饰断言与未赋值变量删除；`FAULT`/`delay` 收为私有。
 
-## 6. Verification（全部实跑，证据在 `.cache/`）
+### SA9-7（MINOR）— 摘要字段与陈旧注释
+
+1. `printMatrix` 统一 `counts.passed/total`；root-test 行显示 `5956/5988 (32 known-red: 4 frozen + 28 environment)`；
+2. helper/lifecycle 的 `' > '` 注释改为 Vitest 单空格事实；runner「stay untouched」表述删除（单 runner 口径）；
+3. 本报告清理 iteration 间陈旧数字：`baselines.json` 为 **1 hunk 内 3 处语义编辑**；G10 探针为 **29/29**（非 12/12 或 16/16 旧数）；本轮 root-test 为 **5956/5988**（较 iter-2 的 5952/5984 恰 +4 = channel 文件新增 4 tests）。
+
+### SA9-8（MINOR）— 手写词法器的 regex/嵌套模板显式规则
+
+规则文本写入 `m4ContextsOf` 头注释（R-REGEX/R-TEMPLATE/R-FAILCLOSED），并加探针：
+- regex：`/\)/`（不配对括号不破坏栈）、`/\/\* not a comment/`（注释外形不进入注释态）、`a / b`（除法非 regex）、`/x/`、`/'/`（引号在 regex 内不开启字符串）；
+- 嵌套模板：`${ {a:1} }`、`${ Reflect.get(...) }`、`outer ${ \`inner ${…}\` }`、模板文本 `'root'` 非候选；
+- 不可判定：未闭合 regex ⇒ 后续实参 `UNRESOLVED-CROSSLINE` ⇒ 类 6。
+变异 M-7/M-8 证明规则载荷（各 2/1 条探针应红）。
+
+## 6. SA10 AC 闭合（AC1/AC2/AC6/AC8）
+
+### AC1（A1-8 三段证据）
+
+12 族全部具备「arm（delay=配置值）→ trigger（可观察后果）→ cancel（stop/close/dispose 后同类 delay pending=0）」，4 个被点名的族（reconcile / waitForLive / close-drain / bulk ACK）按 §5 SA9-3 修法重写。三基线 `ws-cordis-timers` 12/12 × repeat 3 全绿（`.cache/cordis-baselines/evidence/B{1,2,3}/B*-ws-cordis-timers-repeat3.log`）。
+
+### AC2（Fiber dispose 全量清零）
+
+`L.<entry>.fiber-dispose` 在 `handle.fiber.dispose()` 完成后、任何 root cleanup 前断言 `meter.pending() === 0`（**全部 delay 族**的 live arm 集合为空；远强于原 `pendingFor(HELLO)`/`pendingFor(BOOTSTRAP)` 两个同为 30 ms 的 delay），并保留零 `unhandledRejection`。三基线 × 3 entry × repeat 3 通过，`units.observed=23`、`coverage=true`、`foreignUnits=[]`、`issue420={present:true,tests:10}` 不缩水。
+
+### AC6（A6-1 SessionHost guard-Proxy + A6-2 七 entry 导出面）
+
+- **A6-1**：`ws-replication-cordis-root-channel.test.ts` 新增 `C.guard-proxy.session-host.<baseline>`：`nomicoreHubSessionHost` 的 `status/open/stop` 在 guard-Proxy（get 返回包装闭包）下全部 ACCESS_OK；诚实 Proxy 负控、敏感性正控（冻结数据成员抛 TypeError）；guard 下的 `open()` 真实开会话（sessions 1→0）、`stop()` 缓存 Promise 恒等且 drain 后 `open` loud 抛；逐成员 descriptor 无 `value`/无 setter/不可配置/可枚举 + `Object.isFrozen` + 赋值/defineProperty 抛 TypeError。该文件已加入 `run-baseline.mjs` `GUARD_PROXY_FILES`（三基线 guard-proxy 71/71，`a64` 三 true）。
+- **A6-2**：新增 `C.public-surface.{clock,namespace-registry,ws-replication/testing}`，以 **BASE `d59a4d1` 干净 worktree 运行时捕获**（G5 farm 同法；`.cache/export-capture/base-exports.json`）钉死导出名集合；不修改冻结的 `public-surface.base.json`，4/7 + 3/7 = 7/7 entry 全覆盖。三基线均绿。
+
+### AC8（root-test fail-closed）
+
+见 §5 SA9-1；台账集合（4+28）、名级谓词、新文件永不入账、`disclosure` 语义原样；矩阵 `root-test` cell pass，`status` 不再可能在无有效证据时成立。
+
+## 7. G10 分类对账（零漂移）
+
+冻结树实跑：`{"1":20,"2":13,"3":9,"5":4,"6":0,"5D-R":197,"5D-C":46}`，`scanned=738 cordis_faced=51`，**类 6 恰空**，seam 自校验 2/2，回归自检 16/16，cast 探针 18/18，跨行 M4 探针 **29/29**。
+
+机械分桶（`.cache/m4-alignment/base-subset.mjs`）：**BASE 子集 285 条 = `1=19 2=13 3=7 5=4 5D-R=196 5D-C=46 6=0`（= I-1@rev2.1 逐项）**；新增文件命中仍 **4 条**（`1:1/3:2/5D-R:1`），全部来自本票新增文件。与 iteration-2 的全量记录 diff 仅为 **3 处行号位移**（本票文件内部编辑所致），类别/token/文件不变。**候选词表、允许清单（2 seam 行 + 3 fixture 双读行 + 恰 2 文件级）、分类计数基线、台账集合、23 名枚举语义均未改。**
+
+## 8. Verification（冻结树实跑，证据在 `.cache/`）
 
 | # | Command | Result | Evidence |
 |---|---|---|---|
-| V-1 | `node packages/persistence/test/fixtures/cordis-baselines/gates.mjs` | **12/12 PASS**（G1′/G2/G3/G4/G5/G6/G7/G8/G9/G10/G11/G12） | `.cache/cordis-baselines/evidence/gates/gates.log` |
-| V-2 | `node run-baseline.mjs --all --matrix` | **41/41 PASS，exit 0**（3 基线×13 cell + gates + root-test；`MATRIX PASS: 41 cells`） | `.cache/cordis-baselines/evidence/matrix/{matrix.log,matrix.json}` |
-| V-3 | 三基线 typecheck（矩阵内逐 project） | **3×15/15 project exit 0**（45 个 project 全绿、45 份 project 日志均空输出） | `.cache/cordis-baselines/evidence/B{1,2,3}/B*-typecheck.json` + `B*-typecheck-*.log` |
-| V-4 | 三基线 `replication-lifecycle`（repeat=3） | 每基线 **34/34 passed**、`units={expected:23,observed:23,missing:[]}`、`coverage=true`、`foreignUnits=[]`、`issue420={present:true,tests:10}`；三基线 `L.` 全名并集 **69**（23×3，`coverage` 不计入） | `.cache/cordis-baselines/evidence/B*/{replication-lifecycle.json,B*-replication-lifecycle-repeat3.log}`、`.cache/cordis-baselines/evidence/matrix/unit-union.json` |
-| V-5 | 三基线 `guard-proxy`（六文件逐文件） | 每基线 **38/38 passed**、`a64={issue246:true,issue418Contract:true,issue418Structure:true}` | `.cache/cordis-baselines/evidence/B*/{guard-proxy.json,B*-guard-proxy-*.log}` |
-| V-6 | 三基线 `ws-cordis-channel` / `ws-cordis-timers`（repeat=3） / `composition-root` / `ws-package` | 29/29、12/12×3、28/28、66/66（每基线） | `.cache/cordis-baselines/evidence/B*/…`（matrix 表列全路径） |
-| V-7 | 三基线 `provenance` / `root-probe` / `contract` / `real-timer`（×3） / `dsh-profile` / `unload` | 4/4（B3 8/8）、12/12、243/243（B3 247/247）、11/11×3、12/12、10/10 | 同上 |
-| V-8 | 默认布局聚焦（新文件必绿） | channel 29/29、timers 12/12、lifecycle 24/24、ownership 4/4、dsh-profile-direct 2/2；`Type Errors: no errors` | 本会话实跑日志（矩阵 `root-test` 亦覆盖：本票新文件 0 失败） |
-| V-9 | `git diff --stat d59a4d1 -- 'packages/*/src' 'apps/*/src' 'domains/*/src'` | **空（生产 src 零 diff）** | §6.4 |
+| V-1 | `node packages/persistence/test/fixtures/cordis-baselines/gates.mjs` | **12/12 PASS，exit 0**（G10 29/29 探针） | `.cache/cordis-baselines/evidence/gates/gates.log`（冻结树直跑归档；矩阵 gates cell 同判据）；`.cache/gates-final-iter3.log` |
+| V-2 | `node packages/persistence/test/fixtures/cordis-baselines/run-baseline.mjs --all --matrix` | **41/41 PASS，exit 0**；`MATRIX PASS: 41 cells` | `.cache/cordis-baselines/evidence/matrix/{matrix.json,matrix.log,unit-union.json}`；stdout `.cache/matrix-final-iter3.log` |
+| V-3 | 三基线 typecheck（矩阵逐 project） | **3×15/15 project exit 0** | `.cache/cordis-baselines/evidence/B*/B*-typecheck.json` + 逐 project 日志 |
+| V-4 | 三基线 `replication-lifecycle`（repeat 3） | 每基线 **34/34**、`units={23,23,[]}`、`coverage=true`、`foreignUnits=[]`、`issue420={present,tests:10}`、`repeatJudgements=[true,true,true]`；并集 **69** | `.cache/cordis-baselines/evidence/B*/replication-lifecycle.json`；`matrix/unit-union.json` |
+| V-5 | 三基线 `guard-proxy`（7 文件，含新 channel 文件） | 每基线 **71/71**、`a64={issue246,issue418Contract,issue418Structure}=true`；`nomicoreHubSessionHost` 用例在场 | `.cache/cordis-baselines/evidence/B*/guard-proxy.json` |
+| V-6 | 三基线 `ws-cordis-channel` / `ws-cordis-timers`(×3) / `composition-root` / `ws-package` | **33/33、12/12×3、28/28、66/66**（每基线） | `.cache/cordis-baselines/evidence/B*/…` |
+| V-7 | 三基线 `provenance` / `root-probe` / `contract` / `real-timer` / `dsh-profile` / `unload` | 4/4（B3 8/8）、12/12、243/243（B3 247/247）、11/11×3、12/12、10/10 | 同上 |
+| V-8 | 默认布局聚焦（新文件） | channel 33/33、timers 12/12、lifecycle 24/24、ownership 4/4、dsh-profile 2/2；`Type Errors: no errors`；三基线内部走 repeat 3（V-6） | `.cache/{channel,timers,lifecycle,ownership}-iter3-try*.log` |
+| V-9 | 受影响 project typecheck | `packages/ws-replication` / `apps/yjs-server` / `packages/dsh-persistence` 均 exit 0 | 本会话实跑 |
+| V-10 | `git diff --name-only d59a4d1 -- 'packages/*/src' 'apps/*/src' 'domains/*/src'` | **空（生产 src 零 diff）** | §8 |
+| V-11 | `git diff --name-only d59a4d1`（非 wiki） | 恰 **10 文件**（7 个本轮修改 + 3 个自 iteration 2 起已在 HEAD 的台账/基线文件）⊆ §12.1 十文件 ALLOW | 本会话实跑 |
+| V-12 | `node .cache/evidence-tools/unit-union.mjs` | `observedUnion=69 problems=[]` | `matrix/unit-union.json` |
 
-### 6.1 本轮修复的三类红 cell（final）
+## 9. 负控与变异（本轮全部重取）
 
-| cell | 根因（iter-0 分类） | 本轮处置 | final |
-|---|---|---|---|
-| `B*/typecheck` | **实现缺陷**：`ctx.plugin(plugin as never)` 使 `P=never` → `GetPluginConfig<never>=never` → `Spread<never>=[config: never]`（必填第二参），在 B1/B2/B3 与仓库布局下同为 `TS2554`。**不是** Timer 类型面差异。共 10 处（lifecycle 3 + timers 6 + ownership 1） | 移除 `as never`，让真实 plugin 对象类型流入（`apply(ctx)` 无额外参 ⇒ config 可选）；未改 tsconfig、未 skipLibCheck、未用新 cast | 3×15/15 exit 0；`tsc -p packages/ws-replication`/`apps/yjs-server`/`packages/dsh-persistence` 亦干净 |
-| `B*/replication-lifecycle` | **设施缺陷**：vitest 3.2.7 JSON reporter 的 `fullName` = `ancestorTitles.join(' ') + ' ' + title`（**不含** `' > '`），iter-0 的 `lastIndexOf(' > ')` 永远落空 ⇒ `observed=0` | 提取改按 `assertion.title`（= 钉死单元名本身），`observed` = 枚举内 title 且 status=passed 去重；`coverage` 同口径；`foreignUnits` 仍对以 `L.` 起头的 title fail-closed；`issue420` 改为 JSON 文件级在场且 tests>0 | 每基线 `observed=23`、`coverage` 在场 passed、并集 69（23×3，`coverage` 不计入；机械复核见 `matrix/unit-union.json`） |
-| `B*/guard-proxy` | **设施缺陷**：`a64` 用英文子串（`interop`/`contract`/`structure`）匹配**中文测试标题**恒为 false ⇒ 38/38 全绿仍判红 | `a64` 改按文件级「在场 ∧ 该文件 exit0 ∧ 0 failed ∧ tests>0」，`a64` 三项可审计 | 三基线 38/38 + a64 三 true |
-| `default/root-test` | **台账未捕获**（iter-0 空集骨架） | Step 0 BASE 干净副本捕获（§6.3） | `failedUnexpected=[]` |
+### 9.1 N-1 / N-2（B3，逐 suite `cells[]` 判据）
 
-### 6.2 三基线 typecheck（3×15/15）逐 project 留证
+| # | 实跑 | 结果 |
+|---|---|---|
+| N-1 | `--baseline B3 --suite provenance --suite root-probe --suite ws-cordis-channel --fault substitute-npm` | 外层 exit 0（编排事实）；`cells[]` 三 suite 各自 `status:'fail'`（provenance realpath/lib tree drift；root-probe/channel 通道断言红） |
+| N-2 | `--baseline B3 --suite root-probe --suite ws-cordis-channel --fault legacy-shim` | 外层 exit 0；`cells[]` 两 suite 各自 `status:'fail'` |
+| 正控 | 同 suite 无 fault 三基线全绿 | V-2/V-6 |
 
-- B1：`.cache/cordis-baselines/evidence/B1/B1-typecheck.json`（15 project，`exitCode` 全 0）+ `B1-typecheck-<project>.log` ×15（均仅 1 字节换行 = 零诊断）
-- B2：`.cache/cordis-baselines/evidence/B2/B2-typecheck.json` + 15 份日志（同上）
-- B3：`.cache/cordis-baselines/evidence/B3/B3-typecheck.json` + 15 份日志（同上）
-- 说明：矩阵 materialize B1（03:51:20）后本会话又做了一次**纯类型面**清理（删除 `registry.create` 实参上两处不必要的 `as never`，无运行时差异）；B1 的 `typecheck` 与 `ws-cordis-timers` 已用**最终文件**单独复跑，仍为 `15/15 exit 0` 与 `12/12×3`，矩阵判定不变。
+证据：`.cache/cordis-baselines/evidence/B3/{fault-substitute-npm.json,fault-legacy-shim.json}`、`.cache/negative/{N1-iter3.log,N2-iter3.log}`。
 
-### 6.3 root-test 台账（B-3a…B-3e）与矩阵判定
+### 9.2 M-1 / M-2 / M-5（`.cache` workspace 副本，逐字节还原）
 
-- **Step 0 BASE 捕获（B-3a）**：`git worktree add --detach .cache/root-test-base-wt d59a4d1`（干净 BASE，未做本票任何改动），按 runner 同款命令 `NODE_OPTIONS=--conditions=nomicore-source node node_modules/vitest/vitest.mjs run --typecheck --reporter=default --reporter=json …` 实跑。捕获：`numTotalTests=5913, numPassedTests=5881, numFailedTests=32`。
-  - 证据：`.cache/cordis-baselines/evidence/root-test-base/{base-root-test.vitest.json,base-root-test.log,ledger-capture.json,build-ledger.mjs}`
-- **B-3b（提取机制自身负控）**：4 例 `ws-replication-issue421-edge-factory-api.test-d.ts` test-d 红**实际出现在** `failedTestNames`（名级，非计数级）；台账 `knownRed` 恰 4 条。
-- **B-3c（新文件永不可入账）**：捕获/写入脚本硬断言「BASE 失败 ⊆ 非本票文件」，`problems=[]`；矩阵 root-test 的 32 条失败中 **0 条**来自本票新增文件（本票新文件全绿）。
-- **B-3d（名级谓词 + 披露）**：台账 `knownRed=4` + `environmentRed=28` + 逐条 `attribution`；矩阵 root-test cell `status=pass`、`failedTestNames=32`、**`failedUnexpected=[]`**、`disclosure` 在场（`statement` 含表述禁令）。
-  - 矩阵证据：`.cache/cordis-baselines/evidence/root-test/{root-test.json,root-test.vitest.json,root-test.log}`
-- **对齐环境复跑（B-3d 要求的披露证据，非法定台账形态）**：在 BASE 副本前置 `PATH=.cache/pnpm-shim/pnpm → corepack pnpm@10.28.2`（`package.json packageManager=pnpm@10.28.2`；环境原生 pnpm 为 11.28.5）复跑：`5913 total / 5909 passed / 4 failed` —— **28 例环境红全部转绿，仅余 4 例 knownRed test-d 红**（`failedUnexpected=[]`）。两种捕获形态均合法（B-3a），冻结台账取**环境原生 32 条**（是 4 条的超集，在两种环境下都判绿）。
-  - 证据：`.cache/cordis-baselines/evidence/root-test-base/{aligned-capture.json,base-root-test-aligned.vitest.json,base-root-test-aligned.log}`
-
-### 6.4 改动面与生产零 diff
-
-`git status --porcelain` 的 10 个实现文件 = §12.1 ALLOW 十文件（3 tracked M + 7 untracked）；`packages/*/src`、`apps/*/src`、`domains/*/src` 对 `d59a4d1` **零 diff**（G2/G3/G4/G7/G8/G9/G11/G12 机械承载 + 人工核对）。
-
-## 7. 负控与变异实验（N-1/N-2/N-3/M-1/M-2；本轮全部实跑）
-
-| # | 形态 | 实跑 | 结果 | 证据 |
-|---|---|---|---|---|
-| N-1 | 通道错配：B3 的 `@deepseek-ai/cordis` 换链到 npm 4.1.0 | `node run-baseline.mjs --baseline B3 --suite provenance --suite root-probe --suite ws-cordis-channel --fault substitute-npm` | **应红实红**：外层 `exit 0`（编排事实），`cells[]` 逐 suite **provenance / root-probe / ws-cordis-channel 均 `status:'fail'`**。红因可核：provenance `@deepseek-ai/cordis resolved outside the B3 overlay: …/overlay/B2/…` + lib tree hash drift；root-probe/channel `symbol baseline must not expose the legacy root property`（`C.channel-identity.B3`） | `.cache/cordis-baselines/evidence/B3/fault-substitute-npm.json` + `fault-substitute-npm/B3-*.log`；`.cache/cordis-baselines/evidence/negative/N1-N2-faults.log` |
-| N-2 | legacy shim：受控 ctx 注入 legacy `root` | `node run-baseline.mjs --baseline B3 --suite root-probe --suite ws-cordis-channel --fault legacy-shim` | **应红实红**：外层 `exit 0`，`cells[]` 中 **root-probe 与 ws-cordis-channel 各自 `status:'fail'`**。红因：root-probe 既有通道精确形态断言红；channel `C.absent.{hub-listen,peer-dial,session-host}` 3 例红（legacy 注入使「双缺席」不成立）。对照无 fault 同 suite 三基线全绿（V-6） | `.cache/cordis-baselines/evidence/B3/fault-legacy-shim.json` + `fault-legacy-shim/B3-*.log`；同上 |
-| N-3/M-1 | seam 删 legacy 兜底（symbol 缺席 ⇒ `throwRootTimerUnavailable`） | `.cache/mutations/run-mutations.mjs`：B1/B2/B3 各一轮，仅在 materialize 副本 `workspaces/<B>/` 注入 | **应红实红**：三基线 channel suite **恰 3 红 = `C.legacy-only.{hub-listen,peer-dial,session-host}`**（设计 §11 预期）；同变异下既有 4 fixture `ws-package` **66/66 仍绿**（= 缺口证明：旧 fixture 对 legacy 分支零判别力） | `.cache/mutations/{mutations.json,mutations-driver.log,B*-M-1-channel.log,B*-M-1-ws-package.log}` |
-| N-3/M-2 | seam 优先级反转（先 legacy 后 symbol） | 同上 | **应红实红**：三基线 channel **9 红 = `C.both.priority.*`（3）+ `C.malformed.*`（3）+ `C.symbol-only.*`（3，legacy getter 读取计数断言）**（设计 §11 预期前两组，第三组为同因加强灵敏度）；`ws-package` **66/66 仍绿** | `.cache/mutations/{…,-M-2-channel.log,-M-2-ws-package.log}` |
-| 还原校验 | 变异副本用后恢复 | 每次变异后把 `plugin.ts` 逐字节写回并双向比对 | 三基线 × 两变异共 6 次：`sameAsPristine=true ∧ sameAsHead=true`（与 `git show HEAD:packages/ws-replication/src/plugin.ts` 逐字节一致），最终态再次校验一致 | `.cache/mutations/mutations.json`（`restores[]`） |
-| N-4 | 无 ambient timer（sentinel 只记录不自走） | channel 文件 `C.sentinel.{hub-listen,peer-dial,session-host}` | **绿**：sentinel arm ≥1、静默窗口内零后果、显式 fire 后才出现 `close(1002)` / hello-timeout / `namespace-failed{bootstrap-timeout}` | V-2/V-6（三基线 29/29） |
-| N-5 | 双挂 provide | lifecycle `L.<entry>.remount` 内负控 | **绿**：未撤销即二次 mount → `service "…" has been registered` 响亮失败；撤销后重挂 ready | V-4（每基线 34/34） |
-| N-6 | gate 自证伪（G10 三形态 + G11） | 注入 `packages/persistence/test/n6-g10-injection.ts` 与 `packages/persistence/src/n6-g11-injection.ts` | **应红实红**：G10 class 6 (3) → FAIL；G11 FAIL；`gates` exit 1；注入文件删除后 `packages/persistence/src` 恢复零 diff | **iteration 2 以终版 gates 重取**：`.cache/cordis-baselines/evidence/negative/{N6-gates-final.log,N6-crossline-gates.log,N6-crossline-blank-gates.log}`（对应 SA8 §8-1 末句与 dispatch 的跨行注入要求；见 §9.2(d)） |
-
-## 8. 未闭合项、仍存偏差与如实披露
-
-1. **矩阵/typecheck/units/台账均已闭合**：`41/41 PASS`、`3×15/15 exit 0`、每基线 `units.observed=23` 且 `coverage` 在场、`failedUnexpected=[]`（§6）。**无未闭合的 gating cell**。
-2. **A8-4 披露（表述禁令，必须随交付摘要）**：root-test 行按**冻结台账**判绿（B-3a…e），台账在账红 = **4 例 BASE 既有 test-d 红**（`ws-replication-issue421-edge-factory-api.test-d.ts`，expect-type 1.4.0 可选参数元组不兼容；#470 已裁定另立后续票、本票 ALLOW 内不可修）+ **28 例环境红**（环境 pnpm 11.28.5 与 `packageManager=pnpm@10.28.2` 未对齐；对齐环境复跑已证 28 例转绿）。**本票不修、也不得声称「root-test / CI / 所有既有测试全绿」**；本票只声明：三基线矩阵 41/41 绿、新增文件在默认布局与三基线全绿、跑动测试的红名集合恰等于 BASE 冻结台账。
-3. **D-2（已收敛，不再是偏差）**：bulk/assembly 两族改由**真实 kind=2 chunked SYNC_STEP2**（"kind=2 自持 ACK"）驱动 `hub-namespace.ts afterAssemblyAccept → armTimer('assembly')`（design §9.1 原文 arm 点），删除 iter-0 的 kind=0 手工注入。判据不变性：`delay === assemblyTimeoutMs`（meter 逐 arm 记录）、超时后果 = `chunked-sync-aborted{reason:'timeout'}`、取消后 `pendingFor(assemblyTimeoutMs)===0`（连接 close / aborted 两条路径）。触发链为生产判据（peer 100 KB 写 → live 不可分块 → 恢复 round diff > `maxSyncDiffBytes` → kind=2），尾帧只在**测试侧 transport seam** withhold，零生产改动；试过「线上丢帧」，会形成连接级序号缺口（`SEQUENCE_VIOLATION 1002`）而非装配停滞，故不采用并记录原因。
-4. **D-3（已收敛到设计扫描面，保留 1 处钉死例外；SA8 impl §6-D3 已裁定 RATIFY 并发布 R-2 钉死值，问句已答复）**：G8 现在扫描 `packages|apps|domains` 全部 `src`，语义判据 = 「生产 src 无 baseline/channel env 分支」：`CORDIS_BASELINE|ROOT_CHANNEL|NOMICORE_CORDIS_|rc.12` 在**任何** src 行（含 app edge）即红；`process.env` 仅允许 BASE 既有的 **2 行**合法应用配置（`apps/yjs-server/src/main.ts:36,37` `NOMICORE_CONFIG`），逐行钉死、可审计，且该 2 行上通道标记仍禁。等价性：BASE 无任何其它 env 读取（全仓 grep 仅此 2 行），故「四类 src 全扫描」与「无 env/通道分支」同时成立，G8 在 BASE 与工作树均绿。**交 SA4/SA8 的明确问句**：该 2 行钉死允许清单是否是 design §7.3「生产 src 无 env/通道分支」可接受的机械形态（还是要求另立 ADR/改 app 配置读取方式）？本票未改生产代码、未弱化判据。
-5. **判据强度未降低**：`expected:23`、`observed===23`、`coverage` 在场 passed、枚举外 `L.` fail-closed、三基线并集 69、A6-4 三文件在场且绿、12 族 timers 名在场且 passed、`--passWithNoTests=false`、gates 12/12、N-1/N-2 逐 suite `cells[]` 判据——全部按设计原文执行；无 skip/only/todo、无 env override、无 fallback、无生产 src 改动。
-6. **G10 cast 面**：iteration 1 为修 typecheck 移除了测试内 10 处 `as never`（`ctx.plugin` 位置），并在 D-2 的 namespace 创建处避免新增 cast；G10 分类与探针计数见 §5 与 §9.3（唯一新增命中是 5D-R 载荷键行，排除类）。**iteration 2 另在 `gates.mjs` 内新增 2 条 V_ctx 边界探针（`ACtx`/`$ctx`）与 8 条跨行 M4 探针**，均为合成样本、不入扫描面。
-7. **既有 4 test-d 红与 28 环境红**：本票零生产改动、不修（DENY 既有测试 + 工具链升级触 G1′）；披露义务见 §8-2。
-8. **iteration 2 未闭合项**：仅 SA4-3 的两处测试侧装饰性断言（本轮窄面约束下保留，理由与追认请求见 §9.2(h)/§9.7-1）；其余 SA4/SA8 阻断项与字面偏差全部闭合（§9.2）。
-
-## 9. 实现级评审闭合（iteration 2：SA4 reject + SA8 implementation reject）
-
-### 9.1 输入与裁决面
-
-| 输入 | 结论面 |
+| 变异 | 结果（B1/B2/B3） |
 |---|---|
-| `wiki/raw/task_issue-471_sa4_review.md` | verdict = **reject**；唯一 MAJOR = **SA4-1**（G10 M4 跨行实参位未 fail-closed，且实现报告自述「已落实」与代码不符）；MINOR：**SA4-2** 分类顺序偏离钉死表序、**SA4-3** 装饰性断言/死参数、**SA4-4** 缺设计 §16.3 调用方影响矩阵成段核对、**SA4-5** `baselines.json` 整文件重编码字节噪声、**SA4-6** units 提取口径备案 |
-| `wiki/raw/task_issue-471_impl_conflict_report.md`（SA8）§8-1 | 同根阻断 = I-1③ / §14.8-2 / 设计 §9.2 R1 M4 钉死句「不得静默按非候选丢弃」；同文件两处字面偏差：(b) `inVctx` 后缀边界收窄、(c) `G10_SAMPLES` 缺 4 行；另要求**以终版 gates 重取 N-6 留证**并更正报告自述 |
-| 本轮 dispatch | 修复后须新增**跨行注入**自证伪证据（可 `.cache` 下一次性验证，不入库） |
-| 范围 | 仍严格 ⊆ §12.1 十文件；本轮实际改动 **仅 `gates.mjs`**（+ `baselines.json` 最小 diff 还原，同在 ALLOW 内）；生产 `src/**` 零 diff |
+| M-1（删 legacy 兜底） | channel 红：B1/B2 **4**（设计预期 3 = `C.legacy-only.{hub-listen,peer-dial,session-host}` 全在场；第 4 条为 **同因**新增的 `C.guard-proxy.session-host.*`——npm 基线仅 legacy 通道，删除兜底后真实 TimerService 的 SessionHost 面同样不可解析，属更强红），B3 **3**；`ws-package` 仍 66/66（缺口证明） |
+| M-2（legacy 优先） | channel **9 红**（`C.both.priority.*` + `C.malformed.*` + `C.symbol-only.*`），`ws-package` 66/66；三基线一致 |
+| M-5（禁止周期 reconcile 回合启动） | timers **恰 1 红 = `T.reconcile-interval`**，其余 0 红；三基线一致 |
+| 还原 | 3 基线 × 3 变异 = **9/9** `sameAsPristine=true ∧ sameAsHead=true`（`plugin.ts` 39033 B、`peer-namespace.ts` 115712 B）；最终态再次逐字节校验 |
 
-### 9.2 逐项修法
+证据：`.cache/mutations/{mutations.json,mutations-driver.log,*log}`。
 
-**(a) SA4-1 / SA8 §8-1(a) — M4 跨行实参归属 + fail-closed**（`gates.mjs:448–549` 词法上下文/候选判定，sweep M4 分支 `:615–624`）
+### 9.3 G10 注入/变异（真实文件注入 + 规则回退）
 
-1. **同被调行判定原样保留**：`calleeOfLiteral`（`:434`）先跑，其判据与 I-1@rev2.1 落地形态逐字相同；
-2. 该判定返回 `null` 时**不再 `continue` 静默丢弃**，改由整文件词法上下文（`m4ContextsOf`，`:463`）恢复归属：单遍扫描维护「字符串/注释状态 + 括号栈」，为每个真实 `'root'` 字面量记录其**最内层 call-like 括号**（分组括号透明）与被调点链（`(` 前的点链从全文回溯，跨行透明）；
-3. **实参位判据**（`m4CandidateOf`，`:541`）：字面量为「调用实参首个 token」（前一个非空白字符是 `(` 或 `,`）⇒ 候选；被调可机械归属 ⇒ 按 V_M4 落类 1 / 5D-C / 6；被调点链**空白**（如括号前是 `)` 的 cast/分组调用形）⇒ `callee=UNRESOLVED-CROSSLINE`（`:460`）⇒ 候选 ⇒ **类 6（fail-closed）**；
-4. 非实参位（case 标签、类型联合、模板 JSON 串、注释散文、数组/对象元素、嵌套箭头函数体、定义位键形）保持**非候选**——与钉死 R1「调用实参位」定义、R2 类 1–4 语义一致。
+- 注入 `Reflect.get(\n ctx,\n // comment\n 'root',\n)` ⇒ G10 FAIL `cat 6 (1) callee=Reflect.get`；
+- 注入块注释/JSDoc 跨行 ⇒ 同上；
+- 注入 regex（含引号/注释外形）+ 嵌套模板 + `safeReadChannel` 跨行 ⇒ `cat 6 (2)` 两 callee；
+- 变异 M-6（注释不透明）⇒ 3 探针 FAIL；M-7（regex 不处理）⇒ 2 探针 FAIL；M-8（模板表达式视为文本）⇒ 1 探针 FAIL。每次注入后文件删除，`git status` 无残留。
 
-**BASE 零漂移的可满足性证明（第一手测量，一次性脚本 `.cache/m4-alignment/{probe.mjs,probe2.mjs,dump.mjs}`，gitignored）**：全树「同被调行不可解析」字面量 **57** 个，逐条定性后**零个**处于调用实参位——`case 'root':` 13、类型联合/类型注解/`as` 收窄 8、`!==`/`===` 比较 5、调用外对象键值 9、模板 JSON 串 9、注释散文 3、数组元素/常量初始化/`'root' in args`/cast-M2 等 10；唯一「行首字面量」为 `apps/yjs-server/src/app.ts:879` `'root' in args`（前一非空白字符是 `=`、后随 ` in`，既非实参首 token 也无 call-like 括号）⇒ 非候选。交叉复核：`oldHits=55 newHits=55 / deltas=0 / new class-6=0`。
+证据：`.cache/negative/g10-iter3/{injections.json,gates-mutations.json,inject-*.log,M-*.log}`。
 
-**(b) SA8 §8-1(b) — V_ctx 后缀边界**（`gates.mjs:361–368`）：改为钉死文原义「token **以 `ctx`/`Ctx` 结尾**即入表」（`endsWith('ctx') || endsWith('Ctx')`，大小写敏感不变），删除原 `(?:^|[a-z0-9_])(?:ctx|Ctx)$` 的**前置字符类**（该字符类把 `ACtx`/`$ctx` 类 token 收窄进 5D）。词表成员 {`ctx`,`context`,`host`} ∪ 后缀零增删；新增两条合成探针 `ACtx`、`$ctx` ⇒ 类 6（对照探针 `fiberCtx`/`timerCtx` 仍类 6、`fiberCTX`/`Context`/`docContext` 仍 5D）；M-4 变异（回退旧正则）下两新探针即红，证明它们真的在测该边界（§9.2(d)）。
+### 9.4 root-test 证据 fail-closed 负控（6/6）
 
-**(c) SA8 §8-1(c) / I-3 — 自检表 12→16 行**（`G10_SAMPLES`，`:640–657`）：补齐设计 §9.2 自检表缺的 4 条锚点，每行绑「类 + 判别 token」：
-| 新增行 | 类 + token |
+真实 runner 代码 + 仅替换 vitest 二进制与证据目录；每例均 `exit=1`、cell `status:'fail'`、`failedUnexpected=[]`、`evidence.problems[]` 非空：
+
+| 模式 | problems |
 |---|---|
-| `packages/persistence/src/service.ts:46` `Symbol.for('cordis.root')` | 类 3（`string interior`） |
-| `packages/ws-replication/test/ws-replication-issue301-chunked-completeness-ac-red.test.ts:624` `ctx.root('peer', …)` | 类 2（`root(`） |
-| `apps/yjs-server/src/app.ts:880` `root: args.root` | 5D-R（`receiver=args`） |
-| `packages/doc-runtime/test/materialize-root.test.ts:782` `[...root.keys()]` | **非候选**（新增 `none` 类断言：该锚点不得出现在任何命中类——定义/枚举位的漏洞不能以「静默丢弃」形式存在） |
+| missing | `root-test JSON evidence missing: the reporter wrote no file for this run` |
+| malformed | `root-test JSON unparsable: …` |
+| stale（上一轮名字全知的旧 JSON 留在盘上） | 旧文件被删除 ⇒ `missing`（旧证据永不复用） |
+| stale-mtime（写合法 JSON 但 mtime 早于本轮） | `root-test JSON is stale: mtime=… predates this run` |
+| zero | `root-test JSON reports zero tests`（`--passWithNoTests=false`） |
+| mismatch | `test extraction mismatch: numTotalTests=3 extracted=2` |
 
-顺带删除 SA4-3 指出的死参数列（原 `void minimum`）与死常量 `ROOT_EXTS`。
+证据：`.cache/negative/root-failclosed/{root-failclosed.json,root-failclosed-*.log}`。
 
-**(d) dispatch 追加 — 跨行自证伪（N-6 之外）**：新增 **8 条多行 M4 合成探针**（`G10_M4_PROBES`，`:737–745`；分类器 `classifyM4SampleText`，`:690–707` 复用 sweep 同一 lexer/候选判据）：
-- `Reflect.get(\n ctx,\n 'root'\n)`、`Reflect.get(ctx,\n 'root')`、`safeReadChannel(\n host, 'root')` ⇒ **类 6**（被调跨行归属）；
-- `(ctx as Fn)\n('root')` ⇒ **类 6** `callee=UNRESOLVED-CROSSLINE`（被调点链空白 fail-closed）；
-- `writeFatal(\n 'root',\n 'code')` ⇒ 5D-C（可归属但非读取原语 ⇒ 记录，不静默）；
-- `{ 'root': 1 }`、`const hosts = [\n 'root',\n]`、`const body = () =>\n 'root'` ⇒ **非候选**（定义位/数组元素/箭头体）。
+## 10. 未闭合项、披露与边界
 
-**实注入自证伪（不入库，验证后删除）**：
-
-| # | 注入 | 期望 | 实测 |
-|---|---|---|---|
-| N-6 重取 | 三形态钉死样本（M1/M3/M1 可选链、零 Cordis 标记）+ G11 `internal/update` | `cat_6=3` 定向红 | **应红实红**：`cat_6=3` 恰三形态、G10/G11（+G2 伴生）FAIL、exit 1（`.cache/cordis-baselines/evidence/negative/N6-gates-final.log`） |
-| 跨行实参 | `Reflect.get(\n ctx,\n 'root',\n)`（本次修复的盲区形态） | G10 定向红 class 6 `callee=Reflect.get` | **应红实红**：`cat_6=1 [M4 (callee=Reflect.get)]`，其余 11 gate 全绿、exit 1（`…/negative/N6-crossline-gates.log`） |
-| 跨行空链 | `(channel)\n('root')` | G10 定向红 class 6 `callee=UNRESOLVED-CROSSLINE` | **应红实红**：`cat_6=1 [M4 (callee=UNRESOLVED-CROSSLINE)]`，其余 11 gate 全绿、exit 1（`…/negative/N6-crossline-blank-gates.log`） |
-| M-3 变异 | 把跨行判据回退为「静默丢弃」（`.cache/m4-alignment/gates-no-crossline.mjs`） | 8 条跨行探针应红 | **应红实红**：5 条跨行探针 FAIL（`…/negative/M3-no-crossline-probe.log`） |
-| M-4 变异 | 把 `inVctx` 回退为带前置字符类的旧正则 | `ACtx`/`$ctx` 两探针应红 | **应红实红**：两探针 `got 5D-R`（`…/negative/M4-old-vctx-probe.log`） |
-
-注入文件删除后 `git status --porcelain` 无任何 `n6-*`/`injection` 条目（生产 `src/**` 零 diff 复核：`git diff --name-only d59a4d1 -- 'packages/*/src' 'apps/*/src' 'domains/*/src'` 为空）。
-
-**(e) SA4-2 — 分类判定顺序按钉死表序**（sweep `:586–604`；`classifySampleText` `:659–688`）：改为 R2 表序 **1 → 2 → 3 → 4 → 5 → 5D → 6，首中即定**（修前为 1 → 5(注释) → 3(字符串) → 2(helper) → 5D → 6）。其中行 2（同名 helper 调用）与行 3（字符串字面量内部）按钉死文语义限定为**代码位**判定——注释内的 token 既非代码字符串也非调用；行 4（定义位 `root:`/`'root':` 键形）结构性非候选、代码中无到达路径。该限定是保留 rev2.1 已追认两锚点（`service.ts:41`/`plugin.ts:210` ⇒ 类 5）的必要机械形，已在代码注释与本节明示。**分类迁移 = 0**：修复前后 G10 **全量命中记录逐字节相同**（289 条记录 `diff` 为空），各类计数逐项不变。若按字面「无条件行 3 先于行 5」执行，上述两 JSDoc 行将由 5 迁 3（`cat_3` 9 / `cat_5` 2），与 §14 已追认的 rev2.1 值（7/4）矛盾——故取语义限定形并在此明示取舍依据。
-
-**(f) SA4-4 — 设计 §16.3 调用方影响矩阵成段核对**：见 §9.6。
-
-**(g) SA4-5 — `baselines.json` 最小 diff 还原**：以 `git show d59a4d1:…` 的 BASE 字节为底，仅文本化施加 3 处语义编辑（`base` 重钉、`comment` 追加 #471 句、`suites` 追加 6 项），消除整文件 JSON 重编码噪声（`\u2014`/`\u00a7` 转义）。结果：diff 恰 3 hunk（`+9/−3`），非编辑点行零 diff；`JSON.parse` 语义全等复核（`base`/`suites`/`comment` 三处变化、其余键与 BASE 逐键相等），E1 suite 注册与 `base` 重钉语义**均不变**（矩阵 41/41 实跑复证）。
-
-**(h) SA4-3 — 装饰性断言/死参数**：`gates.mjs` 侧已闭合（`void minimum` 死列、`ROOT_EXTS` 死常量删除）；两处**测试侧**装饰性断言（`ws-replication-cordis-baseline-lifecycle.test.ts:584` `expect(createNamespaceRegistryForTesting).toBeTypeOf('function')`、`ws-replication-cordis-root-timers.test.ts:493` `expect(peerAssembly.timer).toBeDefined()`）**本轮未修改**，理由：本轮 dispatch 明确「改动面应只涉及 `gates.mjs`」；两行是恒真断言、不降低任何判定强度（存在目的只是消化 import/装配对象），修改需重跑三基线 timers/lifecycle cell，故列为待追认清理项（如要求闭合，可在同票任一后续窄面删除并复跑对应 cell）。
-
-**(i) SA4-6 — units 提取口径**：SA8 impl §2(b) 已裁定「`assertion.title` 直读」为钉死谓词的可满足机械形（RATIFY），本轮无动作；口径披露已在 `run-baseline.mjs:591–597` 与 SA8 报告。
-
-### 9.3 修复前后分类差异（逐项）
-
-| 面 | 修复前（iteration 1） | 修复后（iteration 2） | 迁移 |
-|---|---|---|---|
-| G10 全量命中记录（289 条，含新增文件） | — | **逐字节相同**（`diff` 为空） | **0 条** |
-| 分类计数（工作树含 10 文件 diff） | `{"1":20,"2":13,"3":9,"5":4,"6":0,"5D-R":197,"5D-C":46}` | 同左 | **0** |
-| BASE 子集（285 条，对 `d59a4d1` 文件分桶） | `1=19 2=13 3=7 5=4 5D-R=196 5D-C=46 6=0` | 同左（= I-1@rev2.1 逐项） | **0** |
-| 新增文件命中（4 条） | `{1:1, 3:2, 5D-R:1}` | 同左 | **0** |
-| 自检行 `G10_SAMPLES` | 12 行 | **16 行** | +4（补缺锚点，非类迁移） |
-| cast/边界探针 | 15 条 | **18 条**（+`ACtx`、+`$ctx`、+spread 非候选） | +3（覆盖面扩大） |
-| 跨行 M4 探针 | 无 | **8 条** | +8（新能力） |
-| M4 跨行实参字面量 | 静默丢弃（对 G10 不可见） | 归属或 fail-closed ⇒ 类 6 | **BASE 零实存 ⇒ 0 条命中变化**，通道闭合（三条注入实证） |
-
-**结论**：**零分类迁移**、零计数漂移；差异只是自检/探针覆盖面扩大（12→16、15→18、0→8）与 fail-closed 通道闭合。允许清单（2 seam 行 + 3 fixture 双读行 + 恰 2 文件级许可）、扫描面（R0 + 设施目录排除）、N-6 钉死样本内容、G11 空集、G12 四文件白名单**全部零增删**。
-
-### 9.4 复跑结果与新证据路径
-
-| # | 命令 | 结果 | 证据 |
-|---|---|---|---|
-| W-1 | `node packages/persistence/test/fixtures/cordis-baselines/gates.mjs` | **12/12 PASS，exit 0**；G10：`class 6 empty (243 domain-data rejects: 5D-R=197 5D-C=46); seam self-validation 2/2; regression samples 16/16; cast probes 18/18; cross-line M4 probes 8/8; 738 files scanned` | `.cache/gates-final.log`（归档 `.cache/cordis-baselines/evidence/gates/gates-final.log`）；修复前对照 `.cache/gates-before.log`（归档 `…/gates/gates-prefix.log`） |
-| W-2 | `node run-baseline.mjs --all --matrix` | **41/41 PASS，exit 0**（`MATRIX PASS: 41 cells`）；`matrix.json.generatedAt=2026-11-14T20:41:11Z`；gates cell 12/12、root-test cell `failedUnexpected=[]`、三基线 `units={23/23/[]}`+`coverage=true`+`foreign=[]`、并集 69、typecheck 3×15/15 | `.cache/matrix-rerun.log`（归档 `…/matrix/matrix.log`）、`…/matrix/matrix.json`、`…/matrix/unit-union.json`、`…/gates/gates.log` |
-| W-3 | BASE 子集对账（`.cache/m4-alignment/base-subset.mjs`） | `BASE-subset hits=285 :: 1=19 2=13 3=7 5=4 5D-R=196 5D-C=46 6=0`；`new-file hits=4 :: 1=1 3=2 5D-R=1` | `…/gates/gates-final.log` 机械分桶 |
-| W-4 | 注入自证伪（N-6 重取 / 跨行实参 / 跨行空链） | 3/3 应红实红（见 §9.2(d) 表） | `…/negative/{N6-gates-final.log,N6-crossline-gates.log,N6-crossline-blank-gates.log}` |
-| W-5 | 变异自证伪（M-3 跨行判据回退 / M-4 `inVctx` 回退） | 2/2 应红实红（探针 5 条 / 2 条 FAIL） | `…/negative/{M3-no-crossline-probe.log,M4-old-vctx-probe.log}` |
-| W-6 | 范围与零 diff | `git status` 非 wiki 改动 = **恰 §12.1 十文件**；生产 `src/**` diff = **0 行**；`baselines.json` diff = `+9/−3`（3 hunk）；`gates.mjs` diff（对 BASE）= `+606/−28`（本轮增量 = §9.2(a)(b)(c)(e) + 探针） | 本会话实跑 |
-
-### 9.5 不得回退面核对
-
-| 钉死面 | 本轮状态 |
-|---|---|
-| T-2 允许清单（5 行级 + 2 文件级）、G11 空集、G12 四文件白名单 | **零增删**（`G10_LINE_ALLOW`/`G10_FILE_ALLOW`/`FORBIDDEN_API_ALLOW`/`FACILITY_ALLOW` 未触） |
-| G10 R0 扫描面 + 设施目录排除（I-2 联动） | 原样（`listScanRoots` 未改；G12 实跑 PASS） |
-| N-6 三形态钉死内容 | **原样**（重取日志三形态逐字命中；cast/跨行形只进自检探针与注入证据） |
-| 类 6「红」语义与编号、seam 自校验、全量命中清单输出 | 原样（seam 2/2、289 条全量输出、`cat 6` 恒空判定） |
-| 十文件闭合 ALLOW、零生产 diff | 原样（§9.4 W-6） |
-| E1–E7/E4a runner 编辑点、T-1a 计账、B-1…B-5 台账 | 原样（本轮未触 `run-baseline.mjs`；矩阵 41/41 复证） |
-| `baselines.json` 的 `base` 重钉与 suites 注册语义 | 原样（最小 diff 还原只去噪，语义 `JSON.parse` 全等） |
-
-### 9.6 设计 §16.3 调用方影响矩阵成段核对（SA4-4 闭合）
-
-| 调用方 | 当前处理 | 设计后处理 | 所需改动 | 本实现证据 |
-|---|---|---|---|---|
-| `run-baseline.mjs` 使用者（CI/人工验收） | `--all` 输出 `3×6+3+1+1` 行 | 41 行（新 suite 三基线 + root-test 台账判定） | **命令行接口零变化**；输出行数/字段按 §7.4/§7.5 扩展 | 矩阵 41 行（§9.4 W-2）；`--fault`/`--baseline`/`--suite`/`--matrix` 语义未变（本轮未触 runner；N-1/N-2 于 iteration 1 实跑留证） |
-| `gates.mjs` 使用者 | 9 gates | 12 gates + 基座重钉 | **调用方式零变化**（`node gates.mjs`；唯一另参 `--write-surface-snapshot` 保留） | 12/12 PASS（§9.4 W-1/W-2） |
-| 根 `pnpm test` / root-test cell | 收集 `packages|apps/*/test/**/*.test.ts` | 新文件被收集且**默认布局必须绿**（D-7），root-test 失败数不增 | **无**（新测试自带 per-test timeout 与 env 条件断言） | 矩阵 root-test cell `failedTestNames=32 == 冻结台账`、`failedUnexpected=[]`、`disclosure` 五键在场；V-8 默认布局聚焦 |
-| #470 证据可复现性 | 旧 matrix JSON 在 `.cache`（运行期） | 重跑得超集矩阵；旧 #470 cell 语义不变 | **无** | 41 行全 pass（含 6 个 #470 既有 suite ×3）；`unit-union` 69 |
-| 生产代码调用方（hub/peer/sessionhost 装配方） | — | **零变化**（零生产 diff） | **无** | 生产 `src/**` diff = 0 行（G2/G3/G4/G7/G8 机械承载） |
-
-### 9.7 未闭合项与明示理由
-
-1. **SA4-3 两处测试侧装饰性断言保留**（lifecycle `:584`、timers `:493`），理由见 §9.2(h)：本轮遵守「只涉及 `gates.mjs`」的窄面约束，且不降低判定强度。
-2. **本轮未新增任何允许清单条目、未改扫描面、未改 N-6 钉死内容、未动 G11/G12、未动 `run-baseline.mjs`**；`cat_*` 相对 I-1@rev2.1 的差异仍**恰为** SA8 已裁定批准的 4 条新增文件命中。
-3. **A8-4 披露维持不回退**（§8-2 表述禁令照旧）：root-test 行按冻结台账判绿，账内红 = 4 例 BASE 既有 test-d 红 + 28 例环境红；本票**不得**声称 root-test/CI/既有测试全绿。
-4. 设计文本类偏差（`harness.ts:537` 复合行表述、`E1` 「6 文件」笔误等）已由设计 rev 2.1 与 SA8 处理，不属实现侧动作面。
-
-
-## 10. 已执行命令清单（可复核）
-
-```bash
-# 环境
-node -v                                    # v24.13.0
-git rev-parse HEAD                         # d59a4d141c6c5ac7f267295829157d9570cde36e
-pnpm --version                             # 11.28.5（与 packageManager 10.28.2 未对齐 → 28 环境红的成因）
-corepack pnpm@10.28.2 --version            # 10.28.2（对齐环境复跑用）
-
-# 默认布局聚焦（新文件必须先可在默认布局运行）
-NODE_OPTIONS=--conditions=nomicore-source node node_modules/vitest/vitest.mjs run \
-  packages/ws-replication/test/ws-replication-cordis-root-channel.test.ts --passWithNoTests=false   # 29 passed
-NODE_OPTIONS=--conditions=nomicore-source node node_modules/vitest/vitest.mjs run \
-  packages/ws-replication/test/ws-replication-cordis-root-timers.test.ts --passWithNoTests=false    # 12 passed（×3 无抖动）
-NODE_OPTIONS=--conditions=nomicore-source node node_modules/vitest/vitest.mjs run \
-  packages/ws-replication/test/ws-replication-cordis-baseline-lifecycle.test.ts --passWithNoTests=false # 24 passed
-NODE_OPTIONS=--conditions=nomicore-source node node_modules/vitest/vitest.mjs run \
-  packages/dsh-persistence/test/dsh-profile-direct-apply-order.test.ts \
-  apps/yjs-server/test/third-party-timer-ownership-red.test.ts --passWithNoTests=false              # 6 passed
-
-# 受影响 project 的 typecheck
-node node_modules/typescript/bin/tsc -p packages/ws-replication/tsconfig.json --noEmit   # exit 0
-node node_modules/typescript/bin/tsc -p apps/yjs-server/tsconfig.json --noEmit           # exit 0
-node node_modules/typescript/bin/tsc -p packages/dsh-persistence/tsconfig.json --noEmit  # exit 0
-
-# 机械门禁（G10 rev 2.1 首落地 + G8 收敛）
-node packages/persistence/test/fixtures/cordis-baselines/gates.mjs                       # 12/12 PASS
-
-# 负控 N-1 / N-2（逐 suite cells[] 判据）
-node packages/persistence/test/fixtures/cordis-baselines/run-baseline.mjs \
-  --baseline B3 --suite provenance --suite root-probe --suite ws-cordis-channel --fault substitute-npm   # cells 3/3 fail, outer 0
-node packages/persistence/test/fixtures/cordis-baselines/run-baseline.mjs \
-  --baseline B3 --suite root-probe --suite ws-cordis-channel --fault legacy-shim                        # cells 2/2 fail, outer 0
-
-# 变异 M-1 / M-2（仅 .cache workspace 副本，逐字节还原）
-node .cache/mutations/run-mutations.mjs                                                  # 3 baselines × M-1/M-2；restore sameAsHead=true
-
-# Step 0 BASE 台账捕获（干净副本）+ 对齐环境披露复跑
-git worktree add --detach .cache/root-test-base-wt d59a4d1
-(cd .cache/root-test-base-wt && NODE_OPTIONS=--conditions=nomicore-source node node_modules/vitest/vitest.mjs run --typecheck --reporter=default --reporter=json --outputFile.json=<…>/base-root-test.vitest.json)   # 32 failed
-node .cache/cordis-baselines/evidence/root-test-base/build-ledger.mjs                    # knownRed=4 environmentRed=28 problems=[]
-(cd .cache/root-test-base-wt && PATH=<…>/.cache/pnpm-shim:$PATH … --typecheck … --outputFile.json=<…>/base-root-test-aligned.vitest.json)  # 4 failed（仅 knownRed）
-
-# 三基线矩阵（最终判定）
-node packages/persistence/test/fixtures/cordis-baselines/run-baseline.mjs --all --matrix   # MATRIX PASS: 41 cells，exit 0
-
-# ---- iteration 2（SA4/SA8 实现级评审闭合）----
-# 修复前/后 G10 全量对账（记录级逐字节相同）
-node packages/persistence/test/fixtures/cordis-baselines/gates.mjs > .cache/gates-final.log   # 12/12 PASS
-diff <(grep -E '^  (packages|apps|domains)' .cache/gates-before.log) \
-     <(grep -E '^  (packages|apps|domains)' .cache/gates-final.log)                          # 空 ⇒ 零分类迁移
-node .cache/m4-alignment/base-subset.mjs .cache/gates-final.log                              # BASE=285 (19/13/7/4/196/46/0) + 新文件 4
-node .cache/m4-alignment/probe2.mjs                                                          # 交叉算法复算 oldHits=55 newHits=55 deltas=0
-
-# 自证伪注入（不入库；用后删除并核对 git status）
-#   1) N-6 三形态 + G11（钉死样本原样）⇒ G10 cat_6=3 / G11 / G2 红，exit 1
-#   2) 跨行实参 Reflect.get(\n ctx,\n 'root',\n) ⇒ G10 cat_6=1 [M4 (callee=Reflect.get)]，exit 1
-#   3) 跨行空链 (channel)\n('root') ⇒ G10 cat_6=1 [M4 (callee=UNRESOLVED-CROSSLINE)]，exit 1
-#   证据：.cache/cordis-baselines/evidence/negative/{N6-gates-final,N6-crossline-gates,N6-crossline-blank-gates}.log
-# 变异自证伪（.cache 副本，不改工作树）
-node .cache/m4-alignment/gates-no-crossline.mjs    # M-3：跨行判据回退 ⇒ 5 条跨行探针 FAIL
-node .cache/m4-alignment/gates-old-vctx.mjs        # M-4：inVctx 回退 ⇒ ACtx/$ctx 两探针 FAIL
-```
+1. **A8-4 披露（表述禁令，必须随交付摘要/PR）**：root-test 行按**冻结台账**判绿（B-3a…e）。账内红 = **4 例 BASE 既有 test-d 红**（`packages/ws-replication/test/ws-replication-issue421-edge-factory-api.test-d.ts`，expect-type 1.4.0 可选参数元组不兼容；#470 已裁定另立后续票、本票 ALLOW 内不可修）+ **28 例环境红**（环境 pnpm 11.28.5 与 `packageManager=pnpm@10.28.2` 未对齐；BASE 对齐复跑 `5913/5909/4` 已证 28 例转绿）。**不得声称「root-test / CI / 所有既有测试全绿」**；本票只声明：三基线矩阵 41/41 绿、新增文件在默认布局与三基线全绿、跑动测试的红名集合恰等于 BASE 冻结台账（`failedUnexpected=[]`）。
+2. **SA4-7/8/9 残余边界**：G10 是手写词法器（非完整 JS parser）。本轮已把注释/regex/嵌套模板写成显式规则并提供探针与变异红证；仍未建模的极端 JS 形态（例如把 code 注入到 by-design 不可解析的非法语法）由 `R-FAILCLOSED` 兜底为类 6，不静默丢弃。PR 应保留「非完整 JS parser」的披露。
+3. **B3 工件边界**：B3 为 DSH `1511a6ed…` vendored rc.12 的 minimal tsc source-build（非官方流水线），`baselines.json:109` 与 SA3 均明示；未做真实 Host 部署、未改 `patchedDependencies`、未宣称可删 Host patch。
+4. **D-2/D-3**：kind=2 真实 SYNC_STEP2 驱动装配预算（SA8 RATIFY）与 G8 两行钉死（R-2）原样保留。
+5. **本轮未新增任何允许清单条目、未改扫描面、未改 N-6 内容、未动 G11/G12 语义、未改台账集合与 23 名枚举**；`cat_*` 相对 I-1@rev2.1 的差异仍恰为 SA8 批准的 4 条新增文件命中。
 
 ## 11. Suggested commit message（仅供 Controller 选择）
 
 ```
 test(ws-replication): #471 three-baseline Hub/Peer/SessionHost acceptance matrix
 
-- new suite registration + 41-row matrix (ws-cordis-channel/timers/lifecycle,
-  guard-proxy six-file, composition-root, ws-package on all baselines)
-- real baseline TimerService behaviour evidence: A1-1…A1-7 channel shapes,
-  12 timer families (A1-8; bulk/assembly fed by a real kind=2 chunked SYNC_STEP2),
-  23-unit lifecycle matrix (+coverage), β/γ rounds
-- AC3/AC4 ownership: ordered teardown, no wait cycle, timer last-release,
-  direct-apply DSH profile dispose order
-- gates: G10 legacy-root zero-residue (rev 2.1), G11 forbidden API, G12 facility
-  allowlist, G8 full-src scan with the two pinned app-config env lines
-- G10 M4 cross-line argument attribution (I-1③ fail-closed: an unattributable
-  `'root'` argument is class 6, never a silent non-candidate) + V_ctx suffix
-  boundary aligned to the pinned word list + self-check table 12→16 rows with
-  8 multi-line M4 probes
-- root-test known-red ledger frozen to the Step 0 BASE capture (4 test-d + 28
-  environment reds; failedUnexpected empty; aligned-env disclosure recorded)
+- new suite registration + 41-row matrix on B1/B2/B3 (ws-cordis-channel 33,
+  ws-cordis-timers 12x3, replication-lifecycle 34x3, guard-proxy 71, composition-root 28,
+  ws-package 66) and root-test cell with fresh-evidence fail-closed judgement
+- real baseline TimerService arm/trigger/cancel evidence for all 12 timer families:
+  reconcile is triggered by a strictly new SYNC_STEP1 round id, waitForLive observes the
+  25 ms poll firing and the live resolve, close/drain is driven by a real CLOSE drain
+  (withheld CLOSE_NAMESPACE => closeTimeoutMs deadline) and reauth by requestReauth,
+  bulk ACK is the real chunked-sync-acked settlement, assembly timeout keeps reason=timeout
+- AC2: fiber dispose asserts the full pending set is empty (every delay family), not a
+  hand-picked pair; lifecycle 23 units/coverage/foreign/issue420 are judged per repeat
+- AC6: nomicoreHubSessionHost guard-Proxy consumption (accessors, freeze, stable closures,
+  write/defineProperty rejection) + the remaining three public entries
+  (@nomicore/clock, @nomicore/namespace-registry, @nomicore/ws-replication/testing)
+  pinned from a clean BASE d59a4d1 runtime capture
+- AC8: root-test cell deletes stale JSON before the run, requires valid/fresh/complete
+  evidence (presence, parse, mtime, positive total, exact name-count agreement) and is red
+  otherwise; --passWithNoTests=false; the known-red ledger explains names only.
+  Six negative controls (missing/malformed/stale/stale-mtime/zero/mismatch) are red while
+  failedUnexpected stays empty
+- G10: M4 lexer now has explicit rules (comments transparent for token adjacency, regex
+  bodies opaque, nested templates, undecidable state => UNRESOLVED-CROSSLINE => class 6);
+  probes 8 -> 29 (comment/regex/template variants) with three real-file injection proofs
+  and rule-revert mutations red; classification and the BASE subset (285 records) unchanged
+- M-1/M-2/M-5 mutations red on their target suites with byte-exact restore
+- known-red disclosure (A8-4): the default layout keeps 4 pre-existing test-d reds in
+  ws-replication-issue421-edge-factory-api.test-d.ts (expect-type 1.4.0 optional-parameter
+  tuple incompatibility; follow-up ticket, out of this ticket's ALLOW) and #470's 28
+  environment reds (ambient pnpm 11.28.5 vs packageManager pnpm@10.28.2; the aligned
+  pnpm@10.28.2 re-run captured 5913/5909/4, i.e. all 28 turned green). The ledger greens
+  the names, not the process: root-test native exitCode is 1. This commit does NOT claim
+  the root-test, CI or all existing tests are green, and does not claim G10 is a complete
+  JavaScript parser.
 
-Verification: matrix 41/41 PASS; typecheck 3x15/15; gates 12/12 (16/16 samples,
-18/18 cast probes, 8/8 cross-line probes, class 6 empty); N-1/N-2 red on
-every target cell; M-1/M-2 red on the new channel suite while ws-package stays
-66/66 (gap proof), byte-exact seam restore; cross-line / N-6 injections red on
-G10 with zero reconciliation drift (BASE subset 285 records unchanged).
+Verification: gates 12/12; matrix 41/41 PASS; typecheck 3x15/15; lifecycle units 23/coverage
+per baseline (union 69); guard-proxy 71/71 x3; root-test 5956/5988 with failedUnexpected=[].
+Zero production src diff; changed paths = the ten-file closed ALLOW set.
+```
 
-Zero production src diff: packages/*/src, apps/*/src, domains/*/src untouched.
+## 12. 已执行命令清单（可复核）
+
+```bash
+# 环境
+node -v                                              # v24.13.0
+git rev-parse HEAD                                   # f7a3f74（父 d59a4d1）
+pnpm --version                                       # 11.28.5（环境未对齐；对齐复跑见 §10-1）
+
+# 冻结树最终判定
+node packages/persistence/test/fixtures/cordis-baselines/gates.mjs                 # 12/12 PASS
+node packages/persistence/test/fixtures/cordis-baselines/run-baseline.mjs --all --matrix   # MATRIX PASS: 41 cells
+node .cache/evidence-tools/unit-union.mjs                                         # observedUnion=69 problems=[]
+node .cache/m4-alignment/base-subset.mjs .cache/gates-final-iter3.log             # BASE=285 / new=4
+node node_modules/typescript/bin/tsc -p packages/ws-replication/tsconfig.json --noEmit
+node node_modules/typescript/bin/tsc -p apps/yjs-server/tsconfig.json --noEmit
+node node_modules/typescript/bin/tsc -p packages/dsh-persistence/tsconfig.json --noEmit
+
+# 默认布局聚焦
+NODE_OPTIONS=--conditions=nomicore-source node node_modules/vitest/vitest.mjs run \
+  packages/ws-replication/test/ws-replication-cordis-root-timers.test.ts --passWithNoTests=false      # 12/12
+NODE_OPTIONS=--conditions=nomicore-source node node_modules/vitest/vitest.mjs run \
+  packages/ws-replication/test/ws-replication-cordis-root-channel.test.ts --passWithNoTests=false     # 33/33
+NODE_OPTIONS=--conditions=nomicore-source node node_modules/vitest/vitest.mjs run \
+  packages/ws-replication/test/ws-replication-cordis-baseline-lifecycle.test.ts --passWithNoTests=false # 24/24
+NODE_OPTIONS=--conditions=nomicore-source node node_modules/vitest/vitest.mjs run \
+  apps/yjs-server/test/third-party-timer-ownership-red.test.ts \
+  packages/dsh-persistence/test/dsh-profile-direct-apply-order.test.ts --passWithNoTests=false           # 6/6
+
+# SA9-1 证据 fail-closed 负控（真实 runner 代码 + fake vitest）
+node .cache/negative/root-failclosed/run.mjs          # 6/6 red, failedUnexpected=[]
+# SA9-2/SA9-8 G10 真实注入与规则变异
+node .cache/negative/g10-iter3/run.mjs                # 3/3 injections red
+node .cache/negative/g10-iter3/gates-mutations.mjs    # M-6/M-7/M-8 red
+# 变异 M-1/M-2/M-5 + 逐字节还原
+node .cache/mutations/run-mutations.mjs               # 3 baselines; restores 9/9 sameAsHead
+# N-1/N-2
+node packages/persistence/test/fixtures/cordis-baselines/run-baseline.mjs \
+  --baseline B3 --suite provenance --suite root-probe --suite ws-cordis-channel --fault substitute-npm
+node packages/persistence/test/fixtures/cordis-baselines/run-baseline.mjs \
+  --baseline B3 --suite root-probe --suite ws-cordis-channel --fault legacy-shim
+# BASE d59a4d1 三 entry 导出面捕获（G5 farm 同法）
+node .cache/export-capture/capture.mjs
 ```

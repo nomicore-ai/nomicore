@@ -10,7 +10,8 @@
  * Accounting (design §8.1 / T-1a):
  *   unit name   = L.<entry>.<scenario>   — 21 names (3 entries × 7 scenarios)
  *               + L.edge-beta.minimal-round + L.async-gamma.minimal-round = 23
- *   JSON name   = `<baseline> > L.…`     — the baseline segment lives in the label
+ *   JSON name   = `<baseline> L.…`       — vitest joins ancestor titles with one space;
+ *                                          the baseline segment lives in the label
  *   `coverage`  — a non-`L.` self-check name; it is NOT counted into `units`
  *                 (each baseline cell reports observed === 23) but must be present
  *                 and passed.
@@ -33,7 +34,6 @@ import {
   type ReplicationObserverEvent,
 } from '@nomicore/ws-replication'
 import { createMemoryDuplexTransport } from '@nomicore/ws-replication/testing'
-import { createNamespaceRegistryForTesting } from '@nomicore/namespace-registry/testing'
 import {
   HUB_OWNER,
   HUB_INSTANCE,
@@ -51,7 +51,6 @@ import { makeAsyncReplicationFacade, pumpUntil } from './issue447-async-seam.js'
 import {
   BASELINE_LABEL,
   createRealTimerAssembly,
-  delay,
   expectQuiet,
   installRealTimerMeter,
   waitFor,
@@ -382,8 +381,20 @@ describe(BASELINE_LABEL, () => {
             if (entry === 'session-host') handle.openSession()
             await waitFor(() => meter.pending() > 0, `${entry}: timers are armed before dispose`)
             await handle.fiber.dispose()
-            await waitFor(() => meter.pendingFor(HELLO_MS) === 0 && meter.pendingFor(BOOTSTRAP_MS) === 0, 'ordered effect cleared the entry timers')
-            await delay(5)
+            // AC2 / SA10 §3.2: "every arm of this entry is outstanding=0" — the full pending
+            // set, not a hand-picked delay pair (HELLO_MS and BOOTSTRAP_MS are both 30 ms,
+            // so the old predicate only ever measured one delay family). `meter.pending()`
+            // counts every live real-TimerService arm across all delay families.
+            await waitFor(
+              () => meter.pending() === 0,
+              `${entry}: fiber dispose must clear every armed timer (live delays: ${JSON.stringify(meter.entries.filter((e) => !e.settled).map((e) => e.delay))})`,
+            )
+            // The assertion point is BEFORE any root cleanup: `withEntry` disposes the root
+            // assembly only after this callback returns.
+            // Explicit event-loop turns drain the effect/stop promises that could surface a
+            // late rejection (no fixed wall-clock sleep).
+            await new Promise<void>((resolve) => setImmediate(resolve))
+            await new Promise<void>((resolve) => setImmediate(resolve))
           })
         } finally {
           process.off('unhandledRejection', onUnhandled)
@@ -452,8 +463,6 @@ describe(BASELINE_LABEL, () => {
     const fixture = await makeHubNamespace(node)
     const assembly = createRealTimerAssembly({ role: 'hub', instanceId: HUB_INSTANCE })
     const wire: Wire = makeWire()
-    let sinkOpened = 0
-    let sessionHandle: { close: () => Promise<void> } | undefined
     const shim = createShimHubForTesting({
       instanceId: HUB_INSTANCE,
       registry: node.registry,
@@ -469,7 +478,6 @@ describe(BASELINE_LABEL, () => {
     try {
       const accepted = await shim.replication.accept(wire.hubEnd, { token: TEST_TOKEN })
       expect(accepted).toBeDefined()
-      sinkOpened += 1
       wire.peerEnd.send(encodeMessage({
         kind: 'HELLO',
         peerInstanceId: PEER_INSTANCE,
@@ -495,11 +503,9 @@ describe(BASELINE_LABEL, () => {
         () => wire.hubToPeer.some((bytes) => decodeMessage(bytes).message.kind === 'CLOSE_OK'),
         'CLOSE_OK across the β seam',
       )
-      expect(sinkOpened).toBe(1)
       await shim.replication.close()
       await waitFor(() => meter.pending() === 0, 'β round leaves no armed timer behind')
     } finally {
-      await sessionHandle?.close().catch(() => undefined)
       await assembly.dispose()
     }
     completedUnits.add('L.edge-beta.minimal-round')
@@ -581,6 +587,5 @@ describe(BASELINE_LABEL, () => {
     // Fail-closed direction (T-1a-3) is enforced by the runner; here we prove the
     // enumeration has no duplicate and no `L.` name outside the pinned set.
     expect(new Set(LIFECYCLE_UNITS).size).toBe(23)
-    expect(createNamespaceRegistryForTesting).toBeTypeOf('function')
   })
 })

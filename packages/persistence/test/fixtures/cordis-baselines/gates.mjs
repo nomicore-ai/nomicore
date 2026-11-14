@@ -459,91 +459,214 @@ function calleeOfLiteral(line, literalIndex) {
  */
 const M4_UNRESOLVED = 'UNRESOLVED-CROSSLINE'
 
-/** Whole-file lexer: for each real `'root'` literal, its innermost enclosing call context. */
+/**
+ * Whole-file lexer: for each real `'root'` literal, its innermost enclosing call context.
+ *
+ * Explicit lexical rules (SA9-2 comment blindness + SA9-8 regex/nested-template corners):
+ *
+ *   R-COMMENT  `// …` and `/* … *​/` (JSDoc included) are not code. Comments are
+ *              **transparent for token adjacency**: both the "previous significant
+ *              token" that decides `argumentStart` and the dotted-callee chain skip
+ *              them. A formatted comment between `(` and `'root'` — or between the
+ *              callee chain and its `(` — therefore behaves like whitespace instead of
+ *              silently downgrading the literal to a non-candidate.
+ *   R-STRING   `'…'` / `"…"` delimiters and their interior are code. A closed
+ *              `'root'`/`"root"` literal is recorded together with the last significant
+ *              code character before its opening quote (`argumentStart` evidence).
+ *   R-REGEX    `/` starts a regex literal iff the previous significant code token cannot
+ *              end an expression: punctuation in `([{,;:=!&|?+-*%~^<>` or a prefix
+ *              keyword (`return typeof case in of instanceof new delete void throw do
+ *              else yield await`). Otherwise it is the division operator. The regex body
+ *              (character classes included) is opaque, so `(`, `)` or a quote inside a
+ *              regex can never mutate the paren stack or the string state. A regex
+ *              literal cannot span a line: if no closing `/` is found on that line the
+ *              line remainder is opaque and the lexer is marked `unresolved`.
+ *   R-TEMPLATE A backtick opens template text; `${` switches to a code expression whose
+ *              `}` at brace depth 0 returns to template text; backticks nest. Template
+ *              text is opaque data (a `'root'` there is never a candidate), while
+ *              `${…}` expression code is lexed normally, and nested templates keep the
+ *              enclosing template frame instead of closing it early.
+ *   R-FAILCLOSED When the lexer cannot decide (unterminated regex, template or block
+ *              comment), every later call-argument-position literal is reported as
+ *              `UNRESOLVED-CROSSLINE` ⇒ class 6. An unattributable argument is never
+ *              silently dropped.
+ */
 function m4ContextsOf(text) {
-  const lines = text.split('\n')
-  const offsets = []
-  let offset = 0
-  for (const line of lines) {
-    offsets.push(offset)
-    offset += line.length + 1
+  const contexts = new Map()
+  const parens = []
+  /** 1 = code character; comments, regex bodies and template text stay 0 (opaque). */
+  const codeMask = new Uint8Array(text.length)
+  /** Template nesting frames: `{ type: 'template' }` | `{ type: 'expr', brace }`. */
+  const frames = []
+  const lineStarts = [0]
+  for (let i = 0; i < text.length; i++) if (text[i] === '\n') lineStarts.push(i + 1)
+  const locate = (index) => {
+    let lo = 0
+    let hi = lineStarts.length - 1
+    while (lo < hi) {
+      const mid = (lo + hi + 1) >> 1
+      if (lineStarts[mid] <= index) lo = mid
+      else hi = mid - 1
+    }
+    return { line: lo + 1, column: index - lineStarts[lo] }
   }
-  const previousNonSpace = (index) => {
-    for (let i = index - 1; i >= 0; i--) if (!/\s/.test(text[i])) return text[i]
+  const prevCodeIndex = (index) => {
+    for (let i = index; i >= 0; i--) if (codeMask[i] === 1) return i
+    return -1
+  }
+  /** Previous non-whitespace *code* character: whitespace and comments are transparent. */
+  const prevSignificantIndex = (index) => {
+    for (let i = index; i >= 0; i--) {
+      if (codeMask[i] === 1 && !/\s/.test(text[i])) return i
+    }
+    return -1
+  }
+  const inTemplateText = () => frames.length > 0 && frames[frames.length - 1].type === 'template'
+  const regexAllowedAfter = (index) => {
+    const cursor = prevSignificantIndex(index - 1)
+    if (cursor < 0) return true
+    const char = text[cursor]
+    if ('([{,;:=!&|?+-*%~^<>'.includes(char)) return true
+    if (!/[A-Za-z0-9_$]/.test(char)) return false
+    let start = cursor
+    while (start >= 0 && /[A-Za-z0-9_$]/.test(text[start])) start -= 1
+    return ['return', 'typeof', 'case', 'in', 'of', 'instanceof', 'new', 'delete', 'void', 'throw', 'do', 'else', 'yield', 'await']
+      .includes(text.slice(start + 1, cursor + 1))
+  }
+  /** Dotted chain immediately before `index`, comments transparent, whitespace is a separator. */
+  const chainBefore = (index) => {
+    let cursor = prevCodeIndex(index - 1)
+    let chain = ''
+    while (cursor >= 0 && /[A-Za-z0-9_$.]/.test(text[cursor])) {
+      chain = text[cursor] + chain
+      cursor = prevCodeIndex(cursor - 1)
+    }
+    return /^[A-Za-z_$][A-Za-z0-9_$.]*$/.test(chain) ? chain : null
+  }
+  const enclosingCall = () => {
+    for (let depth = parens.length - 1; depth >= 0; depth--) {
+      if (parens[depth].callLike) return parens[depth]
+    }
     return null
   }
-  const contexts = new Map()
-  const stack = []
-  let block = false
+  let unresolved = false
   let quote = null
   let quoteStart = -1
-  const record = (line, column) => {
-    // Grouping parens are transparent: the argument may be a parenthesised expression.
-    let enclosing = null
-    for (let depth = stack.length - 1; depth >= 0; depth--) {
-      if (!stack[depth].callLike) continue
-      enclosing = stack[depth]
-      break
+  let quoteArgumentStart = false
+  for (let i = 0; i < text.length; i++) {
+    const char = text[i]
+    if (inTemplateText()) {
+      if (char === '\\') { i += 1; continue }
+      if (char === '`') { codeMask[i] = 1; frames.pop(); continue }
+      if (char === '$' && text[i + 1] === '{') {
+        codeMask[i] = 1
+        codeMask[i + 1] = 1
+        frames.push({ type: 'expr', brace: 0 })
+        i += 1
+      }
+      continue // template text stays opaque
     }
-    contexts.set(`${line}:${column}`, {
-      callee: enclosing === null ? null : enclosing.callee,
-      callLike: enclosing !== null,
-      openLine: enclosing === null ? -1 : enclosing.openLine + 1,
-      // First token of an argument: the literal starts the argument expression.
-      argumentStart: ['(', ','].includes(previousNonSpace(offsets[line - 1] + column)),
-    })
-  }
-  for (let ln = 0; ln < lines.length; ln++) {
-    const line = lines[ln]
-    for (let col = 0; col < line.length; col++) {
-      const char = line[col]
-      if (block) {
-        if (char === '*' && line[col + 1] === '/') { block = false; col += 1 }
-        continue
-      }
-      if (quote) {
-        if (char === '\\') { col += 1; continue }
-        if (char !== quote) continue
-        if ((quote === "'" || quote === '"') && line.slice(quoteStart + 1, col) === 'root') record(ln + 1, quoteStart)
-        quote = null
-        quoteStart = -1
-        continue
-      }
-      if (char === '/' && line[col + 1] === '*') { block = true; col += 1; continue }
-      if (char === '/' && line[col + 1] === '/') break
-      if (char === "'" || char === '"' || char === '`') { quote = char; quoteStart = col; continue }
-      if (char === '(') {
-        // Dotted chain immediately before the paren, whitespace (newlines included) transparent.
-        let cursor = offsets[ln] + col - 1
-        while (cursor >= 0 && /\s/.test(text[cursor])) cursor -= 1
-        const lastChar = cursor >= 0 ? text[cursor] : ''
-        let start = cursor
-        while (start >= 0 && /[A-Za-z0-9_$.]/.test(text[start])) start -= 1
-        const chain = /^[A-Za-z_$][A-Za-z0-9_$.]*$/.exec(text.slice(start + 1, cursor + 1))
-        stack.push({
-          callee: chain ? chain[0] : null,
-          callLike: /[A-Za-z0-9_$)\]>.]/.test(lastChar),
-          openLine: ln,
+    if (quote !== null) {
+      codeMask[i] = 1
+      if (char === '\\') { if (i + 1 < text.length) codeMask[i + 1] = 1; i += 1; continue }
+      if (char !== quote) continue
+      if ((quote === "'" || quote === '"') && text.slice(quoteStart + 1, i) === 'root') {
+        const { line, column } = locate(quoteStart)
+        const enclosing = enclosingCall()
+        contexts.set(`${line}:${column}`, {
+          callee: enclosing === null ? null : enclosing.callee,
+          callLike: enclosing !== null,
+          openLine: enclosing === null ? -1 : locate(enclosing.openIndex).line,
+          argumentStart: quoteArgumentStart,
         })
+      }
+      quote = null
+      quoteStart = -1
+      quoteArgumentStart = false
+      continue
+    }
+    if (char === '/' && text[i + 1] === '*') {
+      const close = text.indexOf('*/', i + 2)
+      if (close < 0) { unresolved = true; break } // R-FAILCLOSED: unterminated block comment
+      i = close + 1 // comment characters stay opaque (mask 0), newlines included
+      continue
+    }
+    if (char === '/' && text[i + 1] === '/') {
+      const close = text.indexOf('\n', i + 2)
+      if (close < 0) break
+      i = close - 1
+      continue
+    }
+    if (char === '/' && regexAllowedAfter(i)) {
+      let inClass = false
+      let close = -1
+      for (let j = i + 1; j < text.length; j++) {
+        const inner = text[j]
+        if (inner === '\n') break
+        if (inner === '\\') { j += 1; continue }
+        if (inner === '[') { inClass = true; continue }
+        if (inner === ']') { inClass = false; continue }
+        if (inner === '/' && !inClass) { close = j; break }
+      }
+      codeMask[i] = 1
+      if (close < 0) {
+        // R-FAILCLOSED: undecidable regex-like slash — the line remainder is opaque.
+        unresolved = true
+        const eol = text.indexOf('\n', i)
+        i = (eol < 0 ? text.length : eol) - 1
         continue
       }
-      if (char === ')') stack.pop()
+      codeMask[close] = 1
+      let flag = close + 1
+      while (flag < text.length && /[a-z]/.test(text[flag])) { codeMask[flag] = 1; flag += 1 }
+      i = flag - 1
+      continue
     }
-    if (quote === "'" || quote === '"') { quote = null; quoteStart = -1 } // tolerate an unterminated line literal
+    codeMask[i] = 1
+    if (char === "'" || char === '"') {
+      quote = char
+      quoteStart = i
+      const previous = prevSignificantIndex(i - 1)
+      quoteArgumentStart = previous >= 0 && (text[previous] === '(' || text[previous] === ',')
+      continue
+    }
+    if (char === '`') { frames.push({ type: 'template' }); continue }
+    if (frames.length > 0 && frames[frames.length - 1].type === 'expr') {
+      const frame = frames[frames.length - 1]
+      if (char === '{') { frame.brace += 1; continue }
+      if (char === '}') {
+        if (frame.brace === 0) frames.pop()
+        else frame.brace -= 1
+        continue
+      }
+    }
+    if (char === '(') {
+      const previous = prevSignificantIndex(i - 1)
+      const lastChar = previous >= 0 ? text[previous] : ''
+      parens.push({
+        callee: chainBefore(i),
+        callLike: /[A-Za-z0-9_$)\]>.]/.test(lastChar),
+        openIndex: i,
+      })
+      continue
+    }
+    if (char === ')') parens.pop()
   }
-  return contexts
+  return { contexts, unresolved }
 }
 
 /**
  * M4 candidate judgement: `{ candidate, callee, token }`. The ratified single-line judge
  * runs first; the cross-line judge only places literals that judge leaves unattributed.
+ * A lexer that could not decide its state (`unresolved`) reports every argument-position
+ * literal as `UNRESOLVED-CROSSLINE` ⇒ class 6 (never a silent non-candidate).
  */
-function m4CandidateOf(line, contexts, ln, column) {
+function m4CandidateOf(line, lex, ln, column) {
   const sameLine = calleeOfLiteral(line, column)
   if (sameLine !== null) return { candidate: true, callee: sameLine, token: `callee=${sameLine}` }
-  const context = contexts.get(`${ln}:${column}`)
+  const context = lex.contexts.get(`${ln}:${column}`)
   if (context === undefined || !context.callLike || !context.argumentStart) return { candidate: false }
-  if (context.callee === null) return { candidate: true, callee: null, token: `callee=${M4_UNRESOLVED}` }
+  if (lex.unresolved || context.callee === null) return { candidate: true, callee: null, token: `callee=${M4_UNRESOLVED}` }
   return { candidate: true, callee: context.callee, token: `callee=${context.callee}` }
 }
 
@@ -561,7 +684,7 @@ function sweepLegacyRootReads() {
       const hasFace = CORDIS_FACE.test(text)
       if (hasFace) faced += 1
       const lines = text.split('\n')
-      const m4Contexts = m4ContextsOf(text)
+      const m4Lex = m4ContextsOf(text)
       for (let ln = 1; ln <= lines.length; ln++) {
         const line = lines[ln - 1]
         const relLine = `${rel}:${ln}`
@@ -616,7 +739,7 @@ function sweepLegacyRootReads() {
         let literal
         while ((literal = literalRe.exec(line)) !== null) {
           const i = literal.index
-          const m4 = m4CandidateOf(line, m4Contexts, ln, i)
+          const m4 = m4CandidateOf(line, m4Lex, ln, i)
           if (!m4.candidate) continue // not a call-argument position ⇒ not an M4 candidate (R1 M4 does not bind it)
           if (allowed) { push(1, 'M4', `(allowlist ${m4.token})`); continue }
           if (commentAt >= 0 && i > commentAt) { push(5, 'M4', '(comment)'); continue }
@@ -690,13 +813,13 @@ function classifySampleText(line) {
 function classifyM4SampleText(text) {
   // Reuses the exact M4 candidate/lexer judge the sweep uses (I-1③ fail-closed included).
   const lines = text.split('\n')
-  const contexts = m4ContextsOf(text)
+  const lex = m4ContextsOf(text)
   const out = []
   for (let ln = 1; ln <= lines.length; ln++) {
     const literalRe = /(['"])root\1/g
     let literal
     while ((literal = literalRe.exec(lines[ln - 1])) !== null) {
-      const m4 = m4CandidateOf(lines[ln - 1], contexts, ln, literal.index)
+      const m4 = m4CandidateOf(lines[ln - 1], lex, ln, literal.index)
       if (!m4.candidate) continue
       const category = m4.callee !== null && !V_M4.has(m4.callee) ? '5D-C' : 6
       out.push({ category, token: m4.token })
@@ -728,11 +851,14 @@ const G10_CAST_PROBES = [
 ]
 
 /**
- * I-1③ / SA4-1 cross-line M4 probes (synthetic, multi-line). Each row asserts CLASS +
- * token: a `'root'` argument whose call sits on another line is attributed to that call
- * (class 6 when it is a pinned read primitive), a blank callee chain fails closed to
+ * I-1③ / SA4-1 cross-line M4 probes + SA9-2 comment variants + SA9-8 regex/nested-template
+ * rules (synthetic, multi-line). Each row asserts CLASS + token: a `'root'` argument whose
+ * call sits on another line is attributed to that call (class 6 when it is a pinned read
+ * primitive), a formatted comment between `(`/`,` and the literal (or inside the callee
+ * chain) stays transparent for token adjacency, a regex body or template text never
+ * mutates the lexer state, an undecidable lexer state fails closed to
  * class 6 with an explicit UNRESOLVED-CROSSLINE token, and non-argument continuations
- * (array element, object key, nested arrow body) stay non-candidates.
+ * (array element, object key, nested arrow body, template text) stay non-candidates.
  */
 const G10_M4_PROBES = [
   ["const legacy = Reflect.get(\n  ctx,\n  'root'\n)", 6, 'callee=Reflect.get'],
@@ -743,6 +869,33 @@ const G10_M4_PROBES = [
   ["const audit = { 'root': 1 }", 'none', ''],
   ["const hosts = [\n  'root',\n]", 'none', ''],
   ["const body = () =>\n  'root'", 'none', ''],
+  // ---- SA9-2 comment variants (same-line / cross-line × block / line / JSDoc). A comment
+  // between the argument separator and the literal — or between the callee chain and its
+  // `(` — is transparent token adjacency, never a silent non-candidate (R-COMMENT).
+  ["const legacy = Reflect.get(ctx, /* why */ 'root')", 6, 'callee=Reflect.get'],
+  ["const legacy = Reflect.get(ctx, /** why */ 'root')", 6, 'callee=Reflect.get'],
+  ["const legacy = Reflect.get(\n  ctx,\n  /* why */ 'root',\n)", 6, 'callee=Reflect.get'],
+  ["const legacy = Reflect.get(\n  ctx,\n  /** why */ 'root',\n)", 6, 'callee=Reflect.get'],
+  ["const legacy = Reflect.get(\n  ctx,\n  // explain why the legacy key is needed\n  'root',\n)", 6, 'callee=Reflect.get'],
+  ["const legacy = Reflect.get(\n  // why the legacy key is needed\n  ctx,\n  'root'\n)", 6, 'callee=Reflect.get'],
+  ["const legacy = Reflect /* why */ .get(\n  ctx,\n  'root',\n)", 6, 'callee=UNRESOLVED'],
+  ["const legacy = Reflect/* why */.get(\n  ctx,\n  'root',\n)", 6, 'callee=Reflect.get'],
+  ["Reflect.get(\n  ctx,\n  // 'root' appears in this comment only\n  value,\n)", 'none', ''],
+  // ---- SA9-8 regex literals (R-REGEX): the body is opaque, division stays division.
+  ["const re = /\\)/\nconst legacy = Reflect.get(\n  ctx,\n  'root'\n)", 6, 'callee=Reflect.get'],
+  ["const re = /\\/\\* not a comment/\nconst legacy = Reflect.get(\n  ctx,\n  'root')", 6, 'callee=Reflect.get'],
+  ["const q = a / b; const legacy = Reflect.get(\n  ctx,\n  'root')", 6, 'callee=Reflect.get'],
+  ["const re = /x/\nconst legacy = Reflect.get(\n  ctx,\n  'root')", 6, 'callee=Reflect.get'],
+  ["const re = /'/; const legacy = Reflect.get(\n  ctx,\n  'root')", 6, 'callee=Reflect.get'],
+  // ---- SA9-8 nested templates (R-TEMPLATE): `${…}` is code, template text is data.
+  ["const t = `${ { a: 1 } }`\nconst legacy = Reflect.get(\n  ctx,\n  'root')", 6, 'callee=Reflect.get'],
+  ["const t = `${ Reflect.get(ctx, 'root') }`", 6, 'callee=Reflect.get'],
+  ["const t = `${ Reflect.get(\n  ctx,\n  'root')\n }`", 6, 'callee=Reflect.get'],
+  ["const t = `${ `inner ${ Reflect.get(\n  ctx,\n  'root') }` }`", 6, 'callee=Reflect.get'],
+  ["const t = `outer ${ `inner ${ 1 }` }`\nconst legacy = Reflect.get(\n  ctx,\n  'root')", 6, 'callee=Reflect.get'],
+  ["const t = `text 'root' only`", 'none', ''],
+  // ---- R-FAILCLOSED: an undecidable lexer state never silently drops a later argument.
+  ["const re = /abc\nconst legacy = Reflect.get(\n  ctx,\n  'root'\n)", 6, 'callee=UNRESOLVED'],
 ]
 
 function gateG10() {
