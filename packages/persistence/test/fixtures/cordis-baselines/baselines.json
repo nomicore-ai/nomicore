@@ -1,16 +1,22 @@
 {
   "schemaVersion": 1,
-  "base": "279dba4ac81b7c7520e3d0b87b5c4d621a86a517",
+  "base": "d59a4d141c6c5ac7f267295829157d9570cde36e",
   "dshCommit": "1511a6ed442c207919142a4b0e6c4916f96d2c3b",
   "dshRepository": "https://github.com/deepseek-ai/deepseek-harness.git",
-  "comment": "Three artifact baselines for issue #470 (ADR 0035). Integrity values are pinned here and never trusted from live registry metadata (SA6 appendix A / design §8.2). B3 is the vendored rc.12 source at dshCommit, minimal tsc source-build (see provenance-b3.json, non-official pipeline).",
+  "comment": "Three artifact baselines for issue #470 (ADR 0035). Integrity values are pinned here and never trusted from live registry metadata (SA6 appendix A / design §8.2). B3 is the vendored rc.12 source at dshCommit, minimal tsc source-build (see provenance-b3.json, non-official pipeline). issue #471 extends the matrix: ws-package + guard-proxy + ws-cordis-channel + ws-cordis-timers + replication-lifecycle + composition-root are registered as suites and gated on all three baselines (design §7.1/§7.4).",
   "suites": [
     "provenance",
     "root-probe",
     "contract",
     "real-timer",
     "dsh-profile",
-    "unload"
+    "unload",
+    "ws-package",
+    "guard-proxy",
+    "ws-cordis-channel",
+    "ws-cordis-timers",
+    "replication-lifecycle",
+    "composition-root"
   ],
   "baselines": {
     "B1": {

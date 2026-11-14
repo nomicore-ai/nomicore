@@ -48,6 +48,12 @@ const TSC = path.join(REPO, 'node_modules/typescript/bin/tsc')
 const VITEST = path.join(REPO, 'node_modules/vitest/vitest.mjs')
 
 const BASELINE_SUITES = MANIFEST.suites
+
+// E7 / A7-4: identity-first order is a mechanical load-time invariant.
+if (BASELINE_SUITES[0] !== 'provenance' || BASELINE_SUITES[1] !== 'root-probe') {
+  console.error('[run-baseline] FAIL <usage> BASELINE_SUITES must start with provenance → root-probe (A7-4)')
+  process.exit(2)
+}
 const CHANNEL_TEST = 'packages/persistence/test/cordis-root-channel.test.ts'
 const REAL_TIMER_TEST = 'packages/persistence/test/cordis-root-real-timer.test.ts'
 const PROVENANCE_TEST = 'packages/persistence/test/cordis-baseline-provenance.test.ts'
@@ -58,6 +64,49 @@ const WS_PACKAGE_FILES = [
   'packages/ws-replication/test/ws-replication-issue299-ac-red.test.ts',
   'packages/ws-replication/test/ws-replication-issue422-listen-false.test.ts',
   'packages/ws-replication/test/ws-replication-guard-proxy-consumption.test.ts',
+]
+const WS_CHANNEL_TEST = 'packages/ws-replication/test/ws-replication-cordis-root-channel.test.ts'
+const WS_TIMERS_TEST = 'packages/ws-replication/test/ws-replication-cordis-root-timers.test.ts'
+const WS_LIFECYCLE_TEST = 'packages/ws-replication/test/ws-replication-cordis-baseline-lifecycle.test.ts'
+/** AC8-③: the issue420 session-host round belongs to the lifecycle suite (design F-3). */
+const WS_LIFECYCLE_FILES = [
+  WS_LIFECYCLE_TEST,
+  'packages/ws-replication/test/ws-replication-issue420-session-host-round.test.ts',
+]
+/** AC6-A6-4: the wire/structure guards must have three-baseline cell evidence (SA8 B-4). */
+const GUARD_PROXY_FILES = [
+  'packages/clock/test/clock-guard-proxy-consumption.test.ts',
+  'packages/namespace-registry/test/registry-guard-proxy-consumption.test.ts',
+  'packages/ws-replication/test/ws-replication-guard-proxy-consumption.test.ts',
+  'packages/ws-replication/test/ws-replication-issue246-interop-matrix.test.ts',
+  'packages/ws-replication/test/ws-replication-issue418-edge-session-split-contract.test.ts',
+  'packages/ws-replication/test/ws-replication-issue418-edge-session-split-structure.test.ts',
+]
+const APP_COMPOSITION_FILES = [
+  'apps/yjs-server/test/third-party-composition-red.test.ts',
+  'apps/yjs-server/test/third-party-timer-ownership-red.test.ts',
+  'apps/yjs-server/test/issue270-regression-anchors.test.ts',
+  'apps/yjs-server/test/issue270-server-integration-red.test.ts',
+  'apps/yjs-server/test/on-fatal-error-issue288.test.ts',
+  'apps/yjs-server/test/persistence-drain-shutdown.test.ts',
+  'packages/dsh-persistence/test/dsh-profile-direct-apply-order.test.ts',
+]
+const UNLOAD_FILES = [
+  'packages/namespace-registry/test/registry-sa7-rev1.test.ts',
+  'packages/namespace-registry/test/registry-sa7-cordis.test.ts',
+]
+/**
+ * T-1a: the pinned 23-name lifecycle enumeration (21 = 3 entries × 7 scenarios,
+ * plus the β/γ supplement). `observed` counts only these names; the `coverage`
+ * self-check (non-`L.` name) is a cell-level predicate but never a unit.
+ */
+const LIFECYCLE_UNITS = [
+  ...['hub-listen', 'peer-dial', 'session-host'].flatMap((entry) =>
+    ['startup', 'timer-fired', 'timer-cancelled', 'explicit-stop', 'fiber-dispose', 'service-revoked', 'remount']
+      .map((scenario) => `L.${entry}.${scenario}`),
+  ),
+  'L.edge-beta.minimal-round',
+  'L.async-gamma.minimal-round',
 ]
 const WS_ALLOW = ['packages/ws-replication/src/plugin.ts', ...WS_PACKAGE_FILES]
 const PERSISTENCE_ALLOW = ['packages/persistence/src/service.ts']
@@ -76,6 +125,13 @@ const NEW_FILES = [
   'packages/persistence/test/fixtures/cordis-baselines/run-baseline.mjs',
   'packages/persistence/test/fixtures/cordis-baselines/root-probe.mjs',
   'packages/persistence/test/fixtures/cordis-baselines/gates.mjs',
+  'packages/persistence/test/fixtures/cordis-baselines/root-test-known-red.json',
+  'packages/ws-replication/test/ws-replication-cordis-root-channel.test.ts',
+  'packages/ws-replication/test/ws-replication-cordis-root-timers.test.ts',
+  'packages/ws-replication/test/ws-replication-cordis-baseline-lifecycle.test.ts',
+  'packages/ws-replication/test/cordis-baseline-support.ts',
+  'apps/yjs-server/test/third-party-timer-ownership-red.test.ts',
+  'packages/dsh-persistence/test/dsh-profile-direct-apply-order.test.ts',
 ]
 
 function fail(stage, message) {
@@ -136,7 +192,9 @@ function parseArgs(argv) {
     options.suites = options.suites.filter((suite) => suite !== 'root-test')
   }
   for (const suite of options.suites) {
-    if (![...BASELINE_SUITES, 'ws-package', 'gates'].includes(suite)) {
+    // Every suite literal comes from the manifest (BASELINE_SUITES). `gates` is not a
+    // suite: the gates cell is only produced by `--all --matrix` (design E3 cleanup).
+    if (!BASELINE_SUITES.includes(suite)) {
       fail('usage', `unknown suite ${suite}`)
     }
   }
@@ -415,11 +473,15 @@ function runVitest(baselineIdForRun, workspace, files, options = {}) {
     }
   }
   const testNames = []
+  const assertions = []
   let passed = 0
   let failed = 0
   for (const file of json?.testResults ?? []) {
     for (const assertion of file.assertionResults ?? []) {
-      testNames.push(assertion.fullName ?? assertion.title)
+      const name = assertion.fullName ?? assertion.title
+      const title = assertion.title ?? name
+      testNames.push(name)
+      assertions.push({ name, title, status: assertion.status })
       if (assertion.status === 'passed') passed += 1
       else if (assertion.status === 'failed') failed += 1
     }
@@ -428,6 +490,7 @@ function runVitest(baselineIdForRun, workspace, files, options = {}) {
     status: result.status,
     exitCode: result.status,
     testNames,
+    assertions,
     counts: { passed, failed, total: testNames.length, numTotalTests: json?.numTotalTests },
     logPath: relative(logPath),
     jsonPath: relative(jsonPath),
@@ -519,11 +582,51 @@ function ensureFiles(workspace, files, suite) {
 
 // ---------------------------------------------------------------- suite runners
 
+/** E4a: every runVitest call site carries the legacy-shim fault env (design F-1). */
+function faultEnv(fault) {
+  return fault === 'legacy-shim' ? { NOMICORE_CORDIS_FAULT: 'legacy-shim' } : {}
+}
+
+/**
+ * T-1a unit accounting. The pinned enumeration is a *title* enumeration: vitest's
+ * JSON reporter joins `ancestorTitles` with a single space (it does not use the
+ * `' > '` separator the design text assumes), so the baseline label can only be
+ * stripped reliably by reading `assertion.title`. `title` is exactly the per-test
+ * name the design pins (`L.<entry>.<scenario>` / `coverage`); the full name stays
+ * in `testNames` as evidence only.
+ */
+function unitNameOf(assertion) {
+  return assertion.title ?? assertion.name ?? ''
+}
+
+function lifecycleUnits(assertions) {
+  const seen = new Set()
+  const foreign = []
+  for (const assertion of assertions) {
+    const unit = unitNameOf(assertion)
+    if (!unit.startsWith('L.')) continue
+    if (!LIFECYCLE_UNITS.includes(unit)) foreign.push(unit)
+    if (assertion.status === 'passed') seen.add(unit)
+  }
+  const missing = LIFECYCLE_UNITS.filter((unit) => !seen.has(unit))
+  return {
+    units: { expected: LIFECYCLE_UNITS.length, observed: seen.size, missing },
+    foreignUnits: [...new Set(foreign)].sort(),
+    coverage: assertions.some((assertion) => unitNameOf(assertion) === 'coverage' && assertion.status === 'passed'),
+  }
+}
+
 function runSuite(baselineId, suite, materialized, fault, evidenceSubdir) {
   const cell = baseCell(baselineId, suite, materialized)
   const evidenceDir = path.join(EVIDENCE, baselineId, evidenceSubdir ?? '')
   mkdirp(evidenceDir)
-  if (suite === 'provenance' || suite === 'contract' || suite === 'real-timer' || suite === 'dsh-profile' || suite === 'unload') {
+  const extraFaultEnv = faultEnv(fault)
+
+  // ---- multi-run (repeat) suites: provenance / contract / real-timer / dsh-profile /
+  // unload (two files) / ws-cordis-timers (repeat 3) / replication-lifecycle (repeat 3)
+  if (suite === 'provenance' || suite === 'contract' || suite === 'real-timer'
+    || suite === 'dsh-profile' || suite === 'unload' || suite === 'ws-cordis-timers'
+    || suite === 'replication-lifecycle') {
     const files =
       suite === 'provenance'
         ? [PROVENANCE_TEST]
@@ -533,15 +636,20 @@ function runSuite(baselineId, suite, materialized, fault, evidenceSubdir) {
             ? [REAL_TIMER_TEST]
             : suite === 'dsh-profile'
               ? [DSH_PROFILE_TEST]
-              : [UNLOAD_TEST]
+              : suite === 'unload'
+                ? UNLOAD_FILES
+                : suite === 'ws-cordis-timers'
+                  ? [WS_TIMERS_TEST]
+                  : WS_LIFECYCLE_FILES
     ensureFiles(materialized.workspace, files, suite)
-    const repeat = suite === 'real-timer' ? 3 : 1
+    const repeat = suite === 'real-timer' || suite === 'ws-cordis-timers' || suite === 'replication-lifecycle' ? 3 : 1
     const runs = []
     for (let attempt = 1; attempt <= repeat; attempt++) {
       runs.push(
         runVitest(baselineId, materialized.workspace, files, {
           label: repeat === 1 ? `${baselineId}-${suite}` : `${baselineId}-${suite}-repeat${attempt}`,
           evidenceDir,
+          extraEnv: extraFaultEnv,
         }),
       )
       if (runs[runs.length - 1].exitCode !== 0) break
@@ -558,10 +666,32 @@ function runSuite(baselineId, suite, materialized, fault, evidenceSubdir) {
       cell.r5p = { present: hasR5P, passed: hasR5P && run.exitCode === 0 }
       if (!hasR5P) cell.note = 'R5P. test name not found in the unload suite'
     }
+    let lifecycleOk = true
+    if (suite === 'replication-lifecycle') {
+      const judgement = lifecycleUnits(run.assertions)
+      cell.units = judgement.units
+      cell.foreignUnits = judgement.foreignUnits
+      cell.coverage = judgement.coverage
+      // AC8-③/F-3: the issue420 session-host round belongs to this suite — the
+      // evidence must show that file contributing tests, not merely "some names".
+      const issue420 = (run.evidence?.testResults ?? []).find((file) =>
+        String(file.name ?? '').replaceAll('\\', '/').endsWith('packages/ws-replication/test/ws-replication-issue420-session-host-round.test.ts'),
+      )
+      const issue420Tests = (issue420?.assertionResults ?? []).length
+      const hasIssue420 = issue420Tests > 0
+      cell.issue420 = { present: hasIssue420, tests: issue420Tests }
+      // T-1a pass predicate: 23/23 units observed, the `coverage` self-check green, no
+      // `L.` name outside the pinned enumeration, and no failure at all (fail-closed).
+      lifecycleOk = judgement.units.observed === LIFECYCLE_UNITS.length
+        && judgement.coverage
+        && judgement.foreignUnits.length === 0
+        && hasIssue420
+    }
     const everyRepeatGreen = runs.every((entry) => entry.exitCode === 0 && entry.counts.failed === 0 && entry.counts.total > 0)
-    cell.status = everyRepeatGreen && (!cell.r5p || cell.r5p.passed) ? 'pass' : 'fail'
+    cell.status = everyRepeatGreen && lifecycleOk && (!cell.r5p || cell.r5p.passed) ? 'pass' : 'fail'
     return cell
   }
+
   if (suite === 'root-probe') {
     const probeLog = path.join(evidenceDir, `${baselineId}-root-probe.mjs.log`)
     const probe = spawnSync(
@@ -581,7 +711,7 @@ function runSuite(baselineId, suite, materialized, fault, evidenceSubdir) {
     const channel = runVitest(baselineId, materialized.workspace, [CHANNEL_TEST], {
       label: `${baselineId}-root-probe`,
       evidenceDir,
-      extraEnv: fault === 'legacy-shim' ? { NOMICORE_CORDIS_FAULT: 'legacy-shim' } : {},
+      extraEnv: extraFaultEnv,
     })
     cell.testNames = channel.testNames
     cell.counts = channel.counts
@@ -604,16 +734,24 @@ function runSuite(baselineId, suite, materialized, fault, evidenceSubdir) {
         : 'fail'
     return cell
   }
-  if (suite === 'ws-package') {
-    ensureFiles(materialized.workspace, WS_PACKAGE_FILES, suite)
+
+  // ---- per-file suites: ws-package / guard-proxy / composition-root
+  if (suite === 'ws-package' || suite === 'guard-proxy' || suite === 'composition-root') {
+    const files = suite === 'ws-package'
+      ? WS_PACKAGE_FILES
+      : suite === 'guard-proxy'
+        ? GUARD_PROXY_FILES
+        : APP_COMPOSITION_FILES
+    ensureFiles(materialized.workspace, files, suite)
     const runs = []
     let failed = 0
     let passed = 0
     const names = []
-    for (const file of WS_PACKAGE_FILES) {
+    for (const file of files) {
       const run = runVitest(baselineId, materialized.workspace, [file], {
-        label: `${baselineId}-ws-package-${path.basename(file, '.test.ts')}`,
+        label: `${baselineId}-${suite}-${path.basename(file, '.test.ts')}`,
         evidenceDir,
+        extraEnv: extraFaultEnv,
       })
       runs.push({ file, exitCode: run.exitCode, counts: run.counts, logPath: run.logPath })
       failed += run.counts.failed
@@ -624,11 +762,51 @@ function runSuite(baselineId, suite, materialized, fault, evidenceSubdir) {
     cell.testNames = names
     cell.counts = { passed, failed, total: names.length }
     cell.files = runs
-    cell.filesPresent = Object.fromEntries(WS_PACKAGE_FILES.map((file) => [file, fs.existsSync(path.join(materialized.workspace, file))]))
+    cell.filesPresent = Object.fromEntries(files.map((file) => [file, fs.existsSync(path.join(materialized.workspace, file))]))
     cell.logPath = runs[0]?.logPath ?? ''
     cell.status = failed === 0 && names.length > 0 ? 'pass' : 'fail'
+    if (suite === 'guard-proxy') {
+      // A6-4 / SA8 B-4: the interop matrix and both structure guards must be present and
+      // green. Presence is a *file-level* fact (the runner holds the exact three paths —
+      // their test titles are Chinese sentences, so substring-matching English words in
+      // titles is not a presence proof); "green" is that file's own run: exit 0, zero
+      // failed, at least one test actually executed. The per-file titles are kept as
+      // evidence so the presence claim is auditable without re-deriving it.
+      const a64Targets = {
+        issue246: 'ws-replication-issue246-interop-matrix.test.ts',
+        issue418Contract: 'ws-replication-issue418-edge-session-split-contract.test.ts',
+        issue418Structure: 'ws-replication-issue418-edge-session-split-structure.test.ts',
+      }
+      cell.a64 = {}
+      for (const [key, fileName] of Object.entries(a64Targets)) {
+        const run = runs.find((entry) => entry.file.endsWith(fileName))
+        const ok = run !== undefined && run.exitCode === 0 && run.counts.failed === 0 && run.counts.total > 0
+        cell.a64[key] = ok
+        if (!ok) cell.status = 'fail'
+        if (!ok) cell.note = `A6-4 guard-proxy file missing or not green: ${fileName}`
+      }
+    }
     return cell
   }
+
+  // ---- single-file, repeat-1 suite: ws-cordis-channel
+  if (suite === 'ws-cordis-channel') {
+    ensureFiles(materialized.workspace, [WS_CHANNEL_TEST], suite)
+    const run = runVitest(baselineId, materialized.workspace, [WS_CHANNEL_TEST], {
+      label: `${baselineId}-${suite}`,
+      evidenceDir,
+      extraEnv: extraFaultEnv,
+    })
+    cell.testNames = run.testNames
+    cell.counts = run.counts
+    cell.logPath = run.logPath
+    cell.exitCode = run.exitCode
+    cell.repeat = 1
+    cell.repeatRuns = [{ exitCode: run.exitCode, counts: run.counts, logPath: run.logPath }]
+    cell.status = run.exitCode === 0 && run.counts.failed === 0 && run.counts.total > 0 ? 'pass' : 'fail'
+    return cell
+  }
+
   fail('suite', `unsupported suite ${suite}`)
 }
 
@@ -682,6 +860,17 @@ function runGatesCell() {
   }
 }
 
+function readKnownRedLedger() {
+  const ledgerPath = path.join(HERE, 'root-test-known-red.json')
+  if (!fs.existsSync(ledgerPath)) fail('root-test', 'missing root-test-known-red.json (S4 ledger)')
+  const ledger = JSON.parse(fs.readFileSync(ledgerPath, 'utf8'))
+  return {
+    knownRed: new Set(ledger.knownRed ?? []),
+    environmentRed: new Set(ledger.environmentRed ?? []),
+    ticket: ledger.ticket,
+  }
+}
+
 function runRootTestCell() {
   const logPath = path.join(EVIDENCE, 'root-test', 'root-test.log')
   const jsonPath = path.join(EVIDENCE, 'root-test', 'root-test.vitest.json')
@@ -694,8 +883,8 @@ function runRootTestCell() {
     maxBuffer: 256 * 1024 * 1024,
   })
   fs.writeFileSync(logPath, `${result.stdout ?? ''}\n${result.stderr ?? ''}`)
-  // §12.5 evidence contract: testNames/failedTestNames are backfilled from the
-  // vitest JSON reporter so the failure list is machine-readable, not log-only.
+  // B-3b: failedTestNames must be extracted from the JSON reporter (incl. the test-d
+  // lane). A count-level approximation is never accepted.
   let counts
   let testNames = []
   let failedTestNames = []
@@ -712,19 +901,29 @@ function runRootTestCell() {
   } catch {
     counts = undefined
   }
-  // Diagnostics (not a gate): the environment pnpm shim version mismatch is
-  // recorded so a reader can tell environmental red from regressions.
+  const ledger = readKnownRedLedger()
+  // B-3d: complete-test-name set inclusion (never a count-level approximation).
+  const failedUnexpected = failedTestNames.filter((name) => !ledger.knownRed.has(name) && !ledger.environmentRed.has(name))
+  const disclosure = {
+    knownRed: [...ledger.knownRed].sort(),
+    environmentRed: [...ledger.environmentRed].sort(),
+    failedTestNames: [...failedTestNames].sort(),
+    failedUnexpected: [...failedUnexpected].sort(),
+    statement: 'root-test is judged by the frozen known-red ledger (SA8 B-3a…e); this ticket does not claim the root-test / CI / all existing tests are green.',
+  }
   const pnpmProbe = spawnSync('pnpm', ['--version'], { cwd: REPO, encoding: 'utf8' })
   return {
     baseline: 'default',
     suite: 'root-test',
-    status: result.status === 0 ? 'pass' : 'fail',
+    status: failedUnexpected.length === 0 ? 'pass' : 'fail',
+    exitCode: result.status,
     resolvedRealpaths: {},
     provenanceDigest: provenanceDigestFor('B1'),
     testNames,
     failedTestNames,
+    failedUnexpected,
+    disclosure,
     logPath: relative(logPath),
-    exitCode: result.status,
     counts,
     diagnostics: {
       node: process.version,
@@ -806,9 +1005,6 @@ async function main() {
       for (const cell of baselineCells) writeEvidence(baselineId, cell.suite, cell)
       cells.push(...baselineCells)
     }
-    const wsPackageCells = runBaselineCells('B1', { typecheck: false, suites: ['ws-package'] })
-    for (const cell of wsPackageCells) writeEvidence('B1', cell.suite, cell)
-    cells.push(...wsPackageCells)
     const gatesCell = runGatesCell()
     writeEvidence('gates', 'gates', gatesCell)
     cells.push(gatesCell)
