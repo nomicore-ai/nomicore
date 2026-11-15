@@ -106,3 +106,148 @@
 ## 7. 最终裁决
 
 **reject；blocking = 4。** AC1、AC2、AC5、AC8 approve；AC3、AC4、AC7 partial；AC6 reject。B-1…B-4 全部闭合并重新核对受影响的 R 证据后，才可改判 approve。
+
+---
+
+# SA10 Spec Review — round 1 / spec-review iteration 1（remediation 后终审重裁）
+
+- 任务对象：`nomicore-ai/nomicore#472`；dispatch `sa-8bfa8f3c-edec-4232-aeac-283ef1697ecb`；reviewGroup `rg-472-final-iter1`。
+- 审查范围：`git diff --no-renames 6be891a3a0cb32fe21c3a6bf485f33428052ce7b..ae0dc6dfcef24150156d665c238fcb97877fa4e2`。
+- 交付链：C1 `119831274f37ebfee2f157398bb866270f4726d3` → 旧 R `e3d58812170a23686103db126f989cdef77b2101` → C3a `d5cf4850e317b51df9b50c33f8487d832565f8d6` → **C4 = R′** `a7fb8ffe562febb0bdcf8cad632723a3cf90559e`（tree `91c1c49a38746a9314955d632989939aad418379`）→ C5 `66a35f6ed96873ad1cf2160570711b7a820bc84d` → C6a `ae0dc6dfcef24150156d665c238fcb97877fa4e2`。
+- 方法：只读复核提交图、提交正文、最终 diff、R′ 原始 `.cache` 证据与 GitHub 实况；未修改代码/设计/测试，未运行测试或服务，未执行 GitHub 写操作。旧 R 的绿仅作历史记录，本节不以其抵销 R′ 证据。
+- **verdict：approve（remediation 终审通过；不是 Issue #472 的关闭许可）。**
+- **blocking：0**；**MINOR：3**（均为证据展示/编排脚本的非阻断口径瑕疵，见 §5）；**结构性 pending：1 项**（AC6/AC7 共用的 GitHub 回填义务，按 SA8 条件 12 不计新增 blocking）。
+
+## 1. 独立复核的硬事实
+
+### 1.1 提交身份与范围
+
+本审查以 `git show`/`git diff-tree` 逐提交复核：
+
+1. C4 恰改 `gates.mjs`、`run-baseline.mjs` 两个设施文件，parent = C3a，tree = `91c1c49a…`。
+2. C5 是 parent = R′ 的 message-only `chore(release)`，无文件变更；实测 `66a35f6^{tree} = a7fb8ff^{tree} = 91c1c49a38746a9314955d632989939aad418379`，满足条件 11 的机械完整性条件。
+3. C6a 仅改 7 个 `wiki/raw/task_issue-472*.md`；R′→C6a 的非 wiki diff 为空。BASE→C6a 全集为 **22 文件 = 4 facility + 8 release + 10 wiki**；生产 `src/**`、`domains/**`、`docs/**`、`scripts/**`、`.github/**`、lockfile、catalog、台账和 `baselines.json` 均无越界变化。
+4. C1 恰含四个耦合设施文件；C2 恰含七个版本行与 manifest；没有 rebase/reword 旧提交，也没有 scope creep。
+
+### 1.2 R′ 动态证据是本轮新证据，而非旧 R 绿沿用
+
+- `.cache/issue-472-final/iter1/00-environment.txt:1-8` 固定验证起点为 R′ HEAD/tree；`00-pnpm-version.txt:1` 为 `10.28.2`。
+- `.cache/issue-472-final/iter1/02-matrix-all.log:1-49` 是完整 `--all --matrix`：B1/B2/B3 各 13 cell + gates + root-test，末尾 `MATRIX PASS: 41 cells`；第 47 行是唯一的内置审计 RESULT `exit=0 problems=[]`。
+- `.cache/cordis-baselines/evidence/run-marker.json:2-5` 与 `matrix/matrix.json:2-4` 交叉相等：`runHead/marker.head = a7fb8ff…`，`runWorktree/marker.worktree = 91c1c49a…`；marker 只有 `{startedAt,head,worktree,porcelain}`，没有旧 `tree` 字段。
+- `root-test/root-test.json:6001-6007,6059-6080`：实际 `5987/5991`、4 个 frozen test-d 红、`failedUnexpected=[]`、`pnpmProbe={exitCode:0,stdout:"10.28.2"}`；`exitCode=1` 是原生 vitest 的既有红，cell 是**台账 pass**，不是 root-test/CI 全绿。
+- `gates/gates.log:298-311` 为 G1′–G13 全绿、G13 `state=exact`，并列出七包版本表、manifest 7/7、冻结件与全树允许集。
+- fault ×4、F-A…F-M、N-5…N-10、T-1/T-2 均有 R′ 原始应红实红记录；恢复后发布门禁与可复现性均回绿。lockfile 与 `generate --check` 亦有独立日志。
+
+## 2. AC1–AC8 重裁表
+
+| AC | 重裁 | 一手证据与判定 |
+|---|---|---|
+| **AC1** | **approve** | R′ 上完整矩阵 41/41 成立，不以子集代替：`02-matrix-all.log:5-49` 逐行列出三基线 typecheck + 12 suites、gates、root-test。`matrix.json:7-18` 及 `B1/typecheck.json:13-75` 直接记录 15 个 project 全 exit 0；B2/B3 同形见矩阵日志。repeat 不是只留末次：`B1/replication-lifecycle.json:77-152` 三次均 34/34，且每次 `23/23`、`coverage=true`、`foreignUnits=[]`、`issue420.present=true`。根测试原始 JSON 的 `failedUnexpected=[]` 与四个失败名可复核；固定 pnpm 条件已满足，旧 B-3 不再影响 AC1。 |
+| **AC2** | **approve** | `01-acquire-all.log:11-40` 固定 DSH `1511a6e…`，B3 `provenanceDigest=9d663355…`。三份 `provenance.json` 分别指向独立 B1/B2/B3 overlay；B3 额外 8/8 覆盖 commit/clean、ls-tree、构建配方、输出哈希。Root 通道直接证据：B1/B2 `root-probe.json:55-75` 为 legacy、symbol absent；B3 同位置为 symbol、`contextRootStatic=symbol`、legacy absent/throw，命中通道 `timeout=function`。`03-fault-summary.txt:1-5` 四项均 outer 0 / observed=fail；`08-n5-n8c-n8g-n10-n9-summary.txt:1-4` 的 N-5 integrity 篡改 exit 2、恢复 exit 0。证据缺失、损坏、过期、跨树、运行中漂移、HEAD 移动与缺目录均 fail-closed，未见回退。 |
+| **AC3** | **approve**（B-1 已闭合） | 三项真实产物门禁均为默认模式：`05-pack.log:1-95` 产生 15 个 tarball；`05-publish-verify.log:1-75` 最终 `verified 15 publishable tarballs`；`05-publish-reproducible.log:1-5` 为 15 包可复现。`05-release-gates-summary.txt:1-18` 记录 pnpm 10.28.2、registry integrity env override 出现 0 次、三项 exit 0。**T-1**：`05-T1-publish-verify.log:6-8,69-70` 篡改后 gzip/tar 失败并非零，ERROR 指名 `nomicore-persistence-0.5.0.tgz`；**T-2**：`05-T2-publish-verify.log:65-70` 删除后非零并指名 `nomicore-yjs-server-0.6.0.tgz`。`05-sha256-pre.txt` 与两份 post 表逐行相同，恢复后 verify/reproducible 各 15/15（`05-release-gates-summary.txt:19-38`）。F-C/F-D 另证 stale/未再生 manifest 红；`05-e2e-chain.log:20-65` 直接检查 packed 版本、依赖重写与默认条件 dist 加载。故 A3-1…A3-5 全部满足，源码 worktree 没有替代 tarball 门禁。 |
+| **AC4** | **approve**（B-2 已闭合） | 最终 diff 中七个 package manifest 各恰 1 删 1 增，值依次为 persistence/dsh-persistence/namespace-runtime/namespace-registry `0.4.0→0.5.0`、namespace-api `0.3.0→0.4.0`、ws-replication/yjs-server `0.5.0→0.6.0`；manifest numstat `7/7`、15 键无旧名（`artifacts/local-packages/manifest.json:1-17`）。**PV-3 仍成立**；`root-test-known-red.json`、`scripts/package-catalog.mjs` 与 BASE 零 diff，**PV-5 仍成立**。公共面：`public-surface.base.json:1-95` 恰 7 键，`cordis-public-surface.test.ts:22-50` 对七 entry 做运行时严格相等；19df983→C6a 的生产 src/schema/wire 仅既有 `persistence/src/service.ts` 与 `ws-replication/src/plugin.ts` 两个 seam，BASE→C6a 此面零 diff。`06-lockfile-generate.log:9-16` 证明 schema 检查与生成物稳定。**C5 记录更正合格**：正文分别标注未固定 PATH 的 C1/旧 R `5959/5991 = 32 = 4 frozen + 28 environment` 与固定 pnpm 的 C2/R′ `5987/5991 = 4 frozen`，明确作废 C2 ⑦ 混同及 SA7 旧分类；写入完整 R′ HEAD/tree、声明旧树绿作废并保持 A4-3 其余项不变引用。实测 C5 tree = R′ tree，故历史 C2 原文未被篡改，追加更正链完整。 |
+| **AC5** | **approve** | 对 BASE→C6a 的全部 `*package.json` diff 逐项复核，只出现上述七个 version 行；Cordis/Timer range、dependency/peerDependency 归属、根/其余 manifest 均无变化。`pnpm-lock.yaml`、catalog、`patchedDependencies` 不在变更集。`06-lockfile-generate.log:1-8` 为固定 10.28.2 下 frozen lockfile install exit 0 且 lockfile diff exit 0。没有为闭环而改变安装契约，AC5 停手条件未触发。 |
+| **AC6** | **pending（条件 12 的结构性后置；非本轮新增 reject）** | 本审查实时只读 GitHub：#472 仍 open、comments=0，REST comments 为空；`gh pr list --head mabf/issue-472 --state all` 为 `[]`；Parent PR #469 仍 open、head=`6be891a…`、无结果评论。故 A6-1/A6-2 **尚未满足**，不得宣称 AC6 approve 或关闭 #472。另一方面，A6-3 当前合格：#468 仍 open，正文末尾 `## Parent` 仍是 `PR #469（spec/468-cordis-rc12-root）`。按 SA8 §14.7，ticket 回填由有权 Controller 在终审触发条件满足后执行，集成 PR 由发布侧在本地 finalize 后创建；本轮控制器禁 `gh pr create`/`git push`，且回填本来就须等待终审 approve，因此当前没有可由本轮实现再闭合却未闭合的缺口。闭合证据包与触发条件见 §6。 |
+| **AC7** | **pending（仅外部两个载体随 AC6 后置；本地范围排除已通过）** | C2 ⑧ 明确不执行真实 MABF/DSH 部署验收、不修改/移除 Host 本地 patchedDependencies、未执行 npm publish；C5 保持该项不变引用；SA7 iteration-1 只记录本地验证与 dry-run，没有 Host 部署、迁移窗口或可删除 patch 的完成性声明。最终 diff 无 Host/patch 改动，A7-2/A7-3 合格。严格按 SA6 A7-1，Issue #472 与集成 PR 还须有同义声明；二者随 A6-1/A6-2 结构性后置，故当前不能标 approve，但也不构成新的实现 reject。回填执行时与 AC6 一并闭合。 |
+| **AC8** | **approve** | 本审查实时读取 #464/#465/#466：三者均 `state=closed`、`state_reason=not_planned`，各自唯一撤回评论仍明确指出错误 DSH rc.3 审计锚点。C2 ⑨ 仅声明不复用其撤回证据；最终 diff 无 ADR 修改、无新增/复活 POC。本票动态证据来自 R′ 重新 acquire 的精确工件，不以 #464–#466 或 rc.3 tag 作证据，未见回退。 |
+
+## 3. round-1 blocking 的逐项处置
+
+| 原项 | 本轮裁决 | 闭合证据 / 状态 |
+|---|---|---|
+| **B-1：A3-5 两项 tarball 负控缺失** | **closed** | T-1/T-2 均在 R′ 真实打包输出的一次性副本上执行，默认 `publish:verify` 非零并指名；恢复 sha256 逐字节一致，verify 15/15 + reproducible 15/15。不是用 matrix、G13 或源码测试代替。 |
+| **B-2：C2 ⑦ 混同且缺 R 身份** | **closed** | C5 按条件 11 追加 message-only `chore(release)` 更正：口径两分、R′ HEAD/tree、旧树绿作废、其余 A4-3 项不变引用；`C5^{tree} === R′ tree` 实测成立。旧 C2 不重写，R′ 证据全部重跑。 |
+| **B-3：最终矩阵未固定 pnpm 10.28.2** | **closed** | R′ 完整 `--all --matrix` 非子集重跑，落盘 10.28.2，`pnpmProbe.exitCode=0`，41/41、审计 RESULT `problems=[]`、13/13 gates、`runWorktree === marker.worktree === R′ tree`，root-test 5987/5991 且 `failedUnexpected=[]`。 |
+| **B-4：GitHub 回填缺失** | **pending（结构性后置，不计 blocking）** | 义务与证据包已按 SA8 条件 12 明确；A6-1/A6-2 尚未发生，#468 保护面仍合格。不得把本地 wiki 当 GitHub 回填，也不得在回填前关闭 #472。 |
+
+## 4. 交付条件、记录一致性与停手条件
+
+### 4.1 条件 4（#471 两分文案）：pass
+
+C2 正文使用完整的两分文案，C5 不变引用；本报告继续采用同一事实口径：
+
+> #471 提交 `caede8a` 所称「公共 entry 导出名集合由 4 扩到 7」在快照/测试文件层面未发生（树内仍为 4 entry），其覆盖由 #471 以 3 条 runtime 严格相等断言等价承载（SA10 记录 7/7）；7-entry **快照**由 #472 设施提交落地，现快照与记录一致。
+
+本审查直接复核 C1 恰含四个耦合文件，且 `caede8a` 未改 `public-surface.base.json` 或 `cordis-public-surface.test.ts`。没有宣称 #471 已交付 7-entry 快照，也没有宣称 #471 未做公共面覆盖扩展；历史提交/wiki 未改写。
+
+### 4.2 条件 10（五处勘误依据禁令）：pass
+
+本报告没有以被勘误表述作为裁决依据：
+
+1. `baselines.json` 冻结按 **G13.f + acquire N-5**：`07-shape-audit.log:27-30` 字节相同，`08-n5…summary.txt:1-4` 篡改 exit 2 / 恢复 0；未按「G12 零 diff」归因。
+2. 公共 API 冻结按 **G13.g（`--no-renames`）+ G2/G4 + 步骤 8**：`gates.log:298-311` 与最终全树 diff；未以「G2/G4/G7」冒充全仓覆盖。
+3. 负控覆盖按 **F-A…F-M + N-5…N-10 + T-1/T-2 实际日志**；未引用「F-A…F-E 一一证伪」。
+4. 内容绑定按 **PV-9 指纹**：marker/matrix 交叉相等及 N-8e/N-8f/N-8g 三向红点；未以旧 index `write-tree` 比对作为 working-tree 内容证据。
+5. tracked wiki 判定按 **dirname 恰为 `wiki/raw` + basename 正则**：F-L/F-M 分别指名 `wiki/task_issue-472_probe.md`、`wiki/raw/nested/task_issue-472_probe.md` 判红；未采用「glob 按 basename 匹配」的旧注记。
+
+### 4.3 条件 6 / 9 / 11 / 12
+
+- **条件 6：pass。** 固定 pnpm 四件套与默认发布模式均满足；没有以 root-test 子集替代全矩阵。
+- **条件 9：pass。** 干净矩阵和 standalone closing 各恰一行 RESULT，`problems=[]` 可机判；gates summary 21 行 = 13 gate + 7 G10 明细 + 1 汇总，完备性而非固定行数判据成立。
+- **条件 11：pass。** C5 的追加时序、正文两分、R′ 身份、旧树作废、不变引用及 tree 相等全部满足。
+- **条件 12：pending。** §6 的外部回填仍是 ticket 最终收官前置义务，但不阻断本轮 remediation approve。
+
+### 4.4 设计 §12 停手条件
+
+未触发：无依赖范围/归属变更；无公共 API/schema/wire/服务名/持久化布局新增变化；无需真实 Host 部署或 patch 移除；无 owner 统一 minor/新 CHANGELOG 要求；七包 bump 后三项发布门禁均绿；#468/#464–#466 状态合规；root-test 无台账外新红（N-9 注入确实变红）；F/N/T 负控均应红实红。T-1/T-2 恢复完整，未见应红实绿或 fail-open。
+
+## 5. 数字与口径复核：3 个 MINOR（不阻断）
+
+### M-1 — 辅助 shape 汇总分类重叠，出现 `release=12 / other=-4`
+
+- `.cache/issue-472-final/iter1/07-shape-audit.log:34` 写 `changed total=20 facility=4 release=12 wiki=8 other=-4`，与同日志 path list 及 SA7 正文的 **4 facility + 8 release + 8 wiki = 20** 不一致。
+- 原因可从 `shape-audit.sh:67-70` 直接看出：`rel` 对 `allowed_exact` 的全部 12 项计数，与 `fac` 的 4 项重叠，`other` 再重复扣减，故为负数。
+- **影响判定：MINOR。** 脚本真正的 allowlist 判定是逐 path `path not in allowed_exact`（`:58-66`），没有被该展示算式改变；本审查另以 git 直接复核 R′ 为 20、最终 C6a 为 22（4+8+10）。但后续记录不得引用该行的 `release/other` 数字，应引用 path list 或本报告的分类数。
+
+### M-2 — runner 汇总行混排「本轮实际失败数」与「冻结台账容量」
+
+- `.cache/issue-472-final/iter1/02-matrix-all.log:46` 写 `5987/5991 (4 known-red: 4 frozen + 28 environment)`，字面容易误读为本轮仍有 32 红。
+- 原始 JSON 才是无歧义口径：`root-test.json:6001-6007` 仅 4 个实际失败名且 `failedUnexpected=[]`；`:6059-6061` 的 `{knownRed:4,environmentRed:28}` 是冻结台账字段，28 个 environment 项在固定 pnpm 下不再失败。C5 与 SA7 iteration-1 §步骤 2 已明确区分。
+- **影响判定：MINOR。** 不改变实际 counts、名集判定或条件 6 结论；回填时应写「实际 4 frozen；台账另保留 28 environment 项且未扩账」，不要照抄该括号作当前失败数。
+
+### M-3 — N-10 编排脚本的 `expect 42` 标签陈旧，实际为 49
+
+- `08-n5-n8c-n8g-n10-n9-summary.txt:29-30` 同时出现 `problems=49` 与 `N-10 empty problem count (expect 42): 49`；标签来自 `falsify-n5-n8c-n8g-n10-n9.sh:91`，与实测不一致。
+- `audit-N-10-empty.log:1-51` 可直接分解为 **49 = 1 missing run marker + 42 missing required evidence（39 baseline cells + gates + root-test + matrix）+ 6 missing directories**。SA7 iteration-1 正文已按 49 及该分解披露；设计的关键判据是 exit 1 + 非空 RESULT，不是必须恰 42。
+- **影响判定：MINOR。** N-10 应红实红成立，但应删除/更正陈旧 `expect 42` 标签后再把该摘要作为数字证据引用。
+
+## 6. AC6/AC7 的闭合触发条件与必需证据包
+
+### 6.1 触发条件
+
+按设计 §9.4 与 SA8 条件 12，以下三项全部满足后，由第一个有权执行者回填：
+
+1. R′ 上 §11.1 全量复验绿（**已完成**）；
+2. C4/C5 落盘（**已完成**）；
+3. remediation 后 SA9/SA10 终审均 approve（**本报告仅为其中 SA10 一票，仍需另一终审结论**）。
+
+集成 PR 另有时序约束：Runner Host 发布侧在本地 finalize 后创建 `mabf/issue-472 → spec/468-cordis-rc12-root`；本轮控制器硬门禁禁止 `gh pr create`/`git push`，不得以缺 PR 反判实现错误。
+
+### 6.2 A6-1 ticket 侧
+
+由具备 GitHub 写权限的 Controller/发布执行者向 #472 新增评论，内容至少完整包含：
+
+- 3×15 typecheck、41/41、gates 13/13 / G13 exact、RESULT `problems=[]`、固定 pnpm `5987/5991` / 4 frozen / `failedUnexpected=[]` / probe 0；
+- B1/B2/B3 版本、DSH commit、B3 digest、Root 通道；fault ×4、N-5…N-10 与 T-1/T-2 负控摘要及恢复 15/15；
+- 15 包 pack / 默认 verify / reproducible、sha256；七包版本表、manifest 7+7、R′ HEAD/tree；
+- 公共契约冻结五项、实际 known-red 披露；无部署、无 patch 移除、未真实发布；#464–#466 不复用；
+- S2「0.5.0 = 批次名、七包闭包而非 15 包统一 minor」与 S3 方案 A 的知会性披露；工具链。
+
+操作前后归档 `gh api repos/nomicore-ai/nomicore/issues/472/comments --paginate` JSON；操作后快照须含新评论 id/created_at，且正文关键数字与 C5/R′ 一致。
+
+### 6.3 A6-2 集成 PR 侧
+
+发布侧创建 PR 后，在正文或评论回填同一组结果与证据路径，并归档 `gh pr view --json`，至少能核对 head=`mabf/issue-472`、base=`spec/468-cordis-rc12-root`、正文/评论、R′ 身份。Parent PR #469 只追加结果评论，不改其 head/base。
+
+### 6.4 A6-3 / AC7 / 关闭边界
+
+- 操作前后各留 #468 body/state JSON：必须持续 open、Parent=PR #469；只允许追加评论，不得 close 或改写 Parent。
+- #464–#466 继续保持 closed + not_planned + 撤回评论；保存状态快照。
+- Issue/PR 两个外部载体补齐同义非目标声明后，AC7 才由 pending 转 approve。
+- **A6-1/A6-2/A6-3 全部满足前 #472 不得关闭。** wiki 内部记录不能替代 GitHub 回填；本 approve 只表示 remediation 没有新的 spec blocking，不表示 Issue 已最终收官。
+
+## 7. 最终裁决
+
+**approve；blocking = 0；MINOR = 3；结构性 pending = 1（AC6/AC7 共用）。** AC1、AC2、AC3、AC4、AC5、AC8 approve；AC6、AC7 按条件 12 为 pending。B-1/B-2/B-3 已闭合，B-4 转为有明确主体、时序和证据包的结构性后置义务。
+
+PR/后续发布记录必须披露：① #472 与集成 PR 回填尚未发生，ticket 不得提前关闭；② 本节 M-1…M-3 的辅助日志数字/标签瑕疵，引用时以原始 JSON、path list、C5 和本报告口径为准。

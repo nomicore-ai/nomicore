@@ -82,3 +82,64 @@
 ## 结论
 
 **reject；blocking=4（SA9-1…SA9-4），BLOCKER=0，MINOR=1。** 当前 release 形状与多数实证数字真实可复核，root-test 也没有被伪绿或扩账；但 working-tree 证据绑定、强制 pnpm 终验环境、tracked wiki 精确范围和条件 9 的可机判空问题列表四项硬标准尚未闭合。SA9-5 不单独阻断。
+
+---
+
+# iteration 1 — remediation 后终审复查
+
+- Reviewed subject：`git diff --no-renames 6be891a3a0cb32fe21c3a6bf485f33428052ce7b..ae0dc6dfcef24150156d665c238fcb97877fa4e2`；交付链 C1 `1198312` → 旧 R/C2 `e3d5881` → C3a `d5cf485` → R′/C4 `a7fb8ff` → C5 `66a35f6` → C6a `ae0dc6d`。
+- 审查方式：只读实码、Git 对象与一手日志/JSON；未重跑测试、未启动服务、未修改代码/设计/测试。本节为追加复查，iteration-0 历史原样保留。下文 `iter1/` 均指 `.cache/issue-472-final/iter1/`。
+- **verdict：approve**。
+- 分级：**BLOCKER 0 / MAJOR 0 / MINOR 1；blocking = 0**。SA9-1…SA9-4 均 CLOSED；SA9-5 为 PARTIAL，残余仅是注释失真，不阻断。
+
+## 1. 原 findings 逐条复核
+
+### SA9-1 — CLOSED（原 MAJOR）
+
+1. **内容指纹原语已落地。** `run-baseline.mjs:1107-1116` 的 `trackedWorktreeFingerprint()` 在 `os.tmpdir()` 建临时目录，以独立 `GIT_INDEX_FILE` 依次执行 `read-tree HEAD` → `add -u` → `write-tree`，并在 `finally` 删除临时目录；真实 index/HEAD/ref 不作为指纹来源。`writeRunMarker()` 在 `:1121-1127` 写 `{startedAt, head, worktree, porcelain}`；`:1244-1277` 在 built-in/standalone 共用的 `auditRunMarker()` 中比较当前指纹与 `marker.worktree`，standalone 的 HEAD 检查独立保留。
+2. **旧字段未回流。** 当前实码没有 `marker.tree` / `matrix.runTree` 消费或写入；`:1351-1355` 与 `:1568-1573` 使用 `runHead`/`runWorktree`，后者直接取 `marker.worktree`。R′ 的 `.cache/cordis-baselines/evidence/run-marker.json:1-6` 与 `matrix/matrix.json:1-5` 也实际只有新字段。
+3. **R′ 身份成立。** Git 一手核对 `a7fb8ffe562febb0bdcf8cad632723a3cf90559e^{tree}` = `91c1c49a38746a9314955d632989939aad418379`；上述 marker 与 matrix 分别记录同一 OID，且 `runHead`/`marker.head` 均为完整 R′ HEAD。因此 `marker.worktree === runWorktree === R′ tree`，不是 BASE 或真实 index 的替代值。
+4. **三个负控均为实际红。** N-8e 日志 `iter1/audit-N-8e.log:1-3` 在未暂存 `INSTALL.md` 漂移后 exit 1，RESULT 恰含 1 个 drift problem，恢复日志 `:1-2` 回绿；N-8f 的 `iter1/04-n8f-matrix.log:1,47-52` 证明 marker 后、运行中漂移使 built-in 审计含 drift problem 且 `MATRIX FAIL`；N-8g 的 `iter1/audit-N-8g.log:1-3` 在同内容空提交后只有 HEAD problem，无 drift problem。对应执行脚本还分别记录了不 `git add`、首个证据出现后才注入、`--allow-empty` 的注入方式（`n-series.sh:101-105`、`n8f.sh:54-77`、`falsify-n5-n8c-n8g-n10-n9.sh:69-78`）。
+
+### SA9-2 — CLOSED（原 MAJOR）
+
+1. 固定 shim 实体 `.cache/issue-472-final/bin/pnpm:1-3` 直接 exec corepack 缓存的 pnpm 10.28.2；R′ 复验的 `iter1/00-pnpm-version.txt:1` 与 `05-pnpm-version.txt:1-2` 落盘 10.28.2，后者同时记录 registry-integrity override 在 env 中出现 0 次。
+2. `iter1/02-matrix-all.log:1-49` 是同次完整 `--all --matrix` 输出：41 个 cell 全列、内置审计 RESULT exit 0、`MATRIX PASS: 41 cells`；`02-matrix-all.exit` 为 exit 0，不是 root-test 子集替代。
+3. 一手 `.cache/cordis-baselines/evidence/root-test/root-test.json:6001-6007,6059-6079` 记录 `failedUnexpected=[]`、实际 counts `passed=5987 / failed=4 / total=5991`，以及 `pnpmProbe={exitCode:0, stdout:"10.28.2", stderr:""}`。四个失败名在 `:6001-6005` 全量列出，仍为冻结 test-d 红；没有宣称 root-test 全绿或扩账。
+
+### SA9-3 — CLOSED（原 MAJOR）
+
+1. `gates.mjs:139-142` 现已要求 `path.posix.dirname(posix) === 'wiki/raw'` 且 basename 匹配 `/^task_issue-472.*\.md$/`；`g13ChangesetProblems()` 在 `:1182-1193` 对每个全树 tracked change 调用它，untracked ⊆ `wiki/**` 分量未变。
+2. F-L 一手日志 `iter1/falsify-F-L.log:1-5,327-361` 显示探针确为 staged `A  wiki/task_issue-472_probe.md`，G13 exact 唯一 problem 指名该路径，G1′/G2/G4/G12 同轮 PASS。F-M 的 `iter1/falsify-F-M.log:1-5,327-361` 同样证明 staged `wiki/raw/nested/…` 被指名判红。
+3. 正向控制 `iter1/falsify-F-control-exact.log:5-25,325-339` 在 R′ 已交付的 8 个 `wiki/raw/task_issue-472*.md` 全部在位时 13/13 PASS、G13 state=exact；收窄没有误伤已交付文档。
+
+### SA9-4 — CLOSED（原 MAJOR）
+
+1. `run-baseline.mjs:1455-1463` 的统一 `printAudit()` 在人读 PASS/FAIL 前输出一行 `EVIDENCE AUDIT RESULT (<context>): exit=<0|1> problems=<JSON>`；两个调用点分别为 standalone（`:1545-1548`）和 built-in（`:1577-1581`），exit code 仍由同一 `problems.length` 决定。
+2. 成功证据不是自述：built-in `iter1/02-matrix-all.log:47` 与 standalone `iter1/audit-control-clean.log:1`、`audit-closing.log:1` 均有字面量 `exit=0 problems=[]`，且每份日志恰一行 RESULT。失败证据 `audit-N-8e.log:1` 与 `audit-N-10-missing.log:1` 为非空 JSON 数组 + exit 1，排除了装饰性空列表路径。
+3. C4 精确 diff 只增加既有日志通道输出，没有新增证据 artifact，也没有修改 `auditEvidenceDirectory()` 的允许集；C4 全提交恰为两个设施文件。
+
+### SA9-5 — PARTIAL（原 MINOR；不阻断）
+
+**已闭合部分**：gates 头注 `gates.mjs:5-11` 已改为白名单外零 diff + G13 钉形状；gates-cell 注释 `run-baseline.mjs:903-911` 已改成 summary 完备性而非固定 14 行；`main()` 头部的 `mkdirp(EVIDENCE)` 已删除（`:1530-1549`）。N-10 缺目录在 `iter1/audit-N-10-missing.log:1-3` 实际命中 `missing evidence directory`、exit 1；空目录在 `audit-N-10-empty.log:1-3` 也为 exit 1 + 49 problems。
+
+**残余 MINOR**：注释尚未全部对齐。`gates.mjs:74-75` 仍称「the only ws-replication paths that may differ … are the four new test files」，遗漏实际允许的 `package.json`，与同文件 `:9-11` 及 G3 实码矛盾；`run-baseline.mjs:1537-1539` 新增注释称 missing **or empty** evidence root 都到达 missing-directory guard，但空目录实际走 missing-marker/cell 检查（上述 49-problem 日志），并不到达该 guard。另 `run-baseline.mjs:1046,1075` 仍写 N-6…N-9 与终验 `R`，未反映 N-10/R′。这些只是维护性文案残留，不改变上述机械判定与负控结果，故不升为 blocking。
+
+## 2. C5 记录更正（条件 11）
+
+**通过。** `git show -s --format=%B 66a35f6` 的正文逐项满足本轮指定判据：
+
+- 口径两分明确区分未固定 PATH 的 C1/旧 R `5959/5991 = 4 frozen + 28 environment` 与固定 10.28.2 的 C2 预验/R′ `5987/5991 = 4 frozen`，并明确作废 C2 ⑦ 的混同归因与 SA7 的「非判据偏离」分类。一手对照分别为 `.cache/issue-472-impl/matrix-run-final.log:47`、旧 R 的 `.cache/issue-472-final/02-matrix-all.log:46` 及其保存的 matrix `iter1/n8d-old-matrix-round1.json:10861-10875`（pnpmProbe exit 1 / 11.28.5）、固定口径 `c2-probe-matrix.log:4,51` 与本轮 R′ root-test JSON。
+- 正文给出 R′ 完整 HEAD `a7fb8ffe562febb0bdcf8cad632723a3cf90559e` 和 tree `91c1c49a38746a9314955d632989939aad418379`，声明 AC1–AC4 重新绑定 R′，旧 `e3d5881`/`d5cf485` 的绿仅留历史；并保留 A4-3 其余各项的不变引用。
+- Git 实测 C5 parent 恰为 R′，且 `66a35f6^{tree}` 与 `a7fb8ff^{tree}` 都是 `91c1c49a…`；`git diff-tree` 对 C5 返回 0 文件。C2 原对象/原正文仍在祖先链中，未 reword；C5 是追加的 message-only empty commit。复验收尾日志时间为 11:34（`iter1/09-final-state.log`），C5 commit 时间为 11:36，次序亦符合。
+
+## 3. T-1/T-2、提交卫生与新增风险
+
+- **T-1/T-2 通过。** `iter1/release-gates.sh:20-82` 先真实 `pack:local`，再 `cp -a artifacts/local-packages` 到一次性副本；T-1 在副本的 persistence tarball 中位偏移 XOR 1 字节，T-2 在另一副本删除 yjs-server tarball，然后分别换入并运行默认 `publish:verify`。一手 `05-T1-publish-verify.log:6-8,69-70` 与 `05-T2-publish-verify.log:65-70` 均 exit 1 且按 tarball 文件名指名。`05-sha256-pre.txt`、`05-sha256-post-T1.txt`、`05-sha256-post-T2.txt` 各 16 行逐字一致；恢复后 `05-publish-verify-post-restore.log:75` 为 15/15，`05-publish-reproducible-post-restore.log:5` 也为 15/15。
+- **提交卫生通过。** `git diff-tree --no-renames` 实测：C4 恰 2 个设施文件；C5 零文件；C6a 仅 7 个 `wiki/raw/task_issue-472*.md`（5 M + 2 A）。最终范围恰 22 文件 = 4 设施 + 8 release + 10 wiki；生产 `src`、`docs`、`scripts`、`.github`、`domains` 均无 diff。C4 tree 与预定 R′ OID 一致。
+- **新增实现风险**：新增 `os` import 与指纹 helper 均有实际消费，临时目录有 `finally` 清理；未发现新的死代码、可绕过分支或伪绿路径。唯一残留是 SA9-5 所列注释失真。
+- **条件 10 纪律**：本次未把 E-1…E-5 的作废归因当作核对依据。内容绑定只按 PV-9 实码 + R′ marker/matrix + N-8e/f/g 判定；tracked wiki 只按 direct-parent 实码 + F-L/F-M/正向控制判定；其余结论来自 Git 对象与一手运行日志。
+
+## 4. 结论
+
+**approve；blocking=0。** 四个原 MAJOR 全部 CLOSED，C5 更正、T-1/T-2 与提交边界均有一手证据。SA9-5 因注释残留判 PARTIAL，保留 **1 个非阻断 MINOR**；无 BLOCKER/MAJOR。
