@@ -2,8 +2,9 @@
 
 - Reviewed subject: **design**（`wiki/raw/task_issue-472_design.md`，SA1 iter 0，442 行）
 - 复查轮次：round 1，conflict-gate iteration 0（§1–§10 为历史裁定文本，保持原样以保证可追溯性）
-- **当前轮裁定（round 1，conflict-gate iteration 2，design rev2 修订后复查）：verdict = clear，requiresConflictRecheck = true——见文末 §13（rev2 复查增补：PV-8a 原语补钉 `--no-renames` / 条件 9 判定口径补钉 / 条件 10 正向绑定判据 / 越界核对 / 实现就绪结论）**
-- 前轮裁定（round 1，conflict-gate iteration 1，design rev1 修订后复查）：verdict = clear，requiresConflictRecheck = true——§11（rev1 复查增补：越界核对 / PV-8a+PV-8b 发布 / PV-1…PV-7 处置 / 交付条件增量）与 §12（勘误：iteration-0 三处归因失实的更正，终验不得依赖）；除 §13.2 明示的 PV-8a 原语补钉外，历史裁定全部继续有效
+- **当前轮裁定（round 1，conflict-gate iteration 3，design rev3 终审 remediation 复查）：verdict = clear，requiresConflictRecheck = true——见文末 §14（iteration 3 复查增补：PV-9 working-tree 指纹钉值发布 + D-11 勘误 E-4 / PV-8a 机械判定补钉与勘误 E-5 / W-2/W-3/W-4 追认 / 条件 3′ 扩面与条件 6 落实口径与条件 9 载体 / C5 message-only 唯一合法路径裁决 / AC6-B-4 职责边界裁决 / 实现就绪结论）**
+- 前轮裁定（round 1，conflict-gate iteration 2，design rev2 修订后复查）：verdict = clear，requiresConflictRecheck = true——§13（rev2 复查增补：PV-8a 原语补钉 `--no-renames` / 条件 9 判定口径补钉 / 条件 10 正向绑定判据 / 越界核对 / 实现就绪结论）；除 §14 明示的 PV-8a 机械判定补钉与勘误 E-4/E-5 外，历史裁定全部继续有效
+- 前轮裁定（round 1，conflict-gate iteration 1，design rev1 修订后复查）：verdict = clear，requiresConflictRecheck = true——§11（rev1 复查增补：越界核对 / PV-8a+PV-8b 发布 / PV-1…PV-7 处置 / 交付条件增量）与 §12（勘误：iteration-0 三处归因失实的更正，终验不得依赖）
 - 复查会话 HEAD：`6be891a3a0cb32fe21c3a6bf485f33428052ce7b`（与设计/SA6 声明的 base 一致；`git status --porcelain` 仅 4 个 untracked wiki 工件，生产面零污染）
 - 本报告全部证据为本会话第一手核验（git/文件/npm 元数据/`gh api` 只读复跑），可复跑命令随条目附注。
 
@@ -341,3 +342,123 @@
 ## 13.8 实现就绪结论（dispatch 项 4）
 
 **设计层已可进入实现（SA3）。** SA2 iter-1 唯一 blocking（SA2-13）已在 rev2 闭合（原语钉死 + F-K 注入 + acceptance 判据），SA2 复查明示该修订「不动架构、不动钉值语义、无需重开任何裁决，修订后直接进入实现」；钉值集（PV-1…PV-8b，PV-8a 以 §13.2 现行版为准）与交付条件（1–8 + 3′/9/10，条件 9 判定口径已补钉）完整发布；**无未满足的设计层条件**，剩余全部为实现与终验的执行核对项（§13.7）。
+
+---
+
+# §14 iteration 3 复查增补（round 1，conflict-gate iteration 3）——当前轮裁定
+
+- Reviewed subject：**design**（`wiki/raw/task_issue-472_design.md` **rev3**，685 行，iteration 3 = 终审组两组 reject（SA9-1…SA9-5 / B-1…B-4）的定向 remediation：§7.4 W-1/W-3/W-4、§7.3.g W-2、§9.1 C4/C5/C6 时序与 W-7、§10 F-L/F-M/N-8e/N-8f/N-8g/N-10/T-1/T-2、§11.1 W-6 固定 pnpm 复验协议、§9.4 回填证据包与职责边界、§4.2 条件 9 可机判口径）。
+- 输入：rev3 设计 / `task_issue-472_sa9_standards.md`（rg-472-final-iter0，verdict=reject，MAJOR 4 + MINOR 1）/ `task_issue-472_sa10_spec.md`（同组，verdict=reject，blocking 4）/ 本报告 §1–§13（iteration-0/1/2 历史裁定 + 勘误 E-1…E-3 + PV-8a 现行版）/ 已交付提交 C1 `1198312`、C2 = R `e3d5881`、C3a `d5cf485`（BASE `6be891a`）。
+- **决策集不变性**：本会话复核 `git rev-parse HEAD` = `d5cf4850e317b51df9b50c33f8487d832565f8d6`（= C3a），`git diff --no-renames --name-only 6be891a..HEAD -- docs/adr docs/protocols CONTEXT.md` = **空**（ADR 0035、CONTEXT.md、`docs/protocols/**` 自 BASE 零漂移）；`git diff --no-renames --name-only 6be891a..HEAD` 全集 = 恰 20 文件（4 设施 + 8 release + 8 wiki，与 SA9「已核实通过的标准面」一致）；porcelain = 2 个 tracked 修改（`task_issue-472_design.md` rev3、`task_issue-472_dispatch.md`）+ 2 个 untracked（sa9/sa10 报告）——全部 ⊆ `wiki/raw/task_issue-472*.md` 面。冲突基准零漂移，§1 决策集认定继续有效。
+
+## 14.1 第一手复核（本会话只读实测；八项裁决的事实基础）
+
+| 声称（SA9/SA10/rev3） | 本会话复核结果 |
+|---|---|
+| **指纹原语失效模式**（SA9-1 证据 1–3） | ✅ **当场复现**：临时 index（`GIT_INDEX_FILE=<tmp>` → `git read-tree HEAD` → `git add -u` → `git write-tree`）产出 `fa2f9292…` ≠ HEAD tree `b898d119…`，差源恰为 2 个未暂存 tracked 修改（design/dispatch）；**真实 index 的 `git write-tree` = `b898d119…` = HEAD tree**——index 干净而 working tree 漂移，旧 marker（`tree: gitOutput(['write-tree'])`，L1074）/旧审计（L1222–L1225 比对 write-tree）在该状态判绿。被测内容来源 = `copyTrackedTree` 逐 `git ls-files` 路径 `fs.copyFileSync`（SA9 引证属实） |
+| **树身份**（SA9-1 证据 3 / rev3 自验 ②） | ✅ `git show -s --format='%T'`：BASE `6be891a` → `b41d9e73…`、C1 `1198312` → `da3f368f…`、R `e3d5881` → `bdbdd7a…`、C3a `d5cf485` → `b898d119…`——round 1 C1 矩阵 marker 记 `tree=b41d9e73…`（= BASE tree）而 C1 四文件当时未提交，「单树绑定」未绑定实际被测内容（实际 = `da3f368f…`）属实 |
+| **现盘旧字段** | ✅ `run-marker.json` = `{startedAt, head, tree, porcelain}`（旧 `tree`）；`matrix.json` = `runHead`/`runTree`（旧字段名）——W-1 的改名对象在案 |
+| **isTicketDoc 放宽**（SA9-3） | ✅ `gates.mjs` L127–L132 现实现 = `posix.startsWith('wiki/')` + basename 正则；注释自称「basename glob under wiki/」——`wiki/task_issue-472_probe.md`、`wiki/other/…`、`wiki/raw/nested/…` 均被 tracked 分量放行，超出 PV-8a 钉值 `wiki/raw/task_issue-472*.md` |
+| **printAudit 无 problems 载体**（SA9-4） | ✅ L1390–L1397：成功路径只打印 `EVIDENCE AUDIT PASS (…)`，无 problems 输出；失败逐条 stderr——条件 9「不是自述文本」在成功路径不可机判 |
+| **main() 头部 mkdirp 使缺目录 guard 不可达**（SA9-5.3） | ✅ L1465 `mkdirp(EVIDENCE)` 先于 `--audit-evidence` 分支；L1375–L1377 缺目录 guard 因此不可达。而 `writeRunMarker`（L1072）/`writeEvidence`（L563）/`runGatesCell`（L889）/`runRootTestCell`（L922）各自 mkdir 所需目录——删除头部 mkdirp 后无调用路径依赖预创建，rev3 论证成立 |
+| **注释失真**（SA9-5.1/5.2） | ✅ `gates.mjs` L5「G1' … zero-diff」、L7「G3 … plugin.ts + the four named fixtures」与 release 语义（白名单 + G13 钉形状）不符；`run-baseline.mjs` L898–L903 注释「13 gates = 14 lines incl. the summary」与现盘 21 行（SA10 §2 AC1 已核）不符 |
+| **C2 正文 ⑦/⑩**（B-2） | ✅ `git show -s --format=%B e3d5881`：⑦ 原文「固定 pnpm 10.28.2 下 root-test 实际 counts 按树记录（C1 5959/5991、C2 预验 5987/5991…）」——C1 的 5959/5991 实为未固定 PATH 口径（32 = 4 frozen + 28 environment），混同属实；⑩ 仅含 BASE hash 与「本提交为 release candidate R」，无 R 的 HEAD/tree |
+| **既有 release 批次形状** | ✅ `19df983`（11 files）/`3321390`（3）/`303666d`（8）/`abbb89a`（19）全部为带文件变更的 `chore(release)`；git 历史无 message-only `chore(release)` 先例（zero-file 提交全部为 merge）；仓库无 `CHANGELOG.md`（iteration-0 §1 已核，S2 触发器禁新造） |
+| **pnpm 固定硬判据**（SA9-2/B-3） | ✅ SA6 契约 L83（「最终 release 验证必须对**所有** pnpm 语义固定 10.28.2，并记录 `pnpm --version`」）、L180（工具链行）、L645（§7「最终验证必须固定 10.28.2 PATH」）——固定是硬判据非记录性偏离；corepack 10.28.2 二进制在盘（`/home/wangjian/.cache/node/corepack/v1/pnpm/10.28.2/bin/pnpm.cjs` 可执行）；W-6 shim 固定法与 SA6 §4.1 记录的临时 PATH shim 同款 |
+| **AC6 契约面** | ✅ SA6 §12.6：A6-1（#472 评论，证据 = `gh api …/issues/472/comments` JSON 落盘）、A6-2（集成 PR 回填，证据 = `gh pr view --json`）、A6-3（#468 open + Parent=PR #469，证据 = 前后快照）；通过判定 = 三项**全部满足**；契约未规定执行主体。SA10 B-4 判定明示「由有权限的后续 Controller/Owner 执行……不由本 SA10 执行」 |
+
+## 14.2 逐项裁决（dispatch 项 1–8）
+
+| # | 事项 | 裁决 | 依据（摘要；事实见 §14.1） |
+|---|---|---|---|
+| 1 | **W-1 内容指纹原语**（`tree`→`worktree`、`runTree`→`runWorktree`、两模式指纹比对、移除 index `write-tree`） | **ratified（已追认面内的收紧，非新决策面）**；发布 **PV-9**（§14.3）；**D-11 归因更正 = 勘误 E-4，非放宽**（§14.4） | ① iteration-1 §11.2 追认的**意图**是「run-marker 内容绑定从 disclosure 升为校验」（D-11、SA2-7/T-4 处置——SA2 评审 T-4 原文「marker 记录 head/tree/porcelain，但**无检查消费 tree**；披露不校验」）；`git write-tree` 是错误配方而非被追认的语义本体——本会话一手复现其失效（index 绑定 ≠ 被测 working-tree 内容，`copyTrackedTree` 逐路径复制）。② 语义面全部收紧或等强：绑定面从 index（错误代理）换到被测内容本体；untracked 天然不入指纹（`add -u` 只更新既有条目，与 PV-8a untracked 分量无冲突）；tracked 删除计入；移除 `tree` 字段消灭第二「tree」语义误读源。③ 无允许集扩张、无 fail-closed 放松、PV-8a/G13.g 形状面不变（指纹是内容树构建非 diff，rename 概念不适用，两执法面互补）。④ 期望值语义钉死 = **实际被测内容树**（干净树 = 该提交 tree OID；R′ 复验 `marker.worktree === runWorktree === R′ tree OID`；禁以 BASE/HEAD tree 冒充——round 1 C1 marker 记 BASE tree 是失效实证） |
+| 2 | **W-2 wiki/raw 收窄**（`isTicketDoc` = `path.posix.dirname(p) === 'wiki/raw'` ∧ basename 正则） | **ratified（实现对齐钉值，非修改钉值）**；PV-8a 机械判定补钉 + 勘误 **E-5**（§14.3/§14.4） | glob `wiki/raw/task_issue-472*.md` 在常规 glob 语义下只匹配 `wiki/raw/` 直接子层，`wiki/` 根下与更深层路径**从来不在钉值内**——现实现 `startsWith('wiki/')` 是实现缺陷（fail-open，SA9-3 负控可复现），不是钉值的合法读法。但本报告 §11.3/§13.2 的注记「glob 按 basename 匹配」字面确有歧义空间、现实现正是钻此缝——该注记作废（E-5），机械判定钉为 dirname 精确判定（§14.3 PV-8a iteration-3 补钉）。W-2 是**收窄**：条件 8 禁的是扩张；不收窄才是违反 PV-8a。untracked ⊆ `wiki/**` 分量保持不变（`untrackedPaths()` 判定不动） |
+| 3 | **W-3 审计 RESULT 行**（两路径 `[run-baseline] EVIDENCE AUDIT RESULT (<context>): exit=<0\|1> problems=<JSON 数组>`，零新增落盘 artifact） | **ratified（条件 9 判据的可机判载体升级，判据本体不变；无目录纪律 allow-set 变更）** | 条件 9（§11.4 发布 + §13.3 补钉）前半的判定单位本就是「exit code + 打印/落盘的 problems 列表，不是自述文本」——W-3 使成功路径可观察（字面量 `problems=[]`），不新增判据。落盘位置 = 既有日志通道（内置矩阵日志 / standalone 日志重定向），**不新增 artifact** ⇒ `evidence/` 目录允许集（§7.4 检查 7）零改动、无越类文件、不触发「扩类回 SA8 追认」——SA9-4 闭合判据的「若另增 JSON artifact 须同步允许集」路径无需走。N 系负控经同一 `printAudit` 显示非空数组（判红依据本身），无「装饰性空 []」路径。格式钉值见 §14.5 条件 9 载体 |
+| 4 | **W-4 与 SA9-5 清理**（删除 `main()` 头部 `mkdirp(EVIDENCE)`、注释对齐实际语义） | **ratified（实现面内部修正，无新决策面）** | 删除 mkdirp 把「被预建目录掩盖的死 guard」复活为响亮红（fail-closed 增强）；本会话核验四个写证据调用点各自 mkdir，删除后无调用路径依赖预创建。注释对齐（gates.mjs L5/L7 头注、run-baseline L898–L903 行数表述）不触碰任何判定语义（gates 数、summary 判据按 §13.3 完备性口径、行数不钉常数）。无 allowlist 变化、无新文件。N-10 负控并入条件 3′（§14.5） |
+| 5 | **验证义务扩充**（F-L/F-M、N-8e/f/g、N-10、T-1/T-2 并入条件 3′；W-6 = 条件 6 落实） | **ratified（验证义务扩充，非决策面变化——与 iter-2 §13.4 对 F-K 的处理同机制）；W-6 钉为条件 6 的落实口径** | T-1/T-2 逐字覆盖 SA10 B-1 闭合判据（真实打包输出一次性副本、默认模式非零并指名、恢复 15/15、不得以源码测试/matrix/G13 替代）；`scripts/**` 只运行零改动（DENY 保持）；T-2 对 `publish:reproducible` 不读 `artifacts/local-packages` 的披露诚实。W-6 与 SA6 L83/L180/L645 三处硬判据及 SA9-2 闭合判据逐字一致（shim 置 PATH 首位、同会话全部子进程、完整 `--all --matrix` 不可子集替代、`pnpmProbe.exitCode===0`、落盘 10.28.2、禁 env override）。见 §14.5 |
+| 6 | **记录更正格式（B-2）**：C5 = message-only `chore(release)` 更正提交 | **ratified-with-conditions（唯一合法路径 = C5 message-only 追加；不得 rebase reword C2）** | 见 §14.6 专项 |
+| 7 | **AC6/B-4 职责边界**（控制器禁 `git push`/`gh pr create`；集成 PR 由 Runner Host 发布侧 finalize 后创建） | **结构性后置裁决成立（对本设计/本轮 remediation 非 reject 事由；对 issue 收官是未闭合前置义务）** | 见 §14.7 专项 |
+| 8 | **实现就绪与 requiresConflictRecheck** | **rev3 可进入实现；requiresConflictRecheck = true**（核对清单 §14.9） | 全部 remediation 面已闭合或随本轮钉值/条件增量闭合；无未满足的设计层条件 |
+
+## 14.3 新钉值发布（dispatch 项 1/2；下个 release 票重钉）
+
+### PV-9 tracked working-tree 内容指纹（iteration 3 发布）
+
+- **原语**：`trackedWorktreeFingerprint()` = 临时 index（`GIT_INDEX_FILE` 指向 `os.tmpdir()` 下临时文件）内依次 `git read-tree HEAD` → `git add -u` → `git write-tree`，返回 tree OID；不读真实 index、不改 HEAD/ref/真实 index，临时目录 `finally` 删除；两次调用（marker 时/审计时）在同一 `run-baseline.mjs` 进程 env 内 ⇒ 差异只能来自内容本身。等价实现（逐 tracked 文件内容摘要聚合）允许，但**必须同样排除 untracked、计入 tracked 删除**。
+- **字段钉值**：`run-marker.json` = `{startedAt, head, worktree, porcelain}`——`tree` 字段**移除且不得回流**（防 index-tree 冒充内容绑定的读法回流）；`matrix.json` = `runHead` / **`runWorktree`**（= `marker.worktree`，旧 `runTree` 改名）；`writeRunMarker` 后的 console 行打印 `head`/`worktree`；审计检查 1 的 marker 字段必备清单同步。
+- **审计绑定**：built-in 与 standalone **两模式均**比对 `trackedWorktreeFingerprint() === marker.worktree`，红点 = `tracked working-tree content drifted during the run: marker.worktree=<X> current=<Y>`；standalone 的 HEAD 比对（`marker.head === 当前 HEAD`）**保留且独立**（N-8g 证明同指纹、HEAD 移动仍红——两绑定互不取代）。
+- **期望值语义 = 实际被测内容树**：干净树（无未暂存 tracked 修改）上 fingerprint === HEAD 的 tree OID；终验在 R′（= C4）上必须 `marker.worktree === runWorktree === R′ tree OID`，**不得把 BASE tree 或任何「HEAD tree」当内容绑定**（历史注记：round 1 C1 marker 记 BASE tree `b41d9e73…`，实际 C1 被测内容树 = `da3f368f…`——重跑 C1 等价控制时指纹必须对应实际内容树）。
+- **负控**：N-8e（矩阵后未暂存 tracked 修改、不 `git add` → standalone exit 1 + drift problem + RESULT 非空）、N-8f（运行中漂移 → 内置审计 MATRIX FAIL）、N-8g（同 tree HEAD 移动 → 仅 head 红、指纹不红）应红实红。
+- **威胁模型边界**：指纹防**意外**内容漂移，不防 marker 与工作树协同伪造；对抗面 = 终验在 R′ 上的独立重跑（与 §7.4 mtime 段同判）。
+- **与 PV-8a 的关系**：指纹是内容树构建（read-tree/add/write-tree），非 diff——rename detection 概念不适用；G13.g 的 `git diff --no-renames --name-only BASE`（形状执法面）单一原语纪律不变。PV-8a 钉值不受影响。
+
+### PV-8a 机械判定补钉（iteration 3；钉值语义不变，机械配方精确化——与 §13.2 `--no-renames` 补钉同机制）
+
+tracked 分量第三项的机械判定钉为：**`path.posix.dirname(p) === 'wiki/raw'` ∧ basename 匹配 `/^task_issue-472.*\.md$/`**。`wiki/` 根下（如 `wiki/task_issue-472_probe.md`）、更深层（如 `wiki/raw/nested/…`、`wiki/other/…`）一律判红。原「glob 按 basename 匹配」注记自本版起**作废**（勘误 E-5）。untracked ⊆ `wiki/**` 分量与两态允许集组成、`--no-renames` 原语、absent 态不含 8 个 release 文件——全部不变。
+
+## 14.4 勘误增量（E-4/E-5；追加于 §12 的 E-1…E-3 之后，同机制生效）
+
+| # | 位置 | 失实表述 | 更正后权威口径 |
+|---|---|---|---|
+| **E-4** | 本报告 §11.2（「marker `tree` 升校验」）、§11.7(b)（「write-tree 比对」）；设计 rev1/rev2 D-11 同源表述 | 「`git write-tree` === marker.tree 抓 tracked 树漂移 / 工作树漂移校验」 | `git write-tree` 写的是 **index**，未暂存的 tracked 修改不进 index——该比对对「被测内容 = working tree」（`copyTrackedTree` 逐 `git ls-files` 路径复制）**不成立**（SA9-1；本会话一手复现：真实 index write-tree = HEAD tree 而 working tree 已漂移）。现行口径 = **PV-9**（§14.3）。终验与实现后复查不得引用 write-tree 比对作为内容绑定证据 |
+| **E-5** | 本报告 §11.3 PV-8a 原文与 §13.2 现行版的注记「glob 按 basename 匹配」 | 注记字面允许「basename 命中即可、路径任意 `wiki/` 前缀」的读法——现实现 `startsWith('wiki/')` 正是钻此缝（SA9-3） | glob `wiki/raw/task_issue-472*.md` 的通配只发生在 `wiki/raw/` 直接子层的 basename 段；机械判定 = **PV-8a iteration-3 补钉**（§14.3）。终验按补钉口径核对 |
+
+**效力声明**：E-4/E-5 并入交付条件 10 的禁依赖面（终验不得引用共五处被勘误表述作为核对依据）；历史裁定文本不改写。
+
+## 14.5 交付条件增量（iteration 3）
+
+- **条件 3′（扩面重述）**：负控面 = **F-A…F-M + N-5…N-10 + T-1/T-2**，以设计 rev3 §10 表为唯一权威口径。时机：F-A…F-F、F-H…F-M 在 C1 完成时（**F-L/F-M 同批**）；F-G 在 C2 形成后；N-6/N-6b/N-7/N-7b/N-8a–d 在 `--audit-evidence` 实现完成时；**N-8e/N-8f/N-8g/N-10 在 C4（W-1/W-3/W-4）实现完成时**（一次性副本）；**T-1/T-2 在 §11.1 复验协议步骤 5**（R′ 真实打包输出一次性副本；不得以源码测试/matrix/G13 替代——SA10 B-1 原文）。任何应红实绿 ⇒ 停手。
+- **条件 6（落实口径钉值）**：固定法 = §11.1 W-6 协议——`.cache/issue-472-final/bin/pnpm` shim（exec corepack 缓存的 10.28.2 二进制，与 SA6 §4.1 同款固定法、非语义 override）置 **PATH 首位**，**同一会话**内执行复验全部步骤（`execFileSync`/`spawnSync` 子进程继承 env ⇒ 一切子进程的 pnpm 解析到 shim）。判定四件套：① 落盘 `pnpm --version` = 10.28.2；② root-test cell `pnpmProbe.exitCode === 0` ∧ stdout = 10.28.2；③ 完整 `--all --matrix` 重跑（**只跑 root-test 子集不构成落实**）；④ 全程禁 `NOMICORE_VERIFY_REGISTRY_INTEGRITY=0` 等 override。counts 按实际值原样披露、`failedUnexpected=[]`、台账外新红停手不扩账。
+- **条件 9（可机判载体钉值）**：「problems=[]」的可机判载体 = **W-3 RESULT 行**：成功与失败两路径均输出 `[run-baseline] EVIDENCE AUDIT RESULT (<context>): exit=<0|1> problems=<JSON 数组>`（`<context>` ∈ {`built-in matrix audit`, `standalone --audit-evidence`}；成功含字面量 `problems=[]` + exit 0；失败非空数组（单行可 `JSON.parse`）+ exit 1；每次审计恰一行 RESULT；人读 PASS/FAIL 与明细行保留；exit code 语义不变）。落盘 = 既有日志通道、零新增 artifact（`evidence/` 目录允许集零改动）。自述 PASS 文本不再作为该判据证据。后半（summary 全量）按 §13.3 判定口径不变（完备性是判据、行数不钉常数）。
+- **条件 10（禁依赖面扩至五处）**：在 E-1/E-2/E-3 基础上并入 **E-4**（write-tree 比对不得作为内容绑定证据——按 PV-9 核）与 **E-5**（「glob 按 basename 匹配」不得作为 tracked wiki 判定依据——按 PV-8a iteration-3 补钉核）。
+- **新增条件 11（C5 记录更正的合格判据；见 §14.6）**。
+- **新增条件 12（AC6 回填边界；见 §14.7）**。
+
+## 14.6 专项裁决：C5 message-only 记录更正（dispatch 项 6）
+
+**唯一合法路径 = C5 = `git commit --allow-empty` 的 message-only `chore(release)` 更正提交。** 禁止 rebase reword C2。
+
+1. **与既有 release 流程相容**：仓库无 `CHANGELOG.md` 且不得新造（S2 触发器；SA6 §10.1b）——变更记录的既有载体就是 `chore(release)` 提交正文（`19df983`/`3321390`/`303666d`/`abbb89a` 四批次正文均记录版本矩阵/内容/门禁结果，iteration-0 §1 已核）。C5 的类型与载体与既有约定一致；它**不是**新 release 文件约定（不新增文件、不改发布动作流程、不触碰 `scripts/**`/INSTALL），只是对既有载体上记录错误的**追加更正**。无 message-only 先例（本会话核验：历史 zero-file 提交全部是 merge）≠ 不相容——既有流程从未出现过「记录更正」需求，而 git 历史不可重写约束下 message-only 追加是唯一既保留可复核性又落在既有载体上的形态。不触发 S2 升级（无 owner 新要求、无新文件约定）。
+2. **不得 reword C2**：C1/C2/C3a 三个 hash 是终审报告（SA9/SA10 的 reviewed subject = `git diff --no-renames 6be891a..d5cf485`）与 dispatch 台账的锚点；reword `e3d5881` 连锁改写 `d5cf485` 及后续全部提交，销毁已交付证据的可复核性，违反 rev3 §9.1「禁止 rebase/amend 改写既有提交」与 append-only 原则。
+3. **R′ 身份何时为已知事实、如何避免自指**：时序固定为 **C4（设施 remediation，提交完成）→ §11.1 复验协议全量重跑（绑 R′ = C4）→ C5（记录更正）**。C4 提交完成后其 HEAD hash 与 tree OID 即为可取得的已知事实（`git rev-parse HEAD` / `HEAD^{tree}`）；C5 正文引用的是 **C4 的 hash/tree，不是 C5 自身的**——不存在「提交正文包含自身 hash」的自指。C5 自身 hash 无需写入自身正文（C5 是更正记录，不是 release candidate；R′ = C4）。附加完整性交叉核对：C5 为 empty commit ⇒ `C5^{tree} === C4^{tree}`——终验以此机械验证 C5 未夹带文件变更。
+4. **条件 11（C5 合格判据，硬约束）**：(a) 正文含**口径两分**——未固定 PATH 口径（round 1 实现轮 C1 矩阵 5959/5991 = 32 = 4 frozen + 28 environment；SA7 终验 R 矩阵 5959/5991 同口径）vs 固定 pnpm 10.28.2 口径（实现轮 C2 预验 5987/5991 = 4 frozen；remediation R′ 重跑实际 counts 原样记录），每个 counts 标注所属口径，并明示更正 C2 ⑦ 的混同归因与 SA7「非判据偏离」分类作废；(b) 正文含 R′ 完整 HEAD（= C4 hash）与 tree（= C4 tree OID），声明 AC1–AC4 证据绑定 R′、旧树（`e3d5881`/`d5cf485`）绿作废（仅历史过程记录）；(c) A4-3 ①–⑩ 其余各条（含条件 4 两分文案）不变引用；(d) C5 晚于 §11.1 复验完成（正文引用重跑实际值）；(e) `C5^{tree} === R′ tree`；G13/gates 对 C5 零新增变更（exact 态不回归）、C6 后重跑 gates 全量保持 exact。回填证据包（§9.4）中的 R′ HEAD/tree 以 C5 所载为准。
+
+## 14.7 专项裁决：AC6/B-4 职责边界（dispatch 项 7）
+
+**义务主体与证据要求**（SA6 §12.6 为验收基准；执行主体由权限/编排事实决定，不在 SA8 裁决面内——SA8 裁义务、证据与时序边界）：
+
+- **A6-1 ticket 侧（#472 REST 评论）**：义务主体 = **有 GitHub 写权限的 Controller**（后续 Controller，或发布侧具备评论权限的执行者）；**不是任何 SA**（GitHub 写操作不在 SA 权限面——rev3 §9.4、SA10 B-4 同判）。证据要求：① 评论正文 = §9.4 回填证据包全集（3×15 typecheck；41/41（gates 13/13、G13 exact、审计 RESULT `problems=[]`、固定 pnpm 口径实际 counts 与 `failedUnexpected=[]`、`pnpmProbe.exitCode=0`）；工件身份（B1/B2/B3 + DSH `1511a6e…` + B3 digest `9d663355…`）与 Root 通道；fault ×4 与 N-5…N-10 负控摘要；T-1/T-2 应红实红 + 恢复 15/15；15 包三项发布门禁 + sha256；七包版本表 + manifest 7+7 + **R′ HEAD/tree（以 C5 记录为准）**；公共契约冻结五项；非目标声明；#464–#466 不复用；S2 版本矩阵读法与 S3 方案 A 的知会性披露（条件 7）；工具链）；② 操作后 `gh api repos/nomicore-ai/nomicore/issues/472/comments --paginate` JSON 落盘（含评论 id/created_at），与操作前快照（SA10 已落盘 `[]`）一并归档。
+- **A6-2 PR 侧**：集成 PR（`mabf/issue-472 → spec/468-cordis-rc12-root`）由 **Runner Host 发布侧**在本地 finalize 后创建（控制器硬门禁禁止 `gh pr create`）；PR 正文/评论回填同一组结果，义务主体 = 创建该 PR 的发布侧（或后续 Controller 对已存在 PR 补评论）。证据 = `gh pr view --json` 落盘（head/base/正文/评论含结果包）。
+- **A6-3 保护面**：任何执行者不得 close #468、不得改写 Parent（仍 = PR #469）；#464–#466 保持撤回。证据 = 操作前后 `gh api …/issues/468` body/state 快照（仅允许追加评论）。
+
+**「结构性后置」裁决**：可以成立，边界如下——
+
+- **对本设计/本轮 remediation**：AC6 **不是 reject 事由**。设计面以 §9.4 闭环（内容清单 + 触发条件 + 职责边界）；时序上回填必须在「§11.1 复验全绿 + C4/C5 落盘 + 终审组改判 approve」之后——提前回填 = 回填未定稿数据，本身违反记录一致性义务（A4-5 同源）。「PR 尚未存在」在本轮末端是编排事实（门禁禁止本轮创建），不是设计或实现的缺陷。
+- **对 issue #472 的最终收官**：AC6 是**未闭合前置义务**，不得宣告满足——SA10 对 round 1 判 AC6 reject 正确（该轮自称收官而回填全缺）。结构性后置 ≠ 豁免，只是闭合时点后置到回填执行时。**ticket 关闭前 A6-1/A6-2/A6-3 必须全部满足**（SA6 通过判定原文）；wiki 内部记录不替代回填（SA6 §12.6）。
+- **ticket 侧回填是否必须由本轮控制器完成**：SA8 不裁「哪一轮」——若本轮控制器具备 REST 评论权限且终审已 approve，由本轮控制器执行是顺位最短路径；若本轮末端在终审重裁之前，回填顺延至满足触发条件的第一个有权执行者。**条件 12（硬约束）**：回填完成前 #472 不得关闭；终审组对 remediation 后状态重裁时，在 §9.4 证据包与职责边界在案且 B-1…B-3 已闭合的前提下，AC6 应判 **pending（结构性后置）**而非新增 reject 事由；回填执行时按上述证据要求落盘三组快照。
+
+## 14.8 Frozen surfaces / Overrides / Evolution / Hard conflicts（iteration 3 增量面）
+
+- **Frozen surfaces（增量核对）**：W-1–W-4 零触碰——`baselines.json`/台账/catalog 逐字节（PV-5/PV-8b）、ADR/CONTEXT/协议、`scripts/**`/`.github/**`、生产 `src/**`/`domains/**`、C1/C2/C3a 已交付提交（append-only）、`evidence/` 目录允许集（W-3 零新增 artifact）、gate 数 13 / 矩阵 41 cells / G12 闭集 5 文件（PV-6）、`--no-renames` 单一原语纪律（PV-8a）。C4 文件面恰 = `gates.mjs` + `run-baseline.mjs` 两文件（§14 ALLOW 信封内）；C5 零文件变更；C6 ⊆ `wiki/raw/task_issue-472*.md` glob。
+- **Overrides**：无新增。W-1–W-4、验证义务扩充、C5 全部落在 iteration-0/1/2 已追认面内（收紧/对齐/载体升级/义务扩充）；无 ADR 级 override、无 owner 升级需求（S2 触发器与 AC6 知会性披露原样保留）。
+- **Evolution requirements**：无 ADR/CONTEXT/协议层演进需求。票级演进已由 PV-9 与 PV-8a iteration-3 补钉收口；实现计划（§9.1 C4→复验→C5→终审→C6 时序、§11.1 协议、§10 负控表）完整。
+- **Hard conflicts**：**无**。
+
+## 14.9 实现就绪结论与 requiresConflictRecheck（dispatch 项 8）
+
+**rev3 可进入实现（C4 起步）。** 无未满足的设计层条件；SA9-1…SA9-5 与 B-1…B-3 的设计面 remediation 全部闭合，B-4 以 §9.4 闭环（职责边界经 §14.7 裁决成立）。**requiresConflictRecheck = true**，实现后必须核对：
+
+- (a) **C4 diff 形状**：恰 `gates.mjs` + `run-baseline.mjs` 两文件；W-1（`trackedWorktreeFingerprint()` + marker/matrix 字段切换 + 两模式指纹比对 + `tree` 字段不复存在）、W-2（`isTicketDoc` dirname 精确判定、`untrackedPaths()` 不动）、W-3（`printAudit` 两路径 RESULT 行、格式逐字 = §14.5）、W-4（`main()` 头部 `mkdirp` 删除 + L5/L7 头注 + L898–L903 注释对齐）逐字对上 §7.3.g/§7.4/§9.1；C4 前新负控应红实红、C4 树 gates 13/13（exact）。
+- (b) **PV-9 核对**：marker = `{startedAt, head, worktree, porcelain}`；matrix = `runHead`/`runWorktree`；R′ 复验 `marker.worktree === runWorktree === R′ tree OID`；N-8e/N-8f/N-8g 应红实红（RESULT 行非空）。
+- (c) **G13.g 原语与 F-L/F-M**：tracked 原语字面 = `git diff --no-renames --name-only BASE`；F-L（staged `wiki/task_issue-472_probe.md`）/F-M（staged `wiki/raw/nested/task_issue-472_probe.md`）各指名判红且 G1′/G2/G4/G12 同轮绿；C3 已交付 wiki 文件正向保持绿；untracked 分量判定不变。
+- (d) **条件 9 载体**：干净矩阵 + standalone 两条日志各恰一行 RESULT（成功 `problems=[]` + exit 0）；N 系负控 RESULT 非空 + exit 1；`evidence/` 目录允许集零改动（无新文件类）；summary 按 §13.3 完备性口径（行数不钉常数）。
+- (e) **W-4/N-10**：缺目录与空目录变体 standalone 均 exit 1 + RESULT 非空（guard 首次有红点实证）。
+- (f) **条件 6/W-6**：R′ 上固定 pnpm 完整矩阵重跑（非子集）；`pnpmProbe.exitCode=0`、落盘 10.28.2；counts 实际值原样、`failedUnexpected=[]`、台账零 diff；无 env override。
+- (g) **T-1/T-2**：R′ 真实打包输出一次性副本上执行；`publish:verify` 默认模式各 exit ≠ 0 且按文件名指名；恢复（sha256 逐字节 + manifest 零 diff + porcelain 干净）后 15/15 绿 + reproducible 15/15 复跑留证。
+- (h) **C5 正文**：条件 11 五项（口径两分 + R′ HEAD/tree + 再绑定声明 + ①–⑩ 不变引用 + `C5^{tree} === R′ tree`）；C2 正文 ⑦ 混同与 SA7 分类在 C5 中明示更正。
+- (i) **时序 append-only**：C4 → §11.1 复验 → C5 → 终审组重裁（SA9/SA10 对 R′ 证据重裁；AC6 按 §14.7 判 pending）→ C6；不改写 C1/C2/C3a；C6 后 gates 全量 exact。
+- (j) **AC6 边界**：回填由有权方按 §9.4/§14.7 执行并落盘三组 `gh api`/`gh pr view` 快照；#468 open + Parent=PR #469、#464–#466 撤回不变；回填完成前 #472 不关闭。
+
+## 14.10 Verdict（iteration 3，当前轮）
+
+**clear** —— rev3 全部 remediation（W-1…W-4、§9.1 C4/C5/C6 时序、§10 负控扩面、§11.1 W-6 协议、§9.4 回填边界、§4.2 条件 9 口径）均在 iteration-0/1/2 追认面内或为收紧/对齐/载体升级/义务扩充；PV-9 与 PV-8a iteration-3 补钉随本轮发布，E-4/E-5 勘误生效（条件 10 禁依赖面扩至五处），条件 3′/6/9 增量 + 条件 11/12 发布；C5 message-only 为唯一合法更正路径、AC6 为结构性后置（对 issue 收官仍为未闭合前置义务）；**无 hard-conflict、无新票级决策、无 ADR/CONTEXT/协议触碰、无 owner 升级**。S1/S3（ratified-with-conditions）、S2/S4（ratified）状态不变，**rev3 可进入实现**。

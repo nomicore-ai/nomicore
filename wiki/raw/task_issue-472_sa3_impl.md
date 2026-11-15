@@ -353,3 +353,185 @@ chore(release): Nomicore 0.5.0 —— Cordis rc.12 双形态 Root 三基线收�
 ⑨ 不复用 #464–#466 证据
 ⑩ toolchain: node v24.13.0 / pnpm 10.28.2 / R 的 HEAD+tree
 ```
+
+---
+
+# SA3 实现报告增补 —— round 1 / implementation iteration 2（**C4 终审 remediation**）
+
+- 任务对象：`nomicore-ai/nomicore#472`，round 1，implementation iteration 2；范围 = 设计 rev3 §9.1 **C4（设施 remediation，恰 2 文件）** + dispatch 指定的全部新增负控（F-L/F-M、N-8e/N-8f/N-8g、N-10、T-1/T-2、回归集 N-6/N-6b/N-7/N-7b/N-8a–d/N-9）与 **C4 候选树预验**（一次性 worktree + 固定 pnpm 10.28.2 完整 `--all --matrix`）。
+- 设计/裁决输入：`task_issue-472_design.md` **rev3**（§7.3.g W-2、§7.4 W-1/W-3/W-4、§9.1 C4、§10 F-L/F-M/N-8e/f/g/N-10/T-1/T-2、§11.1 W-6、§14 ALLOW·DENY）；`task_issue-472_design_conflict_report.md` **§14**（PV-9、PV-8a iteration-3 补钉、勘误 E-4/E-5、条件 3′/6/9/11/12、§14.9 实现后核对清单 (a)–(j)）；`task_issue-472_sa9_standards.md`（SA9-1…SA9-5）；`task_issue-472_sa10_spec.md`（B-1…B-4）。
+- 起始/结束 HEAD：`d5cf4850e317b51df9b50c33f8487d832565f8d6`（C3a）；**SA3 未执行 `git add`/`commit`/`push`**，主 worktree 不提交。结束时 `git status --porcelain` = 本轮 2 个设施文件 `M` + 6 个 wiki 工件（`M` design/conflict_report/dispatch/sa3_impl（本报告）、`??` sa9/sa10；除本报告外均为 SA1/SA8 既有编辑，不属本轮代码改动）。
+- 结论：**C4 两文件实现完成；dispatch 要求的全部新增负控应红实红、全部回归负控仍红；C4 候选树（一次性 worktree + 本地临时 commit）gates 13/13（G13 `state=exact`、G6 干净）、固定 pnpm 10.28.2 下 41/41 全 pass、内置审计 RESULT `exit=0 problems=[]`、root-test `pnpmProbe.exitCode=0` 且 stdout `10.28.2`、counts `5987/5991`、`failedUnexpected=[]`；T-1/T-2 在真实打包输出一次性副本上 `publish:verify` 非零并指名受影响包、恢复后 15/15 且 reproducible 15/15。无 blocker。**
+
+## 21. W-1…W-4 落点（逐项；行号为最终文件行号）
+
+| 项 | 落点 | 实现（逐字对齐设计 rev3） |
+|---|---|---|
+| **W-1**（PV-9） | `run-baseline.mjs` L1087–1117 `trackedWorktreeFingerprint()`（doc + helper）；L1119–1129 `writeRunMarker()`；L1244–1278 `auditRunMarker()`；L1354–1356 `auditMatrix()`；L1550 marker console 行；L1571 `matrix.json` 字段 | **新增** `trackedWorktreeFingerprint()`：`fs.mkdtempSync(os.tmpdir())` → `GIT_INDEX_FILE=<tmp>/index` → `git read-tree HEAD` → `git add -u` → `git write-tree` → 返回 tree OID，`finally` 递归删除临时目录；不读/不改真实 index、HEAD、ref（只向 `.git/objects` 写无引用对象）。`run-marker.json` = **`{startedAt, head, worktree, porcelain}`**，`tree` 字段移除且全树零残留（`grep -n "runTree\|marker\.tree"` = 0）；`matrix.json` = `runHead` / **`runWorktree`**。审计检查 1：standalone 的 HEAD 比对**保留且独立**；**built-in 与 standalone 两模式**均比对 `trackedWorktreeFingerprint() === marker.worktree`，红点文案逐字 = `tracked working-tree content drifted during the run: marker.worktree=<X> current=<Y>`。`writeRunMarker` console 行 = `head=<12> worktree=<12> startedAt=<…>`。 |
+| **W-2**（PV-8a 机械判定补钉） | `gates.mjs` L131–141 `isTicketDoc()` | `path.posix.dirname(posix) === 'wiki/raw'` ∧ `/^task_issue-472.*\.md$/`（basename）。`wiki/` 根下、`wiki/raw/nested/…`、`wiki/other/…` 一律 tracked 越界。**不动**：`untrackedPaths()`（L236–245）与 `untracked ⊆ wiki/**` 分量；G13.g tracked 原语 `wholeTreeChangedPaths()`（L231–233）= `git diff --no-renames --name-only BASE`。 |
+| **W-3**（条件 9 可机判载体） | `run-baseline.mjs` L1442–1463 `printAudit()` | 成功与失败**两条路径都先**输出恰一行 `[run-baseline] EVIDENCE AUDIT RESULT (<context>): exit=<0|1> problems=<JSON 数组>`；`<context>` ∈ {`built-in matrix audit`, `standalone --audit-evidence`}；成功含字面量 `problems=[]`（exit=0），失败为单行可 `JSON.parse` 的非空数组（exit=1）；人读 `EVIDENCE AUDIT PASS/FAIL` 与 `  - <problem>` 明细行保留；exit code 语义不变；**零新增落盘 artifact**（`evidence/` 目录允许集零改动），该行走既有日志通道（`.cache/issue-472-impl/c4/*.log`）。 |
+| **W-4**（SA9-5） | `run-baseline.mjs` L1530–1548 `main()`（`mkdirp` 已删）；L906–911 gates cell 注释；`gates.mjs` L5–13 头注 | **删除** `main()` 头部 `mkdirp(EVIDENCE)`（留原因注释；`writeRunMarker` L1120 / `writeEvidence` / `runGatesCell` / `runRootTestCell` 各自 mkdir，无调用路径依赖预创建）⇒ standalone 缺目录 guard 复活（N-10 实证）。gates cell 注释改「**完备性是判据、行数不钉常数**（现盘 21 行 = 7 G10 明细 + 13 gate 行 + 汇总），不得回退 `slice(-N)`」。`gates.mjs` L5/L7/L9 头注对齐 release 语义：G1′ = 白名单外零 diff + 8 文件白名单内交 G13 钉形状；G3 = tracked ⊆ {`package.json`}（版本行交 G13）∧ untracked ⊆ 4 named fixtures，`plugin.ts` 与 4 fixture 本体零 diff。 |
+
+连带注释同步：`run-baseline.mjs` L27–37 头注（marker 字段 / 指纹 / RESULT 行）、L1045–1082 审计 doc comment（检查 1 改 PV-9；W-3 RESULT 说明）。**未触碰**：`acquire.mjs`、`root-probe.mjs`、`provenance-b3.json`、`baselines.json`、`root-test-known-red.json`、`public-surface.base.json`、`cordis-public-surface.test.ts`、8 个 release 文件、`scripts/**`、`.github/**`、`docs/**`、生产 `src/**`。
+
+## 22. Changed paths（本轮精确 2 文件）
+
+| # | Path | Design section | Change | numstat（vs HEAD `d5cf485`） |
+|---|---|---|---|---|
+| 1 | `packages/persistence/test/fixtures/cordis-baselines/gates.mjs` | §7.3.g（W-2）、§9.1 C4、§14 ALLOW 第 1 行 | `isTicketDoc()` dirname 精确判定；L5/L7/L9 头注对齐 release 语义（W-4/SA9-5.1） | `15 增 / 5 删` |
+| 2 | `packages/persistence/test/fixtures/cordis-baselines/run-baseline.mjs` | §7.4（W-1/W-3/W-4）、§9.1 C4、§14 ALLOW 第 2 行 | 指纹原语 + marker/matrix 字段切换 + 两模式指纹比对 + RESULT 行 + `mkdirp(EVIDENCE)` 删除 + 注释对齐 | `94 增 / 21 删` |
+
+合计 `2 files changed, 109 insertions(+), 26 deletions(-)`。两文件 blob（控制器可核对）：`gates.mjs` = `3b5e6511e765b5f02300380e699fa4ec1cce6cf2`、`run-baseline.mjs` = `cb1c2f724903a4edd50701c365dbfd113e5ee7f9`。
+
+## 23. 新增负控（应红实红；环境 = 一次性 worktree `.worktrees/issue-472-c4-probe`，父 `d5cf485` + 两设施文件本地临时 commit `69097ac7…`，tree `91c1c49a38746a9314955d632989939aad418379`；负控后 `git worktree remove --force` + `prune`，主 worktree 零提交）
+
+### 23.1 F-L / F-M（W-2；**必须 staged**；一次性副本上注入 → 红 → `git reset --hard` 还原）
+
+| # | 注入 | gates 结果 | 红点（逐字） | 同轮绿 | 证据 |
+|---|---|---|---|---|---|
+| **F-L** | 新建 `wiki/task_issue-472_probe.md` 并 `git add`（直接父目录 = `wiki`） | **exit 1**，1/13 gate 失败 | `G13` FAIL（exact 分支）：`tracked change outside the release allowlist: wiki/task_issue-472_probe.md` | `G1′`/`G2`/`G4`/`G12` **PASS**（该路径不在其 pathspec） | `.cache/issue-472-impl/c4/04-F-L.log` |
+| **F-M** | 新建 `wiki/raw/nested/task_issue-472_probe.md` 并 `git add`（更深层，basename 命中但父目录 ≠ `wiki/raw`） | **exit 1**，1/13 gate 失败 | `G13` FAIL（exact 分支）：`tracked change outside the release allowlist: wiki/raw/nested/task_issue-472_probe.md` | `G1′`/`G2`/`G4`/`G12` **PASS** | `.cache/issue-472-impl/c4/05-F-M.log` |
+| 正向对照 | 还原后干净 C4 候选树 | **exit 0，13/13 PASS** | `G13 state=exact`（C3 已交付 `wiki/raw/task_issue-472*.md` 全部保持绿） | — | `.cache/issue-472-impl/c4/06-post-F-control.log` |
+
+> 说明：树本身处于 exact 态，因此 G13 的 `absent` 分支同时列出 8 个 release 文件差异（该分支本应失败）；判红点以 `exact` 分支为准——其**唯一** problem 即上表指名的注入文件，与设计 §10 F-L/F-M 的应红点逐字一致。
+
+### 23.2 N-8e / N-8f / N-8g / N-10（W-1 / W-3 / W-4）
+
+| # | 注入 | 实测结果 | RESULT 行 | 证据 |
+|---|---|---|---|---|
+| **N-8e** | 41/41 矩阵完成后，对 `INSTALL.md` 追加内容、**不 `git add`**（未暂存 tracked 修改；真实 index 与 HEAD 均不变），跑 standalone `--audit-evidence` | **exit 1**，problem = `tracked working-tree content drifted during the run: marker.worktree=91c1c49a38746a9314955d632989939aad418379 current=22b4a2bdb3bfbb99b1a6cb9b25b59003a269de37` | 恰 1 行、`exit=1 problems=[…]` 非空 | `32-N-8e.log` |
+| N-8e 还原 | `git checkout -- INSTALL.md`（字节复原） | **exit 0**，`problems=[]` | 恰 1 行、`exit=0 problems=[]` | `32-N-8e-restored.log` |
+| **N-8g** | 同 tree、HEAD 移动：`git commit --allow-empty -m "tmp: N-8g head-move probe"`（指纹不变） | **exit 1**，**仅 1 条** problem = `evidence belongs to another tree: marker.head=69097ac7… current HEAD=76eb5942…`；**drift 检查未红**（同指纹） | 恰 1 行、非空 | `33-N-8g.log` |
+| N-8c（回归） | 另一棵树：HEAD + 内容都不同（构造不同 tree 的提交） | **exit 1**，2 条：head 跨树 + `tracked working-tree content drifted during the run: marker.worktree=91c1c49a… current=aff133cd…` | 恰 1 行、非空 | `34-N-8c.log` |
+| **N-10a** | 移走 `evidence/` 目录后 standalone 审计（W-4 复活 guard） | **exit 1**，problem = `missing evidence directory: .cache/cordis-baselines/evidence (a matrix run without evidence is never a pass)`；审计**未**静默重建目录 | 恰 1 行、非空 | `35-N-10a-missing-dir.log` |
+| **N-10b** | 建**空** `evidence/` 目录后 standalone 审计 | **exit 1**，**49 条** problem（missing run marker + 41 missing cell + 3 missing baseline 目录 + 3 missing fixed 目录 + matrix） | 恰 1 行、非空 | `36-N-10b-empty-dir.log` |
+| **N-8f** | 一次性副本上启动 `--all --matrix`（固定 pnpm）；**首个本轮证据文件 `B1/typecheck.json` 出现后**（marker 已写：`head=69097ac7… worktree=91c1c49a…`，`startedAt=2026-11-15T02:28:59Z`）于 **10:30:23** 向 tracked `INSTALL.md` 追加一行（非暂存），矩阵继续跑完 | **MATRIX FAIL，exit 1**；内置审计 RESULT `exit=1`，problem 含 `tracked working-tree content drifted during the run: marker.worktree=91c1c49a… current=488458e07eec1eba646f5592259333ae1c679fe8`；并列红（如实披露、设计允许）：gates cell `status=fail`，其 `G13` 指名 `INSTALL.md` | 恰 1 行、非空 | `50-N-8f-matrix.log`（probe 内 `evidence/gates/gates.log` 亦指名 `INSTALL.md`） |
+
+### 23.3 回归负控（N-6 / N-6b / N-7 / N-7b / N-8a–d / N-9；备份 → 污染 → 红 → 还原）
+
+| # | 注入 | 实测红点（逐字摘要） | RESULT / 证据 |
+|---|---|---|---|
+| N-6 | 删除 `B1/provenance.json` | `missing required evidence: .cache/cordis-baselines/evidence/B1/provenance.json` | exit 1 / `40-N-6.log` |
+| N-6b(a) | `B2/contract.json` 的 `logPath` → 不存在路径 | `B2/contract logPath: file does not exist: …/B2/does-not-exist.log` | exit 1 / `41-N-6b-nonexistent.log` |
+| N-6b(b) | `logPath` → `../../escape.log` | `B2/contract logPath: path escapes evidence/: ../../escape.log` | exit 1 / `42-N-6b-escape.log` |
+| N-7 | 截断 `B3/provenance.json` | `unparsable evidence: …/B3/provenance.json (Unterminated string in JSON …)` | exit 1 / `43-N-7.log` |
+| N-7b | `evidence/B1/zz-old.json` 换名旧工件 | `evidence/B1/zz-old.json: file outside the six allowed classes` | exit 1 / `44-N-7b.log` |
+| N-8a | `touch -d 2020-01-01 B2/contract.json` | `B2/contract: stale evidence (mtime predates the run marker)` | exit 1 / `45-N-8a.log` |
+| N-8b | `B2/contract.json` 换成 B3 的 `provenanceDigest` | `B2/contract: provenanceDigest="112f0db0…" expected 88f718ba…`（identity mismatch） | exit 1 / `46-N-8b.log` |
+| N-8d | 换入上一轮 `matrix.json` | `generatedAt … predates the run marker` + `runHead=undefined ≠ marker.head` + `runWorktree=undefined ≠ marker.worktree`（单树/内容绑定） | exit 1 / `47-N-8d.log` |
+| N-9 | 一次性副本注入合成新红测试 `packages/persistence/test/zz-n9-synthetic-new-red.test.ts`（固定 10.28.2 PATH）后跑 `--suite root-test` | root-test cell **status=fail、exit 1**：counts `5987/5992`（5 = 4 frozen + 1 合成新红）、`failedUnexpected=["N-9 synthetic new red N-9 synthetic new red not in the frozen ledger"]`；`pnpmProbe.exitCode=0` / `10.28.2` | `60-N-9.log`、`61-N-9-cell.json` |
+| 还原 | 全量 `cp -a` 还原规范证据目录 | **exit 0、`problems=[]`** | `48-N-control-restored.log` |
+
+**审计 RESULT 行纪律核对**：上表全部审计日志（含成功/失败、built-in/standalone）**每次恰 1 行** `EVIDENCE AUDIT RESULT`，`exit=` 与 `$?` 一致（见 §26 的逐日志计数）；`gates.mjs` 日志不含该行（非审计）。
+
+## 24. T-1 / T-2（B-1 执行面；真实打包输出一次性副本、`publish:verify` 默认模式）
+
+环境：主 worktree、`PATH=$PWD/.cache/issue-472-final/bin:$PATH`（`pnpm --version` = **10.28.2**）、未设 `NOMICORE_VERIFY_REGISTRY_INTEGRITY=0`。
+
+1. `pnpm pack:local`（无参 → `artifacts/local-packages`）：**exit 0**，15 tarball；`git status --porcelain -- artifacts/` 空；`git diff --exit-code -- artifacts/local-packages/manifest.json` **零 diff**（`10-T-pack.log`、`10-T-pack-status.txt`）。
+2. `sha256sum` 全量表 → `10-T-sha256-before.txt`；整目录 `cp -a` 备份（`.cache/issue-472-impl/tarball-probe/canonical-backup`），sha256 逐行相同。
+3. **T-1（篡改字节）**：副本中**恰一个** tarball（`nomicore-persistence-0.5.0.tgz`，size=80906）在 `floor(size/2)=40453` 偏移 XOR `0x01`（byte 56→57）；sha256 `7d92c3fa…` → `a3fc934d…`；备份原目录 → 换入副本 → `pnpm run publish:verify`（默认模式）：**exit 1**，`ERROR: tar -xzf …/artifacts/local-packages/nomicore-persistence-0.5.0.tgz -C /tmp/… failed (2)` —— **按文件名指名受影响包**（`11-T1-publish-verify-tampered.log`、`10-T1-tamper-sha.txt`）。
+4. 还原（sha256 逐字节复核 `restore after T-1 byte-identical OK`；manifest 零 diff；`git status --porcelain -- artifacts/` 空）。
+5. **T-2（删除 tarball）**：同一探针框架下副本中删除**恰一个** tarball（`nomicore-yjs-server-0.6.0.tgz`，余 14）→ 备份 → 换入 → `publish:verify`（默认模式）：**exit 1**，`ERROR: tar -xzf …/artifacts/local-packages/nomicore-yjs-server-0.6.0.tgz -C /tmp/… failed (2)` —— 按文件名指名（`12-T2-publish-verify-deleted.log`）。
+6. 还原后再跑：`publish:verify` **exit 0**（`verified 15 publishable tarballs`，`13-T-publish-verify-restored-green.log`）；`publish:reproducible` **exit 0**（`reproducible tarballs verified for 15 packages`，`14-T-publish-reproducible-restored.log`）。前后 sha256 表（before / backup / after-T1 / final）**逐行相同**（按 `sha256 + basename` 归一化比对，3 组 diff 全绿）。
+7. 清理：探针副本目录已删除；规范目录 15 tarball、manifest 零 diff、`git status --porcelain -- artifacts/` 空。**披露**：T-2 的红点唯一落点是 `publish:verify`（`publish:reproducible` 独立双构建于临时目录、不读 `artifacts/local-packages`），与设计 §10 披露一致。
+
+> 未以源码测试/矩阵/G13 替代；注入只落 gitignored `*.tgz` 与副本，`scripts/**` 零改动。
+
+## 25. C4 候选树预验（一次性 worktree + 本地临时 commit；固定 pnpm 10.28.2 同会话）
+
+- 一次性 worktree：`.worktrees/issue-472-c4-probe`，父 `d5cf485`，`git add` 恰 2 个设施文件后 `git -c user… commit` → **HEAD `69097ac74c50b04aacca179cdc7702e8f0786069`、tree `91c1c49a38746a9314955d632989939aad418379`**；`git status --porcelain` 空。`node_modules` 用「真实目录 + 逐条符号链接到主安装」（含 16 个 package/app/domain 级 `node_modules` 的相对符号链接，规避 `.gitignore` `node_modules/` 不匹配 symlink 的探针噪声）；`.cache/cordis-baselines/{dsh,npm,overlay}` 复制，`evidence/`、`workspaces/` 由探针内独立复算。
+- **gates（C4 候选树）**：**13/13 PASS，exit 0**；`G13: state=exact`（7 项版本表 + manifest 7/7 + ledger/catalog/baselines.json 逐字节 + tree changeset ⊆ 8 release + 4 C1 facility + `wiki/raw/task_issue-472*.md`）；**`G6 PASS: git diff --check 6be891a clean; artifacts/ untouched`**；`G5: 7 entries match base snapshot; runtime surface test passed`（`03-probe-gates.log`）。
+- **完整矩阵**（`PATH` 首位 = `.cache/issue-472-final/bin`（exec corepack 10.28.2），同一会话）：`pnpm --version` = **10.28.2**（落盘 `20-pnpm-version.txt`）；`run-baseline.mjs --all --matrix` → **exit 0，41/41 cells pass**（`21-matrix-all.log`、`22-matrix-facts.json`）：
+  - `run-marker.json` = `{startedAt: 2026-11-15T02:16:54.761Z, head: 69097ac7…, worktree: 91c1c49a…, porcelain: ""}`（**无 `tree` 字段**；`marker.worktree === HEAD tree`）；
+  - `matrix.json`：`cells=41`、`statuses={pass:41}`、`runHead=69097ac7…`、**`runWorktree=91c1c49a…` === marker.worktree === 该 worktree 内容树**、`generatedAt=2026-11-15T02:28:11.443Z`；
+  - gates cell：`status=pass`、`exitCode=0`、`summaryLines=21`（7 G10 明细 + 13 gate 行 + `all 13 gates passed`；完备性口径、行数不钉常数）、`G13 state=exact`；
+  - root-test cell：`status=pass`、counts `{passed:5987, failed:4, total:5991}`（4 = 台账冻结 known-red；28 environmentRed 在固定 pnpm 下不再红，台账不动）、`ledger={knownRed:4, environmentRed:28}`、**`failedUnexpected=[]`**、**`pnpmProbe={exitCode:0, stdout:"10.28.2"}`**；
+  - 内置审计：日志中 `EVIDENCE AUDIT RESULT (built-in matrix audit): exit=0 problems=[]` **恰 1 行**（`25-audit-result-lines.txt`）。
+- 结束后：`git worktree remove --force .worktrees/issue-472-c4-probe` + `git worktree prune`（exit 0；`git worktree list` 回到 `main` + 任务 worktree 两项，`.worktrees/` 空）；主 worktree HEAD 仍 `d5cf485`、零新提交。干净 41/41 的 matrix/gates/root-test cell 已归档 `.cache/issue-472-impl/c4/{28-c4-matrix-clean.json,29-c4-gates-cell-clean.json,29b-c4-root-test-cell-clean.json}`，完整证据目录备份在 `.cache/issue-472-impl/c4/evidence-backup/`（295 文件）。
+
+**R′ 期望值语义（PV-9）**：干净树（无未暂存 tracked 修改）上 `fingerprint === HEAD tree`；因此 **C4 提交后 `marker.worktree === runWorktree === C4 tree`**。若控制器提交的两文件内容与本报告一致（blob `3b5e6511…` / `cb1c2f72…`），则 **C4 tree 应为 `91c1c49a38746a9314955d632989939aad418379`**（父 `d5cf485`）。**不得**把 BASE tree `b41d9e73…` 或任何「HEAD tree」当内容绑定（round 1 C1 marker 记 BASE tree 的失效模式已被 W-1 消除）。
+
+## 26. Verification（本轮全部实跑；日志 `worktree`-relative 路径）
+
+| # | Command | Result | Evidence |
+|---|---|---|---|
+| 1 | `node --check gates.mjs` / `node --check run-baseline.mjs` | 均 exit 0 | `70-tsc-persistence.log` |
+| 2 | `node node_modules/typescript/bin/tsc -p packages/persistence/tsconfig.json` | **exit 0**（受影响包 typecheck） | `70-tsc-persistence.log` |
+| 3 | C4 候选树 `node …/gates.mjs` | **13/13 PASS，exit 0**，G13 `state=exact`，G6 干净 | `03-probe-gates.log` |
+| 4 | F-L 注入（staged `wiki/task_issue-472_probe.md`）→ gates | **exit 1**；G13 exact 指名该文件；G1′/G2/G4/G12 PASS；还原后 13/13 | `04-F-L.log`、`06-post-F-control.log` |
+| 5 | F-M 注入（staged `wiki/raw/nested/…`）→ gates | **exit 1**；G13 exact 指名该文件 | `05-F-M.log` |
+| 6 | 固定 pnpm：`pnpm --version` | **10.28.2** | `20-pnpm-version.txt` |
+| 7 | C4 候选树 `run-baseline.mjs --all --matrix`（固定 pnpm，同会话） | **exit 0，41/41 pass**；RESULT `exit=0 problems=[]` 恰 1 行；`pnpmProbe` 0/10.28.2；counts 5987/5991；`failedUnexpected=[]` | `21-matrix-all.log`、`22-matrix-facts.json`、`23-gates-cell-summary.txt`、`24-root-test-cell.json`、`25-audit-result-lines.txt`、`26-cross-checks.txt` |
+| 8 | N-8e（矩阵后未暂存 tracked 漂移，不 add） | **exit 1** + drift problem + RESULT 非空；还原后 exit 0 | `32-N-8e*.log` |
+| 9 | N-8g（同指纹、HEAD 移动） | **exit 1**，仅 head 红（1 problem） | `33-N-8g.log` |
+| 10 | N-8c（跨树） | **exit 1**，head + drift 两红 | `34-N-8c.log` |
+| 11 | N-10a/N-10b（缺目录/空目录） | 均 **exit 1**、RESULT 非空（1 / 49 problems） | `35-N-10a*.log`、`36-N-10b*.log` |
+| 12 | N-8f（运行中未暂存漂移 → 跑完矩阵） | **MATRIX FAIL exit 1**；内置审计 drift problem 在场；gates cell 并列指名 `INSTALL.md` | `50-N-8f-matrix.log` |
+| 13 | N-6/N-6b(a)(b)/N-7/N-7b/N-8a/N-8b/N-8d | 逐项 **exit 1** 且红点如 §23.3；全量还原后 exit 0 | `40…48-*.log` |
+| 14 | N-9（合成新红 + 固定 pnpm → `--suite root-test`） | cell **fail exit 1**，`failedUnexpected=["N-9 synthetic new red …"]`，counts 5987/5992 | `60-N-9.log`、`61-N-9-cell.json` |
+| 15 | `pnpm pack:local`（固定 pnpm） | **exit 0**，15 tarball，manifest 零 diff | `10-T-pack.log`、`10-T-pack-status.txt` |
+| 16 | T-1 篡改 1 字节 → `pnpm run publish:verify`（默认模式） | **exit 1**，ERROR 按文件名指名 `nomicore-persistence-0.5.0.tgz` | `11-T1-publish-verify-tampered.log`、`10-T1-tamper-sha.txt` |
+| 17 | T-2 删除 1 个 tarball → `pnpm run publish:verify`（默认模式） | **exit 1**，ERROR 按文件名指名 `nomicore-yjs-server-0.6.0.tgz` | `12-T2-publish-verify-deleted.log` |
+| 18 | 恢复后 `publish:verify` / `publish:reproducible` | 均 **exit 0**（15/15、15/15）；sha256 前后逐行相同 | `13-T-publish-verify-restored-green.log`、`14-T-publish-reproducible-restored.log`、`10-T-sha256-*.txt` |
+| 19 | 一次性 worktree 清理 | `git worktree remove --force` + `prune` exit 0；`git worktree list` 2 项 | 本报告 §25 |
+| 20 | 收尾状态 | HEAD 仍 `d5cf485`；`git status` = 2 设施 `M` + 6 wiki 工件；manifest 零 diff；15 tarball | 本报告 §22 / §24 |
+
+**审计 RESULT 行逐日志计数（每次恰 1 行）**：`31/32/33/34/35/36/37/40/41/42/43/44/45/46/47/48/50` 各 `RESULT=1`，`exit=0` 仅成功路径（31、32-restored、37、48），其余 `exit=1`；F-L/F-M/gates 日志无 RESULT 行（非审计）。
+
+## 27. File scope check（每个实际 changed path vs 设计 §14 ALLOW / dispatch 2 文件约束）
+
+| Changed path | ALLOW entry | Purpose |
+|---|---|---|
+| `packages/persistence/test/fixtures/cordis-baselines/gates.mjs` | §14 ALLOW 第 1 行（C4 = 两设施文件之一） | W-2 `isTicketDoc` 收窄 + W-4 头注 |
+| `packages/persistence/test/fixtures/cordis-baselines/run-baseline.mjs` | §14 ALLOW 第 2 行（C4 = 两设施文件之一） | W-1 指纹/marker/matrix + W-3 RESULT + W-4 mkdirp/注释 |
+| `wiki/raw/task_issue-472_sa3_impl.md` | §14 ALLOW `wiki/raw/task_issue-472*.md`（C6 入库面） | 本报告（SA3 唯一文档产出） |
+
+**DENY 面核对**：`git diff --no-renames --name-status 6be891a`（工作树）恰 20 项 = C1 4 设施文件 + C2 8 release 文件 + C3a 8 `wiki/raw/task_issue-472*.md`，**本轮新增改动只落在上述 2 个设施文件**（它们在 C1 集合内，diff 形状由 13/13 的 G12/G13.g 复核）；无 `packages/**/src/**`、`apps/**/src/**`、`domains/**`、`docs/**`、`scripts/**`、`.github/**`、lockfile、根/其余 manifest、门禁冻结件（`acquire.mjs`/`root-probe.mjs`/`provenance-b3.json`/`baselines.json`/`root-test-known-red.json`）改动；根 `package.json`/依赖范围/归属零改动；未执行 `npm publish`、未执行任何 commit/push。
+
+## 28. 外部发现（不属本轮 2 文件范围；**移交控制器/SA8 处置**）
+
+- **G6 空白错误（阻断 C6 后 gates 全绿）**：当前工作树的 `git diff --check 6be891a` **exit 2**，唯一 offender = `wiki/raw/task_issue-472_design_conflict_report.md:465: new blank line at EOF.`（文件尾字节 = `…。\n\n`，即 SA8 rev3 编辑在最后一行后多留了一个空行；`git diff --check 6be891a d5cf485` green，说明 C3a 已提交版本无此问题）。**影响**：C6 若按当前内容提交 `wiki/raw/task_issue-472*`，则 `gates.mjs` 的 **G6 将红**（`git diff --check BASE`），C4 候选树上的 13/13 不再保持。**建议修法**（一行、不改语义）：把该文件尾部规范为单个 `\n`（删除多余的尾随空行）后再入 C6。SA3 按 dispatch「只允许两个文件」未改该 wiki 文件。
+- **round 1 证据与本轮审计不兼容（预期、fail-closed）**：主 worktree 的 `.cache/cordis-baselines/evidence/run-marker.json` 仍是旧字段 `{startedAt, head, tree, porcelain}`（head=e3d5881，round 1 SA7 轮产物），当前指纹 = `d645acc34fd7a952d66736f63e52788f0897a3bd` ≠ 旧 marker 绑定。新代码对该目录跑 standalone 审计会因「`worktree` 字段缺失 + 内容漂移 + head 不同」判红——这是**正确行为**：round 1 旧树绿不得沿用；终验必须在 R′（C4）上重跑完整矩阵产生新证据（设计 §11.1）。本轮未改动主 worktree 的该证据目录。
+
+## 29. Deferred verification（移交控制器 / 终验轮；SA3 不承担）
+
+1. **C4 提交**（控制器）：按 §22 的**精确 2 文件清单**暂存并 `chore(release)` 之外的设施提交（`test(fixtures): #472 终审 remediation——working-tree 指纹 + wiki/raw 收窄 + 审计可机判落盘`），随后核对 `git rev-parse HEAD` 与 `HEAD^{tree}`：tree 应为 `91c1c49a38746a9314955d632989939aad418379`（前提：两文件 blob 与 §22 一致）。
+2. **§11.1 复验协议在 R′ 上全量重跑**（终验轮）：`acquire --all` → 固定 pnpm 完整 `--all --matrix`（41/41、`marker.worktree === runWorktree === R′ tree`、RESULT `problems=[]`、`pnpmProbe.exitCode=0`、counts 按实际值原样记录、`failedUnexpected=[]`）→ fault ×4 + N-5/N-6/N-6b/N-7/N-7b/N-8a–d/N-8e/f/g/N-10 + F-A…F-M → `pack:local`/`publish:verify`（默认模式）/`publish:reproducible` + T-1/T-2 → lockfile/`generate --check` → 形状复核。**不得沿用本轮 41/41 或 round 1 旧树绿作 AC 证据**（本轮为开发自证）。
+3. **C5（message-only 记录更正）**：条件 11 (a)–(e)（口径两分 + R′ HEAD/tree + 再绑定声明 + `C5^{tree} === R′ tree`）；C2 正文 ⑦ 的混同归因与 SA7「非判据偏离」分类在 C5 明示更正。
+4. **C6 前修复 §28 的 wiki 尾随空行**，否则 G6 红；C6 后 gates 全量重跑须保持 13/13 + G13 `state=exact`。
+5. **AC6 回填（B-4）**：控制器/发布侧按 §9.4/§14.7 执行并落盘三组 `gh api`/`gh pr view` 快照；#468 open/Parent=PR #469、#464–#466 保持撤回；回填完成前 #472 不关闭。
+
+## 30. Suggested commit message（C4；Controller 执行；SA3 未 commit）
+
+提交文件（**精确清单，恰 2 个**）：
+
+```
+packages/persistence/test/fixtures/cordis-baselines/gates.mjs
+packages/persistence/test/fixtures/cordis-baselines/run-baseline.mjs
+```
+
+```
+test(fixtures): #472 终审 remediation——working-tree 指纹 + wiki/raw 收窄 + 审计可机判落盘
+
+- run-baseline.mjs（W-1/PV-9）: 新增 trackedWorktreeFingerprint()
+  （临时 GIT_INDEX_FILE: read-tree HEAD → add -u → write-tree；不碰真实
+  index/HEAD/ref）；run-marker 字段 = {startedAt, head, worktree, porcelain}
+  （tree 字段移除）；matrix.json = runHead/runWorktree；built-in 与 standalone
+  审计均比对指纹（红点文案 = tracked working-tree content drifted during the
+  run: marker.worktree=<X> current=<Y>）；standalone HEAD 比对保留且独立
+- run-baseline.mjs（W-3）: printAudit 成功/失败两路径先输出恰一行
+  [run-baseline] EVIDENCE AUDIT RESULT (<context>): exit=<0|1> problems=<JSON>
+  （成功 problems=[]；零新增落盘 artifact）
+- run-baseline.mjs（W-4）: 删除 main() 头部 mkdirp(EVIDENCE)（standalone
+  缺目录 guard 复活）；gates cell 注释改为完备性口径（行数不钉常数，现盘 21 行）
+- gates.mjs（W-2）: isTicketDoc() 收窄为 dirname === 'wiki/raw' ∧ basename
+  正则（untracked ⊆ wiki/** 分量不动）；L5/L7 头注对齐 release 语义
+- 实证（一次性 worktree tree 91c1c49a…）：gates 13/13 + G13 state=exact +
+  G6 干净；固定 pnpm 10.28.2 完整矩阵 41/41、审计 RESULT problems=[]、
+  pnpmProbe 0/10.28.2、counts 5987/5991、failedUnexpected=[]；
+  F-L/F-M、N-8e/f/g、N-10、T-1/T-2 应红实红，N-6/6b/7/7b/8a–d/9 回归仍红
+  （日志 .cache/issue-472-impl/c4/）
+```
+
+- 建议 C4 提交正文附：tree `91c1c49a38746a9314955d632989939aad418379`、父 `d5cf485`，以及「AC1–AC4 证据在 R′ 上重跑后方可作为 AC 证据」声明（C5 会引用该 R′ 身份）。
