@@ -166,17 +166,22 @@ const HUB_LISTEN = {
   listen: async () => ({ close: async () => {} }),
 };
 
+/** Test-only root resolution mirroring the production seam precedence (ADR 0035 §2). */
+function resolveRootForTest(ctx: Context): Context {
+  return (Reflect.get(ctx, Symbol.for('cordis.root')) ?? Reflect.get(ctx, 'root')) as Context
+}
+
+
 function dependencies(ctx: Context, role: 'hub' | 'peer'): void {
   provideInstance(ctx, Object.freeze({ instanceId: `${role}-one`, role }));
   provideClock(ctx, { now: () => 1 });
   const timer = { timeout: () => () => {} };
-  if (typeof ctx.root.timeout === 'function') ctx.provide('timer', timer as never);
-  else {
-    ctx.provide(
-      'timer',
-      { ...timer, ctx: { root: { ...ctx.root, timeout: timer.timeout } } } as never,
-    );
-  }
+  // Baseline-independent fake root: the production seam resolves the symbol
+  // channel first, so this shim hits the same fake timer on every baseline.
+  ctx.provide('timer', {
+    timeout: timer.timeout,
+    ctx: { [Symbol.for('cordis.root')]: { timeout: timer.timeout } },
+  } as never);
   provideNomicoreRegistry(ctx, { open: vi.fn() } as never);
 }
 

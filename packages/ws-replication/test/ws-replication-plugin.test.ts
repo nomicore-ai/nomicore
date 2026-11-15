@@ -14,6 +14,12 @@ import {
 
 const namespaceId = `ns-${'1'.repeat(32)}`;
 
+/** Test-only root resolution mirroring the production seam precedence (ADR 0035 §2). */
+function resolveRootForTest(ctx: Context): Context {
+  return (Reflect.get(ctx, Symbol.for('cordis.root')) ?? Reflect.get(ctx, 'root')) as Context
+}
+
+
 function dependencies(
   ctx: Context,
   role: 'hub' | 'peer',
@@ -21,8 +27,12 @@ function dependencies(
 ): void {
   provideInstance(ctx, Object.freeze({ instanceId: `${role}-one`, role }));
   provideClock(ctx, { now: () => 1 });
-  if (typeof ctx.root.timeout === 'function') ctx.provide('timer', timer as never);
-  else ctx.provide('timer', { ...timer, ctx: { root: { ...ctx.root, timeout: timer.timeout } } } as never);
+  // Baseline-independent fake root: the production seam resolves the symbol
+  // channel first, so this shim hits the same fake timer on every baseline.
+  ctx.provide('timer', {
+    timeout: timer.timeout,
+    ctx: { [Symbol.for('cordis.root')]: { timeout: timer.timeout } },
+  } as never);
   provideNomicoreRegistry(ctx, { open: vi.fn() } as never);
 }
 
@@ -38,7 +48,7 @@ function effectTimer(ctx: Context): {
   active: Set<() => void>;
 } {
   const active = new Set<() => void>();
-  const root = ctx.root;
+  const root = resolveRootForTest(ctx);
   return {
     active,
     timeout(callback, delayMs) {

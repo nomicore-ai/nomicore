@@ -34,6 +34,12 @@ import {
 
 const VALID_LISTEN = { host: '127.0.0.1', port: 0 } as const;
 
+/** Test-only root resolution mirroring the production seam precedence (ADR 0035 §2). */
+function resolveRootForTest(ctx: Context): Context {
+  return (Reflect.get(ctx, Symbol.for('cordis.root')) ?? Reflect.get(ctx, 'root')) as Context
+}
+
+
 function effectTimer(ctx: Context): {
   timeout(callback: () => void, delayMs: number): () => void;
   active: Set<() => void>;
@@ -41,7 +47,7 @@ function effectTimer(ctx: Context): {
   calls: number;
 } {
   const active = new Set<() => void>();
-  const root = ctx.root;
+  const root = resolveRootForTest(ctx);
   const counter = { calls: 0, delays: [] as number[] };
   return {
     active,
@@ -80,8 +86,12 @@ function dependencies(
 ): void {
   provideInstance(ctx, Object.freeze({ instanceId: `${role}-one`, role }));
   provideClock(ctx, { now: () => 1 });
-  if (typeof ctx.root.timeout === 'function') ctx.provide('timer', timer as never);
-  else ctx.provide('timer', { ...timer, ctx: { root: { ...ctx.root, timeout: timer.timeout } } } as never);
+  // Baseline-independent fake root: the production seam resolves the symbol
+  // channel first, so this shim hits the same fake timer on every baseline.
+  ctx.provide('timer', {
+    timeout: timer.timeout,
+    ctx: { [Symbol.for('cordis.root')]: { timeout: timer.timeout } },
+  } as never);
   provideNomicoreRegistry(ctx, registry as never);
 }
 
