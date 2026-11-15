@@ -24,14 +24,28 @@
  *   { baseline, suite, status, resolvedRealpaths, provenanceDigest, testNames, logPath }
  * to `.cache/cordis-baselines/evidence/<baseline>/<suite>.json`.
  *
+ * #472 additions (design §7.4): `--all --matrix` writes
+ * `.cache/cordis-baselines/evidence/run-marker.json` ({startedAt, head, worktree,
+ * porcelain}) BEFORE any cell, where `worktree` is the tracked working-tree content
+ * fingerprint (PV-9 — the content `copyTrackedTree()` actually copies, never the
+ * index); records `runHead`/`runWorktree` in `matrix.json` (additive, W-1); and runs
+ * the fail-closed `auditEvidence()` at the end (missing / corrupt / stale /
+ * cross-tree / tracked-content drift / digest-mismatch / escaping-or-dangling
+ * logPath / out-of-class artifacts => MATRIX FAIL). The same audit is available
+ * standalone via `--audit-evidence` (exit 0 iff `problems=[]`). Both paths print one
+ * machine-checkable `EVIDENCE AUDIT RESULT (<context>): exit=<0|1> problems=<JSON>`
+ * line (W-3, delivery condition 9) — no new artifact is written for it.
+ *
  * Usage:
  *   node run-baseline.mjs --baseline B1 [--mode typecheck] [--suite <name>]...
  *   node run-baseline.mjs --suite root-test
  *   node run-baseline.mjs --all --matrix
+ *   node run-baseline.mjs --audit-evidence
  *   node run-baseline.mjs --baseline B3 --suite provenance --suite root-probe --fault fallback
  */
 import * as crypto from 'node:crypto'
 import * as fs from 'node:fs'
+import * as os from 'node:os'
 import * as path from 'node:path'
 import { execFileSync, spawnSync } from 'node:child_process'
 import { createRequire } from 'node:module'
@@ -172,6 +186,7 @@ function parseArgs(argv) {
     matrix: false,
     fault: undefined,
     rootTest: false,
+    auditEvidence: false,
   }
   for (let i = 0; i < argv.length; i++) {
     const arg = argv[i]
@@ -189,6 +204,7 @@ function parseArgs(argv) {
     } else if (arg === '--all') options.all = true
     else if (arg === '--matrix') options.matrix = true
     else if (arg === '--fault') options.fault = value()
+    else if (arg === '--audit-evidence') options.auditEvidence = true
     else fail('usage', `unknown argument ${arg}`)
   }
   if (options.suites.includes('root-test')) {
@@ -206,6 +222,11 @@ function parseArgs(argv) {
     if (!['fallback', 'substitute-npm', 'substitute-rc12', 'legacy-shim'].includes(options.fault)) {
       fail('usage', `unknown fault ${options.fault}`)
     }
+  }
+  if (options.auditEvidence
+    && (options.all || options.matrix || options.fault !== undefined || options.rootTest
+      || options.typecheck || options.baselines.length > 0 || options.suites.length > 0)) {
+    fail('usage', '--audit-evidence is a standalone mode (it audits the canonical evidence directory as-is)')
   }
   return options
 }
@@ -882,7 +903,13 @@ function runGatesCell() {
     testNames: [],
     logPath: relative(logPath),
     exitCode: result.status,
-    summary: (result.stdout ?? '').split('\n').filter((line) => line.startsWith('[gates]')).slice(-12),
+    // #472 D-10 / SA2-5 / SA9-5.2: keep EVERY `[gates]` line. Completeness — one
+    // line per gate, the summary line and the G10 sweep details — is the criterion;
+    // the line count is NOT a pinned constant (21 lines on the #472 tree: 7 G10
+    // details + 13 gate lines + `all 13 gates passed`). The old `slice(-12)`
+    // silently dropped G1′ at 12 gates and would have dropped G2 at 13, because a
+    // magic constant drifts with the gate count — no `slice(-N)` may come back.
+    summary: (result.stdout ?? '').split('\n').filter((line) => line.startsWith('[gates]')),
   }
 }
 
@@ -1013,6 +1040,428 @@ function runRootTestCell() {
   }
 }
 
+// ---------------------------------------------------------------- evidence audit
+
+/**
+ * Fail-closed evidence audit (#472 design §7.4, D13 / N-6…N-9).
+ *
+ * Checks, one miss => exit 1 with the full `problems` array printed:
+ *   1. run marker exists/parsable; standalone mode binds the current HEAD to
+ *      `marker.head`; BOTH modes compare `trackedWorktreeFingerprint()` to
+ *      `marker.worktree` (PV-9: tracked working-tree CONTENT drift during the run
+ *      is a red point — the retired index `write-tree` comparison was blind to
+ *      unstaged tracked edits, erratum E-4).
+ *   2. the 39 baseline cells + gates + root-test (= 41) exist, parse, are
+ *      `status === 'pass'`, and their baseline/suite fields match the
+ *      directory/filename placement.
+ *   3. digest expectations: 39 baseline cells pin `provenanceDigestFor(baseline)`,
+ *      the gates cell pins B3, the root-test cell pins B1 (runner zero-change).
+ *   4. freshness: every required evidence file's mtime >= marker mtime;
+ *      `matrix.json.generatedAt >= marker.startedAt`.
+ *   5. `matrix.json` has exactly 41 cells, the (baseline, suite) multiset matches,
+ *      every cell passes; the root-test cell carries `failedUnexpected === []`
+ *      and finite positive counts.
+ *   6. logPath judgement: every recorded log path (cell/repeat/per-file/root-probe
+ *      mjs log, plus the 15 per-project typecheck logs and the derived
+ *      `*.vitest.json` siblings) exists, resolves inside `evidence/` (no `..`
+ *      escape / outside absolute path / default-runner `tmp/` reference) and is
+ *      fresh.
+ *   7. directory discipline: exact top-level allowlist, the six allowed file
+ *      classes under `evidence/<B>/`, fault-* directories recursively only
+ *      `*.log` / `*.vitest.json`, and exact contents for gates/root-test/matrix.
+ *
+ * Threat model (design §7.4): this catches accidental stale/cross-run reuse and
+ * mid-run tree drift, not adversarial forgery — the latter is covered by the
+ * single-tree marker binding and the final-verification rerun on `R`.
+ *
+ * Both paths print one `EVIDENCE AUDIT RESULT (<context>): exit=<0|1> problems=<JSON>`
+ * line (W-3): the empty-list literal on success, the non-empty problem array on
+ * failure — the machine-checkable carrier of delivery condition 9, written to the
+ * existing log channel only (zero new artifacts, so the evidence directory
+ * allowlist is unchanged).
+ */
+function gitOutput(args) {
+  return execFileSync('git', args, { cwd: REPO, encoding: 'utf8' }).trim()
+}
+
+/**
+ * PV-9 (#472 design §7.4 W-1, SA9-1): content fingerprint of the TRACKED working
+ * tree — exactly the content `copyTrackedTree()` copies and the cells execute.
+ *
+ * A throwaway index (`GIT_INDEX_FILE` under `os.tmpdir()`) is seeded from HEAD and
+ * then `git add -u` refreshes only the entries already in it, so:
+ *   - untracked files never enter the fingerprint (the untracked wiki surface is
+ *     adjudicated separately by G13.g's `untracked ⊆ wiki/**` clause),
+ *   - tracked deletions are staged and therefore move the fingerprint,
+ *   - the real index, HEAD, refs and objects reachable from them are untouched;
+ *     only unreferenced tree/blob objects are written to `.git/objects`.
+ * Deterministic within one process env: git config/filters are identical at marker
+ * and audit time, so any difference can only come from the content itself.
+ *
+ * Why not `git write-tree` on the real index (retired by erratum E-4): that
+ * primitive writes the INDEX, and an unstaged tracked edit never enters the index —
+ * `index tree === HEAD tree` while the working tree has already drifted (SA9-1
+ * reproduced: marker tree = HEAD tree, actual content tree ≠). One field, one
+ * semantic: the marker carries `worktree`, there is no second `tree` reading.
+ */
+function trackedWorktreeFingerprint() {
+  const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'issue472-wt-fp-'))
+  try {
+    const env = { ...process.env, GIT_INDEX_FILE: path.join(tmp, 'index') }
+    execFileSync('git', ['read-tree', 'HEAD'], { cwd: REPO, env })
+    execFileSync('git', ['add', '-u'], { cwd: REPO, env })
+    return execFileSync('git', ['write-tree'], { cwd: REPO, env, encoding: 'utf8' }).trim()
+  } finally {
+    fs.rmSync(tmp, { recursive: true, force: true })
+  }
+}
+
+function writeRunMarker() {
+  mkdirp(EVIDENCE)
+  const marker = {
+    startedAt: new Date().toISOString(),
+    head: gitOutput(['rev-parse', 'HEAD']),
+    worktree: trackedWorktreeFingerprint(),
+    porcelain: gitOutput(['status', '--porcelain']),
+  }
+  fs.writeFileSync(path.join(EVIDENCE, 'run-marker.json'), `${JSON.stringify(marker, null, 2)}\n`)
+  return marker
+}
+
+function readJsonEvidence(absolutePath, label, problems) {
+  if (!fs.existsSync(absolutePath)) {
+    problems.push(`missing required evidence: ${relative(absolutePath)}`)
+    return undefined
+  }
+  try {
+    return JSON.parse(fs.readFileSync(absolutePath, 'utf8'))
+  } catch (error) {
+    problems.push(`unparsable evidence: ${relative(absolutePath)} (${error.message})`)
+    return undefined
+  }
+}
+
+/** The required 41-cell evidence set: 39 baseline cells + gates + root-test. */
+function requiredEvidenceCells() {
+  const cells = []
+  for (const baselineId of Object.keys(MANIFEST.baselines)) {
+    cells.push({ baseline: baselineId, suite: 'typecheck' })
+    for (const suite of BASELINE_SUITES) cells.push({ baseline: baselineId, suite })
+  }
+  cells.push({ baseline: 'default', suite: 'gates' })
+  cells.push({ baseline: 'default', suite: 'root-test' })
+  return cells
+}
+
+function evidencePathFor(cell) {
+  const dir = cell.baseline === 'default' ? cell.suite : cell.baseline
+  return path.join(EVIDENCE, dir, `${cell.suite}.json`)
+}
+
+const EVIDENCE_ROOT = path.resolve(EVIDENCE)
+
+/** Check 6(a)/(b): resolve, require containment in evidence/ and no tmp/ default. */
+function containedEvidencePath(relPath, label, problems) {
+  const absolute = path.resolve(REPO, relPath)
+  const fromRoot = path.relative(EVIDENCE_ROOT, absolute)
+  if (fromRoot.startsWith('..') || path.isAbsolute(fromRoot)) {
+    problems.push(`${label}: path escapes evidence/: ${relPath}`)
+    return undefined
+  }
+  if (fromRoot.split(path.sep)[0] === 'tmp') {
+    problems.push(`${label}: path references the default-runner tmp dir: ${relPath}`)
+    return undefined
+  }
+  return absolute
+}
+
+function checkEvidenceFile(relPath, label, problems, markerTime, kind) {
+  const absolute = containedEvidencePath(relPath, label, problems)
+  if (absolute === undefined) return
+  if (!fs.existsSync(absolute)) {
+    problems.push(`${label}: file does not exist: ${relPath}`)
+    return
+  }
+  if (markerTime !== undefined && fs.statSync(absolute).mtimeMs < markerTime) {
+    problems.push(`${label}: stale (mtime predates the run marker): ${relPath}`)
+  }
+  if (kind === 'vitest') {
+    const jsonAbsolute = absolute.replace(/\.log$/, '.vitest.json')
+    if (jsonAbsolute === absolute) {
+      problems.push(`${label}: vitest log path does not end in .log: ${relPath}`)
+      return
+    }
+    checkEvidenceFile(relative(jsonAbsolute), `${label} (vitest JSON)`, problems, markerTime, 'plain')
+  }
+}
+
+/** Check 6: every recorded log path of a required cell, plus the derived JSONs. */
+function checkCellLogPaths(cell, problems, markerTime) {
+  const label = `${cell.baseline}/${cell.suite}`
+  if (typeof cell.logPath !== 'string' || cell.logPath === '') {
+    problems.push(`${label}: missing logPath`)
+  } else {
+    // gates/root-test/typecheck logPath files are not produced by runVitest (no
+    // derived `*.vitest.json`); root-test's JSON is checked via evidence.jsonPath.
+    const plainLogSuites = new Set(['typecheck', 'gates', 'root-test'])
+    checkEvidenceFile(cell.logPath, `${label} logPath`, problems, markerTime, plainLogSuites.has(cell.suite) ? 'plain' : 'vitest')
+    if (cell.suite === 'typecheck') {
+      const aggregate = readJsonEvidence(path.resolve(REPO, cell.logPath), `${label} typecheck aggregate`, problems)
+      if (Array.isArray(aggregate)) {
+        if (aggregate.length !== 15) {
+          problems.push(`${label}: typecheck aggregate must carry 15 per-project logs, got ${aggregate.length}`)
+        }
+        for (const project of aggregate) {
+          if (typeof project.logPath !== 'string') {
+            problems.push(`${label}: typecheck aggregate entry ${JSON.stringify(project.project)} is missing logPath`)
+            continue
+          }
+          checkEvidenceFile(project.logPath, `${label} typecheck ${project.project}`, problems, markerTime, 'plain')
+        }
+      } else if (aggregate !== undefined) {
+        problems.push(`${label}: typecheck aggregate is not an array`)
+      }
+    }
+  }
+  for (const run of cell.repeatRuns ?? []) {
+    if (typeof run.logPath !== 'string') problems.push(`${label}: repeat run is missing logPath`)
+    else checkEvidenceFile(run.logPath, `${label} repeat`, problems, markerTime, 'vitest')
+  }
+  for (const entry of cell.files ?? []) {
+    if (typeof entry.logPath !== 'string') problems.push(`${label}: per-file run is missing logPath (${entry.file ?? '?'})`)
+    else checkEvidenceFile(entry.logPath, `${label} ${path.basename(String(entry.file ?? 'file'))}`, problems, markerTime, 'vitest')
+  }
+  if (cell.probe !== undefined) {
+    if (typeof cell.probe.logPath !== 'string') problems.push(`${label}: root-probe is missing the probe logPath`)
+    else checkEvidenceFile(cell.probe.logPath, `${label} root-probe.mjs`, problems, markerTime, 'plain')
+  }
+  if (cell.evidence !== undefined && typeof cell.evidence.jsonPath === 'string') {
+    checkEvidenceFile(cell.evidence.jsonPath, `${label} vitest JSON`, problems, markerTime, 'plain')
+  }
+}
+
+/** Check 1: marker binding. */
+function auditRunMarker(problems, standalone) {
+  const markerPath = path.join(EVIDENCE, 'run-marker.json')
+  if (!fs.existsSync(markerPath)) {
+    problems.push('missing run marker: evidence/run-marker.json (a matrix run without a start marker is not evidence)')
+    return undefined
+  }
+  let marker
+  try {
+    marker = JSON.parse(fs.readFileSync(markerPath, 'utf8'))
+  } catch (error) {
+    problems.push(`run marker unparsable: ${error.message}`)
+    return undefined
+  }
+  for (const field of ['startedAt', 'head', 'worktree', 'porcelain']) {
+    if (typeof marker[field] !== 'string') problems.push(`run marker: field ${field} missing/not a string`)
+  }
+  if (typeof marker.startedAt === 'string' && !Number.isFinite(Date.parse(marker.startedAt))) {
+    problems.push('run marker: startedAt is not a parsable timestamp')
+  }
+  if (standalone) {
+    const head = gitOutput(['rev-parse', 'HEAD'])
+    if (head !== marker.head) {
+      problems.push(`evidence belongs to another tree: marker.head=${marker.head} current HEAD=${head}`)
+    }
+  }
+  // PV-9: the content binding is checked in BOTH modes and is independent of the
+  // HEAD binding above — the same tree (same fingerprint) with a moved HEAD is
+  // still red through `marker.head` alone (N-8g), and an unstaged tracked edit
+  // that leaves HEAD/index untouched is red through the fingerprint alone (N-8e).
+  const worktree = trackedWorktreeFingerprint()
+  if (worktree !== marker.worktree) {
+    problems.push(`tracked working-tree content drifted during the run: marker.worktree=${marker.worktree} current=${worktree}`)
+  }
+  return marker
+}
+
+/** Checks 2/3/4: required cell set, identity digests, freshness. */
+function auditRequiredCells(problems, markerTime) {
+  for (const cell of requiredEvidenceCells()) {
+    const label = `${cell.baseline}/${cell.suite}`
+    const file = evidencePathFor(cell)
+    const parsed = readJsonEvidence(file, label, problems)
+    if (parsed === undefined) continue
+    if (markerTime !== undefined && fs.statSync(file).mtimeMs < markerTime) {
+      problems.push(`${label}: stale evidence (mtime predates the run marker): ${relative(file)}`)
+    }
+    if (parsed.status !== 'pass') problems.push(`${label}: status=${JSON.stringify(parsed.status)}`)
+    if (parsed.baseline !== cell.baseline) {
+      problems.push(`${label}: baseline field=${JSON.stringify(parsed.baseline)} ≠ placement ${cell.baseline}`)
+    }
+    if (parsed.suite !== cell.suite) {
+      problems.push(`${label}: suite field=${JSON.stringify(parsed.suite)} ≠ filename ${cell.suite}`)
+    }
+    const expectedDigest = cell.suite === 'gates'
+      ? provenanceDigestFor('B3')
+      : cell.suite === 'root-test'
+        ? provenanceDigestFor('B1')
+        : provenanceDigestFor(cell.baseline)
+    if (parsed.provenanceDigest !== expectedDigest) {
+      problems.push(`${label}: provenanceDigest=${JSON.stringify(parsed.provenanceDigest)} expected ${expectedDigest}`)
+    }
+    checkCellLogPaths(parsed, problems, markerTime)
+  }
+}
+
+/** Check 5: matrix cell multiset / all-pass / root-test ledger predicate. */
+function auditMatrix(problems, marker) {
+  const matrix = readJsonEvidence(path.join(EVIDENCE, 'matrix', 'matrix.json'), 'matrix', problems)
+  if (matrix === undefined) return
+  if (!Array.isArray(matrix.cells)) {
+    problems.push('matrix.json: cells is not an array')
+    return
+  }
+  const expectedKeys = requiredEvidenceCells().map((cell) => `${cell.baseline}/${cell.suite}`).sort()
+  if (matrix.cells.length !== 41) {
+    problems.push(`matrix.json: expected exactly 41 cells, got ${matrix.cells.length}`)
+  }
+  const actualKeys = matrix.cells.map((cell) => `${cell.baseline}/${cell.suite}`).sort()
+  if (JSON.stringify(actualKeys) !== JSON.stringify(expectedKeys)) {
+    const missing = expectedKeys.filter((key) => !actualKeys.includes(key))
+    const unexpected = actualKeys.filter((key) => !expectedKeys.includes(key))
+    problems.push(`matrix.json: (baseline, suite) multiset mismatch; missing=[${missing.join(', ')}] unexpected=[${unexpected.join(', ')}]`)
+  }
+  for (const cell of matrix.cells) {
+    if (cell.status !== 'pass') problems.push(`matrix.json: cell ${cell.baseline}/${cell.suite} status=${JSON.stringify(cell.status)}`)
+  }
+  const rootCell = matrix.cells.find((cell) => cell.suite === 'root-test')
+  if (rootCell === undefined) {
+    problems.push('matrix.json: missing the root-test cell')
+  } else {
+    if (!Array.isArray(rootCell.failedUnexpected) || rootCell.failedUnexpected.length !== 0) {
+      problems.push(`matrix.json: root-test failedUnexpected must be [], got ${JSON.stringify(rootCell.failedUnexpected)} (a new red is a regression, never a ledger item)`)
+    }
+    const counts = rootCell.counts ?? {}
+    for (const key of ['passed', 'failed', 'total']) {
+      if (!Number.isFinite(counts[key])) problems.push(`matrix.json: root-test counts.${key} is not a finite number`)
+    }
+    if (Number.isFinite(counts.total) && counts.total <= 0) {
+      problems.push('matrix.json: root-test counts.total must be positive (--passWithNoTests=false must make zero impossible)')
+    }
+  }
+  if (marker !== undefined) {
+    if (typeof matrix.generatedAt !== 'string' || !Number.isFinite(Date.parse(matrix.generatedAt))) {
+      problems.push('matrix.json: generatedAt missing/unparsable')
+    } else if (Date.parse(matrix.generatedAt) < Date.parse(marker.startedAt)) {
+      problems.push(`matrix.json: generatedAt ${matrix.generatedAt} predates the run marker ${marker.startedAt}`)
+    }
+    if (matrix.runHead !== marker.head) {
+      problems.push(`matrix.json: runHead=${JSON.stringify(matrix.runHead)} ≠ marker.head=${marker.head} (single-tree binding)`)
+    }
+    if (matrix.runWorktree !== marker.worktree) {
+      problems.push(`matrix.json: runWorktree=${JSON.stringify(matrix.runWorktree)} ≠ marker.worktree=${marker.worktree} (tracked working-tree content binding)`)
+    }
+  }
+}
+
+/** Check 7: exact directory discipline against the real evidence layout. */
+function auditFaultDirectory(dir, label, problems) {
+  for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
+    if (entry.isDirectory()) {
+      problems.push(`${label}/${entry.name}: nested directory inside a fault-* directory`)
+      continue
+    }
+    if (!entry.name.endsWith('.log') && !entry.name.endsWith('.vitest.json')) {
+      problems.push(`${label}/${entry.name}: only {*.log, *.vitest.json} may live in a fault-* directory`)
+    }
+  }
+}
+
+function auditEvidenceDirectory(problems) {
+  const allowedTopDirs = new Set(['B1', 'B2', 'B3', 'gates', 'root-test', 'matrix', 'tmp'])
+  for (const entry of fs.readdirSync(EVIDENCE, { withFileTypes: true })) {
+    if (entry.isDirectory()) {
+      if (!allowedTopDirs.has(entry.name)) problems.push(`evidence/: unexpected directory ${entry.name}`)
+    } else if (entry.name !== 'run-marker.json') {
+      problems.push(`evidence/: unexpected file ${entry.name}`)
+    }
+  }
+  const cellJsonNames = new Set(['typecheck', ...BASELINE_SUITES].map((suite) => `${suite}.json`))
+  for (const baselineId of Object.keys(MANIFEST.baselines)) {
+    const dir = path.join(EVIDENCE, baselineId)
+    if (!fs.existsSync(dir)) {
+      problems.push(`evidence/: missing baseline directory ${baselineId}`)
+      continue
+    }
+    for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
+      const name = entry.name
+      const label = `evidence/${baselineId}/${name}`
+      if (entry.isDirectory()) {
+        if (!name.startsWith('fault-')) {
+          problems.push(`${label}: unexpected directory`)
+          continue
+        }
+        auditFaultDirectory(path.join(dir, name), label, problems)
+        continue
+      }
+      const allowed = cellJsonNames.has(name)
+        || name === `${baselineId}-typecheck.json`
+        || (name.startsWith(`${baselineId}-`) && name.endsWith('.log'))
+        || (name.startsWith(`${baselineId}-`) && name.endsWith('.vitest.json'))
+        || (name.startsWith('fault-') && name.endsWith('.json'))
+      if (!allowed) problems.push(`${label}: file outside the six allowed classes`)
+    }
+  }
+  const fixedDirectories = {
+    gates: ['gates.json', 'gates.log'],
+    'root-test': ['root-test.json', 'root-test.log', 'root-test.vitest.json'],
+    matrix: ['matrix.json'],
+  }
+  for (const [dirName, allowed] of Object.entries(fixedDirectories)) {
+    const dir = path.join(EVIDENCE, dirName)
+    if (!fs.existsSync(dir)) {
+      problems.push(`evidence/: missing directory ${dirName}`)
+      continue
+    }
+    for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
+      if (entry.isDirectory() || !allowed.includes(entry.name)) {
+        problems.push(`evidence/${dirName}/${entry.name}: outside the allowed set {${allowed.join(', ')}}`)
+      }
+    }
+  }
+}
+
+function auditEvidence({ standalone }) {
+  const problems = []
+  if (!fs.existsSync(EVIDENCE)) {
+    problems.push(`missing evidence directory: ${relative(EVIDENCE)} (a matrix run without evidence is never a pass)`)
+    return { problems, marker: undefined }
+  }
+  const marker = auditRunMarker(problems, standalone)
+  const markerPath = path.join(EVIDENCE, 'run-marker.json')
+  const markerTime = fs.existsSync(markerPath) ? fs.statSync(markerPath).mtimeMs : undefined
+  auditRequiredCells(problems, markerTime)
+  auditMatrix(problems, marker)
+  auditEvidenceDirectory(problems)
+  return { problems, marker }
+}
+
+/**
+ * #472 design §7.4 W-3 (SA9-4): the machine-checkable carrier of delivery
+ * condition 9 is this RESULT line — printed on BOTH paths BEFORE the human-readable
+ * lines, exactly once per audit:
+ *
+ *   [run-baseline] EVIDENCE AUDIT RESULT (<context>): exit=<0|1> problems=<JSON>
+ *
+ * `problems` is the JSON view of the problem list (the empty-list literal on
+ * success, the non-empty single-line array on failure), so a consumer can
+ * `JSON.parse` it instead of trusting a self-described PASS text. Exit-code
+ * semantics are unchanged (0/1) and no artifact is written: the line rides the
+ * existing log channel (built-in matrix log / standalone log).
+ */
+function printAudit(problems, context) {
+  log(`EVIDENCE AUDIT RESULT (${context}): exit=${problems.length === 0 ? 0 : 1} problems=${JSON.stringify(problems)}`)
+  if (problems.length === 0) {
+    log(`EVIDENCE AUDIT PASS (${context}): 41 cells, identity digests, freshness, logPath containment, directory discipline`)
+    return
+  }
+  console.error(`[run-baseline] EVIDENCE AUDIT FAIL (${context}): ${problems.length} problem(s)`)
+  for (const problem of problems) console.error(`  - ${problem}`)
+}
+
 // ---------------------------------------------------------------- fault orchestration
 
 function runFault(options, baselineId, suites) {
@@ -1080,9 +1529,30 @@ function printMatrix(cells) {
 
 async function main() {
   const options = parseArgs(process.argv.slice(2))
-  mkdirp(EVIDENCE)
+
+  // W-4 (SA9-5.3): there is deliberately NO `mkdirp(EVIDENCE)` here. Every write
+  // path creates its own directory (writeRunMarker / writeEvidence / runGatesCell /
+  // runRootTestCell), so pre-creating the evidence root only had the effect of
+  // making `auditEvidence()`'s "missing evidence directory" guard unreachable. With
+  // the pre-creation gone, a standalone `--audit-evidence` against a missing (or
+  // empty) evidence root reaches the guard and fails loud (N-10) instead of being
+  // silently turned into an empty directory full of "missing cell" problems.
+
+  // `--audit-evidence`: standalone fail-closed audit of the canonical evidence
+  // directory (#472 design §7.4). No redirectable evidence dir on purpose: the
+  // negative controls pollute the canonical directory (backup -> pollute -> red ->
+  // restore) so an auditor can never be pointed at a doctored copy.
+  if (options.auditEvidence) {
+    const { problems } = auditEvidence({ standalone: true })
+    printAudit(problems, 'standalone --audit-evidence')
+    process.exit(problems.length === 0 ? 0 : 1)
+  }
 
   if (options.all) {
+    // The run marker is written BEFORE any cell is produced: it binds the evidence
+    // to this single candidate tree (SA6 §12.0.1/§12.0.2) and is the freshness base.
+    const marker = writeRunMarker()
+    log(`run marker: head=${marker.head.slice(0, 12)} worktree=${marker.worktree.slice(0, 12)} startedAt=${marker.startedAt}`)
     const cells = []
     for (const baselineId of Object.keys(MANIFEST.baselines)) {
       const baselineCells = runBaselineCells(baselineId, { typecheck: true, suites: BASELINE_SUITES })
@@ -1095,8 +1565,21 @@ async function main() {
     const rootTestCell = runRootTestCell()
     writeEvidence('root-test', 'root-test', rootTestCell)
     cells.push(rootTestCell)
-    writeEvidence('matrix', 'matrix', { generatedAt: new Date().toISOString(), cells })
+    writeEvidence('matrix', 'matrix', {
+      generatedAt: new Date().toISOString(),
+      runHead: marker.head,
+      runWorktree: marker.worktree,
+      cells,
+    })
     printMatrix(cells)
+    // Built-in audit: a red audit is MATRIX FAIL regardless of the cell statuses
+    // (green cells never offset an audit red — design §7.4).
+    const audit = auditEvidence({ standalone: false })
+    printAudit(audit.problems, 'built-in matrix audit')
+    if (audit.problems.length > 0) {
+      console.error('[run-baseline] MATRIX FAIL: evidence audit red — green cells never offset an audit red')
+      process.exit(1)
+    }
     const failed = cells.filter((cell) => cell.status !== 'pass')
     if (failed.length > 0) {
       console.error(`[run-baseline] MATRIX FAIL: ${failed.length}/${cells.length} cell(s) red — green cells never offset a red cell`)

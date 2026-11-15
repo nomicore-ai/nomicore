@@ -2,9 +2,13 @@
 /**
  * Mechanical repository-shape gates for issue #470 (design §15, R7 + RA-2).
  *
- *   G1' manifest / lockfile / artifacts zero-diff (superset of SA6 §12.4 gate #1)
+ *   G1' manifest / lockfile / artifacts: outside the 8-file release allowlist
+ *       (PV-2) the original zero-diff semantics stand; the allowlisted files are a
+ *       controlled opening whose line-level shape is adjudicated by G13 alone
  *   G2  persistence / dsh-persistence / namespace-registry src allowlist
- *   G3  ws-replication allowlist (plugin.ts + the four named fixtures)
+ *   G3  ws-replication: tracked changes ⊆ {package.json} (its version line is
+ *       adjudicated by G13) ∧ untracked ⊆ the four named fixture files; plugin.ts
+ *       and the four named fixtures themselves stay zero-diff
  *   G4  public entry files zero-diff
  *   G5  public surface snapshot: capture at BASE and compare with the tracked
  *       snapshot, then run the runtime surface test in the default layout
@@ -12,6 +16,11 @@
  *   G7  docs/ (incl. docs/adr/) zero-diff
  *   G8  production src has no baseline/channel environment branch
  *   G9  tsconfig / vitest.config zero-diff (R1 anti-masking)
+ *   G10 legacy Root direct-read scan (A5-1)
+ *   G11 forbidden volatile/internal API scan (A9-1)
+ *   G12 facility directory allowlist (T-3)
+ *   G13 release batch audit — two-state: `absent` (clean pre-release tree, C1) or
+ *       `exact` (release candidate `R`); any other shape is red (#472 design §7.3)
  *
  * IMPORTANT — comparison direction. The design writes G2/G3 as `$BASE..HEAD`.
  * In this worktree the implementation changes are *uncommitted* (the Controller
@@ -38,14 +47,29 @@ import { fileURLToPath, pathToFileURL } from 'node:url'
 
 const HERE = path.dirname(fileURLToPath(import.meta.url))
 const REPO = path.resolve(HERE, '../../../../..')
-const BASE = 'd59a4d141c6c5ac7f267295829157d9570cde36e'
+/**
+ * PV-1 (#472 design §7.1): the canonical BASE for every diff/gate. Re-pinned from
+ * `d59a4d1` (#470) to the #472 base so the audit surface contains exactly this
+ * ticket's diff. `baselines.json`'s `base` field stays at `d59a4d1` as the #470
+ * fixture provenance record and is frozen byte-for-byte by G13.f — this constant
+ * is the single normative BASE (SA2-10: no second pinned string).
+ */
+const BASE = '6be891a3a0cb32fe21c3a6bf485f33428052ce7b'
 const SURFACE_SNAPSHOT = path.join(HERE, 'public-surface.base.json')
 const BASE_WORKTREE = path.join(REPO, '.worktrees/base-snapshot')
+/**
+ * PV-7 (#472 design §8, option A): the public entry surface is 7 entries — the
+ * same set #471's SA10 recorded (`ws-replication/testing`, `clock`,
+ * `namespace-registry` were missing from the #471 snapshot/test files).
+ */
 const PUBLIC_ENTRIES = [
   ['@nomicore/persistence', 'packages/persistence/src/index.ts'],
   ['@nomicore/persistence/testing', 'packages/persistence/src/testing.ts'],
   ['@nomicore/dsh-persistence', 'packages/dsh-persistence/src/index.ts'],
   ['@nomicore/ws-replication', 'packages/ws-replication/src/index.ts'],
+  ['@nomicore/ws-replication/testing', 'packages/ws-replication/src/testing.ts'],
+  ['@nomicore/clock', 'packages/clock/src/index.ts'],
+  ['@nomicore/namespace-registry', 'packages/namespace-registry/src/index.ts'],
 ]
 // G3 (design F-7): the only ws-replication paths that may differ from BASE are the four
 // new test files. `plugin.ts` and the four named fixtures are zero-diff (D-5 anti-regression).
@@ -56,13 +80,66 @@ const WS_ALLOW_NEW_FILES = [
   'packages/ws-replication/test/cordis-baseline-support.ts',
 ]
 const FACILITY_DIR = 'packages/persistence/test/fixtures/cordis-baselines'
-/** G12 (T-3): only these four facility files may differ from BASE. */
+/**
+ * G12 (T-3): only these five facility files may differ from BASE. #472 adds the
+ * surface snapshot (option A recapture, design §7.5) — without the opening the
+ * correct 7-entry snapshot fix would be judged red by our own gate. The
+ * `baselines.json` entry is a *nominal* entry since #472: its batch-level freeze
+ * is enforced by G13.f + acquire's N-5 integrity control, not by this gate
+ * (PV-6 note / design §7.5). `acquire.mjs`, `root-probe.mjs` and
+ * `provenance-b3.json` stay zero-diff and any new file in the directory is red.
+ */
 const FACILITY_ALLOW = [
   `${FACILITY_DIR}/baselines.json`,
   `${FACILITY_DIR}/run-baseline.mjs`,
   `${FACILITY_DIR}/gates.mjs`,
   `${FACILITY_DIR}/root-test-known-red.json`,
+  `${FACILITY_DIR}/public-surface.base.json`,
 ]
+/**
+ * G13 (#472 design §7.3, PV-2/PV-3/PV-4/PV-8a/PV-8b): the single source of the
+ * release batch shape. `base` references the same BASE constant (SA2-10: no
+ * second pinned string). Ticket-level pin — re-pinned by the next release
+ * ticket. `versions` maps the 7 release manifests to their `from`→`to` version
+ * lines (design §6.1).
+ */
+const RELEASE_BATCH = {
+  base: BASE,
+  versions: new Map([
+    ['packages/persistence/package.json', { from: '0.4.0', to: '0.5.0' }],
+    ['packages/dsh-persistence/package.json', { from: '0.4.0', to: '0.5.0' }],
+    ['packages/namespace-runtime/package.json', { from: '0.4.0', to: '0.5.0' }],
+    ['packages/namespace-registry/package.json', { from: '0.4.0', to: '0.5.0' }],
+    ['packages/namespace-api/package.json', { from: '0.3.0', to: '0.4.0' }],
+    ['packages/ws-replication/package.json', { from: '0.5.0', to: '0.6.0' }],
+    ['apps/yjs-server/package.json', { from: '0.5.0', to: '0.6.0' }],
+  ]),
+  manifest: 'artifacts/local-packages/manifest.json',
+  baselines: `${FACILITY_DIR}/baselines.json`,
+  frozenLedger: `${FACILITY_DIR}/root-test-known-red.json`,
+  catalog: 'scripts/package-catalog.mjs',
+}
+/** PV-2: the exact 8-file release allowlist for G1′/G13. */
+const RELEASE_FILES = [...RELEASE_BATCH.versions.keys(), RELEASE_BATCH.manifest]
+/** PV-8a: the C1 facility files (this ticket's facility commit). */
+const C1_FACILITY_FILES = [
+  `${FACILITY_DIR}/gates.mjs`,
+  `${FACILITY_DIR}/run-baseline.mjs`,
+  `${FACILITY_DIR}/public-surface.base.json`,
+  'packages/persistence/test/cordis-public-surface.test.ts',
+]
+/**
+ * PV-8a tracked wiki surface — `wiki/raw/task_issue-472*.md`, mechanical verdict
+ * pinned by SA8 §14.3 (iteration 3, erratum E-5): the direct parent directory must
+ * be exactly `wiki/raw` AND the basename must match. A `wiki/`-root file
+ * (`wiki/task_issue-472_probe.md`) or a deeper one
+ * (`wiki/raw/nested/task_issue-472_probe.md`, `wiki/other/…`) is tracked-scope
+ * red — the wildcard of the pinned glob only covers `wiki/raw/`'s direct children.
+ */
+function isTicketDoc(file) {
+  const posix = file.split(path.sep).join('/')
+  return path.posix.dirname(posix) === 'wiki/raw' && /^task_issue-472.*\.md$/.test(path.posix.basename(posix))
+}
 /** G11 (T-2 pinned empty set): no such usage may exist anywhere in production src. */
 const FORBIDDEN_API_ALLOW = []
 const G8_CHANNEL_PATTERN = /CORDIS_BASELINE|ROOT_CHANNEL|NOMICORE_CORDIS_|rc\.12/
@@ -130,15 +207,75 @@ function listTsconfigs() {
   return configs
 }
 
-/** Changed tracked paths vs BASE plus untracked files under the same pathspec. */
+/**
+ * Changed tracked paths vs BASE plus untracked files under the same pathspec.
+ *
+ * #472 single-primitive discipline (design §7.3.g, SA2-13): every diff used for
+ * allowlist/changeset adjudication carries `--no-renames`, so a rename is always
+ * "old path deleted + new path added" (two records) and can never fold the
+ * deletion of an out-of-allowlist path into a single allowed new path. The
+ * pathspec-limited gates were already immune (a rename whose old path is outside
+ * the pathspec cannot pair, and the four `WS_ALLOW_NEW_FILES` entries are
+ * tracked at BASE, not add candidates — SA2-18), but the flag makes the
+ * discipline uniform instead of relying on that accident.
+ */
 function changedPaths(pathspec) {
-  const tracked = git(['diff', '--name-only', BASE, '--', ...pathspec])
+  const tracked = git(['diff', '--no-renames', '--name-only', BASE, '--', ...pathspec])
     .split('\n')
     .filter(Boolean)
   const untracked = git(['ls-files', '--others', '--exclude-standard', '--', ...pathspec])
     .split('\n')
     .filter(Boolean)
   return [...new Set([...tracked, ...untracked])].sort()
+}
+
+/** Whole-tree tracked changeset vs BASE — never a pathspec variant (G13.g). */
+function wholeTreeChangedPaths() {
+  return git(['diff', '--no-renames', '--name-only', BASE]).split('\n').filter(Boolean).sort()
+}
+
+/** `git status --porcelain` untracked entries (NUL-safe, all files, no dir collapse). */
+function untrackedPaths() {
+  const raw = git(['status', '--porcelain=v1', '--untracked-files=all', '-z'])
+  return raw
+    .split('\0')
+    .filter(Boolean)
+    .filter((entry) => entry.startsWith('?? '))
+    .map((entry) => entry.slice(3))
+    .sort()
+}
+
+/** Raw bytes of a BASE blob (byte comparison never goes through rename detection). */
+function baseBlob(file) {
+  return execFileSync('git', ['show', `${BASE}:${file}`], { cwd: REPO, maxBuffer: 64 * 1024 * 1024 })
+}
+
+function workBlob(file) {
+  return fs.readFileSync(path.join(REPO, file))
+}
+
+function baseBlobText(file) {
+  return baseBlob(file).toString('utf8')
+}
+
+function baseBlobJson(file) {
+  return JSON.parse(baseBlobText(file))
+}
+
+/** Order-insensitive deep equality (object key order is not a semantic change). */
+function deepEqual(a, b) {
+  if (a === b) return true
+  if (typeof a !== typeof b) return false
+  if (a === null || b === null || typeof a !== 'object') return false
+  if (Array.isArray(a) !== Array.isArray(b)) return false
+  const aKeys = Object.keys(a)
+  const bKeys = Object.keys(b)
+  if (aKeys.length !== bKeys.length) return false
+  for (const key of aKeys) {
+    if (!Object.prototype.hasOwnProperty.call(b, key)) return false
+    if (!deepEqual(a[key], b[key])) return false
+  }
+  return true
 }
 
 function assertNoChange(gate, label, pathspec) {
@@ -998,7 +1135,250 @@ function gateG12() {
   return {
     gate: 'G12',
     ok: true,
-    detail: `facility files: changed = [${changed.join(', ') || '(none)'}] ⊆ 4-file closed allowlist (acquire/root-probe/provenance-b3/public-surface are zero-diff; any new file in the directory is red)`,
+    detail: `facility files: changed = [${changed.join(', ') || '(none)'}] ⊆ 5-file closed allowlist (acquire/root-probe/provenance-b3 zero-diff; public-surface.base.json is the #472 7-entry recapture; baselines.json is a nominal entry — its batch freeze is enforced by G13.f + acquire N-5, not by this gate; any new file in the directory is red)`,
+  }
+}
+
+// ---------------------------------------------------------------- G13 release batch audit
+
+/** Byte-identity to the BASE blob (never routed through rename pairing). */
+function bytesIdenticalToBase(file) {
+  try {
+    return baseBlob(file).equals(workBlob(file))
+  } catch {
+    return false
+  }
+}
+
+/**
+ * Publishable workspace manifests at BASE — `(packages|apps|domains)/<pkg>/package.json`
+ * parsed from the BASE blob and filtered to `private !== true` (exactly 15 for this
+ * ticket). Reading BASE instead of the working tree keeps the set immune to
+ * working-tree tampering; a newly added package file is still caught by G13.g's
+ * whole-tree changeset. Self-contained: deliberately does not import
+ * `scripts/package-catalog.mjs` (whose byte-freeze is G13.e).
+ */
+function listPublishableManifestsAtBase() {
+  const problems = []
+  const manifests = git(['ls-tree', '-r', '--name-only', BASE])
+    .split('\n')
+    .filter((file) => /^(?:packages|apps|domains)\/[^/]+\/package\.json$/.test(file))
+    .sort()
+  const publishable = []
+  for (const file of manifests) {
+    try {
+      const manifest = baseBlobJson(file)
+      if (manifest.private !== true) publishable.push({ file, manifest })
+    } catch (error) {
+      problems.push(`${file}: BASE blob is not parsable JSON (${error.message})`)
+    }
+  }
+  if (publishable.length !== 15) {
+    problems.push(`expected exactly 15 publishable workspace manifests at BASE ${BASE.slice(0, 7)}, found ${publishable.length}`)
+  }
+  return { publishable, problems }
+}
+
+/** PV-8a: tracked changeset ⊆ allowlist, untracked ⊆ `wiki/**`; violations name the file. */
+function g13ChangesetProblems(allowed) {
+  const problems = []
+  for (const file of wholeTreeChangedPaths()) {
+    if (!allowed.has(file) && !isTicketDoc(file)) {
+      problems.push(`tracked change outside the release allowlist: ${file}`)
+    }
+  }
+  for (const file of untrackedPaths()) {
+    if (!file.startsWith('wiki/')) problems.push(`untracked path outside wiki/: ${file}`)
+  }
+  return problems
+}
+
+/**
+ * G13 state `absent` (PV-8a "C1" form): the clean pre-release tree. All 15
+ * publishable manifests still carry their BASE version, the three frozen
+ * artifacts (release manifest / known-red ledger / baselines.json) are
+ * byte-identical, and the whole-tree changeset contains none of the 8 release
+ * files (allowlist = the 4 C1 facility files + `wiki/raw/task_issue-472*.md`).
+ */
+function g13AbsentState() {
+  const problems = []
+  const { publishable, problems: listProblems } = listPublishableManifestsAtBase()
+  problems.push(...listProblems)
+  for (const { file, manifest } of publishable) {
+    let working
+    try {
+      working = JSON.parse(fs.readFileSync(path.join(REPO, file), 'utf8'))
+    } catch (error) {
+      problems.push(`${file}: working manifest unreadable/unparsable (${error.message})`)
+      continue
+    }
+    if (working.version !== manifest.version) {
+      problems.push(`${file}: version ${JSON.stringify(working.version)} ≠ BASE ${manifest.version} (absent state requires the release surface untouched)`)
+    }
+  }
+  for (const file of [RELEASE_BATCH.manifest, RELEASE_BATCH.frozenLedger, RELEASE_BATCH.baselines]) {
+    if (!bytesIdenticalToBase(file)) problems.push(`${file}: not byte-identical to BASE (absent state freezes this artifact)`)
+  }
+  problems.push(...g13ChangesetProblems(new Set(C1_FACILITY_FILES)))
+  return problems
+}
+
+/**
+ * G13 state `exact` (release candidate `R`): PV-3 version table + manifest
+ * cross-check + PV-4 numstat + PV-5/PV-8b byte freezes + PV-8a whole-tree bind.
+ */
+function g13ExactState() {
+  const problems = []
+  const { publishable, problems: listProblems } = listPublishableManifestsAtBase()
+  problems.push(...listProblems)
+  const pinnedFiles = new Set(RELEASE_BATCH.versions.keys())
+  const workingPublishables = new Map()
+  for (const { file } of publishable) {
+    try {
+      workingPublishables.set(file, JSON.parse(fs.readFileSync(path.join(REPO, file), 'utf8')))
+    } catch (error) {
+      problems.push(`${file}: working manifest unreadable/unparsable (${error.message})`)
+    }
+  }
+
+  // a. 7 pinned manifests: deep-equal except `version`, version === to, text diff
+  //    exactly one pinned deletion + one pinned addition (PV-3).
+  for (const [file, { from, to }] of RELEASE_BATCH.versions) {
+    const working = workingPublishables.get(file)
+    if (working === undefined) continue
+    if (working.version !== to) {
+      problems.push(`${file}: version=${JSON.stringify(working.version)} expected ${to} (PV-3)`)
+    }
+    const baseManifest = baseBlobJson(file)
+    const baseRest = { ...baseManifest }
+    const workRest = { ...working }
+    delete baseRest.version
+    delete workRest.version
+    if (!deepEqual(baseRest, workRest)) {
+      problems.push(`${file}: manifest differs from BASE beyond the "version" line (dependency/field change) — PV-3 deep equality failed`)
+    }
+    const diff = git(['diff', '--no-renames', BASE, '--', file]).split('\n')
+    const removed = diff.filter((line) => line.startsWith('-') && !line.startsWith('---'))
+    const added = diff.filter((line) => line.startsWith('+') && !line.startsWith('+++'))
+    if (removed.length !== 1 || added.length !== 1) {
+      problems.push(`${file}: text diff must be exactly 1 deletion + 1 addition, got ${removed.length} deletion(s) + ${added.length} addition(s) (PV-3)`)
+    } else if (removed[0] !== `-  "version": "${from}",` || added[0] !== `+  "version": "${to}",`) {
+      problems.push(`${file}: text diff is not the pinned version line shape (expected -  "version": "${from}", / +  "version": "${to}",) (PV-3)`)
+    }
+  }
+
+  // b. the other 8 publishable manifests + root + domains manifest + lockfile are
+  //    byte-identical to BASE (PV-3 / A5-2). Byte comparison, rename-immune.
+  const bytePinned = [
+    ...[...workingPublishables.keys()].filter((file) => !pinnedFiles.has(file)).sort(),
+    'package.json',
+    'domains/vfs3-assets/package.json',
+    'pnpm-lock.yaml',
+  ]
+  for (const file of bytePinned) {
+    if (!bytesIdenticalToBase(file)) problems.push(`${file}: not byte-identical to BASE (PV-3)`)
+  }
+
+  // c. release manifest: exactly 15 keys; filename ↔ name/working version cross-check
+  //    (same derivation as build-local-packages.mjs L24); PV-4 numstat 7 additions +
+  //    7 deletions; every changed key is one of the 7 target filenames; no old
+  //    filename lingers anywhere.
+  let manifest
+  try {
+    manifest = JSON.parse(fs.readFileSync(path.join(REPO, RELEASE_BATCH.manifest), 'utf8'))
+  } catch (error) {
+    problems.push(`${RELEASE_BATCH.manifest}: unreadable/unparsable (${error.message})`)
+  }
+  if (manifest !== undefined && typeof manifest === 'object' && manifest !== null) {
+    const keys = Object.keys(manifest)
+    if (keys.length !== 15) problems.push(`${RELEASE_BATCH.manifest}: expected exactly 15 keys, got ${keys.length}`)
+    const expectedByPackage = new Map()
+    for (const { file } of publishable) {
+      const working = workingPublishables.get(file)
+      if (working === undefined) continue
+      const expected = `${working.name.replace('@', '').replace('/', '-')}-${working.version}.tgz`
+      expectedByPackage.set(working.name, expected)
+      if (manifest[working.name] !== expected) {
+        problems.push(`${RELEASE_BATCH.manifest}: ${working.name} → ${JSON.stringify(manifest[working.name])} expected ${expected} (filename ↔ name/version cross-check)`)
+      }
+    }
+    const numstat = git(['diff', '--no-renames', '--numstat', BASE, '--', RELEASE_BATCH.manifest]).trim()
+    const rows = numstat === '' ? [] : numstat.split('\n').map((line) => line.split('\t'))
+    const addedLines = rows.reduce((total, [added]) => total + (Number(added) || 0), 0)
+    const removedLines = rows.reduce((total, [, removed]) => total + (Number(removed) || 0), 0)
+    if (rows.length !== 1 || addedLines !== 7 || removedLines !== 7) {
+      problems.push(`${RELEASE_BATCH.manifest}: diff must be exactly 7 additions + 7 deletions (PV-4), got ${rows.length} file(s) with ${addedLines} addition(s) + ${removedLines} deletion(s)`)
+    }
+    const plusKeys = new Map()
+    const minusKeys = new Map()
+    for (const line of git(['diff', '--no-renames', BASE, '--', RELEASE_BATCH.manifest]).split('\n')) {
+      // the last manifest key has no trailing comma — the pattern must accept both
+      const match = /^([+-])  "([^"]+)": "([^"]+)",?$/.exec(line)
+      if (match === null) continue
+      const [, sign, name, filename] = match
+      if (sign === '+') plusKeys.set(name, filename)
+      else minusKeys.set(name, filename)
+    }
+    const targetNames = new Set()
+    for (const [file, { from }] of RELEASE_BATCH.versions) {
+      const baseManifest = baseBlobJson(file)
+      targetNames.add(baseManifest.name)
+      const oldFilename = `${baseManifest.name.replace('@', '').replace('/', '-')}-${from}.tgz`
+      if (Object.values(manifest).includes(oldFilename)) {
+        problems.push(`${RELEASE_BATCH.manifest}: stale filename lingers: ${oldFilename}`)
+      }
+    }
+    if (plusKeys.size !== 7 || minusKeys.size !== 7) {
+      problems.push(`${RELEASE_BATCH.manifest}: expected exactly 7 changed keys, got ${plusKeys.size} addition key(s) + ${minusKeys.size} deletion key(s) (PV-4)`)
+    }
+    for (const [name, filename] of plusKeys) {
+      if (!targetNames.has(name)) problems.push(`${RELEASE_BATCH.manifest}: unexpected added key ${name} (not one of the 7 pinned packages)`)
+      if (expectedByPackage.get(name) !== filename) {
+        problems.push(`${RELEASE_BATCH.manifest}: added line for ${name} is not the §6.1 target filename (got ${filename})`)
+      }
+    }
+    for (const name of minusKeys.keys()) {
+      if (!targetNames.has(name)) problems.push(`${RELEASE_BATCH.manifest}: unexpected removed key ${name} (not one of the 7 pinned packages)`)
+    }
+  }
+
+  // d/e/f. byte freezes — ledger (S4), catalog (A5-2), baselines.json (PV-8b).
+  for (const file of [RELEASE_BATCH.frozenLedger, RELEASE_BATCH.catalog, RELEASE_BATCH.baselines]) {
+    if (!bytesIdenticalToBase(file)) problems.push(`${file}: not byte-identical to BASE (G13 byte-freeze)`)
+  }
+
+  // g. whole-tree changeset binding (PV-8a) — the 4 C1 facility files + the 8
+  //    release files + `wiki/raw/task_issue-472*.md`; untracked ⊆ `wiki/**`.
+  problems.push(...g13ChangesetProblems(new Set([...C1_FACILITY_FILES, ...RELEASE_FILES])))
+  return problems
+}
+
+function gateG13() {
+  const absentProblems = g13AbsentState()
+  if (absentProblems.length === 0) {
+    return {
+      gate: 'G13',
+      ok: true,
+      detail: 'state=absent (release surface untouched: 15 publishable manifests at BASE versions; release manifest / known-red ledger / baselines.json byte-identical; tree changeset ⊆ 4 C1 facility files + wiki/raw/task_issue-472*.md)',
+    }
+  }
+  const exactProblems = g13ExactState()
+  if (exactProblems.length === 0) {
+    const versions = [...RELEASE_BATCH.versions].map(([file, { from, to }]) => {
+      const name = baseBlobJson(file).name.replace('@nomicore/', '')
+      return `${name} ${from}→${to}`
+    })
+    return {
+      gate: 'G13',
+      ok: true,
+      detail: `state=exact; versions: ${versions.join(', ')}; release manifest 7/7 filenames; ledger / catalog / baselines.json byte-identical; tree changeset ⊆ 8 release files + 4 C1 facility files + wiki/raw/task_issue-472*.md`,
+    }
+  }
+  const format = (label, problems) => `${label} (${problems.length} problem(s)):\n  ${problems.join('\n  ')}`
+  return {
+    gate: 'G13',
+    ok: false,
+    detail: `release batch shape is neither absent nor exact (#472 PV-1…PV-8b):\n${format('absent', absentProblems)}\n${format('exact', exactProblems)}`,
   }
 }
 
@@ -1022,7 +1402,7 @@ async function gateG5(writeSurfaceSnapshot) {
       detail: `public surface drift vs base snapshot:\n  ${problems.join('\n  ') || '(none)'}\n${runtime.detail}`,
     }
   }
-  return { gate: 'G5', ok: true, detail: `4 entries match base snapshot; ${runtime.detail}` }
+  return { gate: 'G5', ok: true, detail: `${PUBLIC_ENTRIES.length} entries match base snapshot; ${runtime.detail}` }
 }
 
 function listSrcRoots() {
@@ -1113,7 +1493,17 @@ async function main() {
     process.exit(result.ok ? 0 : 1)
   }
   const results = []
-  results.push(assertNoChange('G1\u2032', 'manifests / lockfile / artifacts', ['pnpm-lock.yaml', ...listManifests(), 'artifacts']))
+  // G1′ (#472 design §7.2, PV-2): the 8 release files form the controlled opening;
+  // every other manifest / lockfile / artifacts path keeps its zero-diff semantics.
+  // The line-level shape of the 8 files is adjudicated by G13 alone.
+  results.push(
+    assertAllowlist(
+      'G1\u2032',
+      'manifests / lockfile / artifacts (release allowlist: 7 package.json version lines + local manifest)',
+      ['pnpm-lock.yaml', ...listManifests(), 'artifacts'],
+      RELEASE_FILES,
+    ),
+  )
   // G2 (F-7): zero diff on the three src trees that have no new files of this ticket.
   results.push(
     assertNoChange('G2', 'persistence · dsh-persistence · namespace-registry src', [
@@ -1122,8 +1512,28 @@ async function main() {
       'packages/namespace-registry/src',
     ]),
   )
-  // G3 (F-7): ws-replication tracked diff is zero and untracked ⊆ the four new test files.
-  results.push(assertAllowlist('G3', 'ws-replication allowlist (tracked zero-diff ∧ untracked ⊆ 4 new files)', ['packages/ws-replication'], WS_ALLOW_NEW_FILES))
+  // G3 (#472 design §7.2): tracked diff ⊆ {packages/ws-replication/package.json} and
+  // untracked ⊆ the four named fixture files. The two clauses are checked separately:
+  // the four fixtures are tracked at BASE, so a combined allowlist would silently
+  // legalize editing them (SA2-18: G3 is immune to rename folding because those four
+  // paths are tracked, not add candidates).
+  const wsTracked = git(['diff', '--no-renames', '--name-only', BASE, '--', 'packages/ws-replication'])
+    .split('\n')
+    .filter(Boolean)
+  const wsUntracked = git(['ls-files', '--others', '--exclude-standard', '--', 'packages/ws-replication'])
+    .split('\n')
+    .filter(Boolean)
+  const wsUnexpectedTracked = wsTracked.filter((file) => file !== 'packages/ws-replication/package.json')
+  const wsUnexpectedUntracked = wsUntracked.filter((file) => !WS_ALLOW_NEW_FILES.includes(file))
+  results.push({
+    gate: 'G3',
+    ok: wsUnexpectedTracked.length === 0 && wsUnexpectedUntracked.length === 0,
+    detail:
+      `ws-replication allowlist (tracked ⊆ {package.json} ∧ untracked ⊆ 4 new files): `
+      + `tracked=[${wsTracked.join(', ') || '(none)'}] untracked=[${wsUntracked.join(', ') || '(none)'}]`
+      + (wsUnexpectedTracked.length > 0 ? `\nunexpected tracked:\n  ${wsUnexpectedTracked.join('\n  ')}` : '')
+      + (wsUnexpectedUntracked.length > 0 ? `\nunexpected untracked:\n  ${wsUnexpectedUntracked.join('\n  ')}` : ''),
+  })
   results.push(
     assertNoChange('G4', 'public entry files', [
       'packages/ws-replication/src/index.ts',
@@ -1138,6 +1548,7 @@ async function main() {
   results.push(gateG10())
   results.push(gateG11())
   results.push(gateG12())
+  results.push(gateG13())
 
   let failed = 0
   for (const result of results) {
