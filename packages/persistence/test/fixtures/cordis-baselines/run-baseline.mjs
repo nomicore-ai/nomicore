@@ -25,12 +25,16 @@
  * to `.cache/cordis-baselines/evidence/<baseline>/<suite>.json`.
  *
  * #472 additions (design §7.4): `--all --matrix` writes
- * `.cache/cordis-baselines/evidence/run-marker.json` ({startedAt, head, tree,
- * porcelain}) BEFORE any cell, records `runHead`/`runTree` in `matrix.json`
- * (additive), and runs the fail-closed `auditEvidence()` at the end (missing /
- * corrupt / stale / cross-tree / digest-mismatch / escaping-or-dangling logPath /
- * out-of-class artifacts => MATRIX FAIL). The same audit is available standalone
- * via `--audit-evidence` (exit 0 iff `problems=[]`).
+ * `.cache/cordis-baselines/evidence/run-marker.json` ({startedAt, head, worktree,
+ * porcelain}) BEFORE any cell, where `worktree` is the tracked working-tree content
+ * fingerprint (PV-9 — the content `copyTrackedTree()` actually copies, never the
+ * index); records `runHead`/`runWorktree` in `matrix.json` (additive, W-1); and runs
+ * the fail-closed `auditEvidence()` at the end (missing / corrupt / stale /
+ * cross-tree / tracked-content drift / digest-mismatch / escaping-or-dangling
+ * logPath / out-of-class artifacts => MATRIX FAIL). The same audit is available
+ * standalone via `--audit-evidence` (exit 0 iff `problems=[]`). Both paths print one
+ * machine-checkable `EVIDENCE AUDIT RESULT (<context>): exit=<0|1> problems=<JSON>`
+ * line (W-3, delivery condition 9) — no new artifact is written for it.
  *
  * Usage:
  *   node run-baseline.mjs --baseline B1 [--mode typecheck] [--suite <name>]...
@@ -41,6 +45,7 @@
  */
 import * as crypto from 'node:crypto'
 import * as fs from 'node:fs'
+import * as os from 'node:os'
 import * as path from 'node:path'
 import { execFileSync, spawnSync } from 'node:child_process'
 import { createRequire } from 'node:module'
@@ -898,9 +903,12 @@ function runGatesCell() {
     testNames: [],
     logPath: relative(logPath),
     exitCode: result.status,
-    // #472 D-10 / SA2-5: keep EVERY `[gates]` line (13 gates = 14 lines incl. the
-    // summary). The old `slice(-12)` silently dropped G1′ at 12 gates and would drop
-    // G2 at 13 — a magic constant drifts with the gate count.
+    // #472 D-10 / SA2-5 / SA9-5.2: keep EVERY `[gates]` line. Completeness — one
+    // line per gate, the summary line and the G10 sweep details — is the criterion;
+    // the line count is NOT a pinned constant (21 lines on the #472 tree: 7 G10
+    // details + 13 gate lines + `all 13 gates passed`). The old `slice(-12)`
+    // silently dropped G1′ at 12 gates and would have dropped G2 at 13, because a
+    // magic constant drifts with the gate count — no `slice(-N)` may come back.
     summary: (result.stdout ?? '').split('\n').filter((line) => line.startsWith('[gates]')),
   }
 }
@@ -1039,8 +1047,10 @@ function runRootTestCell() {
  *
  * Checks, one miss => exit 1 with the full `problems` array printed:
  *   1. run marker exists/parsable; standalone mode binds the current HEAD to
- *      `marker.head`; BOTH modes compare `git write-tree` to `marker.tree`
- *      (tracked/index tree drift during the run is a red point).
+ *      `marker.head`; BOTH modes compare `trackedWorktreeFingerprint()` to
+ *      `marker.worktree` (PV-9: tracked working-tree CONTENT drift during the run
+ *      is a red point — the retired index `write-tree` comparison was blind to
+ *      unstaged tracked edits, erratum E-4).
  *   2. the 39 baseline cells + gates + root-test (= 41) exist, parse, are
  *      `status === 'pass'`, and their baseline/suite fields match the
  *      directory/filename placement.
@@ -1063,9 +1073,47 @@ function runRootTestCell() {
  * Threat model (design §7.4): this catches accidental stale/cross-run reuse and
  * mid-run tree drift, not adversarial forgery — the latter is covered by the
  * single-tree marker binding and the final-verification rerun on `R`.
+ *
+ * Both paths print one `EVIDENCE AUDIT RESULT (<context>): exit=<0|1> problems=<JSON>`
+ * line (W-3): the empty-list literal on success, the non-empty problem array on
+ * failure — the machine-checkable carrier of delivery condition 9, written to the
+ * existing log channel only (zero new artifacts, so the evidence directory
+ * allowlist is unchanged).
  */
 function gitOutput(args) {
   return execFileSync('git', args, { cwd: REPO, encoding: 'utf8' }).trim()
+}
+
+/**
+ * PV-9 (#472 design §7.4 W-1, SA9-1): content fingerprint of the TRACKED working
+ * tree — exactly the content `copyTrackedTree()` copies and the cells execute.
+ *
+ * A throwaway index (`GIT_INDEX_FILE` under `os.tmpdir()`) is seeded from HEAD and
+ * then `git add -u` refreshes only the entries already in it, so:
+ *   - untracked files never enter the fingerprint (the untracked wiki surface is
+ *     adjudicated separately by G13.g's `untracked ⊆ wiki/**` clause),
+ *   - tracked deletions are staged and therefore move the fingerprint,
+ *   - the real index, HEAD, refs and objects reachable from them are untouched;
+ *     only unreferenced tree/blob objects are written to `.git/objects`.
+ * Deterministic within one process env: git config/filters are identical at marker
+ * and audit time, so any difference can only come from the content itself.
+ *
+ * Why not `git write-tree` on the real index (retired by erratum E-4): that
+ * primitive writes the INDEX, and an unstaged tracked edit never enters the index —
+ * `index tree === HEAD tree` while the working tree has already drifted (SA9-1
+ * reproduced: marker tree = HEAD tree, actual content tree ≠). One field, one
+ * semantic: the marker carries `worktree`, there is no second `tree` reading.
+ */
+function trackedWorktreeFingerprint() {
+  const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'issue472-wt-fp-'))
+  try {
+    const env = { ...process.env, GIT_INDEX_FILE: path.join(tmp, 'index') }
+    execFileSync('git', ['read-tree', 'HEAD'], { cwd: REPO, env })
+    execFileSync('git', ['add', '-u'], { cwd: REPO, env })
+    return execFileSync('git', ['write-tree'], { cwd: REPO, env, encoding: 'utf8' }).trim()
+  } finally {
+    fs.rmSync(tmp, { recursive: true, force: true })
+  }
 }
 
 function writeRunMarker() {
@@ -1073,7 +1121,7 @@ function writeRunMarker() {
   const marker = {
     startedAt: new Date().toISOString(),
     head: gitOutput(['rev-parse', 'HEAD']),
-    tree: gitOutput(['write-tree']),
+    worktree: trackedWorktreeFingerprint(),
     porcelain: gitOutput(['status', '--porcelain']),
   }
   fs.writeFileSync(path.join(EVIDENCE, 'run-marker.json'), `${JSON.stringify(marker, null, 2)}\n`)
@@ -1206,7 +1254,7 @@ function auditRunMarker(problems, standalone) {
     problems.push(`run marker unparsable: ${error.message}`)
     return undefined
   }
-  for (const field of ['startedAt', 'head', 'tree', 'porcelain']) {
+  for (const field of ['startedAt', 'head', 'worktree', 'porcelain']) {
     if (typeof marker[field] !== 'string') problems.push(`run marker: field ${field} missing/not a string`)
   }
   if (typeof marker.startedAt === 'string' && !Number.isFinite(Date.parse(marker.startedAt))) {
@@ -1218,9 +1266,13 @@ function auditRunMarker(problems, standalone) {
       problems.push(`evidence belongs to another tree: marker.head=${marker.head} current HEAD=${head}`)
     }
   }
-  const tree = gitOutput(['write-tree'])
-  if (tree !== marker.tree) {
-    problems.push(`tracked tree drifted during the run: marker.tree=${marker.tree} current write-tree=${tree}`)
+  // PV-9: the content binding is checked in BOTH modes and is independent of the
+  // HEAD binding above — the same tree (same fingerprint) with a moved HEAD is
+  // still red through `marker.head` alone (N-8g), and an unstaged tracked edit
+  // that leaves HEAD/index untouched is red through the fingerprint alone (N-8e).
+  const worktree = trackedWorktreeFingerprint()
+  if (worktree !== marker.worktree) {
+    problems.push(`tracked working-tree content drifted during the run: marker.worktree=${marker.worktree} current=${worktree}`)
   }
   return marker
 }
@@ -1299,8 +1351,8 @@ function auditMatrix(problems, marker) {
     if (matrix.runHead !== marker.head) {
       problems.push(`matrix.json: runHead=${JSON.stringify(matrix.runHead)} ≠ marker.head=${marker.head} (single-tree binding)`)
     }
-    if (matrix.runTree !== marker.tree) {
-      problems.push(`matrix.json: runTree=${JSON.stringify(matrix.runTree)} ≠ marker.tree=${marker.tree} (tracked tree binding)`)
+    if (matrix.runWorktree !== marker.worktree) {
+      problems.push(`matrix.json: runWorktree=${JSON.stringify(matrix.runWorktree)} ≠ marker.worktree=${marker.worktree} (tracked working-tree content binding)`)
     }
   }
 }
@@ -1387,7 +1439,21 @@ function auditEvidence({ standalone }) {
   return { problems, marker }
 }
 
+/**
+ * #472 design §7.4 W-3 (SA9-4): the machine-checkable carrier of delivery
+ * condition 9 is this RESULT line — printed on BOTH paths BEFORE the human-readable
+ * lines, exactly once per audit:
+ *
+ *   [run-baseline] EVIDENCE AUDIT RESULT (<context>): exit=<0|1> problems=<JSON>
+ *
+ * `problems` is the JSON view of the problem list (the empty-list literal on
+ * success, the non-empty single-line array on failure), so a consumer can
+ * `JSON.parse` it instead of trusting a self-described PASS text. Exit-code
+ * semantics are unchanged (0/1) and no artifact is written: the line rides the
+ * existing log channel (built-in matrix log / standalone log).
+ */
 function printAudit(problems, context) {
+  log(`EVIDENCE AUDIT RESULT (${context}): exit=${problems.length === 0 ? 0 : 1} problems=${JSON.stringify(problems)}`)
   if (problems.length === 0) {
     log(`EVIDENCE AUDIT PASS (${context}): 41 cells, identity digests, freshness, logPath containment, directory discipline`)
     return
@@ -1463,7 +1529,14 @@ function printMatrix(cells) {
 
 async function main() {
   const options = parseArgs(process.argv.slice(2))
-  mkdirp(EVIDENCE)
+
+  // W-4 (SA9-5.3): there is deliberately NO `mkdirp(EVIDENCE)` here. Every write
+  // path creates its own directory (writeRunMarker / writeEvidence / runGatesCell /
+  // runRootTestCell), so pre-creating the evidence root only had the effect of
+  // making `auditEvidence()`'s "missing evidence directory" guard unreachable. With
+  // the pre-creation gone, a standalone `--audit-evidence` against a missing (or
+  // empty) evidence root reaches the guard and fails loud (N-10) instead of being
+  // silently turned into an empty directory full of "missing cell" problems.
 
   // `--audit-evidence`: standalone fail-closed audit of the canonical evidence
   // directory (#472 design §7.4). No redirectable evidence dir on purpose: the
@@ -1479,7 +1552,7 @@ async function main() {
     // The run marker is written BEFORE any cell is produced: it binds the evidence
     // to this single candidate tree (SA6 §12.0.1/§12.0.2) and is the freshness base.
     const marker = writeRunMarker()
-    log(`run marker: head=${marker.head.slice(0, 12)} tree=${marker.tree.slice(0, 12)} startedAt=${marker.startedAt}`)
+    log(`run marker: head=${marker.head.slice(0, 12)} worktree=${marker.worktree.slice(0, 12)} startedAt=${marker.startedAt}`)
     const cells = []
     for (const baselineId of Object.keys(MANIFEST.baselines)) {
       const baselineCells = runBaselineCells(baselineId, { typecheck: true, suites: BASELINE_SUITES })
@@ -1495,7 +1568,7 @@ async function main() {
     writeEvidence('matrix', 'matrix', {
       generatedAt: new Date().toISOString(),
       runHead: marker.head,
-      runTree: marker.tree,
+      runWorktree: marker.worktree,
       cells,
     })
     printMatrix(cells)

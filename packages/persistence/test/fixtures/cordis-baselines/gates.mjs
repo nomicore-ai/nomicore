@@ -2,9 +2,13 @@
 /**
  * Mechanical repository-shape gates for issue #470 (design §15, R7 + RA-2).
  *
- *   G1' manifest / lockfile / artifacts zero-diff (superset of SA6 §12.4 gate #1)
+ *   G1' manifest / lockfile / artifacts: outside the 8-file release allowlist
+ *       (PV-2) the original zero-diff semantics stand; the allowlisted files are a
+ *       controlled opening whose line-level shape is adjudicated by G13 alone
  *   G2  persistence / dsh-persistence / namespace-registry src allowlist
- *   G3  ws-replication allowlist (plugin.ts + the four named fixtures)
+ *   G3  ws-replication: tracked changes ⊆ {package.json} (its version line is
+ *       adjudicated by G13) ∧ untracked ⊆ the four named fixture files; plugin.ts
+ *       and the four named fixtures themselves stay zero-diff
  *   G4  public entry files zero-diff
  *   G5  public surface snapshot: capture at BASE and compare with the tracked
  *       snapshot, then run the runtime surface test in the default layout
@@ -124,11 +128,17 @@ const C1_FACILITY_FILES = [
   `${FACILITY_DIR}/public-surface.base.json`,
   'packages/persistence/test/cordis-public-surface.test.ts',
 ]
-/** PV-8a: the docs-only C3 surface — `wiki/raw/task_issue-472*.md`, basename glob under wiki/. */
+/**
+ * PV-8a tracked wiki surface — `wiki/raw/task_issue-472*.md`, mechanical verdict
+ * pinned by SA8 §14.3 (iteration 3, erratum E-5): the direct parent directory must
+ * be exactly `wiki/raw` AND the basename must match. A `wiki/`-root file
+ * (`wiki/task_issue-472_probe.md`) or a deeper one
+ * (`wiki/raw/nested/task_issue-472_probe.md`, `wiki/other/…`) is tracked-scope
+ * red — the wildcard of the pinned glob only covers `wiki/raw/`'s direct children.
+ */
 function isTicketDoc(file) {
   const posix = file.split(path.sep).join('/')
-  const base = posix.slice(posix.lastIndexOf('/') + 1)
-  return posix.startsWith('wiki/') && /^task_issue-472.*\.md$/.test(base)
+  return path.posix.dirname(posix) === 'wiki/raw' && /^task_issue-472.*\.md$/.test(path.posix.basename(posix))
 }
 /** G11 (T-2 pinned empty set): no such usage may exist anywhere in production src. */
 const FORBIDDEN_API_ALLOW = []
