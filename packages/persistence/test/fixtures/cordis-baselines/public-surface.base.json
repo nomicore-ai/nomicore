@@ -66,5 +66,30 @@
     "requireHubReplication",
     "requireHubSessionHost",
     "requirePeerReplication"
+  ],
+  "@nomicore/ws-replication/testing": [
+    "createHubReplicationForTesting",
+    "createMemoryDuplexTransport",
+    "safeStateVector",
+    "stateVectorBytesEqual",
+    "stateVectorSafeDigest"
+  ],
+  "@nomicore/clock": [
+    "CLOCK_SERVICE",
+    "createSystemClockPlugin",
+    "provideClock",
+    "requireClock",
+    "systemClock"
+  ],
+  "@nomicore/namespace-registry": [
+    "DEFAULT_IDLE_TIMEOUT_MS",
+    "NOMICORE_REGISTRY_SERVICE",
+    "NamespaceLeaseReleasedError",
+    "NamespaceRegistryFatalError",
+    "NamespaceRegistryShutdownError",
+    "createNamespaceRegistry",
+    "createNamespaceRegistryPlugin",
+    "provideNomicoreRegistry",
+    "requireNomicoreRegistry"
   ]
 }
